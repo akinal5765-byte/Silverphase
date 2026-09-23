@@ -29,7 +29,7 @@ authors:
   - family-names: "Qiu"
     given-names: "Hanze"
 
-version: "0.3"
+version: "1.0.0"
 license: "GPL-3.0-or-later"
 repository-code: "https://github.com/akinal5765-byte/Silverphase"
 url: "https://github.com/akinal5765-byte/Silverphase"
