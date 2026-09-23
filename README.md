@@ -79,12 +79,11 @@ is statically compiled into the app and takes pixels in, handing back an
 in about a second.
 
 **One working space, one conversion per destination.** The engine renders to
-ProPhoto RGB; the grade, the masks and the curves all act there; the canvas is
-tagged ProPhoto RGB and ColorSync converts it for the display; an export is
-gamut-mapped into the space the recipe asks for and written in it. The export
-page shows that file at its own resolution before you write it —
-measured identical to the file, pixel for pixel. `ARCHITECTURE.md` §7.5 is the
-chain; `rfc/RFC-018` is why.
+ProPhoto RGB; the canvas is tagged ProPhoto RGB and ColorSync converts it for
+the display. An export is gamut-mapped into the space the recipe asks for and
+written in it. The export page shows that file at its own resolution before
+you write it. `ARCHITECTURE.md` §7.5 and `rfc/RFC-018` document the inherited
+colour-management chain.
 
 ---
 
@@ -149,7 +148,7 @@ build/DerivedData/Build/Products/Debug/Silverphase.app/Contents/MacOS/Silverphas
 
 ```bash
 xcodebuild -project Spektrafilm.xcodeproj -scheme SpektrafilmTests \
-           -derivedDataPath build/DerivedData test      # 277 tests, ~390 s with fixtures
+           -derivedDataPath ../../build/DerivedData test # 387 tests, ~390 s with fixtures
 engine/tests/check_math_guard.sh                        # the fast-math guard can fire
 engine/build/gpu_smoke engine/resources/spektrafilm.metallib
 ```
