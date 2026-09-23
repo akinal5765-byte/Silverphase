@@ -40,23 +40,19 @@ enum FeatureFlags {
     /// rebuilt to it.
     static let masks = false
 
-    /// The **Enlarger** section on the darkroom rail: Print Exposure and the
-    /// Yellow / Magenta filter axes.
+    /// **`enlarger` is gone (2026-09-23).** It gated a fifth section —
+    /// "Enlarger": Print Exposure and the Yellow / Magenta filter axes — which
+    /// was off, so nobody ever saw it, and which by then was a **second home
+    /// for three controls the Print section already had**. That is the one
+    /// thing UI-SPEC §1.3 forbids outright: a control exists in one place, and
+    /// a hidden copy is worse than a visible one because the copy is the one
+    /// that goes stale.
     ///
-    /// Off, and unlike `masks` this is a composition decision rather than a
-    /// half-built feature. The 2026-09-17 drawing gives the left rail four
-    /// sections; the enlarger was a fifth, kept because it is the only route
-    /// to `print_exposure`. The cost was structural — a sixth hairline in a
-    /// rail meant to read as four regions, which is most of what "the current
-    /// version looks like a spreadsheet" was measuring — and the controls it
-    /// exposes are the ones the reconstruction handoff §9 still lists as
-    /// unclosed: raw CMY filter values in historical darkroom terms, which
-    /// the product is supposed to stop asking users to understand.
-    ///
-    /// Flip it back on to reach those axes until §4's Render card lands and
-    /// gives print exposure a home that is about the print rather than about
-    /// the machine.
-    static let enlarger = false
+    /// Nothing was lost with it. The controls it held are in Print, and the
+    /// only thing it had to itself — the lamp (`enlarger.illuminant`) and the
+    /// neutral filter pack — is derived from the database, not typed by hand.
+    /// If it ever needs a home, it is a row inside Print (UI-SPEC §1.4), not
+    /// a section, and not behind a flag nobody flips.
 
     /// The step 1 decode pipeline: when on, the single-flight pipeline owns
     /// the load path (decode, preview, and native-original stages).

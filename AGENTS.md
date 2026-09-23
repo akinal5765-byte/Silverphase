@@ -1,4 +1,12 @@
-# AGENTS.md — working notes for AI sessions on SpektraLab
+# AGENTS.md — working notes for AI sessions on Silverphase
+
+Silverphase is an independent derivative of SpektraLab. Preserve the original
+Git history, GPL and CC BY-SA obligations, and visible credit to Hanze Qiu and
+Andrea Volpato. The original `SpektraLab` repository is the `upstream` remote;
+never push changes there. This file and older architecture/RFC documents still
+contain historical SpektraLab assumptions, especially about a separate Layer 2
+grading rail. The current product direction is physical film, development and
+print controls, not a Lightroom/Capture One replacement.
 
 The macOS desktop product built on the **spektrafilm** engine. Extracted from
 the `spektrafilm` fork into its own repository on 2026-09-11; `README.md` says

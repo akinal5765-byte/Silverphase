@@ -60,6 +60,7 @@ struct CanvasUniforms {           // must match Renderer.swift
     uint compare;                 // 0 off, 1 split, 2 before-only
     float compareSplit;           // split position, 0…1 across the *output*
     float2 pivot;                 // crop tool's edit-space pivot, source-normalised
+    float develop;                // print coming up in the paper, < 0 = no film
 };
 
 //  Output uv → source uv. A transliteration of
@@ -476,6 +477,61 @@ fragment float4 canvasFragment(QuadOut in [[stage_in]],
         c = (u.magnification >= 1.0) ? before.sample(near, suv).rgb : before.sample(lin, suv).rgb;
     } else {
         c = (u.magnification >= 1.0) ? image.sample(near, suv).rgb : image.sample(lin, suv).rgb;
+    }
+    // **The light passes, and the print comes up in its wake.**
+    //
+    // 光带一边扫过,被扫过的地方同时显影 — that is the brief, and it needs
+    // three things to be true of the pixels at once:
+    //
+    //   - **Ahead of the band**: the film, untouched.
+    //   - **At the band**: light, warm, because the lamp is. Two widths,
+    //     because one Gaussian reads as a blur rather than as a lamp.
+    //   - **Behind it**: paper, with the image arriving *into* it — and not at
+    //     once. That was the bug in the version before this one: its wake was
+    //     two percent of the frame wide for a shadow, so the print was simply
+    //     *there* the moment the light had passed and the whole thing read as
+    //     another picture being slid across. `reach` is per pixel and in tens
+    //     of percent now, so what the light leaves behind it is visibly still
+    //     coming up.
+    //
+    // `u.develop` is negative when there is no film on the canvas, so a
+    // ceremony at 0 and no ceremony at all stay different pictures.
+    if (u.develop >= 0.0) {
+        float3 film = (u.magnification >= 1.0) ? before.sample(near, suv).rgb
+                                               : before.sample(lin, suv).rgb;
+        float3 printed = (u.magnification >= 1.0) ? image.sample(near, suv).rgb
+                                                  : image.sample(lin, suv).rgb;
+        float3 paper = float3(0.93, 0.91, 0.87);
+        // Where the band is, in output widths. It starts just off the left edge
+        // and finishes past the right one, because the last strip the light
+        // crosses still has to develop — that happens with the band already
+        // gone, which is also why the movement ends before the animation does.
+        float position = mix(-0.06, 1.70, u.develop);
+        float d = position - ouv.x;              // positive: behind the band
+        // The sheet: the film is replaced where the light has already passed.
+        float sheet = smoothstep(-0.004, 0.004, d);
+        // **The two events are deliberately not synchronised.** The light
+        // leaves *paper* behind it and nothing else: `onset` is the stretch of
+        // frame still white after the band has gone over it, and the image only
+        // begins arriving in the sheet beyond that. Without the gap the density
+        // and the light arrive together, and then the wake is the picture by
+        // the time the band has passed it — which is an uncover, however wide
+        // the wake is. This is the difference the brief asks for: 扫过去一点
+        // 以后白色才开始显影.
+        float onset = 0.08;
+        // The image arriving in that sheet, densest first: the parts of the
+        // print that were given the most light reach density soonest, and the
+        // highlights are still paper when everything else has settled. This
+        // ordering is a property of the pixel — which is why no edge geometry
+        // could ever express it.
+        float luma = dot(printed, float3(0.2126, 0.7152, 0.0722));
+        float reach = mix(0.16, 0.50, saturate(luma));
+        float developed = smoothstep(onset, onset + reach, d);
+        c = mix(film, mix(paper, printed, developed), sheet);
+        // The light itself.
+        float core = exp(-(d * d) * 9000.0);
+        float spill = exp(-(d * d) * 700.0);
+        c += float3(1.0, 0.87, 0.64) * (core * 0.80 + spill * 0.18);
     }
     if (u.editingCrop != 0 && u.geometry.active != 0 && !insideCrop(suv, u.geometry)) {
         c = mix(c, ground, 0.6);

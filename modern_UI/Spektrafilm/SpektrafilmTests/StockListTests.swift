@@ -122,11 +122,14 @@ final class StockListTests: XCTestCase {
         let m = Theme.Metric.self
         XCTAssertLessThan(m.stockSelectionHeight, m.listRowHeight)
         XCTAssertEqual(m.stockSelectionRadius, m.stockSelectionHeight / 2, accuracy: 0.01)
-        // On the reference rail the capsule is 210.74 wide — inset at both
-        // ends, and by different amounts.
+        // On the reference rail the capsule is inset at both ends, by
+        // different amounts — and the text inside it is on the rail's own
+        // label column, so the list and the controls above it share one left
+        // edge (UI-SPEC §2.4).
         let width = m.leftPanelWidth - m.stockLeadingInset - m.stockTrailingInset
-        XCTAssertEqual(width, 210.74, accuracy: 0.1)
+        XCTAssertEqual(width, 216.52, accuracy: 0.1)
         XCTAssertLessThan(width, m.leftPanelWidth)
+        XCTAssertEqual(m.stockTextLeadingInset, m.rowInset, accuracy: 0.05)
         XCTAssertGreaterThan(m.stockTextLeadingInset, m.stockLeadingInset)
         XCTAssertLessThan(m.stockTextLeadingInset,
                           m.leftPanelWidth - m.stockTrailingInset)

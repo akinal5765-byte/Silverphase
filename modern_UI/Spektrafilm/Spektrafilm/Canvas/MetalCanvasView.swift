@@ -12,7 +12,7 @@ import AppKit
 import MetalKit
 import SwiftUI
 
-enum CanvasTool: String, CaseIterable, Sendable { case select, hand, crop }
+enum CanvasTool: String, CaseIterable, Sendable { case select, crop }
 
 /// A straighten gesture in progress, in source-normalised coordinates.
 struct StraightenLine: Equatable, Sendable { var from: CGPoint; var to: CGPoint }
@@ -46,6 +46,12 @@ protocol CanvasHost: AnyObject {
     var maskHandles: [MaskHandle] { get }
     func maskHandleDragged(_ handle: MaskHandle, to normalised: CGPoint)
     func toggledOriginal(_ on: Bool)
+    /// A click on the picture that was not a drag. See `Session.canvasClicked`:
+    /// while the frame is still its film, the whole canvas prints it. The
+    /// answer says whether the click meant anything — the canvas has no use for
+    /// it, and the test for the gesture does.
+    @discardableResult
+    func canvasClicked() -> Bool
     func contextMenu() -> NSMenu?
     func hovered(normalised: CGPoint?)
     func stepFrame(_ delta: Int)
@@ -59,6 +65,10 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
     weak var host: CanvasHost?
     private var drawScheduled = false
     private var dragStart: CGPoint?
+    /// Where the last mouse-down landed, in view points. A mouse-up within
+    /// `clickSlop` of it is a **click** rather than a drag, which is the
+    /// difference between printing the negative and panning the picture.
+    private var downAt: CGPoint?
     /// The crop gesture in flight. `.none` when the crop tool is not being
     /// dragged; the rest carry what the drag needs to be idempotent — every
     /// mouse move recomputes from `origin` rather than accumulating, so a
@@ -256,6 +266,10 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
 
     override func mouseDown(with e: NSEvent) {
         window?.makeFirstResponder(self)
+        // Before the guards below, and before the tool switch: every press is
+        // a candidate click, whichever tool is up (`Session` decides whether
+        // this one means anything).
+        downAt = local(e)
         guard let renderer, let host else { return }
         let p = local(e)
         if e.clickCount == 2 {
@@ -501,7 +515,27 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
         // move or a resize does can put the frame off screen.
         if host?.renderer.rotationHeld == true { host?.renderer.endRotation() }
         host?.straightenPreview(nil)
+        // **A click on the picture.** The negative ceremony's button is one
+        // control in a bar the user has not looked at yet, and the moment
+        // belongs to the picture, so the picture takes the same action — the
+        // "防呆" the user asked for. A press that moved is a pan, a crop drag or
+        // a mask grip and is not a click; `Session` prints only while there is
+        // a negative waiting, so this changes nothing at any other time.
+        if let down = downAt, CanvasNSView.isClick(from: down, to: local(e)) {
+            host?.canvasClicked()
+        }
+        downAt = nil
         scheduleDraw()
+    }
+
+    /// A press and release this close together is a **click**.
+    ///
+    /// 4 pt, not 0: a hand on a trackpad moves the pointer a little between
+    /// going down and coming up, and a click that has to be perfectly still is
+    /// a click that does not work. A pure function so the threshold is a thing
+    /// a test can pin (`CanvasClicksTests`).
+    static func isClick(from: CGPoint, to: CGPoint, slop: CGFloat = 4) -> Bool {
+        hypot(to.x - from.x, to.y - from.y) <= slop
     }
 
     override func mouseMoved(with e: NSEvent) {
@@ -615,13 +649,13 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
     func draw(in view: MTKView) { host?.renderer.draw(in: view) }
 
     override func resetCursorRects() {
+        // **There is no hand tool.** `select` and `hand` used to be two
+        // buttons that both fell through to the same `default:` branch — drag
+        // pans — so the bar carried two controls for one behaviour, and the
+        // only difference between them was which cursor was drawn. Dragging
+        // the picture pans it, in the one neutral mode, the way Lightroom
+        // does it; the crop tool is the only real mode left.
         switch host?.tool {
-        case .hand: addCursorRect(bounds, cursor: .openHand)
-        // The crosshair stays as the *fallback* the rect machinery restores —
-        // but it is not the answer: the crop tool's cursor depends on where
-        // the pointer is, so `cursorUpdate(with:)` overrides this rect with
-        // `cropCursor(at:)` on every pass. (Grips get their own look from
-        // `CropOverlay`, which draws them.)
         case .crop: addCursorRect(bounds, cursor: .crosshair)
         default: addCursorRect(bounds, cursor: host?.pickerActive == true ? .crosshair : .arrow)
         }

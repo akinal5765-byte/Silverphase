@@ -30,14 +30,74 @@
 
 import SwiftUI
 
+/// The halation row's choices: the four presets and the off switch, in one
+/// menu.
+///
+/// `halation_active` and `antihalation_mode` are two wire fields but one
+/// decision from the reader's side, and a switch plus a preset row that share a
+/// name is worse than a slightly longer menu. Folding them also gives the
+/// effect a real "off": the presets have no "no halation" state — the strongest
+/// anti-halation layer still leaves some — but switching the node off does.
+///
+/// **The two axes run opposite ways.** The stock data and the wire name the
+/// *anti*-halation layer (strong / weak / none of the coating); the reader sees
+/// the halation it leaves behind, so a `strong` layer is **low** halation. This
+/// enum is the one place that inversion is written down; everything else keeps
+/// the wire's word.
+enum HalationChoice: Hashable, CaseIterable {
+    case profile, high, medium, low, off
+
+    /// The wire value this choice selects, or `nil` for the off switch, which
+    /// is `halation_active` rather than a preset.
+    var mode: String? {
+        switch self {
+        case .profile: "profile"
+        case .high: "none"      // no anti-halation layer -> most halation
+        case .medium: "weak"
+        case .low: "strong"     // strongest layer -> least halation
+        case .off: nil
+        }
+    }
+
+    /// The two wire fields, back as one choice. An unknown mode reads as the
+    /// stock default, which is what the engine would fall back to anyway.
+    static func of(active: Bool, mode: String) -> HalationChoice {
+        guard active else { return .off }
+        switch mode {
+        case "none": return .high
+        case "weak": return .medium
+        case "strong": return .low
+        default: return .profile
+        }
+    }
+
+    /// `@MainActor` because `L` reads the `@Observable` language setting — that
+    /// read is what makes a language change repaint every label.
+    @MainActor var title: String {
+        switch self {
+        case .profile: L(.filmAntihalationProfile)
+        case .high: L(.filmAntihalationHigh)
+        case .medium: L(.filmAntihalationMedium)
+        case .low: L(.filmAntihalationLow)
+        case .off: L(.filmHalationOff)
+        }
+    }
+}
+
 struct FilmSection: View {
-    /// Rows of the film list on screen before it scrolls. v3's illustration
-    /// shows two group captions and seven stocks; at 18 pt a row that is
-    /// 9 rows tall shows the Positive group whole and the Negative group's
-    /// first rows, which is the drawing's proportion without pretending the
-    /// catalogue is nine stocks long. See `StockList.visibleRows` — the
-    /// odd-count rule this number used to obey is gone.
-    static let wellRows = 9
+    /// Rows of the film list on screen before it scrolls.
+    ///
+    /// **20, up from the drawing's 9** (2026-09-23). With the parameters gone
+    /// to the right rail the catalogue is the whole left rail, and nine rows
+    /// left most of it empty while making the reader scroll for a film that
+    /// would have fitted. 20 covers both groups — the still films and the
+    /// cine ones — on a 1512 × 982 window and still scrolls on a short one.
+    /// 22 is the whole catalogue: 20 films and the two group
+    /// headers. It is the honest knob for "show more films": the list keeps its own
+    /// fixed height rather than growing into the rail, because a `ScrollView`
+    /// told to fill pushes the paper section to the bottom with the gap
+    /// *between* the two lists (measured, and worse than the air it removed).
+    static let wellRows = 22
 
     @Bindable var session: Session
     /// Display only; the wire is always millimetres. An app preference rather
@@ -50,24 +110,48 @@ struct FilmSection: View {
     }
     private var isCustom: Bool { session.params.filmFrame == FilmFrame.custom.id }
 
+    /// Which rail this section is on.
+    ///
+    /// The film **list** is a preset and belongs in the left rail; the film's
+    /// **parameters** belong in the right one (UI-SPEC §1.4). One type with two
+    /// parts rather than two files, because the halves share the catalogue, the
+    /// stock rows and the selection — a split would have had to duplicate all
+    /// three, and duplicated lists drift apart.
+    enum Part { case list, params }
+    var part: Part = .params
+
     var body: some View {
-        PanelSection(L(.sectionFilm), key: "film",
-                     // The reset arrow's scope is a *named* stock, and a film
-                     // name is a profile name — the spec keeps those as they
-                     // are. Left in English on purpose, and it is not
-                     // `helpResetFilmExposure`: this resets the stock, that
-                     // one resets the exposure.
+        switch part {
+        case .list: listSection
+        case .params: paramSection
+        }
+    }
+
+    /// The catalogue, on the left rail.
+    ///
+    /// Its one action is the stock reset — that is a *selection*, so it belongs
+    /// with the thing that selects rather than with the sliders the selection
+    /// feeds. The name it resets to stays in English on purpose: a film name is
+    /// a profile name and the spec keeps those as they are. It is not
+    /// `helpResetFilmExposure`: this resets the stock, that one the exposure.
+    private var listSection: some View {
+        PanelSection(L(.sectionFilm), key: "filmList",
                      action: SectionAction(help: "Reset the film stock to Portra 400") {
                          var p = session.params; p.filmStock = "kodak_portra_400"; session.params = p
                          session.applyFilmStageRule()
-                     },
-                     menu: { AnyView(menu) }) {
+                     }) {
+            StockList(rows: stockRows,
+                      selected: session.params.filmStock,
+                      visibleRows: Self.wellRows) { id in
+                select(id)
+            }
+        }
+    }
+
+    /// The film's own parameters, on the right rail.
+    private var paramSection: some View {
+        PanelSection(L(.sectionFilm), key: "film", menu: { AnyView(menu) }) {
             VStack(alignment: .leading, spacing: 0) {
-                StockList(rows: stockRows,
-                          selected: session.params.filmStock,
-                          visibleRows: Self.wellRows) { id in
-                    select(id)
-                }
                 RailRows {
                     // `title: { $0.id }` — a film format is `135`, `120`, `APS`
                     // and so on, which the spec keeps as they are. Only the
@@ -91,8 +175,32 @@ struct FilmSection: View {
                 .padding(.top, Theme.Metric.rowSpacing + 4)
                 RailRows {
                     ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
-                    ToggleRow(label: L(.filmHalation), isOn: param(\.halationActive))
-                    ToggleRow(label: L(.filmGlare), isOn: param(\.glareActive))
+                    PillMenu(label: L(.filmHalation),
+                             options: HalationChoice.allCases,
+                             title: { $0.title },
+                             selection: Binding(
+                                get: { HalationChoice.of(active: session.params.halationActive,
+                                                         mode: session.params.antihalationMode) },
+                                set: { choice in
+                                    var p = session.params
+                                    // Off writes only the switch; the chosen preset is left
+                                    // alone, so turning it back on returns to where it was.
+                                    if let mode = choice.mode {
+                                        p.halationActive = true
+                                        p.antihalationMode = mode
+                                    } else {
+                                        p.halationActive = false
+                                    }
+                                    session.params = p
+                                }))
+                    .help("How much light the film base reflects back into the emulsion — the source of halation. Default follows the selected film's own data; High, Medium and Low override the simulation only and never rewrite it. Off switches the stage out of the render.")
+                    ScrubSlider(label: L(.filmHalationAmount),
+                                value: Binding(get: { session.params.halationAmount },
+                                               set: { var p = session.params; p.halationAmount = $0; session.params = p }),
+                                range: 1...4, zero: 1, snap: 0.1,
+                                format: { String(format: "%.1f×", $0) },
+                                disabled: !session.params.halationActive)
+                    .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
                 }
                 .padding(.top, Theme.Metric.rowSpacing + 4)
             }
@@ -151,12 +259,12 @@ struct FilmSection: View {
             Divider()
             Button(L(.helpAllEffectsOn)) {
                 var p = session.params
-                p.grainActive = true; p.halationActive = true; p.glareActive = true
+                p.grainActive = true; p.halationActive = true
                 session.params = p
             }
             Button(L(.helpAllEffectsOff)) {
                 var p = session.params
-                p.grainActive = false; p.halationActive = false; p.glareActive = false
+                p.grainActive = false; p.halationActive = false
                 session.params = p
             }
         }
@@ -265,6 +373,8 @@ struct StockRow: View {
     let selected: Bool
     let action: () -> Void
 
+    @State private var hovered = false
+
     var body: some View {
         // A plain view with a tap gesture, not a `Button`. macOS gives even a
         // `.plain` button a shape of its own on this release, and it was
@@ -288,23 +398,39 @@ struct StockRow: View {
         // The **row** is the pitch and the **capsule** is the mark, and they
         // are deliberately not the same height: 18 against 15.27. A mark as
         // tall as its own row is a filled cell.
+        //
+        // The capsule is a surface now (UI-SPEC §2.4): a white fill with a
+        // 1 px dark edge and one soft shadow, so it sits *on* the rail rather
+        // than being a hole punched in it. Hover is a 5 % wash and nothing
+        // else — no edge, no movement; a row that shifts under the pointer
+        // makes a list of 28 feel unstable.
         .frame(height: Theme.Metric.listRowHeight)
         .background(alignment: .leading) {
-            if selected {
-                GeometryReader { geo in
-                    RoundedRectangle(cornerRadius: Theme.Metric.stockSelectionRadius,
-                                     style: .continuous)
+            GeometryReader { geo in
+                let w = max(0, geo.size.width
+                               - Theme.Metric.stockLeadingInset
+                               - Theme.Metric.stockTrailingInset)
+                let h = Theme.Metric.stockSelectionHeight
+                let y = (geo.size.height - h) / 2
+                let shape = RoundedRectangle(cornerRadius: Theme.Metric.stockSelectionRadius,
+                                             style: .continuous)
+                if selected {
+                    shape
                         .fill(Theme.selection)
-                        .frame(width: max(0, geo.size.width
-                                             - Theme.Metric.stockLeadingInset
-                                             - Theme.Metric.stockTrailingInset),
-                               height: Theme.Metric.stockSelectionHeight)
-                        .offset(x: Theme.Metric.stockLeadingInset,
-                                y: (geo.size.height - Theme.Metric.stockSelectionHeight) / 2)
+                        .overlay { shape.strokeBorder(Color.black.opacity(0.18), lineWidth: 1) }
+                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                        .frame(width: w, height: h)
+                        .offset(x: Theme.Metric.stockLeadingInset, y: y)
+                } else if hovered && row.enabled {
+                    shape
+                        .fill(Color.white.opacity(0.05))
+                        .frame(width: w, height: h)
+                        .offset(x: Theme.Metric.stockLeadingInset, y: y)
                 }
             }
         }
         .contentShape(Rectangle())
+        .onHover { hovered = $0 }
         .onTapGesture(perform: action)
         .rowEnabled(row.enabled, because: row.disabledReason)
         .help(row.help)

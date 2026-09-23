@@ -253,6 +253,22 @@ spk_status spk_print_lut_table(spk_engine* engine, const char* print_stock,
 spk_status spk_preview_stock_lut(spk_session* session, const char* print_stock,
                                  const char* tier, spk_result* out, char** out_json);
 
+/* **The developed film, not the print of it** — the same frame with the print
+ * stage scanning instead of enlarging (`io.scan_film`), run on a *probe* copy
+ * of the session's parameters.
+ *
+ * The film side is untouched by that switch, so the session's cached negative
+ * for `tier` is reused and only the print stage runs. The session's own
+ * pipeline and parameters are restored before this returns, and that is the
+ * whole reason this entry exists rather than the caller flipping `scan_film`
+ * on the wire: `scan_film` is a **user-visible parameter** ("No Print Profile"
+ * in the paper list), so setting it would move the interface.
+ *
+ * The app uses it for the negative-to-positive moment: a frame arrives as the
+ * film that was just developed, and pressing Print wipes it to the print.
+ * `out` is a texture exactly as `spk_reprint` leaves one, owned the same way. */
+spk_status spk_preview_scan(spk_session* session, const char* tier, spk_result* out);
+
 /* The DI package's picture half: the full-tier negative normalised to [0, 1]
  * by the LUT's own per-channel density axes, so the `.cube` the caller writes
  * from `spk_print_lut_table` has domain 0..1 and needs no DOMAIN_MIN/MAX

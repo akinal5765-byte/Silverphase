@@ -301,7 +301,7 @@ enum Exporter {
             .init("exposure_comp_ev", session.sidecar.solvedEV ?? Double.nan),
             .init("y_shift", p.yFilterShift),
             .init("m_shift", p.mFilterShift),
-            .init("layer2", session.adjustments.enabled),
+            .init("legacy_grade", session.usesLegacyGrade),
             .init("render_core", session.renderCore ?? "unreported"),
             .init("engine", session.diagnostics.engineVersion ?? "unknown"),
             .init("app", Diagnostics.bundleInfo.version),
@@ -309,9 +309,8 @@ enum Exporter {
         ]
     }
 
-    /// The file's pixels, before anything is written: **render, grade, frame,
-    /// size, convert** — in that order, which is the whole of RFC-018's export
-    /// claim.
+    /// The file's pixels: render, frame, size, convert. Only an old sidecar
+    /// with a saved grade takes the legacy Layer 2 compatibility branch.
     ///
     /// This is the one chain. `exportPrint` writes what it returns and
     /// `Session.softProof` derives its display image from the same result, so
@@ -354,14 +353,18 @@ enum Exporter {
             return (texture, nil)
         }
 
-        let (adjustedDestination, adjustedScratch) = try destination(width: full.width,
-                                                                     height: full.height)
-        guard let adjusted = session.renderer.applyLayer2(to: full,
-                                                          uniforms: session.adjustments.uniforms,
-                                                          into: adjustedDestination)
-            else { throw ExportError.noPixels }
-        var current = adjusted
-        var currentScratch = adjustedScratch
+        var current = full
+        var currentScratch: TextureStore.Scratch?
+        if session.usesLegacyGrade {
+            let (adjustedDestination, adjustedScratch) = try destination(width: full.width,
+                                                                         height: full.height)
+            guard let adjusted = session.renderer.applyLayer2(to: full,
+                                                              uniforms: session.adjustments.uniforms,
+                                                              into: adjustedDestination)
+                else { throw ExportError.noPixels }
+            current = adjusted
+            currentScratch = adjustedScratch
+        }
         // Crop, straighten, quarter turns and flips, through the same
         // `geometryMap` the canvas samples with — not a CoreGraphics
         // transform written a second time. The old path cropped with

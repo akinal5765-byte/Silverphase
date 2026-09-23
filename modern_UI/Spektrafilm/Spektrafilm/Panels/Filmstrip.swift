@@ -93,6 +93,7 @@ struct FilmstripCell: View {
     /// Unread by this cell; kept as the guard test's construction seam.
     let state: FrameState
     @State private var image: CGImage?
+    @State private var hovered = false
 
     var body: some View {
         ZStack {
@@ -106,11 +107,34 @@ struct FilmstripCell: View {
                 }
             }
             .frame(height: Theme.Metric.thumbHeight)
-            .overlay(RoundedRectangle(cornerRadius: 2)
-                .stroke(Theme.selectionFrame, lineWidth: framing.lineWidth)
-                .opacity(framing.opacity))
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            // Every surface in the interface has a 1 px edge (UI-SPEC §2.2),
+            // and a thumbnail is a surface: without it a light photograph
+            // bleeds into the card it sits on.
+            .overlay {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .strokeBorder(Theme.controlStroke, lineWidth: 1)
+            }
+            // The mark stays a **frame**, not a capsule — the cell is a
+            // photograph, and a light band behind one is not a mark you can
+            // see. What it was missing is the material everything else has:
+            // the frame now lies *on* the picture (a shadow under it), and an
+            // unmarked cell answers the pointer with a faint frame of its own,
+            // which is the only affordance a 100 pt thumbnail has room for.
+            .overlay {
+                if framing.opacity > 0 {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .stroke(Theme.selectionFrame, lineWidth: framing.lineWidth)
+                        .shadow(color: Theme.overlayInkShadow, radius: 2)
+                        .opacity(framing.opacity)
+                } else if hovered {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .stroke(Color.white.opacity(0.30), lineWidth: 1)
+                }
+            }
         }
         .help(frame.name)
+        .onHover { hovered = $0 }
         .task(id: frame.id) {
             image = await ThumbnailCache.shared.thumbnail(for: frame.id)
         }

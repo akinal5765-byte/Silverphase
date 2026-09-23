@@ -198,7 +198,12 @@ final class EngineClientTests: XCTestCase {
         struct Schema: Decodable {
             let schemaVersion: Int
             let fields: [Field]
-            struct Field: Decodable { let name: String; let type: String; let layer: String }
+            struct Field: Decodable {
+                let name: String
+                let type: String
+                let layer: String
+                let range: [Double]?
+            }
             enum CodingKeys: String, CodingKey { case schemaVersion = "schema_version", fields }
         }
         let schema: Schema = try await client.call(.paramsSchema, as: Schema.self)
@@ -210,6 +215,13 @@ final class EngineClientTests: XCTestCase {
                          "extended_dynamic_range"] {
             XCTAssertTrue(names.contains(required), "the schema lost \(required)")
         }
+        for filter in ["m_filter_shift", "y_filter_shift"] {
+            XCTAssertEqual(schema.fields.first { $0.name == filter }?.range, [-50, 50],
+                           "\(filter) must accept the UI's Kodak CC range")
+        }
+        XCTAssertEqual(schema.fields.first { $0.name == "halation_amount" }?.range, [0, 4],
+                       "halation strength must retain the upstream physical range")
+        XCTAssertEqual(schema.fields.first { $0.name == "antihalation_mode" }?.layer, "shoot")
         await client.stop()
     }
 

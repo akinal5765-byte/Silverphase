@@ -406,30 +406,15 @@ struct ExportPage: View {
     /// `notes.md` restates for the naming chips.
     private func modeButton(_ m: Mode) -> some View {
         let on = mode == m
-        return Button { mode = m } label: {
-            Image(systemName: m.glyph)
-                .font(.system(size: M.modeGlyph, weight: .regular))
-                .rotationEffect(.degrees(m == .viewer ? 90 : 0))
-                .foregroundStyle(on ? Theme.exportAccent : Theme.exportChip)
-                .frame(width: 24, height: M.topBarHeight)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(m.help)
+        return ExportIcon(glyph: m.glyph, help: m.help, selected: on,
+                          rotation: m == .viewer ? 90 : 0) { mode = m }
     }
 
     private func zoomButton(_ glyph: String, _ help: String, _ factor: CGFloat) -> some View {
-        Button { zoom = (zoom * factor).clamped(to: 0.1...8) } label: {
-            Image(systemName: glyph)
-                .font(.system(size: M.modeGlyph, weight: .regular))
-                .foregroundStyle(Theme.text.opacity(0.5))
-                .frame(width: 24, height: M.topBarHeight)
-                .contentShape(Rectangle())
+        ExportIcon(glyph: glyph, help: help, restOpacity: 0.5,
+                   disabled: mode != .viewer) {
+            zoom = (zoom * factor).clamped(to: 0.1...8)
         }
-        .buttonStyle(.plain)
-        .disabled(mode != .viewer)
-        .opacity(mode == .viewer ? 1 : 0.4)
-        .help(help)
     }
 
     /// A plain well-coloured capsule with no outline: the drawing strokes
@@ -446,7 +431,7 @@ struct ExportPage: View {
                 .font(F.pill)
                 .foregroundStyle(Theme.text)
                 .frame(width: M.pillWidth, height: M.pillHeight)
-                .background(Theme.well, in: Capsule())
+                .pillSurface(base: Theme.well)
                 .contentShape(Capsule())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
@@ -550,44 +535,45 @@ struct ExportPage: View {
                 NSWorkspace.shared.activateFileViewerSelecting([store.url])
             }
         }, metrics: Self.sectionMetrics) {
-            // The list is inset 1 pt from the well's own edge rather than by
-            // `wellPadding`: the drawing's chosen row is 2 units in from the
-            // well edge, not from its content box.
-            Well(padding: 1, vertical: 6, inset: M.wellInset) {
-                VStack(spacing: 0) {
-                    ScrollView {
-                        VStack(spacing: M.recipeRowSpacing) {
-                            ForEach(store.recipes) { r in recipeRow(r) }
-                        }
+            // **No plate under the list.** It used to sit on a `Well`, which
+            // put a second surface behind the chosen row's capsule and made
+            // this list look like a different species from the editor's film
+            // and print lists — those sit straight on the rail. The rows now
+            // span the rail and the mark is the editor's own: same insets,
+            // same height, same radius (`Theme.Metric.stock*`), so the two
+            // lists mean one thing by one picture (UI-SPEC §2.4).
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(store.recipes) { r in recipeRow(r) }
                     }
-                    // As tall as it needs to be, up to the drawing's height.
-                    // Fixed at 144 it drew a 144 pt well around four 19.6 pt
-                    // rows — two thirds of it empty, on a page whose whole
-                    // complaint was that it does not look like the rest of the
-                    // app. Nothing else here holds a list open past its
-                    // contents; the stock lists show a fixed count because
-                    // they have forty rows to scroll, and this has four.
-                    .frame(height: formulaListHeight)
-                    .padding(.top, 9)
-                    HStack(spacing: 14) {
-                        Spacer()
-                        railButton("plus", "New recipe", dimmed: false) { store.add() }
-                        railButton("minus", "Delete this recipe", dimmed: store.recipes.count < 2) {
-                            if let s = store.selected { store.remove(s) }
-                        }
-                    }
-                    .padding(.trailing, 16)
                 }
+                // As tall as it needs to be, up to the drawing's height.
+                // Fixed at 144 it held a 144 pt plate around four rows — two
+                // thirds of it empty, on a page whose whole complaint was that
+                // it does not look like the rest of the app.
+                .frame(height: formulaListHeight)
+                .padding(.top, 9)
+                HStack(spacing: 14) {
+                    Spacer()
+                    railButton("plus", "New recipe", dimmed: false) { store.add() }
+                    railButton("minus", "Delete this recipe", dimmed: store.recipes.count < 2) {
+                        if let s = store.selected { store.remove(s) }
+                    }
+                }
+                .padding(.trailing, 16)
             }
         }
     }
 
     /// The recipe list's height: its rows, bounded by the drawing's own 144 so
     /// a long list still scrolls rather than pushing Location off the rail.
+    ///
+    /// The row pitch is the **editor's** (`listRowHeight`, no spacing), because
+    /// the two lists are now the same list as far as the eye is concerned.
     private var formulaListHeight: CGFloat {
         let rows = CGFloat(max(1, store.recipes.count))
-        let content = rows * M.recipeRowHeight + (rows - 1) * M.recipeRowSpacing
-        return min(content, M.formulaListHeight)
+        return min(rows * Theme.Metric.listRowHeight, M.formulaListHeight)
     }
 
     private func railButton(_ glyph: String, _ help: String, dimmed: Bool,
@@ -624,9 +610,30 @@ struct ExportPage: View {
             .foregroundStyle(on ? Theme.onSelection : Theme.Ink.secondary)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 15)
-            .frame(height: M.recipeRowHeight)
-            .background(on ? Theme.selection : Color.clear)
+            // **The editor's mark, token for token** — `StockRow` in
+            // `Panels/Sections/FilmSection.swift` draws the same capsule from
+            // the same five numbers. Two lists that mean "one of these is
+            // chosen" must not mean it two ways.
+            .padding(.leading, Theme.Metric.stockTextLeadingInset)
+            .frame(height: Theme.Metric.listRowHeight)
+            .background(alignment: .leading) {
+                if on {
+                    GeometryReader { geo in
+                        let shape = RoundedRectangle(cornerRadius: Theme.Metric.stockSelectionRadius,
+                                                     style: .continuous)
+                        shape
+                            .fill(Theme.selection)
+                            .overlay { shape.strokeBorder(Color.black.opacity(0.18), lineWidth: 1) }
+                            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                            .frame(width: max(0, geo.size.width
+                                                 - Theme.Metric.stockLeadingInset
+                                                 - Theme.Metric.stockTrailingInset),
+                                   height: Theme.Metric.stockSelectionHeight)
+                            .offset(x: Theme.Metric.stockLeadingInset,
+                                    y: (geo.size.height - Theme.Metric.stockSelectionHeight) / 2)
+                    }
+                }
+            }
             .contentShape(Rectangle())
             .onTapGesture { store.selectedID = r.id }
             .help(r.name)
@@ -680,7 +687,7 @@ struct ExportPage: View {
                             .font(F.label).foregroundStyle(Theme.text)
                             .padding(.horizontal, 8)
                             .frame(height: M.rowHeight)
-                            .background(Theme.pill, in: Capsule())
+                            .pillSurface(base: Theme.pill)
                             .onSubmit { store.save() }
                     }
                     PillMenu(label: "Existing File", options: ExistingFilePolicy.allCases,
@@ -852,7 +859,11 @@ struct ExportPage: View {
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 5)
             .frame(height: M.chipHeight)
-            .background(on ? Theme.exportAccent : Theme.exportChip, in: Capsule())
+            // The chips are the export page's smallest controls and the only
+            // two-tone ones: orange means "in the name", grey means "not".
+            // Both get the same surface, so the pair reads as one switch
+            // rather than as a button and a label. UI-SPEC §2.2.
+            .pillSurface(base: on ? Theme.exportAccent : Theme.exportChip, wash: !on)
             .contentShape(Capsule())
             .onTapGesture {
                 var n = recipe.wrappedValue.naming
@@ -1069,7 +1080,7 @@ struct ExportPage: View {
             .multilineTextAlignment(.center)
             .font(F.label).foregroundStyle(Theme.text)
             .frame(width: 62, height: M.rowHeight)
-            .background(Theme.pill, in: Capsule())
+            .pillSurface(base: Theme.pill)
             .onSubmit { store.save() }
             .help("Pixels on the longer side, \(OutputSize.bounds.lowerBound)–"
                   + "\(longEdgeCeiling). Frames are never enlarged.")
@@ -1172,14 +1183,36 @@ struct ExportPage: View {
                 Text(running ? "Exporting…" : exportButtonTitle)
                     .font(Theme.Font.caption).foregroundStyle(Theme.dim)
                 Spacer()
-                Button(running ? "Exporting…" : "Export") { run() }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(running || batch.isEmpty || store.selected == nil)
+                // The page has exactly one primary action, so it is drawn as
+                // one (UI-SPEC §3.6): accent-filled, same inner stroke as
+                // every other control. It used to be the system's default
+                // button, which in a dark rail read as a grey word.
+                primaryButton(running ? "Exporting…" : "Export",
+                              enabled: !running && !batch.isEmpty && store.selected != nil) { run() }
             }
         }
         .padding(.horizontal, M.wellPadding + 4)
         .padding(.vertical, 8)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.well).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(Theme.ruleSoft).frame(height: 1) }
+    }
+
+    /// The one primary button on this page.
+    private func primaryButton(_ title: String, enabled: Bool,
+                               action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(F.label)
+                .foregroundStyle(enabled ? Theme.card : Theme.text.opacity(0.4))
+                .padding(.horizontal, 12)
+                .frame(height: M.rowHeight)
+                .pillSurface(base: enabled ? Theme.accent : Theme.pill, wash: !enabled)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut(.defaultAction)
+        .disabled(!enabled)
+        .help(enabled ? "Write the selected images with this recipe"
+                      : "Pick at least one image and one recipe first")
     }
 
     private var exportButtonTitle: String {
@@ -1889,7 +1922,7 @@ private struct PillField<MenuContent: View>: View {
             }
             .frame(height: Theme.Metric.Export.rowHeight - 1)
             .frame(maxWidth: .infinity)
-            .background(Theme.pill, in: Capsule())
+            .pillSurface(base: Theme.pill)
             .contentShape(Capsule())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
@@ -1990,5 +2023,52 @@ enum OpenWithCatalog {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         cache[ext] = list
         apps = list
+    }
+}
+
+/// A glyph button on the export page's own bar — the editor's `BarIcon`, at
+/// this page's metrics and inks.
+///
+/// Same rule as the editor's: ink, a hover wash, and nothing else. No plate
+/// and no border, because the bar is flush; selection stays an accent glyph
+/// rather than a background plate.
+private struct ExportIcon: View {
+    let glyph: String
+    let help: String
+    var selected = false
+    var restOpacity: Double = 1
+    var rotation: Double = 0
+    var disabled = false
+    let action: () -> Void
+
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: glyph)
+                .font(.system(size: Theme.Metric.Export.modeGlyph, weight: .regular))
+                .rotationEffect(.degrees(rotation))
+                .foregroundStyle(ink)
+                .frame(width: 24, height: Theme.Metric.Export.topBarHeight)
+                .background {
+                    if hovered && !disabled {
+                        RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous)
+                            .fill(Color.white.opacity(0.07))
+                            .padding(.vertical, 4)
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+        .help(help)
+        .onHover { hovered = $0 }
+    }
+
+    private var ink: Color {
+        if disabled { return Theme.text.opacity(0.4) }
+        if selected { return Theme.exportAccent }
+        return hovered ? Theme.text : Theme.text.opacity(restOpacity)
     }
 }

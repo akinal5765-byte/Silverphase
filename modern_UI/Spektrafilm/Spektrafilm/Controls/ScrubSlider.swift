@@ -54,6 +54,7 @@ struct ScrubSlider: View {
     @State private var dragStart: Double?
     @State private var editing = false
     @State private var text = ""
+    @State private var hovered = false
     @FocusState private var focused: Bool
 
     private var hasSecondLine: Bool { sublabelView != nil || sublabel != nil }
@@ -97,28 +98,39 @@ struct ScrubSlider: View {
         GeometryReader { geo in
             let w = geo.size.width
             let knobW = Theme.Metric.knobSize.width
-            let x = fraction * (w - knobW) + knobW / 2
+            let knobH = Theme.Metric.knobSize.height
+            let span = max(w - knobW, 1)
+            let x = fraction * span + knobW / 2
+            let live = hovered || dragStart != nil
             ZStack(alignment: .leading) {
                 Group {
                     if let g = trackGradient {
                         Capsule().fill(LinearGradient(colors: g, startPoint: .leading, endPoint: .trailing))
                     } else {
-                        // `surface.control` — the same grey every pill and
-                        // field is, so the track carries no colour the rail
-                        // does not already use.
+                        // **Two tones, one track** (UI-SPEC §2.5): behind the
+                        // knob is a faint rule, in front of it a lightened
+                        // one. Deliberately *not* the accent — the accent is
+                        // the one "look here" in the palette, and a track
+                        // that is always tinted spends it on a fact nobody
+                        // needs told (that the slider is a slider).
                         //
-                        // **1.36 pt, v3's measurement**, where the
-                        // 2026-09-17 pass drew 3. The objection then was
-                        // that a hairline-thin track "in the *same grey as
-                        // the ground*" was fainter than the dividers beside
-                        // it — and it was, because `well` was `ground` and
-                        // the track sat on a well of its own colour. v3
-                        // separates rail from control, so the thin track now
-                        // has contrast of its own. What it does *not* have
-                        // is a hit target, and it does not need one: the
-                        // drag is on the full row-height `contentShape`
-                        // below, not on the ink.
-                        Capsule().fill(Theme.ground)
+                        // Where the lightened part *starts* is the zero tick
+                        // when zero is inside the range, and the track's low
+                        // end only when it is not. Filling from the low end
+                        // unconditionally made every bipolar control (Film
+                        // Exposure, Temp, Tint) read as a progress bar that
+                        // was 60 % done at rest — caught in a capture.
+                        let anchor = (zeroFraction > 0.001 && zeroFraction < 0.999)
+                                     ? zeroFraction : 0
+                        let lo = min(anchor, fraction)
+                        let hi = max(anchor, fraction)
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Theme.trackRest)
+                            Capsule().fill(Theme.trackActive)
+                                .frame(width: (hi - lo) * span)
+                                .offset(x: lo * span)
+                        }
+                        .opacity(live ? 1 : 0.88)
                     }
                 }
                 .frame(height: metrics.trackHeight)
@@ -126,18 +138,25 @@ struct ScrubSlider: View {
                 // Zero tick, only when zero is not at an end.
                 if zeroFraction > 0.001 && zeroFraction < 0.999 && abs(fraction - zeroFraction) > 0.02 {
                     Rectangle().fill(Theme.text.opacity(0.55)).frame(width: 1, height: 6)
-                        .offset(x: zeroFraction * (w - knobW) + knobW / 2 - 0.5)
+                        .offset(x: zeroFraction * span + knobW / 2 - 0.5)
                 }
-                // v3's knob is a 6.13 × 5.07 dot rather than a 10 pt
-                // handle. Ink only — it is never dragged by itself; the
-                // gesture belongs to the track.
+                // The knob divides the two tones, so it has to be findable:
+                // 9 pt round, a 1 px light edge and one shadow. That shadow is
+                // the only one on a rail — UI-SPEC §2.2 puts elevation in the
+                // stroke, and this is the single element that earns more.
                 RoundedRectangle(cornerRadius: Theme.Metric.knobRadius, style: .continuous)
                     .fill(Theme.knob)
-                    .frame(width: knobW, height: Theme.Metric.knobSize.height)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Theme.Metric.knobRadius, style: .continuous)
+                            .strokeBorder(Theme.knobEdge, lineWidth: 1)
+                    }
+                    .shadow(color: Theme.knobShadow, radius: 1, y: 1)
+                    .frame(width: knobW, height: knobH)
                     .offset(x: x - knobW / 2)
             }
             .frame(height: geo.size.height)
             .contentShape(Rectangle())
+            .onHover { hovered = $0 }
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { g in
@@ -184,17 +203,35 @@ struct ScrubSlider: View {
         .lineLimit(1)
         .frame(maxWidth: .infinity)
         .frame(height: metrics.valueInPill ? Theme.Metric.controlHeight : nil)
-        .background {
-            if metrics.valueInPill {
-                RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous)
-                    .fill(Theme.pill)
-            }
-        }
+        // The value box is the same material as every pill and field; Camera's
+        // rows show the number as plain text and so opt out of the surface.
+        .modifier(ValueBoxSurface(inPill: metrics.valueInPill, hovered: hovered, pressed: editing))
     }
 
     private func commitText() {
         if let v = parse(text) { value = v.clamped(to: range); onCommit() }
         editing = false
+    }
+}
+
+/// The slider's value box, in the shared control surface — but only where the
+/// metrics ask for a pill.
+///
+/// It is a modifier rather than an inline `if` because a slider's two
+/// densities disagree about this: the rail's rows box the number, Camera's
+/// rows print it plain. Both still hover and both still show the pressed
+/// stroke while the field is being typed in.
+private struct ValueBoxSurface: ViewModifier {
+    let inPill: Bool
+    let hovered: Bool
+    let pressed: Bool
+
+    func body(content: Content) -> some View {
+        if inPill {
+            content.controlSurface(hovered: hovered, pressed: pressed)
+        } else {
+            content
+        }
     }
 }
 
@@ -209,14 +246,32 @@ struct CheckBox: View {
     var body: some View {
         Button { isOn.toggle() } label: {
             ZStack {
-                // Off, this is an empty box; drawn in `text` it was a bright
-                // white square and the loudest mark in its row, which put
-                // more emphasis on an unchecked option than on the label
-                // naming it. The accent still carries "on" — the empty state
-                // is metadata and is inked like it.
-                RoundedRectangle(cornerRadius: 1)
-                    .stroke(isOn ? Theme.accent : Theme.Ink.tertiary, lineWidth: 1)
-                if isOn { RoundedRectangle(cornerRadius: 0.5).fill(Theme.accent).padding(1.6) }
+                // Off, this is a **recessed** box, not an empty outline: a
+                // dark fill with the stroke dark on top and light underneath.
+                // Which way the stroke reads is the whole difference between
+                // "a hole in the rail" and "a box drawn on it", and the old
+                // single-colour 1 pt outline was the second (UI-SPEC §2.2).
+                //
+                // On, the accent carries the state — as a **flat** plate
+                // (the user's note: "橙色不需要渐变了"): the top light belongs
+                // to the grey material, and on the one colour that means
+                // "this is on" it made the signal look like a glossy button.
+                // The 1 px stroke stays; that is the edge, and it is not orange.
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(isOn
+                          ? AnyShapeStyle(Theme.accent)
+                          : AnyShapeStyle(LinearGradient(colors: [Color.black.opacity(0.34),
+                                                                  Color.white.opacity(0.07)],
+                                                         startPoint: .top, endPoint: .bottom)))
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .strokeBorder(isOn
+                                  ? LinearGradient(colors: [Color.white.opacity(0.38),
+                                                            Color.black.opacity(0.22)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                  : LinearGradient(colors: [Color.black.opacity(0.50),
+                                                            Color.white.opacity(0.20)],
+                                                   startPoint: .top, endPoint: .bottom),
+                                  lineWidth: 1)
             }
             .frame(width: Theme.Metric.checkbox, height: Theme.Metric.checkbox)
             .frame(width: Theme.Metric.controlHitTarget, height: Theme.Metric.controlHitTarget)

@@ -73,25 +73,10 @@ enum LogLevelSetting: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var label: String {
-        switch self {
-        case .normal: "Normal"
-        case .detailed: "Detailed"
-        case .verbose: "Verbose"
-        }
-    }
-
-    /// The one sentence each position needs under it. Detailed and Verbose
-    /// revert to Normal on the next launch (§6), and the caption says so —
-    /// a user who turns one on to capture something must not be left
-    /// wondering whether it stayed on.
-    var detail: String {
-        switch self {
-        case .normal: "The everyday record: opens, renders, exports, memory and errors."
-        case .detailed: "Adds what the canvas and the engine do per step. Resets to Normal on the next launch."
-        case .verbose: "Everything, including per-node traces. Costs render speed, and resets to Normal on the next launch."
-        }
-    }
+    // The label and the one sentence under it are **not here**: they are copy,
+    // and copy lives in the string table (`S.setLevel*`, both languages) like
+    // every other label in the interface. This enum stays free of the main
+    // actor because the table's lookups are `nonisolated`.
 }
 
 // MARK: - categories

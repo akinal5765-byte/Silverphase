@@ -164,9 +164,25 @@ enum Theme {
     static let plot = Color(hex: 0x1E1F1E)
     static let plotGrid = Color(hex: 0x3A3B39)
     /// `.st17` / `.st3` fill, `.st2` stroke — the one accent in the
-    /// interface. **`#eca650`, not the old `#ee8a2b`**: the new drawing names
-    /// it in three places and the file that names the colour wins.
-    static let accent = Color(hex: 0xE1A95F)
+    /// interface.
+    ///
+    /// **Apple's orange.** `NSColor.systemOrange` in the dark appearance, which
+    /// is the appearance this app runs in: `#FF9F0A` (the light variant is
+    /// `#FF9500`). The user's note: "把所有的橙色都改成 Apple 橙". It replaces
+    /// two sampled values that were never quite that colour — v3's `#E1A95F`,
+    /// a tan, and before it the drawing's `#ee8a2b` — and the reason to take
+    /// the system's is that the accent is the one colour in the palette whose
+    /// whole job is to be *recognised* without being read.
+    ///
+    /// A literal rather than `Color(nsColor: .systemOrange)` so the interface
+    /// cannot move under an OS update, an appearance or an accessibility
+    /// setting: every other colour in this file is a value, and this one is
+    /// read against them (the ink on an accent plate is `card`, and a brighter
+    /// orange is what makes that pairing work).
+    ///
+    /// **And it is flat.** The accent plate takes no top light — see
+    /// `pillSurface(wash:)` — which is the second half of the same note.
+    static let accent = Color(hex: 0xFF9F0A)
     /// `.st16` — a **chosen** row in the film or print list. The drawing's
     /// own words for what changed: "selected entries has shallow, instead of
     /// framed square around it, and the text turns from white to black". So
@@ -218,6 +234,77 @@ enum Theme {
     /// `.st18` — the slider knob, a hair warmer than `text` in the drawing.
     static let knob = Color(hex: 0xFBF8F3)
     static let canvasSurround = ground
+
+    // MARK: surface — UI-SPEC §2.2
+    //
+    // Depth in this interface is **one 1px inner stroke, read top-to-bottom**:
+    // light on the top edge, dark underneath, plus at most a 2 % vertical
+    // gradient in the fill. There is no shadow below L4 and no second border
+    // colour. That single stroke is the difference between a control that
+    // looks like a surface and a rectangle of paint, which is what the
+    // interface was before this block existed.
+
+    /// The top of a control's fill. `ground` is the bottom of it.
+    static let controlTop = Color(hex: 0x6A6A6A)
+    static let controlTopHover = Color(hex: 0x767676)
+    static let controlFillHover = Color(hex: 0x696969)
+    /// Held down: the fill goes *darker* and the stroke flips. The flip is
+    /// what reads as "pressed" — a darker fill alone reads as "disabled".
+    static let controlTopPressed = Color(hex: 0x545454)
+    static let controlFillPressed = Color(hex: 0x5E5E5E)
+
+    /// Light-top / dark-bottom, for every control sitting on a rail.
+    static var controlFill: LinearGradient {
+        LinearGradient(colors: [controlTop, ground], startPoint: .top, endPoint: .bottom)
+    }
+    static var controlFillHoverGradient: LinearGradient {
+        LinearGradient(colors: [controlTopHover, controlFillHover], startPoint: .top, endPoint: .bottom)
+    }
+    static var controlFillPressedGradient: LinearGradient {
+        LinearGradient(colors: [controlTopPressed, controlFillPressed], startPoint: .top, endPoint: .bottom)
+    }
+    static var controlStroke: LinearGradient {
+        LinearGradient(colors: [Color.white.opacity(0.14), Color.black.opacity(0.30)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+    static var controlStrokePressed: LinearGradient {
+        LinearGradient(colors: [Color.black.opacity(0.30), Color.white.opacity(0.14)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
+    /// L1 — a rail, the bar, the filmstrip: `card` with the top ~2 % lighter.
+    /// A 254 pt column of one flat grey reads as a hole; the wash is small
+    /// enough that a 100 % capture shows no band, which is the point.
+    static let cardTop = Color(hex: 0x353534)
+    static var cardFill: LinearGradient {
+        LinearGradient(colors: [cardTop, card], startPoint: .top, endPoint: .bottom)
+    }
+
+    // MARK: canvas overlays — UI-SPEC §2.9
+    //
+    // An overlay has **no plate**: legibility comes from a soft, edge-free
+    // dark wash under the ink and a 1 pt shadow under the marks themselves.
+    // A grey card behind the histogram is the thing this replaced.
+
+    static let overlayScrimStrong = Color.black.opacity(0.34)
+    static let overlayScrimWeak = Color.black.opacity(0.08)
+    static let overlayInkShadow = Color.black.opacity(0.55)
+    static var overlayScrim: LinearGradient {
+        LinearGradient(colors: [overlayScrimStrong, overlayScrimWeak],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
+    /// The slider track's two halves: before the knob, and after it. The
+    /// active half is a **lightened rule, not the accent** — the accent means
+    /// "look here" and a track that is always orange means nothing.
+    static let trackRest = Color.white.opacity(0.16)
+    static let trackActive = Color.white.opacity(0.66)
+    static let knobEdge = Color.white.opacity(0.32)
+    static let knobShadow = Color.black.opacity(0.45)
+    /// A divider drawn as **8 % white**, so it reads as a seam in one
+    /// material rather than a line painted on top of it. `rule` is kept for
+    /// the places that want the drawing's brighter line.
+    static let ruleSoft = Color.white.opacity(0.08)
 
     static let histR = Color(hex: 0xE8524E)
     static let histG = Color(hex: 0x62C462)
@@ -330,22 +417,18 @@ enum Theme {
         /// past the 254 pt rail; the tools are drawn in 28 pt boxes, so the
         /// content inset is 32 and the glyph lands on 46 + 3.
         static let barPadding: CGFloat = 32
-        /// Between two tools. v3's centres are 303.12, ~363 and 425.22 — a
-        /// pitch of 61 — which on a 28 pt box is a 33 pt gap.
-        static let toolGap: CGFloat = 33
-        /// The zoom cluster's own gaps, either side of the pill. The drawing's
-        /// are 29.4 pt glyph-to-pill, and the glyph sits in a 28 pt box.
-        static let zoomGap: CGFloat = 23
-        /// Before/after to the zoom cluster, and the zoom cluster to the full
-        /// screen button. **The drawing's are 63.6 and 85.2**, and these are
-        /// not: at the minimum window (1100 pt, so a 540 pt bar) the drawing's
-        /// spacing puts the two clusters 19 pt wider than the bar they are on,
-        /// and a bar whose ends fall off the bar is worse than a bar that
-        /// breathes slightly less. 40 and 46 keep the drawing's *shape* — the
-        /// right-hand cluster spread out, with its widest gap before the last
-        /// button — inside 523 pt.
-        static let beforeAfterGap: CGFloat = 40
-        static let fullScreenGap: CGFloat = 46
+        /// **The bar groups its controls into clusters**, and a cluster is
+        /// what the eye reads: files, tools, status, view. Between two
+        /// neighbours inside a cluster is `barItemGap`; on either side of a
+        /// divider is `barClusterGap`.
+        ///
+        /// These replace the drawing's four one-off gaps (33 between tools, 23
+        /// around the zoom pill, 40 before it, 46 before full screen). Four
+        /// numbers for one job is what made the bar read as scattered rather
+        /// than grouped — the user's words were "间距都不对". A scale of two
+        /// plus a visible divider says the grouping without measuring it.
+        static let barItemGap: CGFloat = 4
+        static let barClusterGap: CGFloat = 10
         /// The before/after glyph: the drawing's two rectangles side by side,
         /// `20.1 + 21.3` units wide of 30.1 tall, halved and rounded.
         static let beforeAfterIcon = CGSize(width: 25, height: 16)
@@ -520,18 +603,33 @@ enum Theme {
         /// The selection capsule: 30.53 / 2 tall, radius half of that.
         static let stockSelectionHeight: CGFloat = 15.27
         static let stockSelectionRadius: CGFloat = 7.63
-        /// Where that capsule starts and ends. v3 draws it from x 33.57 / 2
-        /// to x 227.52 on a 254 pt rail — so 16.79 in at the leading edge and
-        /// 26.48 off the trailing one, which is why it is *not* symmetric and
-        /// why the list cannot be padded with one number.
-        static let stockLeadingInset: CGFloat = 16.79
+        /// Where that capsule starts and ends, and the row's text inside it.
+        ///
+        /// **The text is on the rail's own label column, and the capsule hangs
+        /// 5 pt to its left.** v3 drew the capsule from x 16.79 and the text
+        /// at 21.33, which put a list row's first glyph 5.3 pt right of every
+        /// control label above it — two left edges in one column, which is the
+        /// kind of thing that reads as "sloppy" without anyone being able to
+        /// name it (UI-SPEC §2.4). Text at `rowInset` is the fix; the capsule
+        /// protrudes by the text's own inset, the way a sidebar's selection
+        /// band does.
+        ///
+        /// The trailing inset stays v3's 26.48 and stays *unequal* to the
+        /// leading one — the capsule ends further from the rail's edge than it
+        /// starts from the other, and that asymmetry is the drawing's.
+        static let stockLeadingInset: CGFloat = 11
         static let stockTrailingInset: CGFloat = 26.48
-        /// And where the row's text starts, 42.66 / 2 — inside the capsule,
-        /// not flush with it.
-        static let stockTextLeadingInset: CGFloat = 21.33
+        /// The row's text, **on `rowInset`** so the list and the controls
+        /// share one left edge. Inside the capsule, not flush with it.
+        static let stockTextLeadingInset: CGFloat = 16
         /// The list's scroll indicator (6.08 / 2). Its *height* reflects the
         /// scroll state; only the width is drawn art.
         static let stockScrollIndicatorWidth: CGFloat = 3.04
+        /// The navigator's picture: as wide as the rail allows, and no taller
+        /// than this. A 3:2 frame at the rail's inner width is about 150, so
+        /// this only ever bites on a portrait frame — which is the point: a
+        /// navigator taller than the list under it stops being a navigator.
+        static let navigatorHeight: CGFloat = 130
         /// The `CINE` pill after a cinema stock (v3 vector bounds), a 1 pt
         /// accent stroke, no fill.
         static let cinePill = CGSize(width: 21.59, height: 8.07)
@@ -569,10 +667,13 @@ enum Theme {
         // size inside a padded target — see `ScrubSlider` and `CheckBox`.
 
         /// Track height, 2.71 / 2.
-        static let trackHeight: CGFloat = 1.36
-        /// The knob: v3's vector bounds, a dot rather than a handle.
-        static let knobSize = CGSize(width: 6.13, height: 5.07)
-        static let knobRadius: CGFloat = 2.535
+        static let trackHeight: CGFloat = 3
+        /// The knob. **9 pt round**, not v3's 6.13 × 5.07 dot: the track is
+        /// now two-tone and the knob is what divides it, so it has to be
+        /// findable at a glance (UI-SPEC §2.5). Still ink-only — the drag
+        /// belongs to the whole row.
+        static let knobSize = CGSize(width: 9, height: 9)
+        static let knobRadius: CGFloat = 4.5
         /// The checkbox's visible square. The drawing's 5 pt mark proved too
         /// small in real use, so the product token is intentionally larger.
         static let checkbox: CGFloat = 10
@@ -1040,7 +1141,10 @@ extension Comparable {
 /// made of.
 struct Hairline: View {
     var body: some View {
-        Rectangle().fill(Theme.rule)
+        // `ruleSoft` (8 % white), not the drawing's opaque `#b5b5b6`. Against
+        // a dark rail an opaque light line reads as a stroke drawn *on* the
+        // material; a white wash at 8 % reads as a seam *in* it. UI-SPEC §2.6.
+        Rectangle().fill(Theme.ruleSoft)
             .frame(height: Theme.Metric.rule)
             .frame(maxWidth: .infinity)
     }
@@ -1056,7 +1160,13 @@ struct Hairline: View {
 /// 1 pt wide does not make the three-column arithmetic 2 pt wrong.
 struct VerticalHairline: View {
     var body: some View {
-        Rectangle().fill(Theme.rule)
+        // **Also `ruleSoft`.** It was the drawing's opaque line on the argument
+        // that a region change deserves a heavier mark than a seam — but the
+        // rail (`card`) and the canvas surround (`ground`) already differ by a
+        // long way in luminance, so the wall was a bright white line on a
+        // boundary that did not need one. The user's words: "分栏中间这个白线
+        // 太实了". The luminance change is the wall; this is a seam in it.
+        Rectangle().fill(Theme.ruleSoft)
             .frame(width: Theme.Metric.rule)
             .frame(maxHeight: .infinity)
     }
@@ -1077,6 +1187,129 @@ extension View {
         self.opacity(enabled ? 1 : Theme.disabledOpacity)
             .allowsHitTesting(enabled)
             .modifier(DisabledReason(show: !enabled && !reason.isEmpty, reason: reason))
+    }
+
+    /// The L3 control surface of UI-SPEC §2.2: fill, plus a 1 px inner stroke
+    /// read top-to-bottom, plus nothing else.
+    ///
+    /// Every pill, field, button and value box wears this, which is what
+    /// makes them one material. `hovered` / `pressed` are passed in by the
+    /// control because only it knows what its pointer is doing; there is no
+    /// hover state living in the modifier, so a control that cannot be
+    /// hovered (a static pill) simply never passes `true`.
+    ///
+    /// **A pressed control's stroke flips** (dark top, light bottom). That
+    /// inversion is the whole of the "pushed in" illusion — a darker fill
+    /// alone reads as disabled, which is why both change together.
+    func controlSurface(radius: CGFloat = Theme.Metric.fieldRadius,
+                        hovered: Bool = false,
+                        pressed: Bool = false) -> some View {
+        self
+            .background {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(pressed ? Theme.controlFillPressedGradient
+                                  : (hovered ? Theme.controlFillHoverGradient : Theme.controlFill))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(pressed ? Theme.controlStrokePressed : Theme.controlStroke,
+                                  lineWidth: 1)
+            }
+    }
+
+    /// The same material in the pill shape. `base` is the pill's own plate —
+    /// `Theme.ground` on a rail, `Theme.field` inside a well — and the depth
+    /// is layered on top of it, so the export page keeps its darker pills and
+    /// still gets the surface.
+    ///
+    /// Two overlays rather than one gradient because the base is the caller's
+    /// colour: a white-to-clear wash on top gives every plate the same top
+    /// light without knowing what the plate is.
+    ///
+    /// **`wash: false` leaves the plate flat**, and the accent plate is the
+    /// one that wants it. The user's note: "橙色不需要渐变了,这样显得更专业".
+    /// A top light exists to say "this is a raised grey surface"; on the single
+    /// colour whose job is to be a *signal* it reads as a glossy button, and
+    /// the signal is the whole point. The 1 px stroke stays — that is the
+    /// material's edge and it is not orange.
+    func pillSurface(base: Color = Theme.ground,
+                     hovered: Bool = false,
+                     pressed: Bool = false,
+                     wash: Bool = true) -> some View {
+        self
+            .background {
+                Capsule()
+                    .fill(base)
+                    .overlay {
+                        Capsule().fill(LinearGradient(
+                            colors: [Color.white.opacity(pressed || !wash ? 0 : 0.05), .clear],
+                            startPoint: .top, endPoint: .bottom))
+                    }
+                    .overlay {
+                        Capsule().fill(LinearGradient(
+                            colors: [Color.white.opacity(hovered && wash ? 0.07 : 0), .clear],
+                            startPoint: .top, endPoint: .bottom))
+                    }
+            }
+            .overlay {
+                Capsule().strokeBorder(pressed ? Theme.controlStrokePressed : Theme.controlStroke,
+                                       lineWidth: 1)
+            }
+    }
+}
+
+// MARK: - the two button levels (UI-SPEC §3.6)
+
+/// A button is the control surface, edge to edge: same fill, same inner
+/// stroke, same hover and pressed behaviour as a field or a pill.
+///
+/// `.surface` is every secondary action. `.primarySurface` is the **one**
+/// accent-filled action a page is allowed, and it takes dark ink because the
+/// accent is a light colour — the same pairing the naming chips use.
+///
+/// Both exist as styles rather than as a helper that wraps a `Button` so a
+/// call site keeps its own label, its own `.disabled` and its own shortcut.
+struct SecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        SurfaceButton(label: configuration.label, pressed: configuration.isPressed, primary: false)
+    }
+}
+
+struct PrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        SurfaceButton(label: configuration.label, pressed: configuration.isPressed, primary: true)
+    }
+}
+
+extension ButtonStyle where Self == SecondaryButtonStyle {
+    static var surface: SecondaryButtonStyle { SecondaryButtonStyle() }
+}
+
+extension ButtonStyle where Self == PrimaryButtonStyle {
+    static var primarySurface: PrimaryButtonStyle { PrimaryButtonStyle() }
+}
+
+private struct SurfaceButton<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    let primary: Bool
+
+    @State private var hovered = false
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        label
+            .font(Theme.Font.label)
+            .foregroundStyle(primary ? Theme.card : Theme.text)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .frame(height: Theme.Metric.rowHeight)
+            .pillSurface(base: primary ? Theme.accent : Theme.ground,
+                         hovered: hovered && enabled, pressed: pressed,
+                         wash: !primary)
+            .opacity(enabled ? 1 : Theme.disabledOpacity)
+            .contentShape(Capsule())
+            .onHover { hovered = $0 }
     }
 }
 

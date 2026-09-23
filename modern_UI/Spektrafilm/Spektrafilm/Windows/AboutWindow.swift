@@ -46,7 +46,8 @@ struct AboutWindow: View {
     /// `bundle-licenses.sh`, then re-run that script.** GitHub redirects a
     /// renamed repository, so the old link keeps resolving and nothing breaks
     /// loudly — which is exactly why it needs saying.
-    static let sourceURL = "https://github.com/JamesQiu2005/SpektraLab"
+    static let sourceURL = "https://github.com/akinal5765-byte/Silverphase"
+    static let predecessorURL = "https://github.com/JamesQiu2005/SpektraLab"
     /// The same URL as the panel shows it, without the scheme.
     static var sourceLabel: String {
         sourceURL.replacingOccurrences(of: "https://", with: "")
@@ -58,7 +59,7 @@ struct AboutWindow: View {
     static let upstreamURL = "https://github.com/andreavolpato/spektrafilm"
 
     static let licences = [
-        Licence(id: "SpektraLab-GPL-3.0.txt", title: "GNU GPL v3 — the application and the engine"),
+        Licence(id: "Silverphase-GPL-3.0.txt", title: "GNU GPL v3 — the application and the engine"),
         Licence(id: "Profiles-and-LUTs-CC-BY-SA-4.0.txt", title: "CC BY-SA 4.0 — the profiles and the print LUTs"),
         Licence(id: "Profiles-and-LUTs-CHANGELOG.txt", title: "What this build changed about the profiles and LUTs"),
         Licence(id: "metal-cpp-Apache-2.0.txt", title: "Apache 2.0 — metal-cpp"),
@@ -100,9 +101,9 @@ struct AboutWindow: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable().frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 3) {
-                Text("SpektraLab").font(.system(size: 20, weight: .semibold))
+                Text("Silverphase").font(.system(size: 20, weight: .semibold))
                 Text(AboutWindow.version).font(Theme.Font.sublabel).foregroundStyle(.secondary)
-                Text("A spectral film and print simulation for macOS.")
+                Text(L(.aboutTagline))
                     .font(Theme.Font.sublabel).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -113,18 +114,18 @@ struct AboutWindow: View {
     private var credits: some View {
         VStack(alignment: .leading, spacing: 10) {
             // The one line that says which name belongs to which thing. This
-            // app is SpektraLab; the engine, the profiles and the LUTs it uses
+            // app is Silverphase; the engine, the profiles and the LUTs it uses
             // are spektrafilm's, and `SPEKTRAFILM_LICENSE.txt` asks that the
             // product branding be kept apart from the factual reference —
             // which it welcomes. Saying so on the About panel is where that
             // distinction is legible.
-            Text("SpektraLab uses the spektrafilm engine, film and paper profiles, and the print-preview LUTs baked from them.")
+            Text(L(.aboutEngine))
                 .font(Theme.Font.sublabel).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             // The attribution the CC BY-SA licence requires, in the form it
             // suggests: author, canonical source, licence.
             VStack(alignment: .leading, spacing: 2) {
-                Text("Film simulation, measured profiles and print model")
+                Text(L(.aboutCreditsProfiles))
                     .font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
                 Text("Andrea Volpato — licensed CC BY-SA 4.0")
                     .font(Theme.Font.sublabel).foregroundStyle(.secondary)
@@ -132,18 +133,24 @@ struct AboutWindow: View {
                      AboutWindow.upstreamURL)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("SpektraLab and its render engine")
+                Text("SpektraLab — original macOS application and engine port")
+                    .font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
+                link(AboutWindow.predecessorURL.replacingOccurrences(of: "https://", with: ""),
+                     AboutWindow.predecessorURL)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L(.aboutCreditsApp))
                     .font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
                 // The GPL's written offer, and the only form of it that is
                 // any use: a place to get the code. It points at this
                 // application's own repository, which is the work the GPL
                 // covers — the upstream link above covers the profiles.
-                Text("Free software under the GNU GPL v3 or later. You have the right to the corresponding source.")
+                Text(L(.aboutLicenceBody))
                     .font(Theme.Font.sublabel).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 link(AboutWindow.sourceLabel, AboutWindow.sourceURL)
             }
-            Text("The 8 baked print-preview LUTs are derivatives of the profiles and carry the same CC BY-SA 4.0 licence. What was changed, and what was not, is in the changelog below.")
+            Text(L(.aboutLutBody))
                 .font(Theme.Font.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -152,7 +159,7 @@ struct AboutWindow: View {
 
     private var licenceList: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Licences").font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
+            Text(L(.aboutLicences)).font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
             ForEach(AboutWindow.licences) { licence in
                 Button { showing = licence } label: {
                     HStack(spacing: 6) {
@@ -167,14 +174,14 @@ struct AboutWindow: View {
                 .buttonStyle(.plain)
             }
             if let dir = AboutWindow.licenceDirectory {
-                Button("Show the licence files in Finder") {
+                Button(L(.aboutShowLicenceFiles)) {
                     NSWorkspace.shared.activateFileViewerSelecting([dir])
                 }
                 .buttonStyle(.link).font(Theme.Font.caption)
             } else {
                 // Said rather than hidden: a build with no licence texts is a
                 // build that should not have been made.
-                Text("This build carries no licence texts. Run Tools/bundle-licenses.sh and rebuild.")
+                Text(L(.aboutNoLicences))
                     .font(Theme.Font.caption).foregroundStyle(Theme.accent)
             }
         }
@@ -211,13 +218,13 @@ private struct LicenceSheet: View {
             .background(Theme.well, in: RoundedRectangle(cornerRadius: 4))
             HStack {
                 if let url = licence.url {
-                    Button("Show in Finder") {
+                    Button(L(.aboutShowInFinder)) {
                         NSWorkspace.shared.activateFileViewerSelecting([url])
                     }
                     .buttonStyle(.link).font(Theme.Font.caption)
                 }
                 Spacer()
-                Button("Done", action: dismiss).keyboardShortcut(.defaultAction)
+                Button(L(.aboutDone), action: dismiss).keyboardShortcut(.defaultAction)
             }
         }
         .padding(16)

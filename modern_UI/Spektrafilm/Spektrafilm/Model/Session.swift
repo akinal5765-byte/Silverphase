@@ -79,6 +79,30 @@ final class Session: CanvasHost {
 
     // MARK: the current frame
     var sidecar = Sidecar()
+    /// Old saved output grades remain visible, but new projects never create
+    /// one. The right rail labels this compatibility state explicitly.
+    var usesLegacyGrade: Bool { sidecar.adjustments.enabled && !sidecar.adjustments.isNeutral }
+
+    /// Make a recoverable copy before leaving the old output-grade workflow.
+    /// The backup suffix is deliberately outside Sidecar's indexed extension.
+    func convertLegacyGradeToPhysicalOnly() {
+        guard usesLegacyGrade, let image = selection else { return }
+        let originalURL = Sidecar.url(for: image)
+        let backupURL = originalURL.appendingPathExtension("legacy-grade-backup-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: originalURL.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            var archived = sidecar
+            archived.source = Sidecar.identity(of: image)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(archived).write(to: backupURL, options: .atomic)
+            adjustments = .default
+            status = "Physical-only render. The prior grade is saved as \(backupURL.lastPathComponent)."
+        } catch {
+            status = "Could not back up the legacy grade: \(error.localizedDescription)"
+        }
+    }
     var params: FilmParams {
         get { sidecar.params }
         set { guard newValue != sidecar.params else { return }
@@ -91,6 +115,7 @@ final class Session: CanvasHost {
               pushUndo()
               let curvesChanged = newValue.curves != sidecar.adjustments.curves
               sidecar.adjustments = newValue
+              renderer.legacyGradeActive = usesLegacyGrade
               renderer.layer2 = newValue.uniforms
               if curvesChanged { renderer.setCurves(newValue.curves) } else { renderer.needsDraw?() }
               scheduleSave() }
@@ -390,6 +415,69 @@ final class Session: CanvasHost {
     /// renderer is a plain class, not `@Observable`.
     var showingOriginal = false
 
+    // MARK: the negative-to-positive moment
+
+    /// Whether the **next** print to land gets the ceremony — the frame
+    /// arriving as the film that was just developed, and being wiped to the
+    /// print when the reader presses Print.
+    ///
+    /// Armed by an open and consumed by the first print that lands, so it is
+    /// the first frame of a batch (or the only frame of a handoff) whose
+    /// develop gets it and every later one that does not. Switching away from
+    /// a frame that is still showing its film disarms nothing and loses
+    /// nothing: the flag is already spent, so coming back auto-develops.
+    private var ceremonyArmed = false
+    /// The frame is on the canvas as its **film**, waiting for Print.
+    private(set) var negativePending = false
+
+    /// Print the negative: bring the print up in the paper.
+    ///
+    /// Not a wipe, and not a dissolve either: the film is replaced by the
+    /// sheet, and the picture then arrives *in* the sheet, densest parts first.
+    /// One second and a bit: long enough to read as a process, short enough not
+    /// to be a wait. The canvas owns the duration
+    /// (`Renderer.printDevelopSeconds`) because it owns the clock.
+    func printNegative() {
+        guard negativePending, renderer.filmScan != nil else { return }
+        negativePending = false
+        // The canvas owns the *how* of the animation — it is the only thing
+        // that knows when a frame is being drawn, and a sleep loop here is what
+        // made the first version judder. See `Renderer.printTheNegative`.
+        renderer.printTheNegative()
+    }
+
+    /// Ask the engine for this frame as the **film** rather than as the print
+    /// of it, and put it on the canvas with the wipe at 0 — all film.
+    ///
+    /// `spk_preview_scan` renders on a probe copy of the parameters, so the
+    /// session is untouched: `scan_film` is the paper list's "No Print
+    /// Profile" and setting it on the wire would move the interface.
+    private func requestFilmScan(for url: URL) {
+        Task { [weak self, client] in
+            let texture = (try? await client.previewScan(tier: "live"))?.texture
+            await MainActor.run {
+                self?.finishFilmScan(texture, for: url)
+            }
+        }
+    }
+
+    /// Resolve the one-frame hold on every result for the selected frame.
+    /// A newer render may make this scan obsolete while it is in flight; in
+    /// that case show the print already in hand rather than leaving the canvas
+    /// blank. A result for a frame we have left must not alter the new frame.
+    func finishFilmScan(_ texture: MTLTexture?, for url: URL) {
+        guard selection == url else { return }
+        guard let texture, !busy else {
+            renderer.holdForNegative = false
+            return
+        }
+        renderer.filmScan = texture
+        renderer.develop = 0
+        renderer.holdForNegative = false
+        negativePending = true
+        status = "\(url.lastPathComponent)  ·  the film, developed"
+    }
+
     /// The status badges in the canvas's top-right corner, top to bottom.
     ///
     /// One list rather than conditions written into the view, because two
@@ -399,6 +487,22 @@ final class Session: CanvasHost {
     /// were drawn on top of each other.
     var canvasBadges: [String] {
         var badges: [String] = []
+        // **Before the develop lands, the canvas is the decode**, and that has
+        // to be said out loud. It was not: a plain photograph with a "preview"
+        // badge reads as "here is your print, at preview resolution" — and it
+        // is not a print at all, it is Apple's decode with no film in it. A
+        // user dropped a frame, saw the untouched photograph under a badge
+        // that said "preview", and concluded the film and paper they had
+        // chosen were not being applied; clicking Solve appeared to fix it,
+        // because that re-rendered. Measured on a 60 MP frame the gap is
+        // ~4.4 s to the first print and ~4.8 s more to the full one.
+        //
+        // The condition is the same one `scheduleNativeOriginal` uses to
+        // decide whether the canvas is still the decode — the print store,
+        // not a flag — so the two cannot disagree.
+        if let url = selection, renderer.store.print(for: url) == nil || renderer.holdForNegative {
+            badges.append(L(.statusDecodeOnly))
+        }
         // Space is a decode-vs-print comparison, and the spec's "show
         // original" was ambiguous about which; the label says which
         // (HANDOFF §6) — and that the decode is Apple's rendering of it.
@@ -408,7 +512,13 @@ final class Session: CanvasHost {
         } else if renderer.showsFullRender {
             badges.append("full")
         }
-        if previewSoft && selection != nil { badges.append("preview") }
+        // **"preview" means "this is your print, at preview resolution"** — so
+        // it is only true once a print exists. Before that the badge above
+        // already says the canvas is still developing, and printing both read
+        // as "显影中… / preview", which is one fact told twice.
+        if previewSoft && selection != nil, renderer.store.print(for: selection!) != nil {
+            badges.append("preview")
+        }
         // RFC-016 §11.5: "a refusal is a visible event, not a log line". Both
         // of these ride the badge stack that `EditorWindow` already draws —
         // the existing surface, not a second one — and both clear when the
@@ -679,7 +789,7 @@ final class Session: CanvasHost {
     /// block is per-frame (a lens filter) and the crop is framing. Every field
     /// is an offset, so pasting means "same recipe, each frame solves its own
     /// exposure" (frontend SPEC §5.5).
-    struct SettingsClip: Sendable { var params: FilmParams; var adjustments: Adjustments }
+    struct SettingsClip: Sendable { var params: FilmParams }
     private var clipboard: SettingsClip?
 
     // MARK: undo and the work clock
@@ -866,6 +976,7 @@ final class Session: CanvasHost {
         renderer.onHistogram = { [weak self] h in self?.histogram = h }
         renderer.onViewportChanged = { [weak self] in self?.viewportChanged() }
         renderer.layer2 = sidecar.adjustments.uniforms
+        renderer.legacyGradeActive = usesLegacyGrade
         Session.removeLegacyLinearCache()
         if let cache {
             Task.detached(priority: .utility) {
@@ -1114,16 +1225,22 @@ final class Session: CanvasHost {
         // point where `frames` is replaced.
         picked = []
         // One file is a handoff — Finder's "Open With", a Capture One "Edit
-        // With", a single drop — and it means "develop this". A folder or a
-        // multi-file selection is a session to look through, and the old build
-        // rendered the alphabetically-first frame there, spending seven seconds
-        // and 363 MB on a guess (HANDOFF §2). Now it renders nothing until a
-        // frame is chosen.
-        if new.count == 1 {
-            click(new[0].id)
-        } else {
-            unloadSelection()
-        }
+        // With", a single drop — and it means "develop this".
+        //
+        // **A batch opens on its first frame too** (2026-09-23). It used to
+        // render nothing until a frame was chosen, on the argument that
+        // rendering the alphabetically-first frame "spen[t] seven seconds and
+        // 363 MB on a guess" (HANDOFF §2). But a folder that opens onto an
+        // empty canvas saying "pick one in the filmstrip to develop" is a
+        // worse guess than the first frame is: the reader dropped a folder to
+        // look at it, and the frame they see is a *film scan* — the ceremony's
+        // negative — which is the cheapest thing to be wrong about. The
+        // develop it costs is the same one a frame switch costs.
+        // The **first** frame of this open gets the negative-to-positive
+        // moment; every later one develops the ordinary way. Armed here and
+        // consumed by the first print that lands (see `ceremonyArmed`).
+        ceremonyArmed = true
+        click(new[0].id)
     }
 
     /// Put the session down to nothing selected, keeping `frames`.
@@ -1264,13 +1381,16 @@ final class Session: CanvasHost {
         fullPending = false
         fullTask?.cancel(); fullTask = nil
         fullGeneration += 1
-        // A new frame has asked for nothing yet: it opens onto its decode, and
-        // the develop waits for Solve or an edit (see `wantsDevelop`).
-        wantsDevelop = false
+        // A new frame has asked for nothing yet — but **it has a film and a
+        // paper**, because the product hands every frame both. So the first
+        // thing that belongs on the canvas is a *print* of them, and this is
+        // the request for it. See `load`'s gate.
+        wantsDevelop = true
         developTask?.cancel(); developTask = nil
         renderer.dropFullRender()
         sidecar = Sidecar.load(for: url) ?? Sidecar()
         renderer.layer2 = sidecar.adjustments.uniforms
+        renderer.legacyGradeActive = usesLegacyGrade
         renderer.setCurves(sidecar.adjustments.curves)
         renderer.geometry = sidecar.geometry
         selectedMaskID = sidecar.masks.first?.id
@@ -1280,6 +1400,14 @@ final class Session: CanvasHost {
         decodeIsStale = false
         exposureEvByMethod = nil
         openClock = nil
+        // The ceremony does not follow a frame change: whatever film was
+        // waiting to be printed belongs to the frame that is going away, and
+        // coming back to that frame auto-develops it (`ceremonyArmed` is
+        // already spent).
+        negativePending = false
+        renderer.filmScan = nil
+        renderer.develop = 0
+        renderer.holdForNegative = false
         exif = EXIFReadout.read(url)
         stockWarning = nil
         // Both belong to the frame that is going away (§11.5): a refusal and a
@@ -1294,10 +1422,16 @@ final class Session: CanvasHost {
         // lands (`refreshLogicalSize` refits, because the view was fitted).
         if let cached = renderer.store.print(for: url) {
             renderer.setLive(cached, logical: nativeSourceSize ?? CGSize(width: cached.width, height: cached.height)); previewSoft = true
-        } else if let src = renderer.store.source(for: url) {
-            renderer.setLive(src, logical: nativeSourceSize ?? CGSize(width: src.width, height: src.height)); previewSoft = true
         } else {
+            // **A decode is not the picture.** This branch used to put the
+            // frame's cached *source* — Apple's decode, with no film in it —
+            // on the canvas, so a frame switch showed an untouched photograph
+            // until the print landed. Since the product hands every frame a
+            // film and a paper, the first thing on screen has to be a *print*
+            // of them; until one exists the canvas says so (the badge and the
+            // status line) rather than showing something that is not it.
             renderer.setLive(nil)
+            previewSoft = true
         }
         renderer.original = renderer.store.source(for: url)
         cancelNativeOriginal()
@@ -1309,7 +1443,24 @@ final class Session: CanvasHost {
         // behind "switching frames is slow".
         sampleMemory("frame_switch")
         let gen = pipeline.supersede()
-        loadTask = Task { await load(url, generation: gen) }
+        loadTask = Task {
+            await load(url, generation: gen)
+            // **The develop, after the load never inside it.** `load` has two
+            // early returns and the display-cache one — the path most opens
+            // take, because the cache is written the first time a frame is
+            // decoded — holds a *decode*, not a print. Nothing there ever
+            // asked for the develop; the cached decode went on the canvas and
+            // hid it, and with the decode off the canvas (see `select`) the
+            // hole showed as a canvas that said 显影中… for ever.
+            //
+            // Here rather than inside `load` because `ensureDeveloped` waits
+            // on `loadTask`: a load that asked for its own develop would wait
+            // on itself. This closure is about to end, so the develop it
+            // spawns finds a task that finishes.
+            if wantsDevelop, selection == url, renderer.store.print(for: url) == nil {
+                requestPrint()
+            }
+        }
         // `prefetchNeighbours(of:)` was deleted here (IMPL-decode-pipeline §4).
         // It had three defects and no measurement behind it: its entries were
         // never removed and never cancelled — not on a frame change, not in
@@ -1540,10 +1691,12 @@ final class Session: CanvasHost {
             // through `load`, which puts the small preview up first — the open
             // stays as fast as it was — and this replaces it when it lands.
             // `previewSoft` stays true either way: this is still not a print.
-            if self.previewSoft, self.renderer.store.print(for: url) == nil {
-                self.renderer.setLive(tex, logical: d.pixelSize)
-                self.previewSoft = true
-            }
+            // **Not onto the canvas.** The native decode is kept for the
+            // Original comparison and for the full render to line up with, but
+            // it is not a print and the canvas no longer pretends it is. What
+            // the user sees first is the developed preview; before that the
+            // canvas carries the status line and the badge that say so.
+            self.renderer.original = tex
             canvasLog("original \(url.lastPathComponent) at \(tex.width)x\(tex.height) "
                       + "landed in \(Int(Date().timeIntervalSince(started) * 1000)) ms")
             self.renderer.needsDraw?()
@@ -1704,7 +1857,22 @@ final class Session: CanvasHost {
         let settings = sidecar.decode
         let device = renderer.device
         let edge = previewLongEdge
-        if !requiresDecode, let picture = await cachedPrint(for: url) {
+        // **The ceremony's frame does not take the print cache.**
+        //
+        // The negative is the engine's own `scan_film` render of *this* frame
+        // (`spk_preview_scan`), so it needs the engine session to hold the
+        // frame — which is precisely what the cached print exists to avoid.
+        // Serving the cache here skipped the whole open and, with it, the
+        // ceremony: a folder opened a second time (everything cached) showed its
+        // first frame as a finished print, with no negative and no develop. The
+        // user's report was exactly that, with the status line that gives it
+        // away: "restored print".
+        //
+        // The moment is worth one develop, and it is the **same** develop a
+        // first-ever import pays for the same frame; every other frame in the
+        // open — and every later open of a frame that has been through the
+        // ceremony — still comes from the cache.
+        if !requiresDecode, !ceremonyArmed, let picture = await cachedPrint(for: url) {
             guard !Task.isCancelled, selection == url else { return }
             sourceLongEdge = max(picture.sourceSize.width, picture.sourceSize.height)
             displaySourceSize = picture.sourceSize
@@ -1728,13 +1896,17 @@ final class Session: CanvasHost {
             displaySourceSize = picture.sourceSize
             renderer.store.setSource(picture.texture, for: url, costMs: picture.costMs)
             renderer.original = picture.texture
-            if renderer.store.print(for: url) == nil {
-                renderer.setLive(picture.texture, logical: picture.sourceSize)
-                previewSoft = true
-            }
+            // The decode is kept for Original and for the full render; it is
+            // not put on the canvas (see `select`). `previewSoft` stays true
+            // because what the canvas is waiting for is a print.
+            previewSoft = true
             clock.lap("display-cache")
             noteOpen(clock, url: url, mode: "display-cache", pixels: picture.sourceSize)
             status = "\(url.lastPathComponent)  ·  cached preview"
+            // The develop is asked for by the caller, after `load` returns —
+            // **not here**. `ensureDeveloped` waits on `loadTask`, and inside
+            // `load` that is this very task: asking from here waits on
+            // itself. See `select`.
             return
         }
         // Decode and preview, and then the frame is *on the canvas* — that is
@@ -1813,10 +1985,10 @@ final class Session: CanvasHost {
         if let tex = preview.texture, !Task.isCancelled, selection == url {
             renderer.store.setSource(tex, for: url, costMs: clock.totalMs())
             renderer.original = tex
-            if renderer.store.print(for: url) == nil {
-                renderer.setLive(tex, logical: d.pixelSize)
-                previewSoft = true
-            }
+            // Not onto the canvas: the decode is what Original shows and what
+            // the full render is measured against, and the canvas waits for a
+            // print. See `select`.
+            previewSoft = true
             if diskCache != nil {
                 let cacheKey = Self.displayCacheKey(
                     url: url,
@@ -1848,15 +2020,13 @@ final class Session: CanvasHost {
         guard wantsDevelop else {
             clock.lap("decode-only")
             canvasLog(clock.summary()
-                      + "  ·  \(url.lastPathComponent) on the canvas as the decode"
-                      + " — no develop until it is asked for")
+                      + "  ·  \(url.lastPathComponent) decoded — no develop was asked for")
             noteOpen(clock, url: url, mode: "decode", pixels: d.pixelSize)
-            // A frame whose print is still resident comes back showing it —
-            // that cache is what makes switching frames instant — and calling
-            // that "decoded" would be describing a picture the user is not
-            // looking at.
+            // Only reachable for a frame that was unloaded or opened without a
+            // selection; the canvas is deliberately left with no picture
+            // rather than with a decode that is not the print.
             status = renderer.store.print(for: url) == nil
-                ? "\(url.lastPathComponent)  ·  decoded — press Solve to develop it."
+                ? "\(url.lastPathComponent)  ·  decoded"
                 : "\(url.lastPathComponent)  ·  showing its last print."
             return
         }
@@ -2171,6 +2341,17 @@ final class Session: CanvasHost {
         previewSoft = wantsFullRender
         lastRenderMs = r.elapsedMs
         if let base = statusBase { status = "\(base)  ·  \(r.reprint ? "reprint" : "render") \(Int(r.elapsedMs)) ms" }
+        // The ceremony, if this is the open's first print: the frame comes
+        // back as the film that was just developed, and Print wipes it.
+        if ceremonyArmed {
+            ceremonyArmed = false
+            // **Hold the canvas.** The print is in hand — `setLive` above put
+            // it there — but this frame is about to arrive as its *film*, and
+            // drawing the print for the second or so the scan takes would
+            // spoil the moment it exists for. Blank until the film lands.
+            renderer.holdForNegative = true
+            requestFilmScan(for: url)
+        }
         frameStates[url] = .processed
         sidecar.state = .processed
         scheduleSave()
@@ -2780,6 +2961,23 @@ final class Session: CanvasHost {
         showingOriginal = on
     }
 
+    /// A click on the picture that was not a drag: print the negative, if that
+    /// is what the canvas is holding.
+    ///
+    /// **防呆: the whole preview is the target.** The bar's Print button appears
+    /// for the one moment a frame has ever been a negative, in a bar nobody has
+    /// looked at yet, so the picture itself takes the same action — clicking the
+    /// frame is the first thing anyone tries. Returns whether it did anything,
+    /// which is also what keeps the gesture honest: at every other moment a
+    /// click on the canvas is still just a click (`CanvasClicksTests` pins both
+    /// halves).
+    @discardableResult
+    func canvasClicked() -> Bool {
+        guard negativePending, renderer.filmScan != nil else { return false }
+        printNegative()
+        return true
+    }
+
     /// Showing the original and cropping are two different questions about
     /// the frame, and the answers are drawn on top of one another: the crop
     /// handles, the thirds grid and the straighten line all sit over a
@@ -2803,18 +3001,18 @@ final class Session: CanvasHost {
     }
     func contextMenu() -> NSMenu? {
         let m = NSMenu()
-        let fit = m.addItem(withTitle: "Zoom to Fit", action: #selector(zoomFit), keyEquivalent: "")
+        let fit = m.addItem(withTitle: L(.menuZoomFit), action: #selector(zoomFit), keyEquivalent: "")
         fit.target = self; fit.isEnabled = !zoomLocked
-        let hundred = m.addItem(withTitle: "Zoom to 100 %", action: #selector(zoomHundred), keyEquivalent: "")
+        let hundred = m.addItem(withTitle: L(.menuZoomHundred), action: #selector(zoomHundred), keyEquivalent: "")
         hundred.target = self; hundred.isEnabled = !zoomLocked
         m.addItem(.separator())
-        let copy = m.addItem(withTitle: "Copy Settings", action: #selector(copyMenu), keyEquivalent: "")
+        let copy = m.addItem(withTitle: L(.menuCopySettings), action: #selector(copyMenu), keyEquivalent: "")
         copy.target = self; copy.isEnabled = selection != nil
-        let paste = m.addItem(withTitle: "Paste Settings", action: #selector(pasteMenu), keyEquivalent: "")
+        let paste = m.addItem(withTitle: L(.menuPasteSettings), action: #selector(pasteMenu), keyEquivalent: "")
         paste.target = self; paste.isEnabled = canPasteSettings
         m.addItem(.separator())
-        m.addItem(withTitle: "Reset Crop", action: #selector(resetCrop), keyEquivalent: "").target = self
-        m.addItem(withTitle: "Export…", action: #selector(exportMenu), keyEquivalent: "").target = self
+        m.addItem(withTitle: L(.menuResetCrop), action: #selector(resetCrop), keyEquivalent: "").target = self
+        m.addItem(withTitle: L(.menuExport), action: #selector(exportMenu), keyEquivalent: "").target = self
         return m
     }
     @objc private func zoomFit() { zoomToFit() }
@@ -3084,6 +3282,7 @@ final class Session: CanvasHost {
         let current = sidecar
         sidecar = previous
         renderer.layer2 = previous.adjustments.uniforms
+        renderer.legacyGradeActive = usesLegacyGrade
         renderer.setCurves(previous.adjustments.curves)
         renderer.geometry = previous.geometry
         selectedMaskID = previous.masks.first { $0.id == selectedMaskID }?.id ?? previous.masks.last?.id
@@ -3104,8 +3303,8 @@ final class Session: CanvasHost {
 
     func copySettings() {
         guard selection != nil else { return }
-        clipboard = SettingsClip(params: sidecar.params, adjustments: sidecar.adjustments)
-        status = "Copied film, print and adjustment settings."
+        clipboard = SettingsClip(params: sidecar.params)
+        status = "Copied film and print settings."
     }
 
     /// Offsets only (frontend SPEC §5.5): the decode block is per-frame and
@@ -3114,12 +3313,9 @@ final class Session: CanvasHost {
         guard let clip = clipboard, selection != nil else { return }
         pushUndo()
         sidecar.params = clip.params
-        sidecar.adjustments = clip.adjustments
         // The clip carries a Tone, so the label has to follow the paste the
         // same way it follows the pill (see `retargetSolvedEV`).
         retargetSolvedEV()
-        renderer.layer2 = clip.adjustments.uniforms
-        renderer.setCurves(clip.adjustments.curves)
         requestPrint()
         markStale()
         scheduleSave()

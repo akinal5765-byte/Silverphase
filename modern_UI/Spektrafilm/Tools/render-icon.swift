@@ -1,10 +1,10 @@
 //  render-icon.swift — the app's icon as macOS draws it, to a PNG.
 //
 //      swiftc -O Tools/render-icon.swift -o /tmp/render-icon
-//      /tmp/render-icon "$PWD/build/DerivedData/Build/Products/Debug/SpektraLab.app" \
+//      /tmp/render-icon "$PWD/build/DerivedData/Build/Products/Debug/Silverphase.app" \
 //                       ../../screenshots/app-icon.png 1024
 //
-//  Why the built app and not `Spektrafilm/SpektraLab.icon`: the Icon Composer
+//  Why the built app and not `Spektrafilm/Silverphase.icon`: the Icon Composer
 //  document is layers, a shadow and a translucency value, not a picture. What
 //  a person sees is `actool`'s composite of it — the shape mask, the material,
 //  the specular edge — and that only exists after a build. Reading it back out

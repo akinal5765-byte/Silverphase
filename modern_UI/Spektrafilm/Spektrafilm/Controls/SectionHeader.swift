@@ -67,18 +67,21 @@ struct SectionHeader: View {
     var menu: (() -> AnyView)? = nil
     var metrics = SectionMetrics()
 
+    @State private var hovered = false
+
     var body: some View {
         HStack(spacing: 0) {
-            Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
-                Triangle()
-                    .stroke(Theme.text, style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
-                    .frame(width: Theme.Metric.disclosure.width, height: Theme.Metric.disclosure.height)
-                    .rotationEffect(.degrees(expanded ? 0 : -90))
-                    .frame(width: 18, height: 18)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, Theme.Metric.headerLeading)
+            // The triangle is **ink, not a button**: the whole row opens and
+            // closes the section (UI-SPEC §3.7). A 30 pt row whose only live
+            // part is the 18 pt glyph is the "looks pressable where it is not"
+            // problem in reverse.
+            Triangle()
+                .stroke(Theme.text, style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
+                .frame(width: Theme.Metric.disclosure.width, height: Theme.Metric.disclosure.height)
+                .rotationEffect(.degrees(expanded ? 0 : -90))
+                .frame(width: 18, height: 18)
+                .padding(.leading, Theme.Metric.headerLeading)
+                .allowsHitTesting(false)
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: 13, weight: .regular))
@@ -128,7 +131,15 @@ struct SectionHeader: View {
             // quiet.
         }
         .frame(height: metrics.headerHeight)
+        // A hover wash is the only feedback. The row does not indent, resize,
+        // or brighten its text — a header that moves under the pointer makes a
+        // rail of five sections feel like a stack of loose cards.
+        .background {
+            if hovered { Rectangle().fill(Color.white.opacity(0.04)) }
+        }
         .contentShape(Rectangle())
+        .onHover { hovered = $0 }
+        .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } }
     }
 }
 

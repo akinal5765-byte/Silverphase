@@ -1171,9 +1171,80 @@ spk_status render_tier(spk_session* session, const char* tier_name, bool use_rep
 spk_status spk_reprint(spk_session* session, const char* tier, spk_result* out) {
     return render_tier(session, tier, /*use_reprint=*/true, out);
 }
-
 spk_status spk_render(spk_session* session, const char* tier, spk_result* out) {
     return render_tier(session, tier, /*use_reprint=*/false, out);
+}
+
+spk_status spk_preview_scan(spk_session* session, const char* tier_name, spk_result* out) {
+    if (!session || !out) { g_error = "session or result is null"; return SPK_ERR_INVALID_ARG; }
+    const Tier* tier = find_tier(tier_name ? tier_name : "live");
+    if (!tier) {
+        g_error = std::string("unknown tier '") + (tier_name ? tier_name : "(null)") +
+                  "'; expected live, preview or full";
+        return SPK_ERR_INVALID_ARG;
+    }
+    std::lock_guard<std::mutex> guard(session->lock);
+    g_error.clear();
+    std::memset(out, 0, sizeof *out);
+
+    gpu::Gpu* gpu = session->engine->gpu;
+    const auto started = std::chrono::steady_clock::now();
+    session->progress = Progress{};
+    session->progress.progress_id = "p" + std::to_string(next_id());
+    session->progress.detailed = std::getenv("SPEKTRAFILM_NODE_TIMINGS") != nullptr;
+
+    // A **probe** copy: `io.scan_film` is a print-stage field, so the film side
+    // is the session's own and the cached negative is reused as it stands.
+    // `digest` has to run on the copy because the scan path derives its own
+    // print-stage constants (the paper's, not the scanner's).
+    Params probe = session->params;
+    probe.io.scan_film = true;
+    std::string error;
+    if (!digest(probe, session->engine->neutral_filters, error)) {
+        g_error = error;
+        return SPK_ERR_INTERNAL;
+    }
+    auto pipeline = std::make_unique<Pipeline>(gpu, &session->engine->colour,
+                                               &session->engine->blob,
+                                               &session->engine->setup_cache);
+    if (!pipeline->build(probe, error)) { g_error = error; return SPK_ERR_USER; }
+
+    gpu->begin_frame();
+    session->progress.memory_pressure_critical = gpu->take_critical_pressure();
+    Image negative, rgb, tier_source;
+    bool ok = tier_image(session, *tier, tier_source, error);
+    if (ok) {
+        pipeline->set_source_long_edge(std::max(tier_source.h, tier_source.w),
+                                       std::max(session->source.h, session->source.w));
+        ok = negative_for(session, *tier, &session->progress, negative, error);
+    }
+    if (ok) {
+        // The swap is the whole trick: `run_print_for` reads the session's
+        // pipeline, and the session's own must be back in place when this
+        // returns — a preview may not disturb what is on the canvas.
+        std::unique_ptr<Pipeline> saved = std::move(session->pipeline);
+        session->pipeline = std::move(pipeline);
+        ok = run_print_for(session, negative, rgb, &session->progress, error);
+        pipeline = std::move(session->pipeline);
+        session->pipeline = std::move(saved);
+    }
+    if (ok) ok = materialise(session, rgb, out, error);
+    gpu->end_frame();
+
+    if (!ok) {
+        g_error = error;
+        return error == "render cancelled" ? SPK_ERR_CANCELLED : SPK_ERR_GPU;
+    }
+    out->elapsed_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - started).count();
+    // A reprint in the sense that matters to the caller: the negative was
+    // reused and only the print side ran.
+    out->reprint = 1;
+    out->negative_was_cached = 1;
+    std::snprintf(out->progress_id, sizeof out->progress_id, "%s",
+                  session->progress.progress_id.c_str());
+    session->progress.done = true;
+    return SPK_OK;
 }
 
 }  // extern "C"

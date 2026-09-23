@@ -160,15 +160,24 @@ final class SelectionModelTests: XCTestCase {
 
         // A new folder is a new set: the old picks are not photographs of this
         // one, and there is no frame here they could still name.
-        let (other, _) = try openedSession(frameCount: 2)
-        other.open(urls: [urls[0]])
-        XCTAssertEqual(other.selectedFrames, [urls[0]])
+        //
+        // **A folder now lands on its first frame** (2026-09-23). It used to
+        // land on nothing, which opened a batch onto an empty canvas and the
+        // instruction to pick a frame; the user's note was that a folder
+        // should open on frame one and show its negative. So the assertion is
+        // two things at once: the first frame *is* chosen, and the previous
+        // library's pick is gone — which the batch could not show, because
+        // that frame is no longer in `frames`.
+        let (other, otherURLs) = try openedSession(frameCount: 2)
+        other.open(urls: [otherURLs[1]])
+        XCTAssertEqual(other.selectedFrames, [otherURLs[1]])
+        XCTAssertTrue(other.picked.contains(otherURLs[1]))
         other.open(urls: [urls[0].deletingLastPathComponent()])
-        XCTAssertEqual(other.selectedFrames, [],
-                       "opening a folder carried a set over from the last one")
-        XCTAssertTrue(other.picked.isEmpty,
-                      "…and the set kept a frame from the last library, which the batch "
-                      + "hides because it is no longer in `frames`")
+        XCTAssertEqual(other.selectedFrames, [urls[0]],
+                       "opening a folder did not land on its first frame")
+        XCTAssertFalse(other.picked.contains(otherURLs[1]),
+                       "the set kept a frame from the last library, which the batch "
+                       + "hides because it is no longer in `frames`")
     }
 
     /// The two surfaces agree, and they agree **by construction**.

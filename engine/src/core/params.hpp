@@ -45,6 +45,9 @@ struct GrainParams {
 
 struct HalationParams {
     bool active = true;
+    // "profile" uses the stock metadata; overrides change only the returned
+    // base-reflection light, never the measured film profile itself.
+    std::string antihalation_mode = "profile";
     double scatter_amount = 1.0;
     double scatter_spatial_scale = 1.0;
     double halation_amount = 1.0;

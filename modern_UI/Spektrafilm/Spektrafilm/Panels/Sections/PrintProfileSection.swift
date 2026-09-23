@@ -41,7 +41,7 @@ import SwiftUI
 struct PrintProfileSection: View {
     /// Rows of the print well on screen before it scrolls. **Odd** — see
     /// `StockList.visibleRows`, and `testStockListShowsAnOddNumberOfRows`.
-    static let wellRows = 5
+    static let wellRows = 12
 
     @Bindable var session: Session
 
@@ -88,23 +88,46 @@ struct PrintProfileSection: View {
         return out
     }
 
+    /// Which rail this section is on — `FilmSection.Part`'s arrangement, for
+    /// the same reason: the paper list is a preset (left rail) and the print's
+    /// parameters are parameters (right rail), and the two halves share the
+    /// stock rows, the LUT help and the selection. UI-SPEC §1.4.
+    enum Part { case list, params }
+    var part: Part = .params
+
     var body: some View {
+        switch part {
+        case .list: listSection
+        case .params: paramSection
+        }
+    }
+
+    /// The papers, on the left rail. "No print profile" is a row in this list
+    /// rather than a switch somewhere else: it *is* a choice of what to print
+    /// on, and the list is where that choice is made.
+    private var listSection: some View {
+        PanelSection(L(.sectionPaper), key: "printList") {
+            StockList(rows: rows,
+                      selected: session.params.scanFilm || filmIsPositive
+                                ? Self.positiveID : session.params.printStock,
+                      visibleRows: Self.wellRows) { id in
+                if id == Self.positiveID {
+                    var p = session.params; p.scanFilm = true; session.params = p
+                } else {
+                    // `rowEnabled` already withholds the click; this is the
+                    // second door, because the row's own gesture is not the
+                    // only way an id reaches here.
+                    guard !filmIsPositive else { return }
+                    session.selectPrintStock(id)
+                }
+            }
+        }
+    }
+
+    /// The print's own parameters, on the right rail.
+    private var paramSection: some View {
         PanelSection(L(.sectionPrint), key: "print", menu: { AnyView(menu) }) {
             VStack(alignment: .leading, spacing: 0) {
-                StockList(rows: rows,
-                          selected: session.params.scanFilm || filmIsPositive
-                                    ? Self.positiveID : session.params.printStock,
-                          visibleRows: Self.wellRows) { id in
-                    if id == Self.positiveID {
-                        var p = session.params; p.scanFilm = true; session.params = p
-                    } else {
-                        // `rowEnabled` already withholds the click; this is the
-                        // second door, because the row's own gesture is not the
-                        // only way an id reaches here.
-                        guard !filmIsPositive else { return }
-                        session.selectPrintStock(id)
-                    }
-                }
                 // **Scope, on the row.** EDR is a *print* parameter: it
                 // changes the paper's shoulder and toe in the engine, which
                 // means the canvas, the export proof and the written file all
@@ -131,7 +154,35 @@ struct PrintProfileSection: View {
                               + "canvas is what the exported file carries.")
                 }
                 .padding(.top, Theme.Metric.rowSpacing + 5)
-                actions.padding(.top, Theme.Metric.rowSpacing + 5)
+                RailRows {
+                    ScrubSlider(label: L(.printExposure), sublabel: "stops · brighter +",
+                                value: Binding(get: { session.params.printBrightnessStops },
+                                               set: { var p = session.params; p.printBrightnessStops = $0; session.params = p }),
+                                range: -3...3, snap: 0.25,
+                                format: { String(format: "%+.2f", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive)
+                    ScrubSlider(label: L(.printYellow), sublabel: "Kodak CC",
+                                value: Binding(get: { session.params.yFilterShift },
+                                               set: { var p = session.params; p.yFilterShift = $0; session.params = p }),
+                                range: -50...50, snap: 1,
+                                format: { String(format: "%+.1f", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive)
+                    ScrubSlider(label: L(.printMagenta), sublabel: "Kodak CC",
+                                value: Binding(get: { session.params.mFilterShift },
+                                               set: { var p = session.params; p.mFilterShift = $0; session.params = p }),
+                                range: -50...50, snap: 1,
+                                format: { String(format: "%+.1f", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive)
+                    ScrubSlider(label: L(.printPreflash),
+                                value: Binding(get: { session.params.preflashExposure },
+                                               set: { var p = session.params; p.preflashExposure = $0; session.params = p }),
+                                range: 0...1, snap: 0.05,
+                                format: { String(format: "%.2f", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive)
+                    ToggleRow(label: L(.filmGlare), isOn: param(\.glareActive),
+                              help: "Print/scan glare, a separate stochastic finishing effect; not film halation.")
+                }
+                .padding(.top, Theme.Metric.rowSpacing + 5)
             }
         }
     }
@@ -148,58 +199,17 @@ struct PrintProfileSection: View {
         return "Fast flip available — baked against \(entry.pairedFilm)."
     }
 
-    /// Solve / Original, in v3's two-capsule row: 82.86 × 18.52 each,
-    /// `rx 9.26`, 12.18 apart, the pair inset 13.33 from the rail's leading
-    /// edge. Two capsules at their own width, not two halves of the rail.
-    ///
-    /// This row used to be Developed / Original, a two-state view selector —
-    /// which left Solve, the one action that prints the frame, in the "…"
-    /// menu where nobody found it. So the left capsule is Solve and the
-    /// right one is Original as a **toggle**: pressed, it shows the RAW;
-    /// pressed again, the developed print. Space still does the same while
-    /// held on the canvas.
-    ///
-    /// **No plate.** v3 fills neither capsule. Solve is an accent outline
-    /// whenever it can run; Original is accent while it is showing and muted
-    /// otherwise. A muted Original is *not* a disabled one — `rowEnabled`
-    /// carries disablement separately, so with no frame open both grey.
-    private var actions: some View {
-        HStack(spacing: Theme.Metric.actionGap) {
-            action(L(.actionSolve),
-                   help: "Auto-exposure and the enlarger filter pack for this paper — print this frame.",
-                   active: session.canSolve, enabled: session.canSolve) {
-                session.solveNow()
-            }
-            action(L(.actionOriginal),
-                   help: session.showingOriginal
-                       ? "Showing the original — press to go back to the developed print."
-                       : "Show the RAW as Apple's decoder renders it, before any film simulation (⎵ does the same, while held).",
-                   active: session.showingOriginal, enabled: session.selection != nil) {
-                session.toggledOriginal(!session.showingOriginal)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.leading, Theme.Metric.actionLeading)
-    }
-
-    private func action(_ title: String, help: String, active: Bool, enabled: Bool,
-                        _ perform: @escaping () -> Void) -> some View {
-        Button(action: perform) {
-            Text(title)
-                .font(Theme.Font.action)
-                .foregroundStyle(active ? Theme.accent : Theme.Ink.tertiary)
-                .lineLimit(1)
-                .frame(width: Theme.Metric.actionSize.width,
-                       height: Theme.Metric.actionSize.height)
-                .overlay(RoundedRectangle(cornerRadius: Theme.Metric.actionRadius, style: .continuous)
-                    .stroke(active ? Theme.accent : Theme.Ink.tertiary, lineWidth: 1))
-                .frame(height: Theme.Metric.actionHitHeight)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .rowEnabled(enabled)
-        .help(help)
-    }
+    // **No action row.** It held "Solve", and Solve turned out to do
+    // nothing: measured through the shipping dylib, `solve(target: "both")`
+    // left every parameter and every pixel exactly where the open path had
+    // already put them — the exposure solve runs on open and the neutral
+    // filter pack comes from the database during `digest`. What the button
+    // *did* was force a re-render, which read as "refresh the picture".
+    //
+    // The develop it was there to ask for is now asked for by the selection
+    // itself (`Session.select`), because a frame always has a film and a
+    // paper and so always has a print. `solveNow` stays as the programmatic
+    // re-solve; nothing in the interface calls it.
 
     private var menu: some View {
         Group {
@@ -212,9 +222,9 @@ struct PrintProfileSection: View {
             // better than a live-looking item that silently does not fire.
             .disabled(filmIsPositive
                       || session.catalog.stock(session.params.filmStock)?.targetPrint == nil)
-            // Also the Solve capsule above; kept here under its longer name.
-            Button(L(.actionProcess)) { session.solveNow() }
-                .disabled(!session.canSolve)
+            // **No second entry for the solve.** It was here under its longer
+            // name while the row's capsule said only "配光"; now the row says
+            // 自动测光与配光 and this is the same action twice.
             Divider()
             // The caveat is in the label because it is the whole decision.
             // A toggle called "Fast preview" with the explanation somewhere

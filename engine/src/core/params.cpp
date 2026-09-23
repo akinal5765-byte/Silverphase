@@ -16,6 +16,7 @@ constexpr FieldType S = FieldType::Str;
 constexpr FieldType I = FieldType::Int;
 constexpr Layer SHOOT = Layer::Shoot;
 constexpr Layer PRINT = Layer::Print;
+void apply_halation_preset(Params& p);
 
 // service/schema.py::LIVE_MUTABLE -- deliberately short. API-SPEC §1 verified
 // these three specifically; everything else gets a rebuild, which measured
@@ -46,6 +47,7 @@ const SchemaField kFields[] = {
     {"lens_blur_um",             "camera.lens_blur_um",                   F, SHOOT, true, 0.0, 200.0, false},
     {"halation_active",          "film_render.halation.active",           B, SHOOT, false, 0, 0, false},
     {"halation_amount",          "film_render.halation.halation_amount",  F, SHOOT, true, 0.0, 4.0, false},
+    {"antihalation_mode",        "film_render.halation.antihalation_mode", S, SHOOT, false, 0, 0, false},
     {"halation_boost_ev",        "film_render.halation.boost_ev",         F, SHOOT, true, 0.0, 8.0, false},
     {"grain_active",             "film_render.grain.active",              B, SHOOT, false, 0, 0, false},
     {"grain_sublayers_active",   "film_render.grain.sublayers_active",    B, SHOOT, false, 0, 0, false},
@@ -63,8 +65,8 @@ const SchemaField kFields[] = {
     {"geometry_flip_h",          "io.geometry.flip_h",                    B, SHOOT, false, 0, 0, false},
     {"geometry_flip_v",          "io.geometry.flip_v",                    B, SHOOT, false, 0, 0, false},
     {"print_exposure",           "enlarger.print_exposure",               F, PRINT, true, 0.05, 20.0, true},
-    {"m_filter_shift",           "enlarger.m_filter_shift",               F, PRINT, true, -1.0, 1.0, true},
-    {"y_filter_shift",           "enlarger.y_filter_shift",               F, PRINT, true, -1.0, 1.0, true},
+    {"m_filter_shift",           "enlarger.m_filter_shift",               F, PRINT, true, -50.0, 50.0, true},
+    {"y_filter_shift",           "enlarger.y_filter_shift",               F, PRINT, true, -50.0, 50.0, true},
     {"c_filter_neutral",         "enlarger.c_filter_neutral",             F, PRINT, true, 0.0, 200.0, false},
     {"m_filter_neutral",         "enlarger.m_filter_neutral",             F, PRINT, true, 0.0, 200.0, false},
     {"y_filter_neutral",         "enlarger.y_filter_neutral",             F, PRINT, true, 0.0, 200.0, false},
@@ -163,6 +165,7 @@ std::string* str_slot(Params& p, const std::string& path) {
     if (path == "enlarger.illuminant") return &p.enlarger.illuminant;
     if (path == "io.output_color_space") return &p.io.output_color_space;
     if (path == "camera.auto_exposure_method") return &p.camera.auto_exposure_method;
+    if (path == "film_render.halation.antihalation_mode") return &p.film_render.halation.antihalation_mode;
     return nullptr;
 }
 
@@ -258,6 +261,13 @@ bool validate_delta(const Json& delta, std::string& error, std::string& param) {
             param = kv.first;
             return false;
         }
+        if (kv.first == "antihalation_mode" &&
+            v.as_string() != "profile" && v.as_string() != "strong" &&
+            v.as_string() != "weak" && v.as_string() != "none") {
+            error = "'antihalation_mode' must be profile, strong, weak, or none";
+            param = kv.first;
+            return false;
+        }
         if (f->has_range) {
             const double d = v.as_double();
             if (!(d >= f->lo && d <= f->hi)) {
@@ -296,6 +306,7 @@ void apply_delta(Params& params, const Json& delta) {
             case FieldType::Int: if (int* s = int_slot(params, f->path)) *s = kv.second.as_int(); break;
         }
     }
+    if (delta.has("antihalation_mode")) apply_halation_preset(params);
 }
 
 Json read_params(const Params& params) {
@@ -325,12 +336,13 @@ void set2(double dst[2], double a, double b) { dst[0] = a; dst[1] = b; }
 void apply_halation_preset(Params& p) {
     if (p.film.info.support != "film") return;
     const std::string& use = p.film.info.use;
-    const std::string& ah = p.film.info.antihalation;
+    const std::string& mode = p.film_render.halation.antihalation_mode;
+    const std::string& ah = mode == "profile" ? p.film.info.antihalation : mode;
     const double sigma = use == "cine" ? 50.0 : 65.0;
     double s0, s1, s2;
     if (ah == "strong") { s0 = 0.015; s1 = 0.005; s2 = 0.0; }
     else if (ah == "weak") { s0 = 0.08; s1 = 0.02; s2 = 0.0; }
-    else if (ah == "no") { s0 = 0.30; s1 = 0.10; s2 = 0.015; }
+    else if (ah == "no" || ah == "none") { s0 = 0.30; s1 = 0.10; s2 = 0.015; }
     else return;   // an unknown tag leaves the defaults, as the dict lookup does
     if (use != "still" && use != "cine") return;
     set3(p.film_render.halation.halation_first_sigma_um, sigma, sigma, sigma);

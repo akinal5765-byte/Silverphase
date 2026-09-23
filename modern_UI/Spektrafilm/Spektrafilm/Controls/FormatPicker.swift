@@ -38,6 +38,8 @@ struct PillMenu<T: Hashable>: View {
     /// An extra mark after the value: the `CINE` pill, on a cine film type.
     var trailingBadge: (T) -> Bool = { _ in false }
 
+    @State private var hovered = false
+
     var body: some View {
         HStack(spacing: 0) {
             Text(label).font(font).foregroundStyle(Theme.Ink.secondary)
@@ -74,8 +76,9 @@ struct PillMenu<T: Hashable>: View {
                 // gives them one width and one left edge; this is that.
                 .frame(width: fill ? nil : Theme.Metric.pickerWidth)
                 .frame(maxWidth: fill ? .infinity : nil)
-                .background(plate, in: Capsule())
+                .pillSurface(base: plate, hovered: hovered && enabled)
                 .contentShape(Capsule())
+                .onHover { hovered = $0 }
             }
             .menuStyle(.button)
             .buttonStyle(.plain)

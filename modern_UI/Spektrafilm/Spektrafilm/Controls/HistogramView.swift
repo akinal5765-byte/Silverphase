@@ -9,6 +9,7 @@ struct HistogramPlot: View {
     var channels: Set<CurveChannel> = [.rgb]
     var showGrid = true
     var lineWidth: CGFloat = 1
+    var background: Color = Theme.plot
 
     var body: some View {
         Canvas { ctx, size in
@@ -47,7 +48,7 @@ struct HistogramPlot: View {
                 ctx.stroke(path(row: row), with: .color(color.opacity(0.95)), lineWidth: lineWidth)
             }
         }
-        .background(Theme.plot)
+        .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 2))
     }
 }

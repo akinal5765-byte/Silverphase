@@ -17,6 +17,27 @@ import XCTest
 @MainActor
 final class CanvasViewTests: XCTestCase {
 
+    func testBusyFilmScanReleasesTheBlankCanvasWithoutShowingStaleFilm() throws {
+        let session = Session()
+        let selected = URL(fileURLWithPath: "/tmp/film-scan-selected.tif")
+        let previous = URL(fileURLWithPath: "/tmp/film-scan-previous.tif")
+        let texture = try XCTUnwrap(session.renderer.store.makeWritable(width: 8, height: 8))
+        session.selection = selected
+        session.busy = true
+        session.renderer.holdForNegative = true
+
+        // A result for another frame must not disturb the current hold.
+        session.finishFilmScan(texture, for: previous)
+        XCTAssertTrue(session.renderer.holdForNegative)
+
+        // The selected frame's result is obsolete while a newer render runs,
+        // but its hold must still end so the print already in hand is visible.
+        session.finishFilmScan(texture, for: selected)
+        XCTAssertFalse(session.renderer.holdForNegative)
+        XCTAssertNil(session.renderer.filmScan)
+        XCTAssertFalse(session.negativePending)
+    }
+
     /// The formats `CAMetalLayer` accepts. Anything else raises an ObjC
     /// exception on assignment, which is a crash, not an error.
     static let drawableFormats: Set<MTLPixelFormat> = [
@@ -415,5 +436,79 @@ final class CanvasViewTests: XCTestCase {
         session.renderer.setLive(tex)     // fits, and must refresh the readout itself
         XCTAssertEqual(session.zoomPercent, 100, "a 1000 pt image fitted to 500 pt at 2× is 100 %")
         XCTAssertTrue(session.isFit)
+    }
+
+    // MARK: the click that prints the negative
+
+    /// **A click on the picture prints the negative; a drag does not.**
+    ///
+    /// The user asked for the whole preview to be a target for the one action
+    /// the app has while a frame is still its film ("防呆"), and what can
+    /// silently break it is the difference between a click and a drag: a pan that
+    /// printed the negative would make the canvas unusable for the one moment the
+    /// ceremony is up. Both are driven through the real view.
+    func testAMouseUpWithoutADragIsAClickAndWithOneIsNot() throws {
+        let spy = try ClickSpy()
+        let view = CanvasNSView.configured(host: spy)
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 300),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        view.layoutSubtreeIfNeeded()
+
+        func event(_ type: NSEvent.EventType, _ p: CGPoint) -> NSEvent? {
+            NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: 0,
+                               windowNumber: window.windowNumber, context: nil,
+                               eventNumber: 0, clickCount: 1, pressure: 0)
+        }
+        func press(from: CGPoint, to: CGPoint) throws {
+            view.mouseDown(with: try XCTUnwrap(event(.leftMouseDown, from)))
+            view.mouseUp(with: try XCTUnwrap(event(.leftMouseUp, to)))
+        }
+
+        // A hand on a trackpad moves the pointer a little; that is still a click.
+        try press(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 102, y: 101))
+        XCTAssertEqual(spy.clicks, 1, "a click on the canvas never reached the host")
+
+        try press(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 140, y: 130))
+        XCTAssertEqual(spy.clicks, 1, "a pan printed the negative")
+    }
+
+    /// The other half of the same guarantee, and the one that keeps the gesture
+    /// honest: at any other moment a click on the canvas is still just a click.
+    func testAClickOnTheCanvasPrintsNothingWhenThereIsNoNegative() {
+        let session = Session()
+        XCTAssertFalse(session.canvasClicked(), "a click on an idle canvas printed something")
+    }
+
+    /// The host a click test needs: a real renderer — the view refuses a press
+    /// without one — and nothing else, except a count of what it was asked.
+    @MainActor
+    private final class ClickSpy: CanvasHost {
+        let renderer: Renderer
+        var tool: CanvasTool = .select
+        var pickerActive = false
+        var geometry = Geometry.default
+        var cropPivot = CGPoint(x: 0.5, y: 0.5)
+        var sourceImageSize = CGSize(width: 100, height: 100)
+        var maskHandles: [MaskHandle] = []
+        private(set) var clicks = 0
+
+        init() throws { renderer = try XCTUnwrap(Renderer()) }
+
+        @discardableResult func canvasClicked() -> Bool { clicks += 1; return true }
+        func viewportChanged() {}
+        func picked(normalised: CGPoint) {}
+        func geometryChanged(_ g: Geometry) {}
+        func commitCrop() {}
+        func cancelCrop() {}
+        func straightenPreview(_ line: StraightenLine?) {}
+        func maskHandleDragged(_ handle: MaskHandle, to normalised: CGPoint) {}
+        func toggledOriginal(_ on: Bool) {}
+        func contextMenu() -> NSMenu? { nil }
+        func hovered(normalised: CGPoint?) {}
+        func stepFrame(_ delta: Int) {}
     }
 }

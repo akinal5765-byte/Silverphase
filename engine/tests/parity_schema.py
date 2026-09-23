@@ -45,6 +45,16 @@ STOCK_PAIRS = [
 # directions — a divergence that stops diverging is a failure too, so the list
 # cannot go stale.
 KNOWN = {
+    ("m_filter_shift", "range"): (
+        [-50.0, 50.0],
+        "The macOS print UI uses Kodak CC units and needs a useful filtration range; "
+        "the Python service's old narrow transport limit is not a material-model limit.",
+    ),
+    ("y_filter_shift", "range"): (
+        [-50.0, 50.0],
+        "The macOS print UI uses Kodak CC units and needs a useful filtration range; "
+        "the Python service's old narrow transport limit is not a material-model limit.",
+    ),
     ("output_color_space", "default"): (
         "ProPhoto RGB",
         "RFC-018 §5.1: the declared output default is the *working space*, so that "
@@ -61,6 +71,10 @@ KNOWN = {
 # exception exact: the test still fails on a rename, reordered row, changed
 # path/type/layer/default/live/range, or if the Python oracle later gains it.
 NATIVE_ONLY = {
+    "antihalation_mode": {
+        "path": "film_render.halation.antihalation_mode", "type": "str", "layer": "shoot",
+        "default": "profile", "live": False, "range": None,
+    },
     "extended_dynamic_range": {
         "path": "print_render.edr_enabled", "type": "bool", "layer": "print",
         "default": False, "live": False, "range": None,

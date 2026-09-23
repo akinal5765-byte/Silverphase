@@ -50,7 +50,8 @@ actor DiskCacheStore {
     nonisolated let root: URL
     /// The ceiling this store evicts down to. A `var` since RFC-020's Settings
     /// work: it was a constant 16 GB nothing could see or change, which is the
-    /// condition `Diagnostics.diskCacheCapNote` describes. Changing it evicts
+    /// condition the Settings page's Disk cache section now describes
+    /// (`S.setCacheNote`). Changing it evicts
     /// immediately rather than waiting for the next `store`, because the
     /// person who just lowered it did so to get the disk back now.
     private(set) var capBytes: UInt64

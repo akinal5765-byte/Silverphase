@@ -153,12 +153,6 @@ final class Diagnostics {
     nonisolated static let memoryReserveRange = 0...32_768
     nonisolated static let defaultMemoryReserveMB = 2_000
 
-    /// The caption under the control, in the same idiom as the other two.
-    nonisolated static let memoryReserveNote =
-        "Memory SpektraLab leaves free for everything else. A frame whose forecast peak does not fit "
-        + "under it gets a warning you can dismiss — never a refusal. The override below suppresses "
-        + "the warning, not eviction."
-
     /// How much memory SpektraLab may hold in its caches. 0 is the explicit
     /// Unlimited state: finite values are clamped to the published range, while
     /// 0 means the cap is not enforced.
@@ -199,14 +193,6 @@ final class Diagnostics {
         let physicalRAMMB = Double(ProcessInfo.processInfo.physicalMemory) / 1_000_000
         return min(8_192, Int(0.4 * physicalRAMMB))
     }
-
-    /// The caption under the cap control. The first sentence says which
-    /// holdings the number actually governs; the rest separates the two
-    /// independent budgets so the reserve cannot be read as a cap.
-    nonisolated static let memoryCapNote =
-        "How much SpektraLab may hold in caches and scratch buffers. The frame you are looking at is "
-        + "never evicted, whatever this says. Free memory is set by the other applications on the "
-        + "machine; this is the part SpektraLab decides."
 
     /// How much disk the shared decode/print cache may hold (`DiskCacheStore`).
     ///
@@ -253,16 +239,6 @@ final class Diagnostics {
     /// point: the old number was chosen by nobody, and a decode cache that can
     /// quietly reach 16 GB on a 256 GB laptop is the complaint this answers.
     nonisolated static let defaultDiskCacheCapMB = 8_000
-
-    /// The caption under the control. It says what is cached and what losing
-    /// it costs, because "clear the cache" is only a safe-sounding button if
-    /// the page says what it throws away.
-    nonisolated static let diskCacheCapNote =
-        "Disk SpektraLab may use for decoded frames and finished prints, so reopening a photo does not "
-        + "decode it again. Nothing here is your work — every entry can be remade from the original "
-        + "file, so the only cost of emptying it is the wait the next time you open those frames. "
-        + "Least-valuable entries are evicted first, by how often each is used against what it cost "
-        + "to make."
 
     /// Where sessions are written (§11.4). Default `~/Library/Logs/SpektraLab/`.
     var logDirectory: URL {
@@ -690,15 +666,4 @@ final class Diagnostics {
         }
     }
 
-    /// The caption under the checkbox (§5.2: "the Settings toggle must say so
-    /// in the same sentence").
-    nonisolated static let perNodeTimingsNote =
-        "Asks the engine for a time per pipeline node. Each node must flush before its timer stops, "
-        + "which gives up the batching the engine depends on — renders get markedly slower. It is a "
-        + "diagnosis mode, never a default."
-
-    /// The caption under the destination picker (§11.4).
-    nonisolated static let logDirectoryNote =
-        "Where sessions are written. A change takes effect at the next launch; this session keeps "
-        + "writing to the file it opened."
 }

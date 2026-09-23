@@ -247,7 +247,8 @@ struct FilmParams: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case filmStock, printStock, exposureCompensationEV, autoExposureMethod, autoExposure
         case filmFormatMM, filmFrame, filmSide, sideLengthMM, grainActive, halationActive
-        case printBrightnessStops, yFilterShift, mFilterShift, glareActive, scanFilm
+        case halationAmount, antihalationMode, developmentContrast, colorSeparation
+        case printBrightnessStops, yFilterShift, mFilterShift, preflashExposure, glareActive, scanFilm
         case extendedDynamicRange
     }
 
@@ -294,12 +295,22 @@ struct FilmParams: Codable, Equatable, Sendable {
     var sideLengthMM: Double = 24
     var grainActive: Bool = true
     var halationActive: Bool = true
+    /// A multiplier on the stock's own halation response; 1 preserves it.
+    var halationAmount: Double = 1
+    /// "profile" follows the stock; the other modes override only its
+    /// anti-halation reflection preset, without changing the profile file.
+    var antihalationMode: String = "profile"
+    /// Density-curve gamma, not a chemical push/pull model.
+    var developmentContrast: Double = 1
+    /// Relative strength of the film's DIR coupler inhibition.
+    var colorSeparation: Double = 1
     // --- print ---
     /// UI stops, brighter positive. Wire: `print_exposure = 2^(-stops)`,
     /// because less enlarger exposure prints brighter (API-SPEC §2).
     var printBrightnessStops: Double = 0            // -3…3
-    var yFilterShift: Double = 0                     // -1…1  yellow ↔ blue
-    var mFilterShift: Double = 0                     // -1…1  magenta ↔ green
+    var yFilterShift: Double = 0                     // -50…50 Kodak CC, yellow ↔ blue
+    var mFilterShift: Double = 0                     // -50…50 Kodak CC, magenta ↔ green
+    var preflashExposure: Double = 0                 // 0…1, enlarger preflash
     var glareActive: Bool = true
     /// "No print profile": scan the developed film instead of printing it, so
     /// a slide film reads as a positive and a negative film reads as the
@@ -340,9 +351,14 @@ struct FilmParams: Codable, Equatable, Sendable {
         sideLengthMM = 24
         grainActive = true
         halationActive = true
+        halationAmount = 1
+        antihalationMode = "profile"
+        developmentContrast = 1
+        colorSeparation = 1
         printBrightnessStops = 0
         yFilterShift = 0
         mFilterShift = 0
+        preflashExposure = 0
         glareActive = true
         scanFilm = false
         extendedDynamicRange = false
@@ -367,9 +383,14 @@ struct FilmParams: Codable, Equatable, Sendable {
         sideLengthMM = try c.decode(Double.self, forKey: .sideLengthMM)
         grainActive = try c.decode(Bool.self, forKey: .grainActive)
         halationActive = try c.decode(Bool.self, forKey: .halationActive)
+        halationAmount = try c.decodeIfPresent(Double.self, forKey: .halationAmount) ?? 1
+        antihalationMode = try c.decodeIfPresent(String.self, forKey: .antihalationMode) ?? "profile"
+        developmentContrast = try c.decodeIfPresent(Double.self, forKey: .developmentContrast) ?? 1
+        colorSeparation = try c.decodeIfPresent(Double.self, forKey: .colorSeparation) ?? 1
         printBrightnessStops = try c.decode(Double.self, forKey: .printBrightnessStops)
         yFilterShift = try c.decode(Double.self, forKey: .yFilterShift)
         mFilterShift = try c.decode(Double.self, forKey: .mFilterShift)
+        preflashExposure = try c.decodeIfPresent(Double.self, forKey: .preflashExposure) ?? 0
         glareActive = try c.decode(Bool.self, forKey: .glareActive)
         scanFilm = try c.decode(Bool.self, forKey: .scanFilm)
         extendedDynamicRange = try c.decodeIfPresent(Bool.self, forKey: .extendedDynamicRange) ?? false
@@ -398,9 +419,14 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("grain_active", .bool(grainActive), .shoot),
             ("grain_sublayers_active", .bool(grainActive), .shoot),
             ("halation_active", .bool(halationActive), .shoot),
+            ("halation_amount", .double(halationAmount), .shoot),
+            ("antihalation_mode", .string(antihalationMode), .shoot),
+            ("density_curve_gamma", .double(developmentContrast), .shoot),
+            ("dir_couplers_amount", .double(colorSeparation), .shoot),
             ("print_exposure", .double(FilmParams.printExposure(stops: printBrightnessStops)), .print),
             ("y_filter_shift", .double(yFilterShift), .print),
             ("m_filter_shift", .double(mFilterShift), .print),
+            ("preflash_exposure", .double(preflashExposure), .print),
             ("glare_active", .bool(glareActive), .print),
             ("scan_film", .bool(scanFilm), .print),
             ("extended_dynamic_range", .bool(effectiveExtendedDynamicRange), .print),
@@ -436,5 +462,5 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// (`schema.LIVE_MUTABLE`). Informational — the client sends the same
     /// delta either way — but the scheduler uses it to pick the tighter
     /// debounce.
-    static let liveMutable: Set<String> = ["print_exposure", "m_filter_shift", "y_filter_shift"]
+    static let liveMutable: Set<String> = ["print_exposure", "m_filter_shift", "y_filter_shift", "preflash_exposure"]
 }

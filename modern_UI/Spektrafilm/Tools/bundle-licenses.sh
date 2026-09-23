@@ -35,12 +35,13 @@ mkdir -p "$out"
 # application and the licence file still pointing at the upstream project,
 # which is the source of the profiles and not of this app. If the repository is
 # renamed, change it in both places and re-run this script.
-source_url="https://github.com/JamesQiu2005/SpektraLab"
+source_url="https://github.com/akinal5765-byte/Silverphase"
+predecessor_url="https://github.com/JamesQiu2005/SpektraLab"
 # The upstream project, whose profiles and print model this application uses.
 # A different work under a different licence; not a substitute for the above.
 upstream_url="https://github.com/andreavolpato/spektrafilm"
 
-cp "$root/license/LICENSE" "$out/SpektraLab-GPL-3.0.txt"
+cp "$root/license/LICENSE" "$out/Silverphase-GPL-3.0.txt"
 cp "$root/license/SPEKTRAFILM_LICENSE.txt" "$out/Profiles-and-LUTs-CC-BY-SA-4.0.txt"
 cp "$root/engine/third_party/metal-cpp/LICENSE.txt" "$out/metal-cpp-Apache-2.0.txt"
 
@@ -112,11 +113,11 @@ cat > "$out/README.txt" <<README
 Licences and credits
 ====================
 
-SpektraLab is free software. This directory carries the full text of every
+Silverphase is free software. This directory carries the full text of every
 licence the application is distributed under, because a binary that ships
 without them is not licensed to be shipped.
 
-  SpektraLab-GPL-3.0.txt
+  Silverphase-GPL-3.0.txt
       The application and the C++ render engine, GPL-3.0-or-later. You have
       the right to the corresponding source code of this application:
       $source_url
@@ -137,11 +138,11 @@ without them is not licensed to be shipped.
       metal-cpp, Apple's C++ bindings for Metal, Apache-2.0, compiled into
       the binary.
 
-Two projects, two links, and they are not interchangeable. SpektraLab is a
-native macOS application and a C++ render engine, and the first link above is
-where its source is. The film simulation, the measured profiles and the
-print+scan model are Andrea Volpato's spektrafilm, and the second link is
-where that lives. SpektraLab is not affiliated with or endorsed by it.
+Silverphase is an independent derivative of SpektraLab ($predecessor_url).
+The first link above is for Silverphase's corresponding source. The film
+simulation, measured profiles and print+scan model originate in Andrea
+Volpato's spektrafilm at the second link. Silverphase is not affiliated with
+or endorsed by either original project.
 README
 
 printf 'licences   -> %s\n' "$out"

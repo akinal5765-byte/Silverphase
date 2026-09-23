@@ -1,4 +1,9 @@
-# SpektraLab — the SwiftUI frontend
+# Silverphase — the SwiftUI frontend
+
+This frontend descends from SpektraLab. Some paths and historical interface
+descriptions below still use the old product name; the current application is
+Silverphase, while the `Spektrafilm` source directory and Xcode target retain
+their internal names for build compatibility.
 
 > **Read §1, §3, §4 and §7 with this one correction.** This document was
 > written 2026-09-08, when the app talked to a Python render service over

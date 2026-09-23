@@ -70,11 +70,6 @@ struct CameraSection: View {
                             range: -4...4, snap: 1 / 3, format: { String(format: "%+.1f", $0) },
                             metrics: .camera)
                 WhiteBalanceRows(session: session)
-                ScrubSlider(label: L(.cameraVignetting),
-                            value: Binding(get: { session.adjustments.vignette.amount },
-                                           set: { var a = session.adjustments; a.vignette.amount = $0; session.adjustments = a }),
-                            range: -100...100, snap: 5, format: { String(format: "%+.0f", $0) },
-                            metrics: .camera)
                 ToggleRow(label: L(.cameraLensCorrection),
                           isOn: Binding(get: { session.decode.lensCorrection },
                                         set: { session.setLensCorrection($0) }),

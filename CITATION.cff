@@ -1,8 +1,9 @@
 cff-version: 1.2.0
 message: |
-  SpektraLab is a native macOS application and C++ Metal render engine built on
-  Andrea Volpato's `spektrafilm`, which is where the film simulation, the
-  measured profiles and the print+scan model come from.
+  Silverphase is an independent derivative of SpektraLab, the native macOS
+  application and C++ Metal render engine built on Andrea Volpato's
+  `spektrafilm`. The film simulation, measured profiles and print+scan model
+  come from spektrafilm; the original macOS port comes from SpektraLab.
 
   **If you are citing the science, cite spektrafilm, not this.** The physical
   modelling, the profile measurements and the RA-4 print simulation are that
@@ -10,13 +11,13 @@ message: |
   https://github.com/andreavolpato/spektrafilm. Cite this repository only when
   you mean the application, the C++ port of the engine, or the GPU pipeline.
 
-  SpektraLab is GPL-3.0-or-later; the profiles and the LUTs baked from them are
-  CC BY-SA 4.0 and remain Andrea Volpato's work. SpektraLab is not affiliated
-  with or endorsed by the spektrafilm project.
+  Silverphase is GPL-3.0-or-later; the profiles and the LUTs baked from them
+  are CC BY-SA 4.0 and remain Andrea Volpato's work. Silverphase is not
+  affiliated with or endorsed by either original project.
 
-title: "SpektraLab: a macOS application for spectral film and print simulation"
+title: "Silverphase: a macOS application for spectral film and print simulation"
 abstract: |
-  SpektraLab develops a scene-linear photograph through a virtual film
+  Silverphase develops a scene-linear photograph through a virtual film
   negative and a print, on the GPU, interactively. It is a SwiftUI application
   with a C++/Metal port of the spektrafilm render engine compiled into it, held
   to the Python reference at float32 storage epsilon by a set of parity
@@ -24,13 +25,14 @@ abstract: |
   modelling it renders is spektrafilm's.
 
 authors:
+  - name: "akinal5765-byte"
   - family-names: "Qiu"
     given-names: "Hanze"
 
 version: "0.3"
 license: "GPL-3.0-or-later"
-repository-code: "https://github.com/JamesQiu2005/SpektraLab"
-url: "https://github.com/JamesQiu2005/SpektraLab"
+repository-code: "https://github.com/akinal5765-byte/Silverphase"
+url: "https://github.com/akinal5765-byte/Silverphase"
 
 keywords:
   - "film emulation"
@@ -43,9 +45,17 @@ keywords:
 
 references:
   - type: "software"
+    title: "SpektraLab: original macOS application and C++/Metal engine port"
+    authors:
+      - family-names: "Qiu"
+        given-names: "Hanze"
+    repository-code: "https://github.com/JamesQiu2005/SpektraLab"
+    url: "https://github.com/JamesQiu2005/SpektraLab"
+    license: "GPL-3.0-or-later"
+  - type: "software"
     title: "spektrafilm: spectral simulation of analog photography"
     abstract: |
-      The spectral film and print simulation SpektraLab renders. Source of the
+      The spectral film and print simulation Silverphase renders. Source of the
       28 film and paper profiles, the characteristic curves, the DIR-coupler
       and halation models, and the RA-4 print and scan chain.
     authors:

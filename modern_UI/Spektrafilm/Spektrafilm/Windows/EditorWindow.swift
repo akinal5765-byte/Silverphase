@@ -118,7 +118,6 @@ struct EditorWindow: View {
                                                    range: Theme.Metric.leftPanelRange)
     @State private var rightWidth = PanelWidthStore(name: "editor.right",
                                                     range: Theme.Metric.rightPanelRange)
-
     private var printLayout: some View {
         HStack(spacing: 0) {
             if !session.leftCollapsed {
@@ -142,6 +141,13 @@ struct EditorWindow: View {
                     .transition(.move(edge: .leading))
             }
             centreColumn
+            // The parameters rail, back after a round in which every parameter
+            // lived on the left beside the film and paper lists. It is the
+            // same arrangement Lightroom Classic uses and the one UI-SPEC
+            // §1.4 settled on: catalogues left, numbers right. The state and
+            // the width tokens never left — `Session.rightCollapsed` and
+            // `Theme.Metric.rightPanelRange` were kept for exactly this — so
+            // nothing here is new state.
             if !session.rightCollapsed {
                 RightPanel(session: session)
                     .frame(width: session.snapshotPanelWidths ? rightWidth.range.standard
@@ -252,6 +258,14 @@ struct CanvasArea: View {
         .overlay(alignment: .bottom) { HoverEdgeTab(edge: .bottom, collapsed: $session.filmstripCollapsed) }
         .overlay(alignment: .topTrailing) {
             VStack(alignment: .trailing, spacing: CanvasBadges.spacing) {
+                // **Nothing to measure, nothing on screen.** The histogram is
+                // 1024 zeros until a frame is developed, and a scrim with no
+                // ink under it is not a faint histogram — it is a grey smudge
+                // on the photograph. Caught by looking at a capture of the
+                // empty window.
+                if session.histogram.contains(where: { $0 > 0 }) {
+                    CanvasHistogram(session: session)
+                }
                 ForEach(session.canvasBadges, id: \.self) { badge($0) }
             }
             .padding(CanvasBadges.inset)
@@ -282,18 +296,76 @@ struct CanvasArea: View {
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if let w = session.stockWarning {
-                Text(w).font(Theme.Font.caption).foregroundStyle(Theme.text).lineLimit(2)
-                    .padding(6).background(Theme.card.opacity(0.85), in: RoundedRectangle(cornerRadius: 6)).padding(8)
-                    .frame(maxWidth: 360, alignment: .leading)
+            // **The status lives on the canvas now.** It used to be a text run
+            // in the middle of the toolbar, which is a strange place for a
+            // message: the bar is where the controls are, and the picture is
+            // what the message is about. It wears the overlay treatment — ink
+            // and a shadow, no plate (UI-SPEC §2.9) — so it stays legible over
+            // any photograph without pretending to be a panel.
+            VStack(alignment: .leading, spacing: 4) {
+                if let w = session.stockWarning {
+                    Text(w).font(Theme.Font.caption).foregroundStyle(Theme.text)
+                        .lineLimit(2).frame(maxWidth: 360, alignment: .leading)
+                }
+                HStack(spacing: 8) {
+                    if session.working {
+                        ProgressView().controlSize(.small).scaleEffect(0.7)
+                    }
+                    Text(session.working
+                         ? String(format: "%@ · %.1f s", session.status, session.workSeconds)
+                         : session.status)
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                    if !session.serviceReady, session.selection != nil {
+                        Button(L(.actionRestart)) { session.restartService() }
+                            .buttonStyle(.plain)
+                            .font(Theme.Font.caption)
+                            .foregroundStyle(Theme.accent)
+                            .help("The render service is not running. Start it again.")
+                    }
+                }
             }
+            .padding(CanvasBadges.inset)
+            .shadow(color: Theme.overlayInkShadow, radius: 1)
         }
     }
 
     private func badge(_ text: String) -> some View {
+        // No plate either (§2.9): the ink and its shadow are the badge.
         Text(text).font(Theme.Font.caption).foregroundStyle(Theme.text)
             .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(Theme.card.opacity(0.8), in: Capsule())
+            .shadow(color: Theme.overlayInkShadow, radius: 1)
+    }
+}
+
+/// The histogram is a read-only instrument painted **on** the photograph, not
+/// a panel that floated over it.
+///
+/// It used to be a card: `.black.opacity(0.58)` inside a rounded rectangle
+/// with 10 pt of padding, plus the section title and a button. Three things
+/// were wrong with that. A plate that dark is a hole in the picture; a title
+/// is a label on an instrument whose shape already says what it is; and a
+/// one-shot action button does not belong on the canvas at all (UI-SPEC
+/// §1.3). The button moved to the Frame menu.
+///
+/// What is left is the ink, with a **soft scrim behind it and no edge** — a
+/// blurred wash rather than a surface, which is what §2.9 asks for: legible
+/// over any photograph without pretending to be a panel.
+private struct CanvasHistogram: View {
+    @Bindable var session: Session
+
+    var body: some View {
+        HistogramPlot(bins: session.histogram, channels: [.rgb],
+                      showGrid: false, background: .clear)
+            .frame(width: 196, height: 54)
+            .shadow(color: Theme.overlayInkShadow, radius: 1)
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Theme.overlayScrim)
+                    .blur(radius: 7)
+                    .padding(-7)
+            }
     }
 }
 

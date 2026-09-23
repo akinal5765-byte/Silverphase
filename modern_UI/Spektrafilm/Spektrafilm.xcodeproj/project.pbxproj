@@ -33,7 +33,6 @@
 		};
 		841BAB5289564CFBE151982F /* BeforeAfterIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BeforeAfterIcon.swift"; sourceTree = "<group>"; };
 		1967107938C5043791D8A984 /* ColorWheel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorWheel.swift"; sourceTree = "<group>"; };
-		3D5B5D58F46059ECDC219EEF /* CurveEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurveEditor.swift"; sourceTree = "<group>"; };
 		949AA76515DB21F6736FB674 /* DetentSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DetentSlider.swift"; sourceTree = "<group>"; };
 		97C523570EE6096E0B873D38 /* FormatPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FormatPicker.swift"; sourceTree = "<group>"; };
 		7BD55D2FF39E90B43F16B1EB /* HistogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HistogramView.swift"; sourceTree = "<group>"; };
@@ -46,7 +45,6 @@
 			children = (
 				841BAB5289564CFBE151982F /* BeforeAfterIcon.swift */,
 				1967107938C5043791D8A984 /* ColorWheel.swift */,
-				3D5B5D58F46059ECDC219EEF /* CurveEditor.swift */,
 				949AA76515DB21F6736FB674 /* DetentSlider.swift */,
 				97C523570EE6096E0B873D38 /* FormatPicker.swift */,
 				7BD55D2FF39E90B43F16B1EB /* HistogramView.swift */,
@@ -159,21 +157,21 @@
 		};
 		831653CD6B716B9CB37E7445 /* CameraSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraSection.swift"; sourceTree = "<group>"; };
 		773B97297FE5E4580B7CE70F /* CropSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CropSection.swift"; sourceTree = "<group>"; };
-		B729AD2EB5E7519FE5499F61 /* EnlargerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnlargerSection.swift"; sourceTree = "<group>"; };
+		6C657B8C7E1214B913754799 /* DevelopmentSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DevelopmentSection.swift"; sourceTree = "<group>"; };
 		D683EAE35F9582121B7AA62C /* FilmSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FilmSection.swift"; sourceTree = "<group>"; };
 		D8C62B445BB801BDB4827701 /* MasksSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MasksSection.swift"; sourceTree = "<group>"; };
+		AAE77600C4DB8964A93036B8 /* NavigatorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NavigatorSection.swift"; sourceTree = "<group>"; };
 		CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintProfileSection.swift"; sourceTree = "<group>"; };
-		31CECD7A983BF62235F8F909 /* RightSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RightSections.swift"; sourceTree = "<group>"; };
 		6D96546C1610FE27FA9014C7 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
 				831653CD6B716B9CB37E7445 /* CameraSection.swift */,
 				773B97297FE5E4580B7CE70F /* CropSection.swift */,
-				B729AD2EB5E7519FE5499F61 /* EnlargerSection.swift */,
+				6C657B8C7E1214B913754799 /* DevelopmentSection.swift */,
 				D683EAE35F9582121B7AA62C /* FilmSection.swift */,
 				D8C62B445BB801BDB4827701 /* MasksSection.swift */,
-				CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */,
-				31CECD7A983BF62235F8F909 /* RightSections.swift */
+				AAE77600C4DB8964A93036B8 /* NavigatorSection.swift */,
+				CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */
 			);
 			path = "Sections";
 			sourceTree = "<group>";
@@ -210,7 +208,7 @@
 			path = "Service";
 			sourceTree = "<group>";
 		};
-		10EF18222161F212EEF63649 /* SpektraLab.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "SpektraLab.icon"; sourceTree = "<group>"; };
+		FB38C2C4F80846FDE6552C77 /* Silverphase.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Silverphase.icon"; sourceTree = "<group>"; };
 		E9A855B54DCFEA59C4405355 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme.swift"; sourceTree = "<group>"; };
 		8EB45331C2448244C60954B0 /* Theme */ = {
 			isa = PBXGroup;
@@ -218,15 +216,6 @@
 				E9A855B54DCFEA59C4405355 /* Theme.swift */
 			);
 			path = "Theme";
-			sourceTree = "<group>";
-		};
-		60EC177B720E7F60B0465202 /* UpdateCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateCheck.swift"; sourceTree = "<group>"; };
-		5C9CB679873E45A89DEC1B69 /* Updates */ = {
-			isa = PBXGroup;
-			children = (
-				60EC177B720E7F60B0465202 /* UpdateCheck.swift */
-			);
-			path = "Updates";
 			sourceTree = "<group>";
 		};
 		9F23C3316C10DCB824FB61A8 /* AboutWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AboutWindow.swift"; sourceTree = "<group>"; };
@@ -269,9 +258,8 @@
 				43C8D0438EAE575CD4C06CEB /* Panels */,
 				84CF9EF6E2C9FE2AE285B578 /* Resources */,
 				DB17323FBCFC0CF9A11FDBA4 /* Service */,
-				10EF18222161F212EEF63649 /* SpektraLab.icon */,
+				FB38C2C4F80846FDE6552C77 /* Silverphase.icon */,
 				8EB45331C2448244C60954B0 /* Theme */,
-				5C9CB679873E45A89DEC1B69 /* Updates */,
 				B32EB60C18534A921EE88FB5 /* Windows */,
 				58EE2CED0B2C7C1F694C2A6C /* Info.plist */,
 				2FFF020EEE5414F41FA8C099 /* Spektrafilm.entitlements */,
@@ -320,7 +308,6 @@
 		CC56E077560147D2B373F9FD /* StockListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StockListTests.swift"; sourceTree = "<group>"; };
 		E39626358BE4F0374CF79AF2 /* ThumbnailBadgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThumbnailBadgeTests.swift"; sourceTree = "<group>"; };
 		5C8CA97F6949FD495BBE87BE /* ThumbnailCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThumbnailCacheTests.swift"; sourceTree = "<group>"; };
-		E519422FCB997EFAA37EF9BA /* UpdateCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateCheckTests.swift"; sourceTree = "<group>"; };
 		19533F295FB7423FCE62C8DD /* ViewportStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewportStateTests.swift"; sourceTree = "<group>"; };
 		F5302C66459D988E5FC47CA3 /* WhiteBalanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WhiteBalanceTests.swift"; sourceTree = "<group>"; };
 		6C750F429B304AF107F89FFD /* SpektrafilmTests */ = {
@@ -366,7 +353,6 @@
 				CC56E077560147D2B373F9FD /* StockListTests.swift */,
 				E39626358BE4F0374CF79AF2 /* ThumbnailBadgeTests.swift */,
 				5C8CA97F6949FD495BBE87BE /* ThumbnailCacheTests.swift */,
-				E519422FCB997EFAA37EF9BA /* UpdateCheckTests.swift */,
 				19533F295FB7423FCE62C8DD /* ViewportStateTests.swift */,
 				F5302C66459D988E5FC47CA3 /* WhiteBalanceTests.swift */
 			);
@@ -449,7 +435,7 @@
 			name = Engine;
 			sourceTree = "<group>";
 		};
-		B6CDB6E5D160E013280D3C68 /* SpektraLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpektraLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6CDB6E5D160E013280D3C68 /* Silverphase.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Silverphase.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E02A90D9643568EA39115CFB /* SpektrafilmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpektrafilmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00C45FD35CB0F9C5F764F070 /* Products */ = {
 			isa = PBXGroup;
@@ -482,7 +468,6 @@
 		9E8CF353A140A91815632E92 /* ViewportState.swift */ = {isa = PBXBuildFile; fileRef = 10D9844F361A8278E8F4736F; };
 		86CA5E37AE96FD3988B8353B /* BeforeAfterIcon.swift */ = {isa = PBXBuildFile; fileRef = 841BAB5289564CFBE151982F; };
 		AB4FADB19B22ECAFDD97B461 /* ColorWheel.swift */ = {isa = PBXBuildFile; fileRef = 1967107938C5043791D8A984; };
-		19075F383FF3CE86D6F43F55 /* CurveEditor.swift */ = {isa = PBXBuildFile; fileRef = 3D5B5D58F46059ECDC219EEF; };
 		0153ACDC12C71FC7B62DF950 /* DetentSlider.swift */ = {isa = PBXBuildFile; fileRef = 949AA76515DB21F6736FB674; };
 		68FC8AC938F3589F7FA482EC /* FormatPicker.swift */ = {isa = PBXBuildFile; fileRef = 97C523570EE6096E0B873D38; };
 		8B2B8394D8D5B2C58972DDCE /* HistogramView.swift */ = {isa = PBXBuildFile; fileRef = 7BD55D2FF39E90B43F16B1EB; };
@@ -524,11 +509,11 @@
 		495103DED5BC4AF1790BAE6B /* StockCatalog.swift */ = {isa = PBXBuildFile; fileRef = 54760792255D82D0FCE4FE92; };
 		31490F929F81724E9A336A94 /* CameraSection.swift */ = {isa = PBXBuildFile; fileRef = 831653CD6B716B9CB37E7445; };
 		15B6AEDCC3FE5FBED0DC689E /* CropSection.swift */ = {isa = PBXBuildFile; fileRef = 773B97297FE5E4580B7CE70F; };
-		4F90354FBA400C8FB06C657D /* EnlargerSection.swift */ = {isa = PBXBuildFile; fileRef = B729AD2EB5E7519FE5499F61; };
+		74A39A3D1B6DD04FBF5A87CE /* DevelopmentSection.swift */ = {isa = PBXBuildFile; fileRef = 6C657B8C7E1214B913754799; };
 		3A77169194DAFBA07FFC2E92 /* FilmSection.swift */ = {isa = PBXBuildFile; fileRef = D683EAE35F9582121B7AA62C; };
 		3A4E60CE3031E48A48519664 /* MasksSection.swift */ = {isa = PBXBuildFile; fileRef = D8C62B445BB801BDB4827701; };
+		0CCA806D2F95EB2D2949855E /* NavigatorSection.swift */ = {isa = PBXBuildFile; fileRef = AAE77600C4DB8964A93036B8; };
 		384534AC4F4E049FF3365CE8 /* PrintProfileSection.swift */ = {isa = PBXBuildFile; fileRef = CBC3A4A2D1A91A9075EFE386; };
-		5EE5B3916E48CC0C5AA7CA44 /* RightSections.swift */ = {isa = PBXBuildFile; fileRef = 31CECD7A983BF62235F8F909; };
 		5B7419D000CA2224A11A3D08 /* Filmstrip.swift */ = {isa = PBXBuildFile; fileRef = E5F0DD211AC8BBD623882342; };
 		E57183AE0AB2E1BF0A2E645F /* LeftPanel.swift */ = {isa = PBXBuildFile; fileRef = FBAC6D9C1B679D6F2364EDAC; };
 		C6B42D61DC9D694270735A98 /* RightPanel.swift */ = {isa = PBXBuildFile; fileRef = 464261EAAE2E1731D8109766; };
@@ -537,7 +522,6 @@
 		6FB2F52FB45B8179713F77A2 /* Methods.swift */ = {isa = PBXBuildFile; fileRef = 2570445CCC905A6DD29D02F1; };
 		D60EC6EBCB244A0BE4D06A26 /* RenderScheduler.swift */ = {isa = PBXBuildFile; fileRef = 658A1D2EB50A0D8EB93C8A9F; };
 		7DE68917EFE0387EB6CA31CE /* Theme.swift */ = {isa = PBXBuildFile; fileRef = E9A855B54DCFEA59C4405355; };
-		8111223953FAA398DB461ED3 /* UpdateCheck.swift */ = {isa = PBXBuildFile; fileRef = 60EC177B720E7F60B0465202; };
 		7485388DD7C86A4BB6126DD2 /* AboutWindow.swift */ = {isa = PBXBuildFile; fileRef = 9F23C3316C10DCB824FB61A8; };
 		11E93F8098E4781E687D3B40 /* BootWindow.swift */ = {isa = PBXBuildFile; fileRef = 09F0E1278E0E11D0A2B20BCA; };
 		9F226DBBF6D9A09997010B68 /* CollapseTab.swift */ = {isa = PBXBuildFile; fileRef = 1314FC9749243D900B18259C; };
@@ -580,7 +564,6 @@
 				9E8CF353A140A91815632E92 /* ViewportState.swift */,
 				86CA5E37AE96FD3988B8353B /* BeforeAfterIcon.swift */,
 				AB4FADB19B22ECAFDD97B461 /* ColorWheel.swift */,
-				19075F383FF3CE86D6F43F55 /* CurveEditor.swift */,
 				0153ACDC12C71FC7B62DF950 /* DetentSlider.swift */,
 				68FC8AC938F3589F7FA482EC /* FormatPicker.swift */,
 				8B2B8394D8D5B2C58972DDCE /* HistogramView.swift */,
@@ -622,11 +605,11 @@
 				495103DED5BC4AF1790BAE6B /* StockCatalog.swift */,
 				31490F929F81724E9A336A94 /* CameraSection.swift */,
 				15B6AEDCC3FE5FBED0DC689E /* CropSection.swift */,
-				4F90354FBA400C8FB06C657D /* EnlargerSection.swift */,
+				74A39A3D1B6DD04FBF5A87CE /* DevelopmentSection.swift */,
 				3A77169194DAFBA07FFC2E92 /* FilmSection.swift */,
 				3A4E60CE3031E48A48519664 /* MasksSection.swift */,
+				0CCA806D2F95EB2D2949855E /* NavigatorSection.swift */,
 				384534AC4F4E049FF3365CE8 /* PrintProfileSection.swift */,
-				5EE5B3916E48CC0C5AA7CA44 /* RightSections.swift */,
 				5B7419D000CA2224A11A3D08 /* Filmstrip.swift */,
 				E57183AE0AB2E1BF0A2E645F /* LeftPanel.swift */,
 				C6B42D61DC9D694270735A98 /* RightPanel.swift */,
@@ -635,7 +618,6 @@
 				6FB2F52FB45B8179713F77A2 /* Methods.swift */,
 				D60EC6EBCB244A0BE4D06A26 /* RenderScheduler.swift */,
 				7DE68917EFE0387EB6CA31CE /* Theme.swift */,
-				8111223953FAA398DB461ED3 /* UpdateCheck.swift */,
 				7485388DD7C86A4BB6126DD2 /* AboutWindow.swift */,
 				11E93F8098E4781E687D3B40 /* BootWindow.swift */,
 				9F226DBBF6D9A09997010B68 /* CollapseTab.swift */,
@@ -668,14 +650,14 @@
 		};
 		29265CB1EFE378BC3507BDBC /* Assets.xcassets */ = {isa = PBXBuildFile; fileRef = 3375270C81BEA0B1B8896473; };
 		5BC84AF57D2EE77582E8F6F3 /* Resources */ = {isa = PBXBuildFile; fileRef = 84CF9EF6E2C9FE2AE285B578; };
-		5A7569683773F58959082B96 /* SpektraLab.icon */ = {isa = PBXBuildFile; fileRef = 10EF18222161F212EEF63649; };
+		28A1F891FF07C9355AB86121 /* Silverphase.icon */ = {isa = PBXBuildFile; fileRef = FB38C2C4F80846FDE6552C77; };
 		C831EECBAB01524E02C71B42 /* app-resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				29265CB1EFE378BC3507BDBC /* Assets.xcassets */,
 				5BC84AF57D2EE77582E8F6F3 /* Resources */,
-				5A7569683773F58959082B96 /* SpektraLab.icon */
+				28A1F891FF07C9355AB86121 /* Silverphase.icon */
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -727,7 +709,6 @@
 		066A83C93205AA978E100BE7 /* StockListTests.swift */ = {isa = PBXBuildFile; fileRef = CC56E077560147D2B373F9FD; };
 		5D3A40EA08E206BFB85BE486 /* ThumbnailBadgeTests.swift */ = {isa = PBXBuildFile; fileRef = E39626358BE4F0374CF79AF2; };
 		FC2399FEC6F794F7D648B010 /* ThumbnailCacheTests.swift */ = {isa = PBXBuildFile; fileRef = 5C8CA97F6949FD495BBE87BE; };
-		C75BB18A94E8AF5DC533FCEC /* UpdateCheckTests.swift */ = {isa = PBXBuildFile; fileRef = E519422FCB997EFAA37EF9BA; };
 		79E5DF91AA1045E525966216 /* ViewportStateTests.swift */ = {isa = PBXBuildFile; fileRef = 19533F295FB7423FCE62C8DD; };
 		1AF1357ED1527EBC8166745C /* WhiteBalanceTests.swift */ = {isa = PBXBuildFile; fileRef = F5302C66459D988E5FC47CA3; };
 		8CDECFAE3D708A987D5F23D1 /* ColourManagement.swift */ = {isa = PBXBuildFile; fileRef = 3CC9377A61A47BF9746521A9; };
@@ -741,7 +722,6 @@
 		BED1F75657E8AC18880BA6AC /* ViewportState.swift */ = {isa = PBXBuildFile; fileRef = 10D9844F361A8278E8F4736F; };
 		1F2F3C2DB16D103262458BB6 /* BeforeAfterIcon.swift */ = {isa = PBXBuildFile; fileRef = 841BAB5289564CFBE151982F; };
 		5C385FA2E465B7FBC75946E1 /* ColorWheel.swift */ = {isa = PBXBuildFile; fileRef = 1967107938C5043791D8A984; };
-		A4AA453999EA61AF902538DC /* CurveEditor.swift */ = {isa = PBXBuildFile; fileRef = 3D5B5D58F46059ECDC219EEF; };
 		314B0CB8B06973B9576AC98A /* DetentSlider.swift */ = {isa = PBXBuildFile; fileRef = 949AA76515DB21F6736FB674; };
 		2C1255C351CED632FF1180E5 /* FormatPicker.swift */ = {isa = PBXBuildFile; fileRef = 97C523570EE6096E0B873D38; };
 		A1BF71EA8DBD36A7E7F481C7 /* HistogramView.swift */ = {isa = PBXBuildFile; fileRef = 7BD55D2FF39E90B43F16B1EB; };
@@ -783,11 +763,11 @@
 		2F1C84D952E02D091BF4FD75 /* StockCatalog.swift */ = {isa = PBXBuildFile; fileRef = 54760792255D82D0FCE4FE92; };
 		FD3265098AA8A6AC64068557 /* CameraSection.swift */ = {isa = PBXBuildFile; fileRef = 831653CD6B716B9CB37E7445; };
 		3949D904607209196C68D6D2 /* CropSection.swift */ = {isa = PBXBuildFile; fileRef = 773B97297FE5E4580B7CE70F; };
-		C14822118C80936D520410ED /* EnlargerSection.swift */ = {isa = PBXBuildFile; fileRef = B729AD2EB5E7519FE5499F61; };
+		8D547861C13817B0903C85F9 /* DevelopmentSection.swift */ = {isa = PBXBuildFile; fileRef = 6C657B8C7E1214B913754799; };
 		892D59704DF88006FFC3F195 /* FilmSection.swift */ = {isa = PBXBuildFile; fileRef = D683EAE35F9582121B7AA62C; };
 		917B38BDBB45954BEDEC818C /* MasksSection.swift */ = {isa = PBXBuildFile; fileRef = D8C62B445BB801BDB4827701; };
+		6AAD8973CE3B98DD57053895 /* NavigatorSection.swift */ = {isa = PBXBuildFile; fileRef = AAE77600C4DB8964A93036B8; };
 		9476B966137052CD34C19AE8 /* PrintProfileSection.swift */ = {isa = PBXBuildFile; fileRef = CBC3A4A2D1A91A9075EFE386; };
-		131A1550D28F76CE987D3BA4 /* RightSections.swift */ = {isa = PBXBuildFile; fileRef = 31CECD7A983BF62235F8F909; };
 		3A9D6F08175C3700BE7F4D44 /* Filmstrip.swift */ = {isa = PBXBuildFile; fileRef = E5F0DD211AC8BBD623882342; };
 		188809DA051764CC0BDE9340 /* LeftPanel.swift */ = {isa = PBXBuildFile; fileRef = FBAC6D9C1B679D6F2364EDAC; };
 		6B1CA4C281141671EFCC0777 /* RightPanel.swift */ = {isa = PBXBuildFile; fileRef = 464261EAAE2E1731D8109766; };
@@ -796,7 +776,6 @@
 		6D67DFF0913BCD9DB0842308 /* Methods.swift */ = {isa = PBXBuildFile; fileRef = 2570445CCC905A6DD29D02F1; };
 		B91F3248BAFEE6877D8017F4 /* RenderScheduler.swift */ = {isa = PBXBuildFile; fileRef = 658A1D2EB50A0D8EB93C8A9F; };
 		B37DF42FDDF1115FF10B93AC /* Theme.swift */ = {isa = PBXBuildFile; fileRef = E9A855B54DCFEA59C4405355; };
-		2AF8C98E7896A9A4668F18FA /* UpdateCheck.swift */ = {isa = PBXBuildFile; fileRef = 60EC177B720E7F60B0465202; };
 		079BA19AF46D3C795867E568 /* AboutWindow.swift */ = {isa = PBXBuildFile; fileRef = 9F23C3316C10DCB824FB61A8; };
 		E173521E6D3C6C05CEBB9055 /* BootWindow.swift */ = {isa = PBXBuildFile; fileRef = 09F0E1278E0E11D0A2B20BCA; };
 		47529647F3D60BBE8CE96974 /* CollapseTab.swift */ = {isa = PBXBuildFile; fileRef = 1314FC9749243D900B18259C; };
@@ -867,7 +846,6 @@
 				066A83C93205AA978E100BE7 /* StockListTests.swift */,
 				5D3A40EA08E206BFB85BE486 /* ThumbnailBadgeTests.swift */,
 				FC2399FEC6F794F7D648B010 /* ThumbnailCacheTests.swift */,
-				C75BB18A94E8AF5DC533FCEC /* UpdateCheckTests.swift */,
 				79E5DF91AA1045E525966216 /* ViewportStateTests.swift */,
 				1AF1357ED1527EBC8166745C /* WhiteBalanceTests.swift */,
 				8CDECFAE3D708A987D5F23D1 /* ColourManagement.swift */,
@@ -881,7 +859,6 @@
 				BED1F75657E8AC18880BA6AC /* ViewportState.swift */,
 				1F2F3C2DB16D103262458BB6 /* BeforeAfterIcon.swift */,
 				5C385FA2E465B7FBC75946E1 /* ColorWheel.swift */,
-				A4AA453999EA61AF902538DC /* CurveEditor.swift */,
 				314B0CB8B06973B9576AC98A /* DetentSlider.swift */,
 				2C1255C351CED632FF1180E5 /* FormatPicker.swift */,
 				A1BF71EA8DBD36A7E7F481C7 /* HistogramView.swift */,
@@ -923,11 +900,11 @@
 				2F1C84D952E02D091BF4FD75 /* StockCatalog.swift */,
 				FD3265098AA8A6AC64068557 /* CameraSection.swift */,
 				3949D904607209196C68D6D2 /* CropSection.swift */,
-				C14822118C80936D520410ED /* EnlargerSection.swift */,
+				8D547861C13817B0903C85F9 /* DevelopmentSection.swift */,
 				892D59704DF88006FFC3F195 /* FilmSection.swift */,
 				917B38BDBB45954BEDEC818C /* MasksSection.swift */,
+				6AAD8973CE3B98DD57053895 /* NavigatorSection.swift */,
 				9476B966137052CD34C19AE8 /* PrintProfileSection.swift */,
-				131A1550D28F76CE987D3BA4 /* RightSections.swift */,
 				3A9D6F08175C3700BE7F4D44 /* Filmstrip.swift */,
 				188809DA051764CC0BDE9340 /* LeftPanel.swift */,
 				6B1CA4C281141671EFCC0777 /* RightPanel.swift */,
@@ -936,7 +913,6 @@
 				6D67DFF0913BCD9DB0842308 /* Methods.swift */,
 				B91F3248BAFEE6877D8017F4 /* RenderScheduler.swift */,
 				B37DF42FDDF1115FF10B93AC /* Theme.swift */,
-				2AF8C98E7896A9A4668F18FA /* UpdateCheck.swift */,
 				079BA19AF46D3C795867E568 /* AboutWindow.swift */,
 				E173521E6D3C6C05CEBB9055 /* BootWindow.swift */,
 				47529647F3D60BBE8CE96974 /* CollapseTab.swift */,
@@ -968,14 +944,14 @@
 		};
 		3BCF59DCB1F31E7D7BCB9E44 /* Assets.xcassets */ = {isa = PBXBuildFile; fileRef = 3375270C81BEA0B1B8896473; };
 		AD4B9035FC275B589CE3FEFF /* Resources */ = {isa = PBXBuildFile; fileRef = 84CF9EF6E2C9FE2AE285B578; };
-		762A444DA3A9BE2604F6C18D /* SpektraLab.icon */ = {isa = PBXBuildFile; fileRef = 10EF18222161F212EEF63649; };
+		129153ACA3D323AB6A123E80 /* Silverphase.icon */ = {isa = PBXBuildFile; fileRef = FB38C2C4F80846FDE6552C77; };
 		201E3014E52B86C5F3284B5C /* test-resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				3BCF59DCB1F31E7D7BCB9E44 /* Assets.xcassets */,
 				AD4B9035FC275B589CE3FEFF /* Resources */,
-				762A444DA3A9BE2604F6C18D /* SpektraLab.icon */
+				129153ACA3D323AB6A123E80 /* Silverphase.icon */
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1017,7 +993,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
-				ASSETCATALOG_COMPILER_APPICON_NAME = SpektraLab;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Silverphase;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -1051,7 +1027,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-framework Metal -framework QuartzCore";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hanze.filmify;
-				PRODUCT_NAME = SpektraLab;
+				PRODUCT_NAME = Silverphase;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -1066,7 +1042,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
-				ASSETCATALOG_COMPILER_APPICON_NAME = SpektraLab;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Silverphase;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -1098,7 +1074,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-framework Metal -framework QuartzCore";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hanze.filmify;
-				PRODUCT_NAME = SpektraLab;
+				PRODUCT_NAME = Silverphase;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -1140,7 +1116,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
-				ASSETCATALOG_COMPILER_APPICON_NAME = SpektraLab;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Silverphase;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -1186,7 +1162,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
-				ASSETCATALOG_COMPILER_APPICON_NAME = SpektraLab;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Silverphase;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";

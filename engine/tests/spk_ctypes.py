@@ -119,6 +119,9 @@ class Engine:
         lib.spk_preview_stock_lut.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p,
                                               ctypes.POINTER(SpkResult),
                                               ctypes.POINTER(ctypes.c_char_p)]
+        lib.spk_preview_scan.restype = ctypes.c_int32
+        lib.spk_preview_scan.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
+                                         ctypes.POINTER(SpkResult)]
         lib.spk_export_di.restype = ctypes.c_int32
         lib.spk_export_di.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
                                       ctypes.POINTER(SpkResult),
@@ -270,6 +273,14 @@ class Session:
                                                    ctypes.byref(out)) != SPK_OK:
             raise EngineError(self._engine._last_error())
         return self._take_result(result), self._engine._take_json(out)
+
+    def preview_scan(self, tier: str = "full") -> tuple[np.ndarray, SpkResult]:
+        result = SpkResult()
+        if self._engine._lib.spk_preview_scan(self._handle, tier.encode(),
+                                              ctypes.byref(result)) != SPK_OK:
+            raise EngineError(self._engine._last_error())
+        rgba = self._take_result(result)
+        return rgba, result
 
     def export_di(self, print_stock: str | None = None) -> tuple[np.ndarray, dict]:
         result, out = SpkResult(), ctypes.c_char_p()

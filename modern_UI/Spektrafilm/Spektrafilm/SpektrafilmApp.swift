@@ -17,7 +17,7 @@ struct SpektrafilmApp: App {
     private let snapshot = SnapshotRequest.parse(CommandLine.arguments)
 
     var body: some Scene {
-        Window("SpektraLab", id: "editor") {
+        Window("Silverphase", id: "editor") {
             EditorWindow(session: session)
                 .id(InterfaceScaleStore.shared.scale)
                 .environment(\.snapshotMode, snapshot != nil)
@@ -32,7 +32,7 @@ struct SpektrafilmApp: App {
         // require something visible, and CC BY-SA 4.0 names an About screen
         // by example as a place the attribution has to survive. See
         // `AboutWindow`.
-        Window("About SpektraLab", id: "about") {
+        Window("About Silverphase", id: "about") {
             AboutWindow()
         }
         .windowResizability(.contentSize)
@@ -42,7 +42,7 @@ struct SpektrafilmApp: App {
         // menu's "Settings…" item for free, and in this app it stops SwiftUI
         // from ever creating the *editor* window. Bisected: with a `Settings`
         // scene the app has one window at the boot handover (the boot window)
-        // and the `Window("SpektraLab", id: "editor")` scene's window is never
+        // and the `Window("Silverphase", id: "editor")` scene's window is never
         // made; without it there are two, the second being SwiftUI's
         // `TUINSWindow`. The app launched to a boot screen that never went
         // away.
@@ -85,87 +85,86 @@ struct EditorCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
-            Button("About SpektraLab") { openAbout() }
+            Button(L(.menuAbout)) { openAbout() }
         }
         // Hand-declared because the page is a `Window` and not a `Settings`
         // scene — see the comment on that scene. Same slot, same shortcut.
         CommandGroup(replacing: .appSettings) {
-            Button("Settings…") { openWindow(id: "settings") }
+            Button(L(.menuSettings)) { openWindow(id: "settings") }
                 .keyboardShortcut(",", modifiers: .command)
         }
         CommandGroup(replacing: .newItem) {
-            Button("Open…") { session.openPanel() }.keyboardShortcut("o")
-            Button("Export…") { session.showExport = true }.keyboardShortcut("e").disabled(session.selection == nil)
+            Button(L(.menuOpen)) { session.openPanel() }.keyboardShortcut("o")
+            Button(L(.menuExport)) { session.showExport = true }.keyboardShortcut("e").disabled(session.selection == nil)
         }
         CommandGroup(replacing: .undoRedo) {
-            Button("Undo") { session.undo() }.keyboardShortcut("z").disabled(!session.canUndo)
+            Button(L(.menuUndo)) { session.undo() }.keyboardShortcut("z").disabled(!session.canUndo)
         }
         CommandGroup(replacing: .pasteboard) {
-            Button("Copy Settings") { session.copySettings() }
+            Button(L(.menuCopySettings)) { session.copySettings() }
                 // Capture One's adjustment clipboard uses ⇧⌘C / ⇧⌘V. Keep
                 // plain ⌘C / ⌘V available for the system pasteboard.
                 .keyboardShortcut("c", modifiers: [.command, .shift]).disabled(session.selection == nil)
-            Button("Paste Settings") { session.pasteSettings() }
+            Button(L(.menuPasteSettings)) { session.pasteSettings() }
                 .keyboardShortcut("v", modifiers: [.command, .shift]).disabled(!session.canPasteSettings)
         }
-        CommandMenu("View") {
+        CommandMenu(L(.menuView)) {
             // Greyed out in the crop tool, where the view is fitted to the
             // whole turned photograph and the user cannot move it
             // (`Session.zoomLocked`). Disabled rather than silently ignored:
             // a shortcut that does nothing and says nothing reads as a bug.
             // These follow Capture One's Viewer shortcuts: ⌘+ / ⌘− step the
             // magnification, while comma and period are fit and 100%.
-            Button("Zoom In") { session.zoomStep(1) }
+            Button(L(.menuZoomIn)) { session.zoomStep(1) }
                 .keyboardShortcut("+", modifiers: .command).disabled(session.zoomLocked)
-            Button("Zoom Out") { session.zoomStep(-1) }
+            Button(L(.menuZoomOut)) { session.zoomStep(-1) }
                 .keyboardShortcut("-", modifiers: .command).disabled(session.zoomLocked)
-            Button("Zoom to Fit") { session.zoomToFit() }
+            Button(L(.menuZoomFit)) { session.zoomToFit() }
                 .keyboardShortcut(",", modifiers: []).disabled(session.zoomLocked)
-            Button("Zoom to 100 %") { session.zoomTo(fraction: 1) }
+            Button(L(.menuZoomHundred)) { session.zoomTo(fraction: 1) }
                 .keyboardShortcut(".", modifiers: []).disabled(session.zoomLocked)
             Divider()
-            Button("Toggle Side Panels") {
+            Button(L(.menuDevelopRail)) {
                 withAnimation(.easeOut(duration: 0.18)) {
-                    let c = !(session.leftCollapsed && session.rightCollapsed)
-                    session.leftCollapsed = c; session.rightCollapsed = c
+                    session.leftCollapsed.toggle()
                 }
             }.keyboardShortcut("b", modifiers: .command)
-            Button("Toggle Filmstrip") { withAnimation { session.filmstripCollapsed.toggle() } }.keyboardShortcut("f", modifiers: [.command, .shift])
+            Button(L(.menuFilmstrip)) { withAnimation { session.filmstripCollapsed.toggle() } }.keyboardShortcut("f", modifiers: [.command, .shift])
             Divider()
-            // The only door onto this now — the right rail's dotted-circle glyph
-            // is gone, so this label is also the state read-out. It says which
-            // way the switch is pointing, as Before / After does, because a
-            // bypass you forgot you turned on looks like a broken render.
-            Button(session.adjustments.enabled ? "Bypass Adjustments" : "Restore Adjustments") {
-                var a = session.adjustments; a.enabled.toggle(); session.adjustments = a
-            }.keyboardShortcut("b", modifiers: [.command, .shift])
             // Capture One uses Y for its single Before/After toggle. The
             // split-view mode is a separate affordance in Capture One, but
             // SpektraLab exposes one comparison state, so Y owns that toggle.
-            Button(session.comparing ? "Hide Before / After" : "Before / After") { session.comparing.toggle() }
+            Button(L(session.comparing ? .menuHideBeforeAfter : .menuBeforeAfter)) { session.comparing.toggle() }
                 .keyboardShortcut("y", modifiers: [])
                 .disabled(!session.canCompare)
             Divider()
-            Button("Restart Render Service") { session.restartService() }
+            Button(L(.menuRestartService)) { session.restartService() }
                 .keyboardShortcut("r", modifiers: [.command, .option])
                 .disabled(session.selection == nil)
         }
-        CommandMenu("Frame") {
+        CommandMenu(L(.menuFrame)) {
             // Capture One uses the unmodified arrow keys for adjacent images.
             // The canvas responder already routes the same keys to
             // `stepFrame`, so this remains usable when the viewer has focus.
-            Button("Previous") { session.selectRelative(-1) }
+            Button(L(.menuPrevious)) { session.selectRelative(-1) }
                 .keyboardShortcut(.leftArrow, modifiers: [])
-            Button("Next") { session.selectRelative(1) }
+            Button(L(.menuNext)) { session.selectRelative(1) }
                 .keyboardShortcut(.rightArrow, modifiers: [])
             Divider()
             // These three were the left rail header's "•••" until the
             // 2026-09-17 drawing took the menu off that row. They are frame
             // commands rather than panel commands — each one is about the
             // open frame's settings — so this is where they belong anyway.
-            Button("Reset Film, Paper, Camera and Enlarger") { session.resetParams() }
-            Button("Reset Adjustments") { session.resetAdjustments() }
-            Button("Reveal Settings in Finder") {
+            Button(L(.menuResetAll)) { session.resetParams() }
+            // Moved off the canvas (UI-SPEC §1.3): a one-shot action is not
+            // an instrument, and the histogram's corner is for instruments.
+            // Shown only when the open frame actually carries an old grade.
+            if session.usesLegacyGrade {
+                Button(L(.menuConvertLegacy)) {
+                    session.convertLegacyGradeToPhysicalOnly()
+                }
+            }
+            Button(L(.menuRevealSettings)) {
                 guard let u = session.selection else { return }
                 // The settings live in the app's store, not beside the image,
                 // so this can be asked for a frame that has never been saved.
@@ -201,20 +200,23 @@ struct EditorCommands: Commands {
                     .disabled(session.selectedMaskID == nil)
             }
         }
-        CommandMenu("Crop") {
-            Button("Rotate Left") { session.geometry = session.geometry.turned(by: -1) }
+        CommandMenu(L(.menuCropSection)) {
+            Button(L(.menuRotateLeft)) { session.geometry = session.geometry.turned(by: -1) }
                 .keyboardShortcut("[", modifiers: [.command, .option])
-            Button("Rotate Right") { session.geometry = session.geometry.turned(by: 1) }
+            Button(L(.menuRotateRight)) { session.geometry = session.geometry.turned(by: 1) }
                 .keyboardShortcut("]", modifiers: [.command, .option])
-            Button("Flip Horizontally") { var g = session.geometry; g.flipH.toggle(); session.geometry = g }
-            Button("Flip Vertically") { var g = session.geometry; g.flipV.toggle(); session.geometry = g }
+            Button(L(.menuFlipHorizontal)) { var g = session.geometry; g.flipH.toggle(); session.geometry = g }
+            Button(L(.menuFlipVertical)) { var g = session.geometry; g.flipV.toggle(); session.geometry = g }
             Divider()
-            Button("Reset Crop") { session.geometry = .default }
+            Button(L(.menuResetCrop)) { session.geometry = .default }
         }
-        CommandMenu("Tool") {
-            Button("Select") { session.tool = .select }.keyboardShortcut("v", modifiers: [])
-            Button("Hand") { session.tool = .hand }.keyboardShortcut("h", modifiers: [])
-            Button("Crop") { session.tool = .crop }.keyboardShortcut("c", modifiers: [])
+        CommandMenu(L(.menuTool)) {
+            // **No Hand.** It did exactly what Select does — the canvas sent
+            // both to the same branch, where a drag pans — so the menu carried
+            // two items for one behaviour and the only difference was the
+            // cursor. See `CanvasTool`.
+            Button(L(.menuToolSelect)) { session.tool = .select }.keyboardShortcut("v", modifiers: [])
+            Button(L(.menuToolCrop)) { session.tool = .crop }.keyboardShortcut("c", modifiers: [])
         }
     }
 }
@@ -250,6 +252,24 @@ struct SnapshotRequest {
     /// the original exactly as `draw` does; it did not, until the display
     /// decode made the original worth looking at.
     var original = false
+    /// `--print S` — click Print on the negative ceremony and capture the
+    /// develop S seconds in, so the one animation the product opens with can be
+    /// looked at. It needs a flag for the reason the others do: the harness
+    /// asks for the print itself (`session.requestPrint()` below), so the
+    /// ceremony never arms and there is nothing to develop.
+    ///
+    /// `S` is *when*, not *how far*: the progress comes from
+    /// `Renderer.applyDevelop`, the same curve the live animation runs through.
+    /// A capture has no live draw to advance that clock — the stand-in canvas
+    /// means `draw(in:)` never runs — so the harness advances it here rather
+    /// than keeping a second copy of the curve.
+    var printAfter: Double?
+    /// `--settings` — capture the Settings page instead of the editor. The
+    /// page is a `Window` and not a `Settings` scene (see the comment on that
+    /// scene), so nothing else can photograph it: without this flag the page
+    /// that holds every diagnostic readout in the app has no capture at all,
+    /// which is how it spent a release with half its copy in English.
+    var settings = false
     /// `--export` — capture the export page instead of the editor. It is its
     /// own window now (RFC-018 §6), so it is its own root view here; the soft
     /// proof in the centre is a render of the real recipe, which is the thing
@@ -291,6 +311,10 @@ struct SnapshotRequest {
             }
         }
         r.original = args.contains("--original")
+        r.settings = args.contains("--settings")
+        if let j = args.firstIndex(of: "--print"), args.count > j + 1, let s = Double(args[j + 1]) {
+            r.printAfter = s
+        }
         r.exportGrid = args.contains("--export-grid")
         r.export = r.exportGrid || args.contains("--export")
         if let j = args.firstIndex(of: "--compare") {
@@ -391,9 +415,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let session else { snapshotExit(2) }
         // Own window, own hosting view: the capture must not depend on when
         // (or whether) the SwiftUI scene's window is ordered in.
-        let host = NSHostingView(rootView: req.export
-            ? AnyView(ExportWindow(session: session, startIn: req.exportGrid ? .grid : .viewer))
-            : AnyView(EditorWindow(session: session).environment(\.snapshotMode, true)))
+        let host = NSHostingView(rootView: req.settings
+            ? AnyView(SettingsWindow(session: session).environment(\.snapshotMode, true))
+            : (req.export
+               ? AnyView(ExportWindow(session: session, startIn: req.exportGrid ? .grid : .viewer))
+               : AnyView(EditorWindow(session: session).environment(\.snapshotMode, true))))
         // Borderless, and never `center()`. A titled window is constrained to
         // the screen's visible frame, so asking for 1920×1080 on a smaller
         // display silently produced a 1800-point-wide capture — and every
@@ -490,6 +516,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if req.original {
             session.toggledOriginal(true)
             await waitForNativeOriginal(session)
+        }
+        // The ceremony, if the capture asked for the wipe. Bounded, because a
+        // film scan that never lands must leave a capture rather than a hang —
+        // `printNegative` is a no-op guard, so the failure mode is a picture of
+        // the print and an honest absence of the animation, not a wrong one.
+        if let delay = req.printAfter {
+            let deadline = Date().addingTimeInterval(20)
+            while !session.negativePending, Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            session.printNegative()
+            session.renderer.applyDevelop(elapsed: delay)
+            try? await Task.sleep(for: .milliseconds(120))
         }
         if let zoom = req.zoom {
             session.zoomTo(fraction: zoom)

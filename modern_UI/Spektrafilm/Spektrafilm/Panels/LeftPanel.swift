@@ -28,36 +28,28 @@ struct LeftPanel: View {
         VStack(spacing: 0) {
             header
             Hairline()
+            // **The rail still scrolls as a whole**, and the lists keep their
+            // own fixed heights. That is deliberate: a `ScrollView` is greedy,
+            // so a list told to "fill the slack" eats the rail and pushes the
+            // paper section to the bottom with the gap *between* the two
+            // lists — which reads worse than the air it was meant to remove.
+            // Measured, in a capture. The catalogue's own height is the knob
+            // for "show more films" (`FilmSection.wellRows`).
+            //
+            // **Presets only.** The left rail is what Lightroom Classic puts
+            // on the left: the things you *choose* (a film, a paper). The
+            // things you *set* moved to the right rail
+            // (`Panels/RightPanel.swift`). UI-SPEC §1.4.
             ScrollView(.vertical, showsIndicators: false) {
-                // A hairline **between** sections, never after the last one.
-                //
-                // The stack used to be `Section(); Hairline()` repeated, which
-                // draws a rule under the final section against empty rail —
-                // a bottom border, not a separator, and the rail has no
-                // bottom to border. With a collapsed Crop last it also put
-                // two rules 31 pt apart, which is a band, and a column of
-                // equal bands is exactly the "looks like a spreadsheet" the
-                // drawing does not have: it carries three rules where this
-                // carried five.
-                //
-                // Written as a separated list so the invariant is structural
-                // and adding a section cannot reintroduce the trailing rule.
+                // A hairline **between** sections, never after the last one:
+                // the stack used to be `Section(); Hairline()` repeated, which
+                // draws a rule under the final section against empty rail — a
+                // bottom border, not a separator.
                 VStack(spacing: 0) {
                     let sections: [(String, AnyView)] =
-                        [("camera", AnyView(CameraSection(session: session))),
-                         ("film", AnyView(FilmSection(session: session))),
-                         ("print", AnyView(PrintProfileSection(session: session))),
-                         ("crop", AnyView(CropSection(session: session)))]
-                        // The enlarger is **not in the drawing** and is behind
-                        // a flag now rather than merely last: it put a fifth
-                        // section into a rail the drawing gives four, and its
-                        // Yellow/Magenta rows are the gap the reconstruction
-                        // handoff §9 still lists as open. `print_exposure` is
-                        // unchanged behind `FeatureFlags.enlarger`.
-                        + (FeatureFlags.enlarger
-                           ? [("enlarger", AnyView(EnlargerSection(session: session)))] : [])
-                        + (FeatureFlags.masks
-                           ? [("masks", AnyView(MasksSection(session: session)))] : [])
+                        [("navigator", AnyView(NavigatorSection(session: session))),
+                         ("filmList", AnyView(FilmSection(session: session, part: .list))),
+                         ("printList", AnyView(PrintProfileSection(session: session, part: .list)))]
                     ForEach(Array(sections.enumerated()), id: \.element.0) { index, entry in
                         if index > 0 { Hairline() }
                         entry.1
@@ -75,26 +67,16 @@ struct LeftPanel: View {
             // and not a container — which is why folding the rail does not move
             // them: the bar takes over the same reservation.
             Spacer().frame(width: Theme.Metric.trafficLightClearance)
-            Text(L(.railDevelop))
+            Text(L(.railPresets))
                 .font(Theme.Font.railTitle)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            // v3 draws a square-and-arrow container for import, not the tray
-            // the 2026-09-17 pass used, and pairs it with the export glyph
-            // that was already right.
-            // The shortcut is appended here rather than living in the table:
-            // the spec's rule is that the key is the phrase and the shortcut
-            // is added by whatever owns shortcuts, so a translation never has
-            // to reproduce `(⌘O)` or decide where it goes in a Chinese
-            // sentence.
-            PanelIconButton(systemImage: "square.and.arrow.down", help: L(.helpOpen) + " (⌘O)") {
-                session.openPanel()
-            }
-            PanelIconButton(systemImage: "square.and.arrow.up", help: L(.helpExport) + " (⌘E)",
-                            enabled: session.selection != nil) {
-                session.showExport = true
-            }
+            // **Import and export moved to the top bar.** They used to live
+            // here, which meant folding this rail took them off screen and
+            // left only ⌘O / ⌘E — two file actions disappearing with a panel
+            // of parameters. A file action is not a property of the thing it
+            // sits beside. UI-SPEC §1.4.
             SidebarToggle(edge: .leading, collapsed: $session.leftCollapsed)
                 .padding(.trailing, Theme.Metric.panelHeaderTrailing)
         }
@@ -189,12 +171,12 @@ extension View {
     /// the 2026-09-17 drawing separates regions with a hairline rather than
     /// with a gap and a radius.
     func railCard() -> some View {
-        self.background(Theme.card)
+        self.background(Theme.cardFill)
     }
 
     /// The one thing that still floats: the tool bar's pill.
     func barCard() -> some View {
-        self.background(Theme.card,
+        self.background(Theme.cardFill,
                         in: RoundedRectangle(cornerRadius: Theme.Metric.barRadius, style: .continuous))
     }
 }

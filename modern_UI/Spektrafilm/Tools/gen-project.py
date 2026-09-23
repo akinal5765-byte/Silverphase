@@ -12,7 +12,7 @@ this twice produces a byte-identical file. Every Swift/Metal file under
 the unit-test target. `Resources/` is added as a folder reference so anything
 dropped in it ships in the bundle without touching this script.
 
-`Spektrafilm/SpektraLab.icon` is the Icon Composer document and is treated as
+`Spektrafilm/Silverphase.icon` is the Icon Composer document and is treated as
 one opaque file, not as the directory of SVG layers it really is: it goes
 through `actool` like an asset catalogue (`folder.iconcomposer.icon` is
 `BasedOn = folder.abstractassetcatalog`), and `ASSETCATALOG_COMPILER_APPICON_NAME`
@@ -54,9 +54,9 @@ ENGINE = ROOT.parents[1] / "engine"
 # `SpektrafilmTests.xcscheme` reference by `BlueprintName`, the Swift module is
 # named from it, and renaming it buys nothing a user can see.
 #
-# `PRODUCT_NAME` is what the user sees: `SpektraLab.app`, the menu bar title,
-# the About panel, the DMG. The product was renamed to Filmify, and then to
-# SpektraLab (2026-09-16), because `SPEKTRAFILM_LICENSE.txt` asks that
+# `PRODUCT_NAME` is what the user sees: `Silverphase.app`, the menu bar title,
+# the About panel, the DMG. The product was renamed to Filmify, then to
+# SpektraLab (2026-09-16), and then Silverphase, because `SPEKTRAFILM_LICENSE.txt` asks that
 # "spektrafilm" not be used in product branding without asking first — this
 # app links the spektrafilm engine and ships its profiles, which the same
 # licence explicitly welcomes as a factual reference ("this app uses
@@ -69,7 +69,7 @@ ENGINE = ROOT.parents[1] / "engine"
 # reverse-DNS id is a separate, larger decision than renaming what the user
 # sees.
 APP = "Spektrafilm"
-PRODUCT_NAME = "SpektraLab"
+PRODUCT_NAME = "Silverphase"
 TESTS = "SpektrafilmTests"
 BUNDLE_ID = "com.hanze.filmify"
 MACOS = "15.0"
@@ -274,7 +274,7 @@ def build() -> str:
         "MTL_ENABLE_DEBUG_INFO": "INCLUDE_SOURCE",
         "MTL_FAST_MATH": "YES",
         "COMBINE_HIDPI_IMAGES": "YES",
-        # The Icon Composer document, `Spektrafilm/SpektraLab.icon`, whose base
+        # The Icon Composer document, `Spektrafilm/Silverphase.icon`, whose base
         # name this must match -- `actool` selects the app icon by name, and a
         # name with no document behind it compiles to a bundle with no icon
         # rather than to an error. It reads PRODUCT_NAME because the icon is

@@ -1,26 +1,25 @@
-//  RightPanel.swift — the grade rail. Its header reads **Edit** and carries
-//  `sidebar.right` at the far end.
+//  RightPanel.swift — the parameters rail: everything you *set*.
 //
-//  **v3 (2026-09-18) replaced the glyph with the word.** The row used to open
-//  with an inert `slider.horizontal.3` — the rail's name written as a
-//  picture, because the 2026-09-17 drawing wrote it as a picture. v3 writes
-//  it as a word, which is the better answer to the same problem: the glyph
-//  had to be an `Image` rather than a button so that it could not be clicked,
-//  and a symbol that exists only to be unclickable is a symbol nobody can
-//  read. `Edit` is a label, not a mode button; there is no other mode.
+//  The counterpart of `LeftPanel`, and the division is Lightroom Classic's:
+//  the left rail holds the two catalogues (choose a film, choose a paper), and
+//  this one holds every number that decides what the photograph looks like.
+//  UI-SPEC §1.4.
 //
-//  It used to carry a third thing: a dotted-circle button that bypassed the
-//  whole adjustment layer. It is gone. It was not in the drawing, it never
-//  said what it was, and an unlabelled glyph whose entire job is to change
-//  the picture in a way you cannot attribute to it is worse than no control —
-//  the user's verdict was "I still have no idea what it can do and why it
-//  exists". The capability is untouched and lives where a mode belongs, on
-//  the menu with its own words and a shortcut: **View ▸ Bypass Adjustments
-//  (⇧⌘B)**.
+//  **Why the split.** Swapping a film stock and nudging a halation slider are
+//  two different acts — one replaces a recipe, the other edits it — and a
+//  single rail holding both is where "the buttons have no logic" came from.
+//  The stock lists went left; the sliders came here.
 //
-//  Its sections are separated by the same hairline the left rail uses, and
-//  there is no menu on the header row: the drawing has none, and each section
-//  already carries its own "•••".
+//  Section order is the pipeline's, top to bottom: what the camera saw, what
+//  the film did with it, what development did to the negative, what the paper
+//  did with that, and finally how the frame is cropped. The two sections that
+//  share a name with one on the left rail ("Film", "Print") are the *numbers*
+//  for the catalogue entry chosen over there.
+//
+//  **The section keys are not the left rail's.** `PanelSection` persists
+//  whether a section is open under a key, and the two rails have one section
+//  each called "Film": `filmList` / `printList` on the left, `film` / `print`
+//  here, so folding one does not fold the other.
 
 import SwiftUI
 
@@ -32,19 +31,13 @@ struct RightPanel: View {
             header
             Hairline()
             ScrollView(.vertical, showsIndicators: false) {
-                // Between sections, never after the last — the left rail's
-                // rule, applied here too. This stack still ended with a
-                // `Hairline()` under Color Balance, which drew a rule across
-                // empty rail below the colour wheel.
                 VStack(spacing: 0) {
                     let sections: [(String, AnyView)] =
-                        [("histogram", AnyView(HistogramSection(session: session))),
-                         ("whiteBalance", AnyView(WhiteBalanceSection(session: session))),
-                         ("exposure", AnyView(ExposureSection(session: session))),
-                         ("curve", AnyView(CurveSection(session: session))),
-                         ("colorBalance", AnyView(ColorBalanceSection(session: session)))]
-                        // Withdrawn while the mask system is redesigned; the
-                        // section itself is intact (`FeatureFlags.masks`).
+                        [("camera", AnyView(CameraSection(session: session))),
+                         ("film", AnyView(FilmSection(session: session, part: .params))),
+                         ("development", AnyView(DevelopmentSection(session: session))),
+                         ("print", AnyView(PrintProfileSection(session: session, part: .params))),
+                         ("crop", AnyView(CropSection(session: session)))]
                         + (FeatureFlags.masks
                            ? [("masks", AnyView(MasksSection(session: session)))] : [])
                     ForEach(Array(sections.enumerated()), id: \.element.0) { index, entry in
@@ -59,21 +52,23 @@ struct RightPanel: View {
 
     private var header: some View {
         HStack(spacing: 0) {
-            // The rail's name. Alone on this end of the row — a label beside
-            // a button reads as a button, which is half of why the glyph that
-            // used to sit next to one was unreadable.
+            // **No traffic-light reservation.** The window buttons sit on the
+            // *left* rail's header, on the same centreline; this row starts at
+            // the rail's own inset. The toggle leads rather than trails so it
+            // is the first thing the eye meets coming from the canvas — the
+            // door is at the edge the rail shares with the picture.
+            SidebarToggle(edge: .trailing, collapsed: $session.rightCollapsed)
+                .padding(.leading, Theme.Metric.panelHeaderTrailing)
             Text(L(.railEdit))
                 .font(Theme.Font.railTitle)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
-                .padding(.leading, Theme.Metric.panelHeaderLeading)
-            Spacer(minLength: 0)
-            SidebarToggle(edge: .trailing, collapsed: $session.rightCollapsed)
-                .padding(.trailing, Theme.Metric.panelHeaderTrailing)
+            Spacer(minLength: 4)
         }
         .frame(height: Theme.Metric.panelHeaderHeight)
-        // The same drag surface the left rail's header is, for the same
-        // reason: with the titlebar hidden this row is where one would be.
+        // The header row is the window's drag surface, as it is on the left:
+        // with the titlebar hidden, a rail's header is where a title bar would
+        // be, and both rails are part of the window's frame.
         .background(WindowDragHandle())
     }
 }

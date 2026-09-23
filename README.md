@@ -1,29 +1,30 @@
-# SpektraLab
+# Silverphase
 
-<img src="screenshots/app-icon.png" alt="The SpektraLab icon: three dye layers and a base, stacked" width="132" align="right">
+<img src="screenshots/app-icon.png" alt="The inherited app icon: three dye layers and a base, stacked" width="132" align="right">
 
 A macOS film and print simulator. Open a RAW or TIFF negative, choose a film
 stock and a paper, and watch a physically-modelled render settle in under a
 second — grain, halation, couplers, enlarger dichroics and all.
 
-**SpektraLab is the application.** The film process pipeline was a direct 
-C++ and native Metal port of Spektrafilm by Andrea Volpato.
-the engine, the 28 measured film profiles and the print-preview LUTs baked
-from them are Andrea Volpato's, licensed CC BY-SA 4.0. This repository is the
-desktop product built on top of that engine. See [Licensing](#licensing).
+**Silverphase is an independent derivative of [SpektraLab](https://github.com/JamesQiu2005/SpektraLab).**
+It retains the original project's Git history and its C++/Metal port of
+[spektrafilm](https://github.com/andreavolpato/spektrafilm). The physical film
+and print model and measured profiles originate with Andrea Volpato; the
+original macOS application and engine port originate with Hanze Qiu. The
+Silverphase product direction, interface and subsequent changes are separate
+from both original projects. Neither original project endorses Silverphase.
+See [Licensing](#licensing).
 
 ## What it looks like
 
 ![The editor: Lower Manhattan at dusk on Kodak Portra 400, printed on Kodak Professional Portra Endura](screenshots/spektralab-main_new.png)
 
-**The two rails are the two halves of the program.** On the left is the
-negative — camera, film stock, the physical frame, paper, crop — and most of it
-is the engine: a change there is a render. On the right is the grade —
-histogram, white balance, exposure, curve, colour balance — and that rail is
-Layer 2, one Metal compute pass inside the app: a change there is a draw,
-before the next frame. Which side a control is on is a statement about what
-moving it costs, and `ARCHITECTURE.md` §7 has the row-by-row version —
-including the four rows on the left that are neither.
+**The current product centers the physical film process.** Camera/input,
+film, development and print controls live together; the separate general
+grading rail from SpektraLab has been removed. Histogram and navigation are
+part of the preview experience. Some architecture notes and screenshots below
+still document the inherited implementation and have not yet been refreshed
+for Silverphase's redesigned interface.
 
 **`Film Type · Side · Side Length` is not metadata.** 120, short side, 2.205 in:
 the app turns that and the photograph's own aspect into one number — the
@@ -56,7 +57,7 @@ it.
 ## How it is put together
 
 ```
-┌─ SpektraLab.app ──────────────────────────────────────────────────────┐
+┌─ Silverphase.app ─────────────────────────────────────────────────────┐
 │  SwiftUI + Metal, macOS                                               │
 │                                                                       │
 │  Session ── Renderer ── EngineClient                                  │
@@ -95,7 +96,7 @@ Requires macOS 15+, Xcode 26.6 and an Apple-silicon Mac. `ARCHS = arm64` only.
 engine/build.sh bundle     # compile the engine + kernels, rsync baked resources into the app
 cd modern_UI/Spektrafilm
 xcodebuild -project Spektrafilm.xcodeproj -scheme Spektrafilm \
-           -derivedDataPath build/DerivedData build     # → SpektraLab.app
+           -derivedDataPath ../../build/DerivedData build     # → Silverphase.app
 ```
 
 `engine/build.sh bundle` is **not optional and not automatic**: the app target
@@ -140,7 +141,7 @@ Two things that look like fixes and are not:
 Launch it, or use the snapshot harness:
 
 ```bash
-build/DerivedData/Build/Products/Debug/SpektraLab.app/Contents/MacOS/SpektraLab \
+build/DerivedData/Build/Products/Debug/Silverphase.app/Contents/MacOS/Silverphase \
     --snapshot 1200x700 /tmp/out.png --open frame.tif --wait 40
 ```
 
@@ -183,7 +184,7 @@ the smaller cases; the RFC-018 measurements want the A7 III pair.
 
 | | |
 |---|---|
-| `modern_UI/Spektrafilm/` | the app: Swift sources, tests, `Tools/`, the Xcode project, and `Spektrafilm/SpektraLab.icon` — the Icon Composer document `actool` builds the icon from |
+| `modern_UI/Spektrafilm/` | the app: Swift sources, tests, `Tools/`, the Xcode project, and `Spektrafilm/Silverphase.icon` — the Icon Composer document `actool` builds the icon from |
 | `modern_UI/design/`, `reference_layout/`, `film_covers/` | the drawing the UI was measured against (`reference_layout/Main/`, 2026-09-17), its token derivation (`design/TOKENS-main-2026-09-17.md`), the layout captures, and the stock cover art |
 | `engine/` | the C++ engine, its MSL kernels, its C ABI, its parity harnesses |
 | `engine/resources/spektrafilm.metallib` | **not tracked, on purpose** — `engine/build.sh` recompiles it from `engine/src/shaders/*.metal` on every build, so it can never go stale against the shaders |
@@ -247,14 +248,14 @@ which fails if the two ever agree again. See `AGENTS.md` trap 28.
 
 | what | licence | file |
 |---|---|---|
-| SpektraLab, the app | GPL-3.0-or-later | `license/LICENSE` |
+| Silverphase, the app | GPL-3.0-or-later | `license/LICENSE` |
 | the C++ render engine | GPL-3.0-or-later | `license/LICENSE` |
 | film and paper profiles, and the print-preview LUTs derived from them | CC BY-SA 4.0 | `license/SPEKTRAFILM_LICENSE.txt` |
 | vendored metal-cpp | Apache-2.0 | `engine/third_party/metal-cpp/LICENSE.txt` |
 
 All four texts ship inside the `.app` (`Tools/bundle-licenses.sh`, checked by
 `LicensingTests` and the pre-build phase) and are reachable from
-**SpektraLab → About SpektraLab**. That panel is an obligation rather than polish:
+**Silverphase → About Silverphase**. That panel is an obligation rather than polish:
 CC BY-SA names "an app's About screen" by example as a place attribution must
 survive, and the GPL wants a route to the corresponding source.
 
@@ -267,7 +268,8 @@ how is recorded in `Resources/Licenses/Profiles-and-LUTs-CHANGELOG.txt`.
 
 ## Status
 
-Working and used daily. Real gaps, stated: there is no CI, no auto-update and
-no crash reporting; the build is arm64-only; and shipping a notarised DMG still
-needs a Developer ID certificate. Builds are published as prereleases on the
-[Releases](https://github.com/JamesQiu2005/SpektraLab/releases) page.
+Silverphase is under active development. There is no CI, auto-update or crash
+reporting; the build is arm64-only, and shipping a notarised DMG still needs a
+Developer ID certificate. The new repository is currently private and has no
+published release. The [SpektraLab releases](https://github.com/JamesQiu2005/SpektraLab/releases)
+belong to the original project, not to Silverphase.

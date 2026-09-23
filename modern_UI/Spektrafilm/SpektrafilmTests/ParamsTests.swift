@@ -14,6 +14,63 @@ final class ParamsTests: XCTestCase {
         XCTAssertEqual(d["print_exposure"]?.doubleValue ?? 0, 0.5, accuracy: 1e-9, "brighter by one stop = half the enlarger exposure")
     }
 
+    func testPrintFilterShiftsStayInKodakCCUnits() {
+        var p = FilmParams.default
+        p.yFilterShift = -50
+        p.mFilterShift = 50
+        let (delta, layers) = p.delta(from: .default)
+        XCTAssertEqual(layers, [.print])
+        XCTAssertEqual(delta["y_filter_shift"], .double(-50))
+        XCTAssertEqual(delta["m_filter_shift"], .double(50))
+
+        // Existing sidecars with fractional CC values are passed through,
+        // not silently rescaled when the UI range grows.
+        p = .default
+        p.yFilterShift = 0.4
+        XCTAssertEqual(p.delta(from: .default).delta["y_filter_shift"], .double(0.4))
+    }
+
+    func testPhysicalControlsRouteToTheirActualStages() {
+        var p = FilmParams.default
+        p.halationAmount = 1.5
+        p.developmentContrast = 1.1
+        p.colorSeparation = 0.8
+        let shoot = p.delta(from: .default)
+        XCTAssertEqual(shoot.layers, [.shoot])
+        XCTAssertEqual(shoot.delta["halation_amount"], .double(1.5))
+        XCTAssertEqual(shoot.delta["density_curve_gamma"], .double(1.1))
+        XCTAssertEqual(shoot.delta["dir_couplers_amount"], .double(0.8))
+
+        p = .default
+        p.halationAmount = 4
+        XCTAssertEqual(p.delta(from: .default).delta["halation_amount"], .double(4))
+
+        p = .default
+        p.antihalationMode = "none"
+        XCTAssertEqual(p.delta(from: .default).layers, [.shoot])
+        XCTAssertEqual(p.delta(from: .default).delta["antihalation_mode"], .string("none"))
+
+        p = .default
+        p.preflashExposure = 0.25
+        let printDelta = p.delta(from: .default)
+        XCTAssertEqual(printDelta.layers, [.print])
+        XCTAssertEqual(printDelta.delta["preflash_exposure"], .double(0.25))
+    }
+
+    func testOldSidecarDefaultsNewPhysicalControlsToProfileValues() throws {
+        let original = Sidecar()
+        guard var root = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any],
+              var params = root["params"] as? [String: Any] else {
+            return XCTFail("encoded sidecar did not contain params")
+        }
+        for key in ["halationAmount", "antihalationMode", "developmentContrast", "colorSeparation", "preflashExposure"] {
+            params.removeValue(forKey: key)
+        }
+        root["params"] = params
+        let old = try JSONSerialization.data(withJSONObject: root)
+        XCTAssertEqual(try JSONDecoder().decode(Sidecar.self, from: old).params, original.params)
+    }
+
     func testExtendedDynamicRangeDefaultsOffAndRoutesToPrintLayer() {
         XCTAssertFalse(FilmParams.default.extendedDynamicRange)
         XCTAssertEqual(FilmParams.default.wire.first { $0.name == "extended_dynamic_range" }?.value,
@@ -74,7 +131,8 @@ final class ParamsTests: XCTestCase {
         let known: Set<String> = ["film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
                                   "grain_active", "grain_sublayers_active", "halation_active", "print_exposure",
                                   "y_filter_shift", "m_filter_shift", "glare_active", "scan_film",
-                                  "extended_dynamic_range",
+                                  "extended_dynamic_range", "halation_amount", "antihalation_mode", "density_curve_gamma",
+                                  "dir_couplers_amount", "preflash_exposure",
                                   // RFC-015 §3. Shoot layer; absent from a legacy
                                   // frame's delta, which is why this list holds
                                   // the name and `wire` only carries it when set.

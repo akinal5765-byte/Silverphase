@@ -17,6 +17,13 @@ struct BeforeAfterIcon: View {
     /// two rectangles stay distinguishable in one colour.
     var color: Color = Theme.text
     var lineWidth: CGFloat = 1.4
+    /// Which half is **filled**: the picture on the right (the print) by
+    /// default, the frame on the left when the *original* is what the canvas is
+    /// showing. The block changing sides is the whole of the state change —
+    /// the divider stays where it is, because it is the split and not the
+    /// selection, and a glyph whose divider moved would be saying the split had
+    /// moved too.
+    var showingBefore = false
 
     /// The source drawing's coordinate system.
     private static let art = CGSize(width: 60.8, height: 48.11)
@@ -24,13 +31,20 @@ struct BeforeAfterIcon: View {
     var body: some View {
         GeometryReader { geo in
             let m = BeforeAfterIcon.fit(geo.size)
+            // The drawing's two rectangles, in view coordinates.
+            let left = m.rect(1, 6.32, 23.52, 35.28)
+            let right = m.rect(35.87, 5.27, 24.93, 37.39)
             ZStack(alignment: .topLeading) {
-                // Left: the outline — "before" is the frame, not the picture.
-                Path { $0.addRect(m.rect(1, 6.32, 23.52, 35.28)) }
+                // The block: filled where the picture is, empty where the frame
+                // is. It swaps sides and nothing else about the glyph moves.
+                Path { $0.addRect(left) }
+                    .fill(color.opacity(showingBefore ? 0.5 : 0))
+                Path { $0.addRect(right) }
+                    .fill(color.opacity(showingBefore ? 0 : 0.5))
+                // The outline follows the block, so the half that is not filled
+                // reads as a frame rather than as nothing.
+                Path { $0.addRect(showingBefore ? right : left) }
                     .stroke(color, lineWidth: lineWidth)
-                // Right: filled — "after" is a picture.
-                Path { $0.addRect(m.rect(35.87, 5.27, 24.93, 37.39)) }
-                    .fill(color.opacity(0.5))
                 // The divider, full height.
                 Path { p in
                     p.move(to: m.point(30.5, 0))

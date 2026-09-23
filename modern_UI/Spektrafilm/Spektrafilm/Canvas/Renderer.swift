@@ -91,6 +91,12 @@ struct CanvasUniforms {
     /// is what keeps the frame still: while it is the crop's centre the
     /// photo turns under a level frame. Only read while `editingCrop != 0`.
     var pivot = SIMD2<Float>(0.5, 0.5)
+    /// How far the print has come up in the paper, 0…1, **or negative when
+    /// there is no film on the canvas** (see `Renderer.develop`). This is the
+    /// ceremony's whole clock: 0 is the developed film, 1 is the print, and
+    /// there is no position anywhere in it — the frame develops as a sheet,
+    /// not from an edge.
+    var develop: Float = -1
 }
 
 /// The before/after comparison, as the canvas understands it.
@@ -207,12 +213,121 @@ final class Renderer: NSObject {
     /// Whether a comparison can be shown at all: there has to be something to
     /// compare against. `original` is nil until the decode preview lands.
     var canCompare: Bool { original != nil }
+    /// **The developed film, waiting to be printed.**
+    ///
+    /// Set while a frame is showing its *scan* — the negative-to-positive
+    /// moment — and `nil` the rest of the time; `develop` is what animates it.
+    /// It is the engine's own `scan_film` render (`spk_preview_scan`), so what
+    /// is on screen really is the film that was just developed rather than an
+    /// inversion of the print.
+    var filmScan: MTLTexture? { didSet { if oldValue !== filmScan { needsDraw?() } } }
+    /// 0 = the film, 1 = the print. **The whole animation, and there is no
+    /// position in it.**
+    ///
+    /// Three versions of this ran a *wipe* — a front travelling across the
+    /// frame — and the user's report on each was the same: "还是横向扫过去正片
+    /// 就出现了". That reading is not a tuning problem, it is what a front
+    /// means: at any instant the frame is half one picture and half the other.
+    /// A sheet in a tray is not like that. It develops everywhere at once, the
+    /// densest parts first, and that is what this drives.
+    var develop: Float = 0 {
+        didSet {
+            develop = develop.clamped(to: 0...1)
+            if oldValue != develop { needsDraw?() }
+        }
+    }
+    /// Whether the film is what the canvas is showing.
+    var showingFilmScan: Bool { filmScan != nil }
+    /// **Nothing on the canvas yet, on purpose.**
+    ///
+    /// True between "the print has landed" and "the film has arrived" on the
+    /// one frame that gets the negative-to-positive moment. The print is
+    /// already in hand, and drawing it there would spoil the thing the moment
+    /// is about: the user's words were "宁可拖入照片之后显示空白,等一会再显示
+    /// 负片". Cleared when the scan lands — or when it fails, because a canvas
+    /// held blank for ever is not a loading state, it is a bug.
+    var holdForNegative = false { didSet { if oldValue != holdForNegative { needsDraw?() } } }
+
+    /// The develop, as an animation rather than as a sequence of numbers.
+    ///
+    /// **Driven from `draw` against the wall clock, and it asks for the next
+    /// frame itself.** The first version was a `Task.sleep(16 ms)` loop
+    /// stepping a float, and it juddered: a sleep is not frame-aligned, each
+    /// one drifts by its own overhead, and the steps beat against the display
+    /// refresh. Computing the position from `CACurrentMediaTime()` in the draw
+    /// that is about to use it cannot drift, because there is nothing to
+    /// accumulate. The canvas still draws on demand — the animation is the one
+    /// thing that demands.
+    private var developAnimation: (start: CFTimeInterval, duration: Double)?
+    /// How long the film-to-print develop takes. **3.6 s, and every part of that
+    /// number is the brief.** The band crosses the frame for ~1.25 s of it —
+    /// deliberately the same pace as the 2.2 s version, which is the one that
+    /// felt right — and the extra time is all in the *holds*: a long, almost
+    /// still start while the lamp comes on, and the tail where the last strips
+    /// finish developing after the band has left. The ease being more
+    /// pronounced would otherwise have sped the middle up to pay for itself,
+    /// which is the opposite of what was asked for.
+    static let printDevelopSeconds: Double = 3.6
+
+    /// Print the negative: start the develop. `Session` owns *when*; the canvas
+    /// owns *how*, because only the canvas knows when a frame is being drawn.
+    func printTheNegative() {
+        guard filmScan != nil, developAnimation == nil else { return }
+        developAnimation = (CACurrentMediaTime(), Self.printDevelopSeconds)
+        needsDraw?()
+    }
+
+    /// Advance the develop to *now*. Returns true while it is still running, so
+    /// the caller can ask for the next frame.
+    @discardableResult
+    func stepFilmDevelopment() -> Bool {
+        guard let anim = developAnimation else { return false }
+        let elapsed = CACurrentMediaTime() - anim.start
+        applyDevelop(elapsed: elapsed, duration: anim.duration)
+        if elapsed >= anim.duration {
+            // The film goes, and with it every trace of the ceremony: at
+            // `develop == 1` the shader's own path already draws exactly the
+            // print, so dropping the texture is a handoff and not a cut.
+            developAnimation = nil
+            filmScan = nil
+            develop = 0
+            return false
+        }
+        return true
+    }
+
+    /// How far the print has come up `elapsed` seconds in.
+    ///
+    /// One implementation, and it is a public door on purpose. The snapshot
+    /// harness has to photograph a frame *of* the animation, and in a capture
+    /// there is no live draw to advance it — `SnapshotCanvas` stands in for
+    /// the Metal view, so `draw(in:)` (and therefore `stepFilmDevelopment`)
+    /// never runs. The alternative was a copy of this curve in the harness,
+    /// which is trap 28: the day the curve is tuned, the harness goes on
+    /// photographing the old one and calls it a regression.
+    func applyDevelop(elapsed: Double, duration: Double = Renderer.printDevelopSeconds) {
+        let t = min(1, max(0, elapsed / duration))
+        // **Septic ease** (35t⁴ − 84t⁵ + 70t⁶ − 20t⁷), one step beyond
+        // smootherstep: zero velocity *and* zero acceleration at both ends, and
+        // a flatter start than smootherstep can give — a tenth of the time in
+        // it has moved 0.3 % of the frame, a quarter of the time in 7 % (linear
+        // would say 25 %, smoothstep 16 %, smootherstep 10 %). The brief asked
+        // for the non-linearity to be *clearer*, and this is the standard curve
+        // that has more of it rather than a hand-rolled exponent.
+        develop = Float(t * t * t * t * (35 + t * (-84 + t * (70 - 20 * t))))
+    }
+
     /// What the shader is told to do, from the three pieces of state above.
     ///
     /// Space wins over the split: it is a momentary gesture meaning "show me
     /// all of the original", and `draw` has already swapped the shown texture
     /// for the original to serve it — so the comparison is simply off, and the
     /// split comes back on release because nothing here writes `compareSplit`.
+    ///
+    /// The develop is **not** a comparison and does not touch this: it hands
+    /// the shader both textures and a progress, and the shader draws one
+    /// picture. The reader's split is exactly what it says — two pictures side
+    /// by side — which is the one thing the ceremony must not look like.
     var compareMode: CompareMode {
         (original == nil || showOriginal) ? .off : (compareSplit ? .split : .off)
     }
@@ -356,6 +471,9 @@ final class Renderer: NSObject {
     /// and what `logicalSize(forSource:)` turns into the viewport's units.
     private(set) var sourceSize: CGSize?
     var layer2 = Layer2Uniforms() { didSet { layer2Dirty = true } }
+    /// Old sidecars may contain an output grade. Fresh projects draw the
+    /// physical render directly; this flag keeps old images reproducible.
+    var legacyGradeActive = false { didSet { layer2Dirty = true; needsDraw?() } }
     /// The masks, already packed. Set from `Session` whenever the mask list
     /// changes; at most `EditMask.maxCount`.
     var masks: [MaskUniform] = [] { didSet { layer2Dirty = true; needsDraw?() } }
@@ -739,6 +857,9 @@ final class Renderer: NSObject {
         u.editingCrop = editingCrop ? 1 : 0
         u.compare = compareMode.rawValue
         u.compareSplit = comparePosition
+        // Negative is "no film on the canvas" — see the field. The shader needs
+        // the difference between a ceremony at 0 and no ceremony at all.
+        u.develop = showingFilmScan ? develop : -1
         u.pivot = SIMD2(Float(cropPivot.x), Float(cropPivot.y))
         return u
     }
@@ -755,26 +876,34 @@ final class Renderer: NSObject {
         // answered is whether the invalidation reached the delegate at all.
         // An off-screen window legitimately vends no drawable.
         drawCount += 1
+        // Before anything is encoded, so the uniforms below carry *this*
+        // frame's progress rather than the last one's.
+        let developing = stepFilmDevelopment()
         guard let drawable = view.currentDrawable, let rpd = view.currentRenderPassDescriptor,
               let cb = queue.makeCommandBuffer() else {
             log("no drawable (size \(view.drawableSize), window \(view.window != nil))")
             return
         }
         var shown: MTLTexture? = nil
-        if let base {
+        if let base, !holdForNegative {
             if showOriginal, let original {
                 shown = original
-            } else if let dst = ensureAdjusted(for: base) {
+            } else {
+                let physicalOrLegacy: MTLTexture
+                if legacyGradeActive, let dst = ensureAdjusted(for: base) {
+                    if layer2Dirty { encodeLayer2(cb, src: base, dst: dst) }
+                    physicalOrLegacy = dst
+                } else {
+                    physicalOrLegacy = base
+                }
+                shown = physicalOrLegacy
                 if layer2Dirty {
-                    encodeLayer2(cb, src: base, dst: dst)
                     layer2Dirty = false
-                    // The histogram is taken of **what the canvas draws** —
-                    // the working-space texture — now that there is no
-                    // converted one to take it of. What that means for its
-                    // axis is recorded on `publishHistogram`.
+                    // The histogram measures the texture actually shown. On a
+                    // fresh frame this is the engine render, with no grade pass.
                     if !histogramInFlight {
                         histogramInFlight = true
-                        encodeHistogram(cb, src: dst)
+                        encodeHistogram(cb, src: physicalOrLegacy)
                         cb.addCompletedHandler { [weak self] _ in
                             Task { @MainActor in
                                 self?.histogramInFlight = false
@@ -783,13 +912,12 @@ final class Renderer: NSObject {
                         }
                     }
                 }
-                shown = dst
             }
         }
         // Left of the split and under Space. The same texture the right half is
         // drawn from — both are the working space, so the split compares two
         // renderings and not two colour spaces.
-        let before = original ?? shown
+        let before = filmScan ?? original ?? shown
         let bs = Float(view.window?.backingScaleFactor ?? viewport.backingScale)
         var u = canvasUniforms(shown: shown, viewportSize: view.drawableSize, backingScale: CGFloat(bs))
         // The timestamp is not decoration: "the canvas twitches" is a question
@@ -822,6 +950,12 @@ final class Renderer: NSObject {
         enc.endEncoding()
         cb.present(drawable)
         cb.commit()
+        // **The animation asks for its own next frame.** The canvas has no
+        // display link by design (UI-GUIDELINE §4) — it draws when something
+        // changes — and a develop is the one thing that changes without being
+        // touched. `scheduleDraw` lands on the next runloop turn, so this paces
+        // itself to the display rather than to a timer.
+        if developing { needsDraw?() }
     }
 
     // MARK: offscreen (export, snapshot, tests)
@@ -879,15 +1013,23 @@ final class Renderer: NSObject {
         var shown: MTLTexture? = nil
         // The same swap `draw` makes while Space is held, so a capture of
         // "show original" shows the original rather than the print.
-        if base != nil, showOriginal, let original {
+        if holdForNegative {
+            // Held: the ground is all this frame draws until its film arrives.
+        } else if base != nil, showOriginal, let original {
             shown = original
-        } else if let base, let dst = ensureAdjusted(for: base) {
-            encodeLayer2(cb, src: base, dst: dst)
+        } else if let base {
+            let physicalOrLegacy: MTLTexture
+            if legacyGradeActive, let dst = ensureAdjusted(for: base) {
+                encodeLayer2(cb, src: base, dst: dst)
+                physicalOrLegacy = dst
+            } else {
+                physicalOrLegacy = base
+            }
             layer2Dirty = false
-            shown = dst
-            encodeHistogram(cb, src: dst)
+            shown = physicalOrLegacy
+            encodeHistogram(cb, src: physicalOrLegacy)
         }
-        let before = original ?? shown
+        let before = filmScan ?? original ?? shown
         var u = canvasUniforms(shown: shown, viewportSize: CGSize(width: w, height: h), backingScale: backingScale)
         let rpd = MTLRenderPassDescriptor()
         rpd.colorAttachments[0].texture = target

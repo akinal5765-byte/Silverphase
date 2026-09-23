@@ -28,15 +28,14 @@
 //  rail. Not an AppKit-standard
 //  preferences window, because the rest of the interface is not one either.
 //
-//  **Language and Interface are localized, and the diagnostic sections are
-//  not.** That is deliberate and it is written down:
-//  `design/LOCALIZATION-zh-Hans.md`, last section — "本文件是主编辑器文案规格，
-//  不是完整应用语言包；设置、导出页、系统错误的完整本地化留到相应页面工作。"
-//  This page is the *control* for the language and the place a reader who has
-//  just switched into Chinese arrives, so language and type scale have to be
-//  usable in that language; translating the remaining sections (diagnostics, memory
-//  readouts, bundle copy, the log notes) is a page-worth of work with its own
-//  review, and half a page translated reads worse than either whole state.
+//  **The whole page is localized** (2026-09-23). The first pass translated
+//  Language and Interface only, on the argument that half a page reads worse
+//  than either whole state; the user's instruction was to finish it — "整理和
+//  翻译设置以及各种菜单" — so every label, caption and readout here comes from
+//  the string table now, like the rest of the interface. The *sentences* that
+//  used to live beside their controls in `Diagnostics` (`memoryReserveNote` and
+//  the rest) moved into the table too, because one sentence with two homes is
+//  the thing that drifts.
 
 import AppKit
 import SwiftUI
@@ -47,10 +46,15 @@ struct SettingsWindow: View {
     /// rather than copied into `@State`: a copy is a second source of truth,
     /// and the whole point of §8.5 is that there is one.
     private var diagnostics: Diagnostics { Diagnostics.shared }
+    /// A capture gets the page's **whole height**: the real window is a
+    /// scrolling rail 640 pt tall, and a reviewer looking at one screenshot of
+    /// it can only ever see the first four sections — which is how the bottom
+    /// half of this page stayed English for a release. `Tools/snapshot.sh`
+    /// asks for a tall window and this lets the stack fill it.
+    @Environment(\.snapshotMode) private var snapshotMode
 
     @State private var bundleResult: String?
     @State private var savingBundle = false
-    @State private var updateStatus: UpdateCheck.Status = .idle
     /// The memory readout refreshes while the page is open and stops when it
     /// closes. A settings page nobody is looking at has no business taking
     /// samples.
@@ -71,8 +75,9 @@ struct SettingsWindow: View {
             }
             .padding(.vertical, Theme.Metric.Settings.verticalInset)
         }
-        .frame(width: Theme.Metric.Settings.width, height: Theme.Metric.Settings.height)
-        .background(Theme.card)
+        .frame(width: Theme.Metric.Settings.width,
+               height: snapshotMode ? nil : Theme.Metric.Settings.height)
+        .background(Theme.cardFill)
         .preferredColorScheme(.dark)
         .onAppear {
             diagnostics.refreshMemory()
@@ -120,19 +125,16 @@ struct SettingsWindow: View {
     // MARK: - appearance
 
     private var appearanceSection: some View {
-        let chinese = Localization.shared.resolved == .simplifiedChinese
-        return PanelSection(chinese ? "界面" : "Interface",
+        return PanelSection(L(.setInterface),
                             systemImage: "textformat.size", key: "setAppearance") {
             SettingsRows {
                 VStack(spacing: Theme.Metric.Settings.rowSpacing) {
-                    PillMenu(label: chinese ? "缩放" : "Scale",
+                    PillMenu(label: L(.setScale),
                              options: InterfaceScale.allCases,
                              title: { $0.label },
                              selection: Binding(get: { InterfaceScaleStore.shared.scale },
                                                 set: { InterfaceScaleStore.shared.scale = $0 }))
-                    caption(chinese
-                            ? "同步调整主界面、设置与导出页的字体大小；更改立即生效。"
-                            : "Scales type across the editor, Settings and Export. Changes apply immediately.")
+                    caption(L(.setScaleCaption))
                 }
             }
         }
@@ -141,21 +143,21 @@ struct SettingsWindow: View {
     // MARK: - rendering
 
     private var renderingSection: some View {
-        PanelSection("Rendering", systemImage: "slider.horizontal.3", key: "setRendering") {
+        PanelSection(L(.setRendering), systemImage: "slider.horizontal.3", key: "setRendering") {
             SettingsRows {
                 VStack(spacing: 4) {
-                    PillMenu(label: "Preview", options: Session.previewEdgeChoices,
+                    PillMenu(label: L(.setPreview), options: Session.previewEdgeChoices,
                              title: { "\($0) px" },
                              selection: Binding(get: { session.previewLongEdge },
                                                 set: { session.setPreviewLongEdge($0) }))
-                    caption("The resolution every interactive edit renders at. The frame's own resolution is rendered separately once an edit settles, so this trades responsiveness while dragging against nothing in the finished picture. The recorded cost of a reprint on a 45 MP frame is 13.7 ms at 2560 px, and rises roughly with the pixels.")
-                    ToggleRow(label: "Fast stock preview", isOn: $session.fastStockPreview)
-                    caption("When a print stock is picked, show the LUT applied to the negative already on the canvas instead of waiting for the full reprint. It is the same table, so the preview and the print agree.")
-                    ToggleRow(label: "Crop re-maps the frame",
+                    caption(L(.setPreviewCaption))
+                    ToggleRow(label: L(.setFastStockPreview), isOn: $session.fastStockPreview)
+                    caption(L(.setFastStockPreviewCaption))
+                    ToggleRow(label: L(.setCropRemaps),
                               isOn: Binding(get: { Session.recalculateEffectsAfterCrop },
                                             set: { Session.recalculateEffectsAfterCrop = $0
                                                    session.recomputeFilmFormat() }))
-                    caption("Whether cropping changes the physical scale of grain, halation and glare. Off — the default, and the physically true answer — the crop shows less of the same negative and its grain is the size it always was. On, the cropped rectangle *is* the frame: the Film section's Side Length now describes the crop, so the effects grow with it. This is the setting the Film section's Side Length row is measured against.")
+                    caption(L(.setCropRemapsCaption))
                 }
             }
         }
@@ -164,15 +166,15 @@ struct SettingsWindow: View {
     // MARK: - diagnostics
 
     private var diagnosticsSection: some View {
-        PanelSection("Diagnostics", systemImage: "stethoscope", key: "setDiagnostics") {
+        PanelSection(L(.setDiagnostics), systemImage: "stethoscope", key: "setDiagnostics") {
             SettingsRows {
                 VStack(spacing: 4) {
-                    PillMenu(label: "Log level", options: LogLevelSetting.allCases,
-                             title: { $0.label },
+                    PillMenu(label: L(.setLogLevel), options: LogLevelSetting.allCases,
+                             title: { L($0.key) },
                              selection: Binding(get: { diagnostics.level },
                                                 set: { diagnostics.level = $0 }))
-                    caption(diagnostics.level.detail)
-                    ToggleRow(label: "Per-node GPU timings",
+                    caption(L(diagnostics.level.detailKey))
+                    ToggleRow(label: L(.setPerNodeTimings),
                               isOn: Binding(get: { diagnostics.perNodeGPUTimings },
                                             set: { diagnostics.perNodeGPUTimings = $0 }))
                     // Visible, not hover help. RFC-016 §5.2 is specific: "the
@@ -180,7 +182,7 @@ struct SettingsWindow: View {
                     // tooltip is not the toggle saying so — it is the toggle
                     // saying so to whoever already suspected there was
                     // something to hover over.
-                    caption(Diagnostics.perNodeTimingsNote)
+                    caption(L(.setPerNodeTimingsNote))
                 }
             }
         }
@@ -193,15 +195,15 @@ struct SettingsWindow: View {
     /// a warning is easy and forgetting it was granted is easier, so this is
     /// where it is visible and revocable.
     private var memorySection: some View {
-        PanelSection("Memory", systemImage: "memorychip", key: "setMemory") {
+        PanelSection(L(.setMemory), systemImage: "memorychip", key: "setMemory") {
             SettingsRows {
                 VStack(alignment: .leading, spacing: 3) {
                     if let m = diagnostics.memory {
-                        readout("Footprint", bytes(m.footprintBytes))
-                        readout("Session peak", bytes(m.peakBytes))
-                        readout("Free", bytes(m.freeBytes))
+                        readout(L(.setFootprint), bytes(m.footprintBytes))
+                        readout(L(.setSessionPeak), bytes(m.peakBytes))
+                        readout(L(.setFree), bytes(m.freeBytes))
                     } else {
-                        readout("Footprint", "not sampled yet")
+                        readout(L(.setFootprint), L(.setNotSampled))
                     }
                     Divider().overlay(Theme.plotGrid).padding(.vertical, 4)
                     // A setting, not a readout — so it lives outside the
@@ -209,12 +211,12 @@ struct SettingsWindow: View {
                     // disappear until the first sample landed, which is
                     // exactly when someone setting up a small machine would
                     // go looking for it.
-                    intRow("Reserve", diagnostics.memoryReserveMegabytes, "MB",
+                    intRow(L(.setReserve), diagnostics.memoryReserveMegabytes, "MB",
                            Diagnostics.memoryReserveRange) {
                         diagnostics.memoryReserveMegabytes = $0
                     }
-                    caption(Diagnostics.memoryReserveNote)
-                    intRow("Working-set cap",
+                    caption(L(.setReserveNote))
+                    intRow(L(.setWorkingSetCap),
                            diagnostics.memoryCapIsUnlimited
                                ? Diagnostics.defaultMemoryCapMB
                                : diagnostics.memoryCapMegabytes,
@@ -222,21 +224,21 @@ struct SettingsWindow: View {
                         diagnostics.memoryCapMegabytes = $0
                     }
                     .disabled(diagnostics.memoryCapIsUnlimited)
-                    ToggleRow(label: "Unlimited",
+                    ToggleRow(label: L(.setUnlimited),
                               isOn: Binding(get: { diagnostics.memoryCapIsUnlimited },
                                             set: { diagnostics.memoryCapIsUnlimited = $0 }))
-                    caption(Diagnostics.memoryCapNote)
+                    caption(L(.setCapNote))
                     Divider().overlay(Theme.plotGrid).padding(.vertical, 4)
-                    readout("Held by SpektraLab",
+                    readout(L(.setHeldByApp),
                             bytes(UInt64(max(0, diagnostics.arena.totalBytes))),
                             help: arenaBreakdown())
-                    readout("Evictable",
+                    readout(L(.setEvictable),
                             bytes(UInt64(max(0, diagnostics.arena.evictableBytes))))
                     Divider().overlay(Theme.plotGrid).padding(.vertical, 4)
-                    ToggleRow(label: "Allow exceeding the reserve",
+                    ToggleRow(label: L(.setAllowOverReserve),
                               isOn: Binding(get: { diagnostics.allowOverReserve },
                                             set: { diagnostics.allowOverReserve = $0 }))
-                    caption("A frame whose projected peak does not leave the reserve free gets a warning you can override. Nothing is ever blocked; this is the standing answer to that warning, and turning it off makes the app ask again.")
+                    caption(L(.setAllowOverReserveCaption))
                 }
             }
         }
@@ -257,42 +259,42 @@ struct SettingsWindow: View {
     /// over the memory cap the app evicts to keep working, over this one it
     /// evicts to stop growing.
     private var diskCacheSection: some View {
-        PanelSection("Disk cache", systemImage: "internaldrive", key: "setDiskCache") {
+        PanelSection(L(.setDiskCache), systemImage: "internaldrive", key: "setDiskCache") {
             SettingsRows {
                 VStack(alignment: .leading, spacing: 3) {
                     if session.hasDiskCache {
-                        readout("In use", "\(bytes(session.diskCacheBytes)) of "
+                        readout(L(.setInUse), "\(bytes(session.diskCacheBytes)) of "
                                           + "\(bytes(diagnostics.diskCacheCapBytes))")
                     } else {
-                        readout("In use", "the cache could not be opened")
+                        readout(L(.setInUse), L(.setCacheUnavailable))
                     }
-                    intRow("Limit", diagnostics.diskCacheCapMegabytes / 1_000, "GB",
+                    intRow(L(.setLimit), diagnostics.diskCacheCapMegabytes / 1_000, "GB",
                            Diagnostics.diskCacheCapGigabyteRange) {
                         diagnostics.diskCacheCapMegabytes = $0 * 1_000
                     }
-                    caption(Diagnostics.diskCacheCapNote)
+                    caption(L(.setCacheNote))
                     Divider().overlay(Theme.plotGrid).padding(.vertical, 4)
-                    labelled("Location") {
+                    labelled(L(.setLocation)) {
                         Text(Session.diskCacheRoot.path)
                             .font(Theme.Font.caption).foregroundStyle(Theme.text)
                             .lineLimit(1).truncationMode(.head)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 8)
                             .frame(height: 16)
-                            .background(Theme.field, in: Capsule())
+                            .pillSurface(base: Theme.field)
                     }
                     HStack(spacing: 10) {
-                        Button("Reveal in Finder") {
+                        Button(L(.setRevealInFinder)) {
                             NSWorkspace.shared.activateFileViewerSelecting([Session.diskCacheRoot])
                         }
-                        .buttonStyle(.plain).font(Theme.Font.caption).foregroundStyle(Theme.accent)
-                        Button("Empty cache now") {
+                        .buttonStyle(.surface)
+                        Button(L(.setEmptyCache)) {
                             session.clearDiskCacheNow()
                         }
-                        .buttonStyle(.plain).font(Theme.Font.caption)
+                        .buttonStyle(.surface)
                         .foregroundStyle(session.hasDiskCache ? Theme.accent : Theme.dim)
                         .disabled(!session.hasDiskCache)
-                        .help("Deletes every cached decode and print. Nothing of yours is in it.")
+                        .help(L(.setEmptyCacheHelp))
                         Spacer()
                     }
                     .padding(.top, 2)
@@ -304,40 +306,40 @@ struct SettingsWindow: View {
     // MARK: - logs
 
     private var logsSection: some View {
-        PanelSection("Logs", systemImage: "doc.text", key: "setLogs") {
+        PanelSection(L(.setLogs), systemImage: "doc.text", key: "setLogs") {
             SettingsRows {
                 VStack(spacing: 4) {
-                    intRow("Keep for", diagnostics.retentionDays, "days", 1...365) {
+                    intRow(L(.setKeepFor), diagnostics.retentionDays, L(.setUnitDays), 1...365) {
                         diagnostics.retentionDays = $0
                     }
-                    intRow("Keep at most", diagnostics.retentionMegabytes, "MB", 10...10_000) {
+                    intRow(L(.setKeepAtMost), diagnostics.retentionMegabytes, "MB", 10...10_000) {
                         diagnostics.retentionMegabytes = $0
                     }
-                    intRow("Keep at most", diagnostics.retentionFiles, "files", 1...500) {
+                    intRow(L(.setKeepAtMost), diagnostics.retentionFiles, L(.setUnitFiles), 1...500) {
                         diagnostics.retentionFiles = $0
                     }
-                    caption("Whichever limit is reached first wins, oldest file first. Cleaning runs at launch, never during a render.")
+                    caption(L(.setRetentionCaption))
                     Divider().overlay(Theme.plotGrid).padding(.vertical, 4)
-                    labelled("Destination") {
+                    labelled(L(.setDestination)) {
                         Text(diagnostics.logDirectory.path)
                             .font(Theme.Font.caption).foregroundStyle(Theme.text)
                             .lineLimit(1).truncationMode(.head)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 8)
                             .frame(height: 16)
-                            .background(Theme.field, in: Capsule())
-                        Button("Choose…") { chooseLogDirectory() }
-                            .buttonStyle(.plain).font(Theme.Font.caption).foregroundStyle(Theme.accent)
+                            .pillSurface(base: Theme.field)
+                        Button(L(.setChoose)) { chooseLogDirectory() }
+                            .buttonStyle(.surface)
                     }
-                    caption(Diagnostics.logDirectoryNote)
+                    caption(L(.setLogDirectoryNote))
                     if let f = diagnostics.cleanupFailure { warning(f) }
                     if let f = diagnostics.writeFailure { warning(f) }
                     HStack(spacing: 10) {
-                        Button("Reveal in Finder") { diagnostics.revealLogsInFinder() }
-                            .buttonStyle(.plain).font(Theme.Font.caption).foregroundStyle(Theme.accent)
-                        Button("Clear logs now") { diagnostics.clearLogsNow() }
-                            .buttonStyle(.plain).font(Theme.Font.caption).foregroundStyle(Theme.accent)
-                            .help("Deletes every log file except this session's.")
+                        Button(L(.setRevealInFinder)) { diagnostics.revealLogsInFinder() }
+                            .buttonStyle(.surface)
+                        Button(L(.setClearLogs)) { diagnostics.clearLogsNow() }
+                            .buttonStyle(.surface)
+                            .help(L(.setClearLogsHelp))
                         Spacer()
                     }
                     .padding(.top, 2)
@@ -349,21 +351,23 @@ struct SettingsWindow: View {
     // MARK: - the bundle
 
     private var bundleSection: some View {
-        PanelSection("Diagnostic bundle", systemImage: "shippingbox", key: "setBundle") {
+        PanelSection(L(.setBundle), systemImage: "shippingbox", key: "setBundle") {
             SettingsRows {
                 VStack(spacing: 4) {
-                    ToggleRow(label: "Include image file names",
+                    ToggleRow(label: L(.setIncludeFileNames),
                               isOn: Binding(get: { diagnostics.includeFileNamesInBundle },
                                             set: { diagnostics.includeFileNamesInBundle = $0 }))
-                    caption(DiagnosticBundle.fileNamesNote)
+                    caption(L(.setFileNamesNote))
                     HStack(spacing: 10) {
-                        Button(savingBundle ? "Saving…" : "Save diagnostic bundle…") { saveBundle() }
-                            .buttonStyle(.plain).font(Theme.Font.caption)
-                            .foregroundStyle(savingBundle ? Theme.dim : Theme.accent)
+                        // The section's one primary action (UI-SPEC §3.6):
+                        // accent-filled, dark ink, the same pairing the export
+                        // page's Export button uses.
+                        Button(savingBundle ? L(.setSaving) : L(.setSaveBundle)) { saveBundle() }
+                            .buttonStyle(.primarySurface)
                             .disabled(savingBundle)
                         Spacer()
                     }
-                    caption("One zip: the recent log files, the engine's capabilities, the app and engine versions, this machine, the current settings and the last error. Nothing is transmitted — it is written where you choose.")
+                    caption(L(.setBundleCaption))
                     if let bundleResult { caption(bundleResult) }
                 }
             }
@@ -378,48 +382,27 @@ struct SettingsWindow: View {
     /// evidence is a *missing* record, so if this page did not say so nothing
     /// would.
     private var machineSection: some View {
-        PanelSection("This session", systemImage: "info.circle", key: "setMachine") {
+        PanelSection(L(.setMachine), systemImage: "info.circle", key: "setMachine") {
             SettingsRows {
                 VStack(alignment: .leading, spacing: 3) {
-                    readout("App", Diagnostics.bundleInfo.version)
-                    readout("Engine", diagnostics.engineVersion ?? "not reported yet")
-                    readout("Render core", session.renderCore ?? "not reported yet")
-                    readout("Log file", diagnostics.currentLogFile?.lastPathComponent ?? "none")
+                    readout(L(.setApp), Diagnostics.bundleInfo.version)
+                    readout(L(.setEngine), diagnostics.engineVersion ?? L(.setNotReported))
+                    readout(L(.setRenderCore), session.renderCore ?? L(.setNotReported))
+                    readout(L(.setLogFile), diagnostics.currentLogFile?.lastPathComponent ?? L(.setNone))
                     Divider().overlay(Theme.plotGrid).padding(.vertical, 4)
-                    HStack(spacing: 10) {
-                        Button(updateStatus == .checking ? "Checking…" : "Check for updates") {
-                            checkForUpdates()
-                        }
-                        .buttonStyle(.plain).font(Theme.Font.caption)
-                        .foregroundStyle(updateStatus == .checking ? Theme.dim : Theme.accent)
-                        .disabled(updateStatus == .checking)
-                        Text(updateSummary)
-                            .font(Theme.Font.caption).foregroundStyle(Theme.dim)
-                            .lineLimit(1).truncationMode(.middle)
-                        Spacer(minLength: 0)
-                    }
-                    if case .updateAvailable(_, let release) = updateStatus {
-                        Button("Open release page") { NSWorkspace.shared.open(release) }
-                            .buttonStyle(.plain).font(Theme.Font.caption)
-                            .foregroundStyle(Theme.accent)
-                    }
-                    if case .failed(let reason) = updateStatus {
-                        warning("Could not check: \(reason)")
-                    }
-                    caption("One unauthenticated request to GitHub's public SpektraLab release API, only when you press this. It sends no identifier and no app version.")
                     if diagnostics.previousSessionChecked {
                         if let p = diagnostics.previousSession {
-                            readout("Last session", p.endedCleanly
-                                    ? "ended cleanly"
-                                    : "did not end cleanly (\(p.file))")
+                            readout(L(.setLastSession), p.endedCleanly
+                                    ? L(.setEndedCleanly)
+                                    : "\(L(.setEndedUnclean)) (\(p.file))")
                             if !p.endedCleanly {
-                                caption("That log has no session-end record, which is how a hang, an out-of-memory kill or a crash shows up — the app never got to write one. The file is in the log folder and the diagnostic bundle includes it.")
+                                caption(L(.setUncleanCaption))
                             }
                         } else {
-                            readout("Last session", "no earlier log")
+                            readout(L(.setLastSession), L(.setNoEarlierLog))
                         }
                     }
-                    if let e = diagnostics.lastError { warning("Last error — " + e) }
+                    if let e = diagnostics.lastError { warning(L(.setLastError) + " — " + e) }
                 }
             }
         }
@@ -441,7 +424,7 @@ struct SettingsWindow: View {
         let parts = diagnostics.arena.breakdown().map {
             "\($0.kind): \(bytes(UInt64(max(0, $0.bytes))))"
         }
-        return parts.isEmpty ? "No cache or frame allocations registered yet."
+        return parts.isEmpty ? L(.setNoCacheAllocations)
                              : parts.joined(separator: "\n")
     }
 
@@ -504,8 +487,8 @@ struct SettingsWindow: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Choose"
-        panel.message = "Where should SpektraLab write its logs?"
+        panel.prompt = L(.setChoose)
+        panel.message = L(.setChooseLogMessage)
         panel.directoryURL = diagnostics.logDirectory
         guard panel.runModal() == .OK, let url = panel.url else { return }
         diagnostics.logDirectory = url
@@ -513,14 +496,14 @@ struct SettingsWindow: View {
 
     private func saveBundle() {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "SpektraLab-diagnostics.zip"
+        panel.nameFieldStringValue = "Silverphase-diagnostics.zip"
         panel.allowedContentTypes = [.zip]
         // §7: "the bundle dialog says so plainly before saving". The message
         // is the same sentence the checkbox above carries, so what the user
         // agreed to and what the bundle contains cannot differ.
         panel.message = diagnostics.includeFileNamesInBundle
-            ? DiagnosticBundle.fileNamesNote
-            : "Image file names will be replaced with placeholders throughout."
+            ? L(.setFileNamesNote)
+            : L(.setPlaceholderNames)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         savingBundle = true
         bundleResult = nil
@@ -528,35 +511,14 @@ struct SettingsWindow: View {
             defer { savingBundle = false }
             do {
                 let written = try await diagnostics.saveDiagnosticBundle(to: url)
-                bundleResult = "Wrote \(written.lastPathComponent)."
+                bundleResult = String(format: L(.setWroteBundle), written.lastPathComponent)
                 NSWorkspace.shared.activateFileViewerSelecting([written])
             } catch {
-                bundleResult = "Could not write the bundle: \(error.localizedDescription)"
+                bundleResult = L(.setBundleFailed) + error.localizedDescription
             }
         }
     }
 
-    private var updateSummary: String {
-        switch updateStatus {
-        case .idle:
-            return "not checked"
-        case .checking:
-            return "checking GitHub…"
-        case .updateAvailable(let version, _):
-            return "\(version) is available"
-        case .upToDate:
-            return "this is the newest release"
-        case .failed:
-            return "could not check"
-        }
-    }
-
-    private func checkForUpdates() {
-        updateStatus = .checking
-        Task {
-            updateStatus = await UpdateCheck.check()
-        }
-    }
 }
 
 /// Settings content sits directly on the rail, like the editor's controls.

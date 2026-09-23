@@ -6,7 +6,7 @@
 
 ## 保留英文的范围
 
-- **SpektraLab**：产品名称不翻译。
+- **Silverphase**：产品名称不翻译。
 - **全部胶片与相纸配置名称**：直接使用 catalog 的英文显示名，不翻译、不音译、
   不按示意图重命名。例如 `Kodak Portra 400`；配置 ID 同样保持原值。
 - **CINE、RAW、RGB、ISO、EV、LUT、EDR**：保留通用缩写。说明文字使用中文；

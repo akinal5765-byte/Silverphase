@@ -110,13 +110,19 @@ final class LayoutTests: XCTestCase {
                           "a mark as tall as its row is a filled cell, not a selection")
         XCTAssertEqual(m.stockSelectionRadius, m.stockSelectionHeight / 2, accuracy: 0.01)
         // The capsule is inset **unequally**, which is why the list cannot be
-        // padded with one number: x 33.57 leading, ending at 227.52 on a 254
-        // pt rail.
-        XCTAssertEqual(m.stockLeadingInset, 33.57 / 2, accuracy: 0.05)
+        // padded with one number: the trailing inset is the drawing's 26.48,
+        // the leading one is the drawing's minus the text's own inset.
+        //
+        // **The leading pair left the drawing deliberately.** v3 put the
+        // capsule at 16.79 and the row's text at 21.33, so a list row's first
+        // glyph sat 5.3 pt right of every control label above it. The text is
+        // on `rowInset` now and the capsule hangs to its left (UI-SPEC §2.4);
+        // the old 33.57 / 42.66 pair is history, not an assertion.
+        XCTAssertEqual(m.stockLeadingInset, m.rowInset - 5, accuracy: 0.05)
         XCTAssertEqual(m.stockTrailingInset, 254 - 227.52, accuracy: 0.05)
         XCTAssertNotEqual(m.stockLeadingInset, m.stockTrailingInset)
         // …and the glyphs sit inside it, not flush with it.
-        XCTAssertEqual(m.stockTextLeadingInset, 42.66 / 2, accuracy: 0.05)
+        XCTAssertEqual(m.stockTextLeadingInset, m.rowInset, accuracy: 0.05)
         XCTAssertGreaterThan(m.stockTextLeadingInset, m.stockLeadingInset,
                              "the row's text would start on the capsule's own edge")
         // The two actions: 165.72 × 37.03 halved, `rx 18.52 / 2`.
@@ -133,11 +139,17 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(m.actionGap, 108.37 - 96.19, accuracy: 0.05)
         XCTAssertEqual(m.actionLeading + m.actionSize.width + m.actionGap, 108.37,
                        accuracy: 0.05)
-        // Sliders still follow the drawing. The checkbox intentionally does
-        // not: its product token supersedes the unusable 5 pt artwork.
-        XCTAssertEqual(m.trackHeight, 2.71 / 2, accuracy: 0.05)
-        XCTAssertEqual(m.knobSize.width, 6.13, accuracy: 0.05)
-        XCTAssertEqual(m.knobSize.height, 5.07, accuracy: 0.05)
+        // Sliders follow the drawing except where the product token supersedes
+        // it. Two now: the checkbox's 5 pt artwork, and the slider itself.
+        //
+        // **The slider left the drawing deliberately.** v3 draws a 1.36 pt
+        // hairline track and a 6.13 × 5.07 dot, which is a slider you have to
+        // aim at; UI-SPEC §2.5 makes the track two-tone and the knob 9 pt
+        // round, because the knob is what divides those two tones and has to
+        // be findable. The old numbers are kept here as history, not asserted.
+        XCTAssertEqual(m.trackHeight, 3, accuracy: 0.05)
+        XCTAssertEqual(m.knobSize.width, 9, accuracy: 0.05)
+        XCTAssertEqual(m.knobSize.height, 9, accuracy: 0.05)
         XCTAssertEqual(m.checkbox, 10, accuracy: 0.5)
         // The hairline, `.st1` at stroke-width 2 on a 2× drawing.
         XCTAssertEqual(m.rule, 1)
@@ -160,8 +172,10 @@ final class LayoutTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(m.actionHitHeight, 28,
                                     "yellow action capsules need the same usable target")
         // The knob is never dragged by itself — the track's gesture covers a
-        // whole row — so the row height is its effective target.
-        XCTAssertGreaterThan(m.rowHeight, m.knobSize.height * 3,
+        // whole row — so the row height is its effective target. The bound is
+        // `* 2` now that the knob is a 9 pt round divider rather than a 5 pt
+        // dot; what it separates is "a row" from "a dot", not a exact ratio.
+        XCTAssertGreaterThan(m.rowHeight, m.knobSize.height * 2,
                              "the slider's gesture must not be the size of its dot")
         // The reset arrow and the toolbar glyphs keep the boxes §6 names.
         XCTAssertLessThan(m.resetIcon, 12, "v3 draws the reset arrow at 8–9 pt")

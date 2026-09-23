@@ -9,8 +9,9 @@
 //  File names are included by default (§11.3) — this is a single-user desktop
 //  app and the paths are the user's own — and the caller offers the untick,
 //  which replaces basenames with `frame-0001.NEF` style placeholders
-//  consistently across the whole bundle. `fileNamesNote` is the sentence the
-//  save panel is supposed to say before it writes anything.
+//  consistently across the whole bundle. Which sentence the save panel says
+//  before it writes anything is the string table's (`S.setFileNamesNote`),
+//  beside the checkbox that carries the same words.
 //
 //  The zip is written here rather than by `ditto` or `zip`: a subprocess for
 //  one archive is a dependency this app does not have anywhere else, and a
@@ -21,13 +22,6 @@
 import Foundation
 
 struct DiagnosticBundle {
-
-    /// The sentence the save panel says before saving (§7). Not decoration:
-    /// the untick is a promise about what leaves the machine, and a promise
-    /// nobody read is not consent.
-    static let fileNamesNote =
-        "The bundle includes the file names of the images you worked on. Untick to replace them "
-        + "with placeholders throughout — the log is otherwise unchanged."
 
     struct Inputs: Sendable {
         var logDirectory: URL
@@ -93,7 +87,7 @@ struct DiagnosticBundle {
         }
 
         var readme = """
-        SpektraLab diagnostics
+        Silverphase diagnostics
 
         Written by the app, at the user's request. Nothing here was transmitted
         anywhere: this file is the whole of it.

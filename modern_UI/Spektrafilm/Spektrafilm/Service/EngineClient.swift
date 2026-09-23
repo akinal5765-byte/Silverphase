@@ -65,6 +65,16 @@ struct StockLUTOutcome: @unchecked Sendable {
     let height: Int
 }
 
+/// `previewScan`'s half: the frame as the *film* rather than as the print of
+/// it, at the tier asked for. No metadata — there is nothing to report about a
+/// render that changes no parameter and leaves no state behind.
+struct ScanOutcome: @unchecked Sendable {
+    let texture: MTLTexture?
+    let width: Int
+    let height: Int
+    let elapsedMs: Double
+}
+
 /// `export_di`'s picture half. The `.cube` is fetched separately, through
 /// `printLUTTable(_:)`, because it is a table rather than an image.
 struct DIOutcome: @unchecked Sendable {
@@ -520,6 +530,28 @@ actor EngineClient {
         let meta: StockLUTResponse = try decode(reply, as: StockLUTResponse.self)
         return StockLUTOutcome(meta: meta, texture: texture,
                                width: Int(result.width), height: Int(result.height))
+    }
+
+    /// **The developed film, not the print of it.**
+    ///
+    /// The engine renders the session's frame with the print stage *scanning*
+    /// (`io.scan_film`) on a probe copy of its parameters — the session's own
+    /// parameters and pipeline are untouched, which is why this is a call of
+    /// its own rather than a `scan_film` delta: that field is the paper list's
+    /// "No Print Profile", and setting it on the wire would move the interface.
+    ///
+    /// The app shows this for the negative-to-positive moment: a frame arrives
+    /// as the film that was just developed and is wiped to the print.
+    func previewScan(tier: String = "live") async throws -> ScanOutcome {
+        if state != .running { try start() }
+        guard let session else { throw ClientError.notRunning }
+        var result = spk_result()
+        let status = tier.withCString { spk_preview_scan(session, $0, &result) }
+        guard status == SPK_OK else { throw ClientError.engine(lastError()) }
+        let texture = result.texture.map { Unmanaged<MTLTexture>.fromOpaque($0).takeRetainedValue() }
+        return ScanOutcome(texture: texture,
+                           width: Int(result.width), height: Int(result.height),
+                           elapsedMs: result.elapsed_ms)
     }
 
     /// The DI package's picture: the full-tier negative normalised to [0, 1]
