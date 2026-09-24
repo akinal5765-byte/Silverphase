@@ -532,7 +532,7 @@ enum Theme {
         /// The second line of a slider row: "As Shot" and its box.
         static let subRowHeight: CGFloat = 16
         /// The label column. The drawing's is 68.35 (its labels start at
-        /// 17.6 and its first control at 86.35) and `Film Exposure` fills
+        /// 17.6 and its first control at 86.35) and `Exposure Compensation` fills
         /// 66 of it *there*, at Illustrator's optical size. macOS sets the
         /// same string wider, so the column is 84 — a truncated label is
         /// worse than a column twenty points wide.
@@ -1048,7 +1048,7 @@ enum Theme {
 
         /// A rail's own name — Develop, Edit.
         static var railTitle: SwiftUI.Font { scaled(12, .semibold) }
-        /// A section title on the **left** rail: Input / Camera, Film, Print,
+        /// A section title on the **left** rail: Input / Capture, Film, Color Enlargement,
         /// Crop.
         static var leftSectionTitle: SwiftUI.Font { scaled(12, .semibold) }
         /// A section title on the **right** rail: Histogram, White Balance,

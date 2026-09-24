@@ -175,6 +175,13 @@ struct FilmSection: View {
                 .padding(.top, Theme.Metric.blockGap)
                 RailRows {
                     ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
+                    ScrubSlider(label: L(.filmGrainSize),
+                                value: Binding(get: { session.params.grainSizeScale },
+                                               set: { var p = session.params; p.grainSizeScale = $0; session.params = p }),
+                                range: 0.5...2, zero: 1, snap: 0.1,
+                                format: { String(format: "%.1f×", $0) },
+                                disabled: !session.params.grainActive)
+                    .help("Changes the modeled particle diameter relative to 1×. Film format still sets its physical scale; this does not alter the stock profile.")
                     PillMenu(label: L(.filmHalation),
                              options: HalationChoice.allCases,
                              title: { $0.title },

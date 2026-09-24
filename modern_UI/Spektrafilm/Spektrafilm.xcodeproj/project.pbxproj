@@ -162,6 +162,7 @@
 		D8C62B445BB801BDB4827701 /* MasksSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MasksSection.swift"; sourceTree = "<group>"; };
 		AAE77600C4DB8964A93036B8 /* NavigatorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NavigatorSection.swift"; sourceTree = "<group>"; };
 		CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintProfileSection.swift"; sourceTree = "<group>"; };
+		6C0642179D137112024ADEB7 /* ScanOutputSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScanOutputSection.swift"; sourceTree = "<group>"; };
 		6D96546C1610FE27FA9014C7 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
@@ -171,7 +172,8 @@
 				D683EAE35F9582121B7AA62C /* FilmSection.swift */,
 				D8C62B445BB801BDB4827701 /* MasksSection.swift */,
 				AAE77600C4DB8964A93036B8 /* NavigatorSection.swift */,
-				CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */
+				CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */,
+				6C0642179D137112024ADEB7 /* ScanOutputSection.swift */
 			);
 			path = "Sections";
 			sourceTree = "<group>";
@@ -367,6 +369,7 @@
 		7A1377F4B609B3CE3513CAFD /* gen-catalog.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "gen-catalog.py"; sourceTree = "<group>"; };
 		D9DFA21EE15AC0B57DCC3ECE /* gen-project.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "gen-project.py"; sourceTree = "<group>"; };
 		2364A4BDECB2036E04A42FE8 /* live-window.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "live-window.swift"; sourceTree = "<group>"; };
+		3429C150CDB9373595103642 /* make-icon.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "make-icon.py"; sourceTree = "<group>"; };
 		C6454FA299ABB90F982C453B /* make-smoke.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "make-smoke.py"; sourceTree = "<group>"; };
 		5FD5A6F01E9E37CE817FE7D2 /* measure-layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "measure-layout.swift"; sourceTree = "<group>"; };
 		CAC54B5D1A76CDDB8C5B1FC4 /* package.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "package.sh"; sourceTree = "<group>"; };
@@ -383,6 +386,7 @@
 				7A1377F4B609B3CE3513CAFD /* gen-catalog.py */,
 				D9DFA21EE15AC0B57DCC3ECE /* gen-project.py */,
 				2364A4BDECB2036E04A42FE8 /* live-window.swift */,
+				3429C150CDB9373595103642 /* make-icon.py */,
 				C6454FA299ABB90F982C453B /* make-smoke.py */,
 				5FD5A6F01E9E37CE817FE7D2 /* measure-layout.swift */,
 				CAC54B5D1A76CDDB8C5B1FC4 /* package.sh */,
@@ -514,6 +518,7 @@
 		3A4E60CE3031E48A48519664 /* MasksSection.swift */ = {isa = PBXBuildFile; fileRef = D8C62B445BB801BDB4827701; };
 		0CCA806D2F95EB2D2949855E /* NavigatorSection.swift */ = {isa = PBXBuildFile; fileRef = AAE77600C4DB8964A93036B8; };
 		384534AC4F4E049FF3365CE8 /* PrintProfileSection.swift */ = {isa = PBXBuildFile; fileRef = CBC3A4A2D1A91A9075EFE386; };
+		CCCD59252655FC6848596B59 /* ScanOutputSection.swift */ = {isa = PBXBuildFile; fileRef = 6C0642179D137112024ADEB7; };
 		5B7419D000CA2224A11A3D08 /* Filmstrip.swift */ = {isa = PBXBuildFile; fileRef = E5F0DD211AC8BBD623882342; };
 		E57183AE0AB2E1BF0A2E645F /* LeftPanel.swift */ = {isa = PBXBuildFile; fileRef = FBAC6D9C1B679D6F2364EDAC; };
 		C6B42D61DC9D694270735A98 /* RightPanel.swift */ = {isa = PBXBuildFile; fileRef = 464261EAAE2E1731D8109766; };
@@ -610,6 +615,7 @@
 				3A4E60CE3031E48A48519664 /* MasksSection.swift */,
 				0CCA806D2F95EB2D2949855E /* NavigatorSection.swift */,
 				384534AC4F4E049FF3365CE8 /* PrintProfileSection.swift */,
+				CCCD59252655FC6848596B59 /* ScanOutputSection.swift */,
 				5B7419D000CA2224A11A3D08 /* Filmstrip.swift */,
 				E57183AE0AB2E1BF0A2E645F /* LeftPanel.swift */,
 				C6B42D61DC9D694270735A98 /* RightPanel.swift */,
@@ -768,6 +774,7 @@
 		917B38BDBB45954BEDEC818C /* MasksSection.swift */ = {isa = PBXBuildFile; fileRef = D8C62B445BB801BDB4827701; };
 		6AAD8973CE3B98DD57053895 /* NavigatorSection.swift */ = {isa = PBXBuildFile; fileRef = AAE77600C4DB8964A93036B8; };
 		9476B966137052CD34C19AE8 /* PrintProfileSection.swift */ = {isa = PBXBuildFile; fileRef = CBC3A4A2D1A91A9075EFE386; };
+		0D81FBB881EF09AF0918AEB0 /* ScanOutputSection.swift */ = {isa = PBXBuildFile; fileRef = 6C0642179D137112024ADEB7; };
 		3A9D6F08175C3700BE7F4D44 /* Filmstrip.swift */ = {isa = PBXBuildFile; fileRef = E5F0DD211AC8BBD623882342; };
 		188809DA051764CC0BDE9340 /* LeftPanel.swift */ = {isa = PBXBuildFile; fileRef = FBAC6D9C1B679D6F2364EDAC; };
 		6B1CA4C281141671EFCC0777 /* RightPanel.swift */ = {isa = PBXBuildFile; fileRef = 464261EAAE2E1731D8109766; };
@@ -905,6 +912,7 @@
 				917B38BDBB45954BEDEC818C /* MasksSection.swift */,
 				6AAD8973CE3B98DD57053895 /* NavigatorSection.swift */,
 				9476B966137052CD34C19AE8 /* PrintProfileSection.swift */,
+				0D81FBB881EF09AF0918AEB0 /* ScanOutputSection.swift */,
 				3A9D6F08175C3700BE7F4D44 /* Filmstrip.swift */,
 				188809DA051764CC0BDE9340 /* LeftPanel.swift */,
 				6B1CA4C281141671EFCC0777 /* RightPanel.swift */,

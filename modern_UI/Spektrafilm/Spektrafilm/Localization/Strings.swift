@@ -41,7 +41,7 @@ enum S: String, CaseIterable, Sendable {
     case railPresets, railDevelop, railEdit
 
     // MARK: section titles
-    case sectionCamera, sectionFilm, sectionDevelopment, sectionPrint, sectionPaper, sectionCrop
+    case sectionCamera, sectionFilm, sectionDevelopment, sectionPrint, sectionOutput, sectionPaper, sectionCrop
     case sectionNavigator, navigatorEmpty
     case sectionHistogram, sectionWhiteBalance, sectionExposure
     case sectionCurve, sectionColorBalance
@@ -59,7 +59,12 @@ enum S: String, CaseIterable, Sendable {
     case filmGroupPositive, filmGroupNegative
     case filmFormat, filmFormatSide, filmFormatShort, filmFormatLong
     case filmFormatSideLength
-    case filmGrain, filmHalation, filmHalationAmount, filmHalationOff, filmGlare
+    case filmGrain, filmGrainSize, filmHalation, filmHalationAmount, filmHalationOff, filmGlare
+    case cameraDiffusion, enlargerDiffusion
+    case lensFilterStrength, lensHaloRange, enlargerSoftnessStrength, enlargerSoftnessRange
+    case lensFilterHelp, lensHaloRangeHelp, enlargerSoftnessHelp, enlargerSoftnessRangeHelp
+    case paperGlareHelp, highlightExpansionHelp
+    case diffusionOff, diffusionClean, diffusionDeep, diffusionSoft, diffusionWide
     case filmAntihalationProfile, filmAntihalationLow
     case filmAntihalationMedium, filmAntihalationHigh
 
@@ -68,7 +73,7 @@ enum S: String, CaseIterable, Sendable {
 
     // MARK: Print
     case printGroupStill, printGroupCine, printNone, printEDR
-    case printExposure, printYellow, printMagenta, printPreflash
+    case printExposure, printContrast, printYellow, printMagenta, printPreflash
 
     // MARK: Curve
     case curveLuma, curveRed, curveGreen, curveBlue, curveInput, curveOutput
@@ -107,6 +112,7 @@ enum S: String, CaseIterable, Sendable {
     case statusEDRScope, statusRightRailWBScope
     case reasonDecodeWBDisabled, reasonNonCustomSideLength
     case reasonPositiveFilmDisablesPaper, reasonEDRDisabledInScanFilm
+    case reasonPaperGlareDisabledInScanFilm
 
     // MARK: the Settings page's Language section
     case setLanguage, setLanguageCaption, languageFollowSystem
@@ -133,10 +139,11 @@ extension S {
         case .railPresets: "Film & Paper"
         case .railDevelop: "Film Process"
         case .railEdit: "Parameters"
-        case .sectionCamera: "Input / Camera"
+        case .sectionCamera: "Input / Capture"
         case .sectionFilm: "Film"
         case .sectionDevelopment: "Development"
-        case .sectionPrint: "Print"
+        case .sectionPrint: "Color Enlargement"
+        case .sectionOutput: "Scan / Output"
         // The **catalogue** on the left rail, as against the printing
         // parameters on the right. Same word in English; the Chinese pair is
         // where the distinction has to be made, because both rails have a
@@ -153,8 +160,8 @@ extension S {
         case .sectionColorBalance: "Color Balance"
 
         // Camera
-        case .cameraMetering: "Metering"
-        case .cameraFilmExposure: "Film Exposure"
+        case .cameraMetering: "Metering Mode"
+        case .cameraFilmExposure: "Exposure Compensation"
         case .cameraFilmExposureAsShot: "As Shot"
         case .cameraTemperature: "Temperature"
         case .cameraTint: "Tint"
@@ -173,15 +180,33 @@ extension S {
         case .filmGroupPositive: "Positive"
         case .filmGroupNegative: "Negative"
         case .filmFormat: "Film Format"
-        case .filmFormatSide: "Side"
+        case .filmFormatSide: "Size Basis"
         case .filmFormatShort: "Short"
         case .filmFormatLong: "Long"
-        case .filmFormatSideLength: "Side Length"
+        case .filmFormatSideLength: "Reference Size"
         case .filmGrain: "Grain"
+        case .filmGrainSize: "Grain Size"
         case .filmHalation: "Film Halation"
         case .filmHalationAmount: "Halation Strength"
         case .filmHalationOff: "Off"
-        case .filmGlare: "Print/Scan Glare"
+        case .filmGlare: "Paper Glare"
+        case .cameraDiffusion: "Shooting Diffusion"
+        case .enlargerDiffusion: "Soft-Focus Enlargement"
+        case .lensFilterStrength: "Diffusion Strength"
+        case .lensHaloRange: "Diffusion Spread"
+        case .enlargerSoftnessStrength: "Softening Strength"
+        case .enlargerSoftnessRange: "Diffusion Spread"
+        case .lensFilterHelp: "Simulates a diffusion filter in front of the camera lens, before film exposure. Separate from film halation."
+        case .lensHaloRangeHelp: "Changes the filter halo width without changing its strength. 1× keeps the selected filter's modeled size."
+        case .enlargerSoftnessHelp: "Simulates diffusion in the enlarger light path before the paper is exposed. Separate from print/scan glare."
+        case .enlargerSoftnessRangeHelp: "Changes the enlargement halo width without changing diffusion strength. 1× keeps the selected filter's modeled size."
+        case .paperGlareHelp: "Glare from viewing or digitising the finished paper image; separate from film halation and enlarger diffusion."
+        case .highlightExpansionHelp: "Expands compressed highlight detail in the completed paper image. The canvas and exported file use the same result."
+        case .diffusionOff: "Off"
+        case .diffusionClean: "Glimmerglass"
+        case .diffusionDeep: "Black Pro-Mist"
+        case .diffusionSoft: "Pro-Mist"
+        case .diffusionWide: "CineBloom"
         // The halation row's values, named after the phenomenon (halation, 晕光)
         // rather than the coating. There is no "no halation" preset — the
         // strongest anti-halation layer still leaves some — which is why the
@@ -194,17 +219,18 @@ extension S {
 
         // Development
         case .developmentContrast: "Development Contrast"
-        case .developmentColorSeparation: "Color Separation"
+        case .developmentColorSeparation: "DIR Effect"
 
         // Print
         case .printGroupStill: "Still"
         case .printGroupCine: "Cine"
         case .printNone: "No Print Profile"
-        case .printEDR: "Extended Dynamic Range (EDR)"
-        case .printExposure: "Print Exposure"
-        case .printYellow: "Yellow"
-        case .printMagenta: "Magenta"
-        case .printPreflash: "Preflash"
+        case .printEDR: "Highlight Expansion"
+        case .printExposure: "Enlarger Exposure"
+        case .printContrast: "Paper Contrast"
+        case .printYellow: "Yellow Filtration (Y)"
+        case .printMagenta: "Magenta Filtration (M)"
+        case .printPreflash: "Paper Preflash"
 
         // Curve
         case .curveLuma: "Luma"
@@ -298,7 +324,7 @@ extension S {
         case .statusFull: "full"
         case .statusFullPending: "full…"
         case .statusEmptyFilmstrip: "Drop a folder or images here, or press ⌘O."
-        case .statusEDRScope: "Changes the render — canvas, proof and file alike"
+        case .statusEDRScope: "Opens up bright details in the print; preview and export match."
         case .statusRightRailWBScope: "Print — an adjustment on the scan."
         case .reasonDecodeWBDisabled: "Decode white balance applies to RAW input only."
         case .reasonNonCustomSideLength:
@@ -307,7 +333,9 @@ extension S {
             "A slide film is already a positive — there is nothing for a paper to interpret. "
             + "Choose a negative film to print onto paper."
         case .reasonEDRDisabledInScanFilm:
-            "Extended Dynamic Range applies to selected print profiles."
+            "Highlight detail applies only when printing on paper."
+        case .reasonPaperGlareDisabledInScanFilm:
+            "Paper glare applies only when printing on paper."
 
         // Settings ▸ Language
         case .setLanguage: "Language"
@@ -457,10 +485,11 @@ extension S {
         case .railPresets: "胶片与相纸"
         case .railDevelop: "胶片工艺"
         case .railEdit: "参数"
-        case .sectionCamera: "输入 / 相机"
+        case .sectionCamera: "输入 / 拍摄"
         case .sectionFilm: "胶片"
         case .sectionDevelopment: "显影"
-        case .sectionPrint: "印相"
+        case .sectionPrint: "彩色放大"
+        case .sectionOutput: "扫描 / 输出"
         case .sectionPaper: "相纸"
         case .sectionNavigator: "导航器"
         case .navigatorEmpty: "未打开图像"
@@ -472,8 +501,8 @@ extension S {
         case .sectionColorBalance: "色彩平衡"
 
         // Camera
-        case .cameraMetering: "测光方式"
-        case .cameraFilmExposure: "胶片曝光"
+        case .cameraMetering: "测光模式"
+        case .cameraFilmExposure: "曝光补偿"
         case .cameraFilmExposureAsShot: "拍摄时设置"
         case .cameraTemperature: "色温"
         case .cameraTint: "色调"
@@ -491,16 +520,34 @@ extension S {
         // Film
         case .filmGroupPositive: "正片"
         case .filmGroupNegative: "负片"
-        case .filmFormat: "胶片画幅"
-        case .filmFormatSide: "基准边"
+        case .filmFormat: "胶片规格"
+        case .filmFormatSide: "尺寸基准"
         case .filmFormatShort: "短边"
         case .filmFormatLong: "长边"
-        case .filmFormatSideLength: "边长"
+        case .filmFormatSideLength: "基准尺寸"
         case .filmGrain: "颗粒"
-        case .filmHalation: "胶片晕光"
-        case .filmHalationAmount: "晕光强度"
+        case .filmGrainSize: "颗粒尺度"
+        case .filmHalation: "胶片光晕"
+        case .filmHalationAmount: "光晕强度"
         case .filmHalationOff: "关闭"
-        case .filmGlare: "印相眩光"
+        case .filmGlare: "相纸眩光"
+        case .cameraDiffusion: "拍摄柔光"
+        case .enlargerDiffusion: "柔光放大"
+        case .lensFilterStrength: "柔光强度"
+        case .lensHaloRange: "扩散范围"
+        case .enlargerSoftnessStrength: "柔光强度"
+        case .enlargerSoftnessRange: "扩散范围"
+        case .lensFilterHelp: "模拟拍摄镜头前的柔光镜，作用于胶片曝光之前；与胶片光晕不同。"
+        case .lensHaloRangeHelp: "调整柔光镜的扩散尺度，不改变柔光强度；1× 保持所选柔光镜的模拟尺寸。"
+        case .enlargerSoftnessHelp: "模拟在放大机光路中加入柔光镜，作用于相纸曝光之前；与相纸眩光不同。"
+        case .enlargerSoftnessRangeHelp: "调整柔光放大的扩散尺度，不改变柔光强度；1× 保持所选柔光镜的模拟尺寸。"
+        case .paperGlareHelp: "模拟观看或数字化已形成的相纸影像时的眩光；与胶片光晕和柔光放大不同。"
+        case .highlightExpansionHelp: "展开相纸成像中压缩的高光层次；画布与导出文件使用同一结果。"
+        case .diffusionOff: "关闭"
+        case .diffusionClean: "Glimmerglass"
+        case .diffusionDeep: "黑柔"
+        case .diffusionSoft: "白柔"
+        case .diffusionWide: "CineBloom"
         // 晕光那一行的取值,按现象命名,不按涂层命名。胶片数据记的是**防晕层**:
         // 涂层越强,晕光越弱,两者方向相反。没有"无晕光"这一档(涂层最强也仍有
         // 残余),所以真正的关闭是单独一项「关闭」;与线格式之间的反相写在
@@ -512,17 +559,18 @@ extension S {
 
         // Development
         case .developmentContrast: "显影反差"
-        case .developmentColorSeparation: "色彩分离"
+        case .developmentColorSeparation: "DIR 效应"
 
         // Print
         case .printGroupStill: "静态摄影"
         case .printGroupCine: "电影"
         case .printNone: "不使用相纸配置"
-        case .printEDR: "扩展动态范围（EDR）"
-        case .printExposure: "印相曝光"
-        case .printYellow: "黄色滤光"
-        case .printMagenta: "品红滤光"
-        case .printPreflash: "预闪"
+        case .printEDR: "高光层次展开"
+        case .printExposure: "放大曝光"
+        case .printContrast: "相纸反差"
+        case .printYellow: "黄滤色（Y）"
+        case .printMagenta: "品红滤色（M）"
+        case .printPreflash: "相纸预闪"
 
         // Curve
         case .curveLuma: "明度"
@@ -580,7 +628,7 @@ extension S {
         case .helpPickNeutral: "在图像中选取中性色"
         case .helpWhiteBalancePreset: "白平衡预设"
         case .helpReset: "重置"
-        case .helpResetFilmExposure: "重置胶片曝光"
+        case .helpResetFilmExposure: "重置曝光补偿"
         case .helpResetChannels: "重置所有通道"
         case .helpResetCrop: "重置裁剪"
         case .helpStraightenZero: "拉直到 0°"
@@ -593,19 +641,20 @@ extension S {
         case .helpUseFilmPaper: "使用胶片预设的相纸"
         case .helpAllEffectsOn: "开启所有效果"
         case .helpAllEffectsOff: "关闭所有效果"
-        case .helpFastFlip: "快速切换（使用预烘焙 LUT，不含耀光，忽略印相调整）"
+        case .helpFastFlip: "快速切换（使用预烘焙 LUT，不含眩光，忽略彩色放大调整）"
 
         // status and reasons
         case .statusDecodeOnly: "显影中…"
         case .statusFull: "全分辨率"
         case .statusFullPending: "全分辨率处理中…"
         case .statusEmptyFilmstrip: "将文件夹或图像拖到此处，或按 ⌘O。"
-        case .statusEDRScope: "影响渲染结果：画布、软打样和导出文件同步变化。"
-        case .statusRightRailWBScope: "对印相扫描结果进行调整。"
+        case .statusEDRScope: "展开相纸成像中压缩的亮部层次；预览与导出同步生效。"
+        case .statusRightRailWBScope: "对相纸扫描结果进行调整。"
         case .reasonDecodeWBDisabled: "仅 RAW 图像支持调整解码白平衡。"
-        case .reasonNonCustomSideLength: "选择“自定义”画幅后可修改边长。"
-        case .reasonPositiveFilmDisablesPaper: "正片无需相纸印相。选择负片后可使用相纸配置。"
-        case .reasonEDRDisabledInScanFilm: "扩展动态范围仅适用于相纸印相。"
+        case .reasonNonCustomSideLength: "选择“自定义”规格后可修改基准尺寸。"
+        case .reasonPositiveFilmDisablesPaper: "正片无需经彩色放大曝光到相纸。选择负片后可使用相纸配置。"
+        case .reasonEDRDisabledInScanFilm: "高光层次展开仅适用于相纸输出。"
+        case .reasonPaperGlareDisabledInScanFilm: "相纸眩光仅适用于相纸输出。"
 
         // Settings ▸ Language
         case .setLanguage: "语言"
@@ -616,7 +665,7 @@ extension S {
         // 启动画面（2026-09-23）
         case .bootTagline: "胶片与相纸模拟"
         case .bootStarting: "正在启动渲染引擎 · 初始化 Metal 设备"
-        case .bootWarming: "正在准备胶片管线 · 配置、特性曲线与印相表"
+        case .bootWarming: "正在准备胶片管线 · 配置、特性曲线与彩色放大表"
         case .bootReady: "就绪 · 胶片管线已加载"
 
         // 菜单、设置与关于（2026-09-23）
@@ -661,7 +710,7 @@ extension S {
         case .setFastStockPreview: "相纸快速预览"
         case .setFastStockPreviewCaption: "选择相纸时，把 LUT 直接套在画布上已有的负片上，而不是等完整重印。用的是同一张表，所以预览与成品一致。"
         case .setCropRemaps: "裁剪改变画面物理尺度"
-        case .setCropRemapsCaption: "裁剪是否改变颗粒、光晕与眩光的物理尺度。关闭（默认，也是物理上正确的答案）：裁剪只是少看了一部分同一张底片，颗粒大小不变。开启：裁剪框**就是**画面，胶片区的「边长」从此描述裁剪后的尺寸，这些效果随之放大。胶片区那一行「边长」就是按这个设置来解读的。"
+        case .setCropRemapsCaption: "裁剪是否改变颗粒、光晕与眩光的物理尺度。关闭（默认，也是物理上正确的答案）：裁剪只是少看了一部分同一张底片，颗粒大小不变。开启：裁剪框**就是**画面，胶片区的「基准尺寸」从此描述裁剪后的尺寸，这些效果随之放大。胶片区那一行「基准尺寸」就是按这个设置来解读的。"
         case .setDiagnostics: "诊断"
         case .setLogLevel: "日志级别"
         case .setLevelNormal: "常规"
@@ -732,11 +781,11 @@ extension S {
         case .setLastError: "上次错误"
         case .setNoCacheAllocations: "尚无缓存或画帧分配登记。"
         case .aboutTagline: "为 macOS 打造的光谱胶片与相纸模拟。"
-        case .aboutEngine: "Silverphase 基于 SpektraLab 的 macOS 引擎，并使用 spektrafilm 的胶片、相纸配置及其衍生的印相预览 LUT。"
-        case .aboutCreditsProfiles: "胶片模拟、实测配置与印相模型"
+        case .aboutEngine: "Silverphase 基于 SpektraLab 的 macOS 引擎，并使用 spektrafilm 的胶片、相纸配置及其衍生的彩色放大预览 LUT。"
+        case .aboutCreditsProfiles: "胶片模拟、实测配置与彩色放大模型"
         case .aboutCreditsApp: "Silverphase 与源自 SpektraLab 的渲染引擎"
         case .aboutLicenceBody: "以 GNU GPL v3 或更高版本发布的自由软件。你有权获得对应的源代码。"
-        case .aboutLutBody: "8 个烘焙出的印相预览 LUT 是这些配置的衍生作品，同样以 CC BY-SA 4.0 授权。改动了什么、没改动什么，写在下面的变更记录里。"
+        case .aboutLutBody: "8 个烘焙出的彩色放大预览 LUT 是这些配置的衍生作品，同样以 CC BY-SA 4.0 授权。改动了什么、没改动什么，写在下面的变更记录里。"
         case .aboutLicences: "许可"
         case .aboutShowLicenceFiles: "在访达中显示许可文件"
         case .aboutNoLicences: "这个构建里没有许可文本。请运行 Tools/bundle-licenses.sh 后重新构建。"

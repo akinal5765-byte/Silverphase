@@ -57,6 +57,69 @@ final class ParamsTests: XCTestCase {
         XCTAssertEqual(printDelta.delta["preflash_exposure"], .double(0.25))
     }
 
+    func testGrainSizeAndPrintContrastKeepTheirStageAndIdentity() {
+        let defaults = FilmParams.default
+        XCTAssertEqual(defaults.grainSizeScale, 1)
+        XCTAssertEqual(defaults.printContrast, 1)
+        var p = defaults
+        p.grainSizeScale = 1.5
+        var delta = p.delta(from: defaults)
+        XCTAssertEqual(delta.layers, [.shoot])
+        XCTAssertEqual(delta.delta["grain_size_scale"], .double(1.5))
+
+        p = defaults
+        p.printContrast = 1.2
+        delta = p.delta(from: defaults)
+        XCTAssertEqual(delta.layers, [.print])
+        XCTAssertEqual(delta.delta["print_contrast"], .double(1.2))
+    }
+
+    func testDiffusionRoutesToItsPhysicalStage() {
+        var p = FilmParams.default
+        p.cameraDiffusion = DiffusionChoice.blackProMist.rawValue
+        p.cameraDiffusionStrength = 1
+        var delta = p.delta(from: .default)
+        XCTAssertEqual(delta.layers, [.shoot])
+        XCTAssertEqual(delta.delta["camera_diffusion_active"], .bool(true))
+        XCTAssertEqual(delta.delta["camera_diffusion_strength"], .double(1))
+        p = .default
+        p.cameraDiffusionRange = 1.5
+        delta = p.delta(from: .default)
+        XCTAssertEqual(delta.layers, [.shoot])
+        XCTAssertEqual(delta.delta["camera_diffusion_range"], .double(1.5))
+
+        p = .default
+        p.enlargerDiffusion = DiffusionChoice.cinebloom.rawValue
+        delta = p.delta(from: .default)
+        XCTAssertEqual(delta.layers, [.print])
+        XCTAssertEqual(delta.delta["enlarger_diffusion_family"], .string("cinebloom"))
+        p.scanFilm = true
+        XCTAssertEqual(p.wire.first { $0.name == "enlarger_diffusion_active" }?.value, .bool(false))
+
+        p = .default
+        p.enlargerDiffusionRange = 0.8
+        delta = p.delta(from: .default)
+        XCTAssertEqual(delta.layers, [.print])
+        XCTAssertEqual(delta.delta["enlarger_diffusion_range"], .double(0.8))
+    }
+
+    func testOldSidecarDefaultsNewScaleAndContrastToIdentity() throws {
+        let original = Sidecar()
+        guard var root = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any],
+              var params = root["params"] as? [String: Any] else {
+            return XCTFail("encoded sidecar did not contain params")
+        }
+        params.removeValue(forKey: "grainSizeScale")
+        params.removeValue(forKey: "printContrast")
+        for key in ["cameraDiffusion", "cameraDiffusionStrength", "cameraDiffusionRange",
+                    "enlargerDiffusion", "enlargerDiffusionStrength", "enlargerDiffusionRange"] {
+            params.removeValue(forKey: key)
+        }
+        root["params"] = params
+        let legacy = try JSONSerialization.data(withJSONObject: root)
+        XCTAssertEqual(try JSONDecoder().decode(Sidecar.self, from: legacy).params, original.params)
+    }
+
     func testOldSidecarDefaultsNewPhysicalControlsToProfileValues() throws {
         let original = Sidecar()
         guard var root = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any],
@@ -71,20 +134,31 @@ final class ParamsTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(Sidecar.self, from: old).params, original.params)
     }
 
-    func testExtendedDynamicRangeDefaultsOffAndRoutesToPrintLayer() {
-        XCTAssertFalse(FilmParams.default.extendedDynamicRange)
+    func testPreflashKeepsLegacyRawValueThroughSidecarAndWire() throws {
+        var sidecar = Sidecar()
+        sidecar.params.preflashExposure = 0.25
+        let decoded = try JSONDecoder().decode(Sidecar.self,
+                                               from: JSONEncoder().encode(sidecar))
+        XCTAssertEqual(decoded.params.preflashExposure, 0.25)
+        XCTAssertEqual(decoded.params.delta(from: .default).delta["preflash_exposure"],
+                       .double(0.25))
+    }
+
+    func testExtendedDynamicRangeDefaultsOnAndRoutesToPrintLayer() {
+        XCTAssertTrue(FilmParams.default.extendedDynamicRange)
         XCTAssertEqual(FilmParams.default.wire.first { $0.name == "extended_dynamic_range" }?.value,
-                       .bool(false))
+                       .bool(true))
 
         var p = FilmParams.default
-        p.extendedDynamicRange = true
+        p.extendedDynamicRange = false
         let (delta, layers) = p.delta(from: .default)
         XCTAssertEqual(layers, [.print])
-        XCTAssertEqual(delta["extended_dynamic_range"], .bool(true))
+        XCTAssertEqual(delta["extended_dynamic_range"], .bool(false))
 
         // The preference stays in the sidecar when the Positive / No Print
         // Profile row is selected, but its effective wire value is forced off
         // so direct film scanning cannot be changed by a persisted EDR choice.
+        p.extendedDynamicRange = true
         p.scanFilm = true
         XCTAssertTrue(p.extendedDynamicRange)
         XCTAssertFalse(p.effectiveExtendedDynamicRange)
@@ -129,7 +203,10 @@ final class ParamsTests: XCTestCase {
         // The names the Python schema declares (service/schema.py). A rename
         // there must be mirrored here or the delta is rejected at runtime.
         let known: Set<String> = ["film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
-                                  "grain_active", "grain_sublayers_active", "halation_active", "print_exposure",
+                                  "grain_active", "grain_sublayers_active", "grain_size_scale",
+                                  "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range",
+                                  "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range",
+                                  "halation_active", "print_exposure", "print_contrast",
                                   "y_filter_shift", "m_filter_shift", "glare_active", "scan_film",
                                   "extended_dynamic_range", "halation_amount", "antihalation_mode", "density_curve_gamma",
                                   "dir_couplers_amount", "preflash_exposure",
@@ -195,6 +272,24 @@ final class ParamsTests: XCTestCase {
         // And the service's range is a range: 200 is the ceiling, 4 the floor.
         XCTAssertEqual(m(.short, 56, 20), 200, accuracy: 1e-9)
         XCTAssertEqual(m(.long, 1, 1), 4, accuracy: 1e-9)
+    }
+
+    func testCustomSideLengthMatchesTheEngineRange() {
+        let aspect = 3.0 / 2.0
+        let short = Session.customSideLength(500, side: .short, aspect: aspect)
+        XCTAssertEqual(short, 200 / aspect, accuracy: 1e-9)
+        XCTAssertEqual(Session.filmFormatMM(side: .short, sideLengthMM: short,
+                                            aspect: aspect), 200, accuracy: 1e-9)
+
+        let long = Session.customSideLength(500, side: .long, aspect: aspect)
+        XCTAssertEqual(long, 200, accuracy: 1e-9)
+        XCTAssertEqual(Session.filmFormatMM(side: .long, sideLengthMM: long,
+                                            aspect: aspect), 200, accuracy: 1e-9)
+
+        let minimum = Session.customSideLength(0, side: .short, aspect: aspect)
+        XCTAssertEqual(minimum, 4 / aspect, accuracy: 1e-9)
+        XCTAssertEqual(Session.filmFormatMM(side: .short, sideLengthMM: minimum,
+                                            aspect: aspect), 4, accuracy: 1e-9)
     }
 
     /// Every preset lands inside the service's 4…200 on an ordinary

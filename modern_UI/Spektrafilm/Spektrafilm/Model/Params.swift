@@ -13,6 +13,21 @@ import Foundation
 
 enum ParamLayer: String, Codable, Sendable { case shoot, print }
 
+enum DiffusionChoice: String, CaseIterable, Identifiable, Sendable {
+    case off, glimmerglass, blackProMist = "black_pro_mist", proMist = "pro_mist", cinebloom
+    var id: String { rawValue }
+    @MainActor var title: String {
+        switch self {
+        case .off: L(.diffusionOff)
+        case .glimmerglass: L(.diffusionClean)
+        case .blackProMist: L(.diffusionDeep)
+        case .proMist: L(.diffusionSoft)
+        case .cinebloom: L(.diffusionWide)
+        }
+    }
+    var engineFamily: String { self == .off ? "black_pro_mist" : rawValue }
+}
+
 /// A JSON scalar for `params_delta`.
 enum ParamValue: Codable, Equatable, Sendable, CustomStringConvertible {
     case double(Double), bool(Bool), string(String)
@@ -246,9 +261,11 @@ extension String {
 struct FilmParams: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case filmStock, printStock, exposureCompensationEV, autoExposureMethod, autoExposure
-        case filmFormatMM, filmFrame, filmSide, sideLengthMM, grainActive, halationActive
+        case filmFormatMM, filmFrame, filmSide, sideLengthMM, grainActive, grainSizeScale, halationActive
+        case cameraDiffusion, cameraDiffusionStrength, cameraDiffusionRange
+        case enlargerDiffusion, enlargerDiffusionStrength, enlargerDiffusionRange
         case halationAmount, antihalationMode, developmentContrast, colorSeparation
-        case printBrightnessStops, yFilterShift, mFilterShift, preflashExposure, glareActive, scanFilm
+        case printBrightnessStops, printContrast, yFilterShift, mFilterShift, preflashExposure, glareActive, scanFilm
         case extendedDynamicRange
     }
 
@@ -294,6 +311,15 @@ struct FilmParams: Codable, Equatable, Sendable {
     var filmSide: String = FilmSide.short.rawValue
     var sideLengthMM: Double = 24
     var grainActive: Bool = true
+    /// Relative particle diameter; 1 retains the existing emulsion model.
+    var grainSizeScale: Double = 1
+    var cameraDiffusion: String = DiffusionChoice.off.rawValue
+    var cameraDiffusionStrength: Double = 0.5
+    /// PSF width multiplier; 1 preserves the selected family's physical scale.
+    var cameraDiffusionRange: Double = 1
+    var enlargerDiffusion: String = DiffusionChoice.off.rawValue
+    var enlargerDiffusionStrength: Double = 0.5
+    var enlargerDiffusionRange: Double = 1
     var halationActive: Bool = true
     /// A multiplier on the stock's own halation response; 1 preserves it.
     var halationAmount: Double = 1
@@ -308,6 +334,8 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// UI stops, brighter positive. Wire: `print_exposure = 2^(-stops)`,
     /// because less enlarger exposure prints brighter (API-SPEC §2).
     var printBrightnessStops: Double = 0            // -3…3
+    /// Relative gamma of the paper's fitted density curve; 1 is unchanged.
+    var printContrast: Double = 1
     var yFilterShift: Double = 0                     // -50…50 Kodak CC, yellow ↔ blue
     var mFilterShift: Double = 0                     // -50…50 Kodak CC, magenta ↔ green
     var preflashExposure: Double = 0                 // 0…1, enlarger preflash
@@ -331,7 +359,7 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// This is a print-layer choice, so it reprints the cached negative. The
     /// preference is retained when `scanFilm` is selected, but is made
     /// ineffective on the direct film-scan path.
-    var extendedDynamicRange: Bool = false
+    var extendedDynamicRange: Bool = true
 
     /// The backend only applies EDR to an actual print profile. Keep the
     /// user's preference in the sidecar while making the wire value false for
@@ -350,18 +378,26 @@ struct FilmParams: Codable, Equatable, Sendable {
         filmSide = FilmSide.short.rawValue
         sideLengthMM = 24
         grainActive = true
+        grainSizeScale = 1
+        cameraDiffusion = DiffusionChoice.off.rawValue
+        cameraDiffusionStrength = 0.5
+        cameraDiffusionRange = 1
+        enlargerDiffusion = DiffusionChoice.off.rawValue
+        enlargerDiffusionStrength = 0.5
+        enlargerDiffusionRange = 1
         halationActive = true
         halationAmount = 1
         antihalationMode = "profile"
         developmentContrast = 1
         colorSeparation = 1
         printBrightnessStops = 0
+        printContrast = 1
         yFilterShift = 0
         mFilterShift = 0
         preflashExposure = 0
         glareActive = true
         scanFilm = false
-        extendedDynamicRange = false
+        extendedDynamicRange = true
     }
 
     /// Keep sidecars written before EDR readable. Stored properties with
@@ -369,7 +405,7 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// absent key would otherwise reject the whole `FilmParams` value. The
     /// older fields retain their synthesized Codable requirements; a missing
     /// exposure method deliberately remains nil because that is the legacy
-    /// wire state. Only EDR is new and therefore defaults when absent.
+    /// wire state. New physical controls default to their identity values.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         filmStock = try c.decode(String.self, forKey: .filmStock)
@@ -382,17 +418,27 @@ struct FilmParams: Codable, Equatable, Sendable {
         filmSide = try c.decode(String.self, forKey: .filmSide)
         sideLengthMM = try c.decode(Double.self, forKey: .sideLengthMM)
         grainActive = try c.decode(Bool.self, forKey: .grainActive)
+        grainSizeScale = try c.decodeIfPresent(Double.self, forKey: .grainSizeScale) ?? 1
+        cameraDiffusion = try c.decodeIfPresent(String.self, forKey: .cameraDiffusion) ?? "off"
+        cameraDiffusionStrength = try c.decodeIfPresent(Double.self, forKey: .cameraDiffusionStrength) ?? 0.5
+        cameraDiffusionRange = try c.decodeIfPresent(Double.self, forKey: .cameraDiffusionRange) ?? 1
+        enlargerDiffusion = try c.decodeIfPresent(String.self, forKey: .enlargerDiffusion) ?? "off"
+        enlargerDiffusionStrength = try c.decodeIfPresent(Double.self, forKey: .enlargerDiffusionStrength) ?? 0.5
+        enlargerDiffusionRange = try c.decodeIfPresent(Double.self, forKey: .enlargerDiffusionRange) ?? 1
         halationActive = try c.decode(Bool.self, forKey: .halationActive)
         halationAmount = try c.decodeIfPresent(Double.self, forKey: .halationAmount) ?? 1
         antihalationMode = try c.decodeIfPresent(String.self, forKey: .antihalationMode) ?? "profile"
         developmentContrast = try c.decodeIfPresent(Double.self, forKey: .developmentContrast) ?? 1
         colorSeparation = try c.decodeIfPresent(Double.self, forKey: .colorSeparation) ?? 1
         printBrightnessStops = try c.decode(Double.self, forKey: .printBrightnessStops)
+        printContrast = try c.decodeIfPresent(Double.self, forKey: .printContrast) ?? 1
         yFilterShift = try c.decode(Double.self, forKey: .yFilterShift)
         mFilterShift = try c.decode(Double.self, forKey: .mFilterShift)
         preflashExposure = try c.decodeIfPresent(Double.self, forKey: .preflashExposure) ?? 0
         glareActive = try c.decode(Bool.self, forKey: .glareActive)
         scanFilm = try c.decode(Bool.self, forKey: .scanFilm)
+        // An older sidecar without this key keeps the rendering it had when
+        // it was saved; the new default applies only to new/reset photos.
         extendedDynamicRange = try c.decodeIfPresent(Bool.self, forKey: .extendedDynamicRange) ?? false
     }
 
@@ -418,12 +464,22 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("film_format_mm", .double(filmFormatMM), .shoot),
             ("grain_active", .bool(grainActive), .shoot),
             ("grain_sublayers_active", .bool(grainActive), .shoot),
+            ("grain_size_scale", .double(grainSizeScale), .shoot),
+            ("camera_diffusion_active", .bool(cameraDiffusion != "off"), .shoot),
+            ("camera_diffusion_family", .string(DiffusionChoice(rawValue: cameraDiffusion)?.engineFamily ?? "black_pro_mist"), .shoot),
+            ("camera_diffusion_strength", .double(cameraDiffusionStrength), .shoot),
+            ("camera_diffusion_range", .double(cameraDiffusionRange), .shoot),
             ("halation_active", .bool(halationActive), .shoot),
             ("halation_amount", .double(halationAmount), .shoot),
             ("antihalation_mode", .string(antihalationMode), .shoot),
             ("density_curve_gamma", .double(developmentContrast), .shoot),
             ("dir_couplers_amount", .double(colorSeparation), .shoot),
             ("print_exposure", .double(FilmParams.printExposure(stops: printBrightnessStops)), .print),
+            ("print_contrast", .double(printContrast), .print),
+            ("enlarger_diffusion_active", .bool(!scanFilm && enlargerDiffusion != "off"), .print),
+            ("enlarger_diffusion_family", .string(DiffusionChoice(rawValue: enlargerDiffusion)?.engineFamily ?? "black_pro_mist"), .print),
+            ("enlarger_diffusion_strength", .double(enlargerDiffusionStrength), .print),
+            ("enlarger_diffusion_range", .double(enlargerDiffusionRange), .print),
             ("y_filter_shift", .double(yFilterShift), .print),
             ("m_filter_shift", .double(mFilterShift), .print),
             ("preflash_exposure", .double(preflashExposure), .print),

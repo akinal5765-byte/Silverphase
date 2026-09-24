@@ -9,8 +9,11 @@
 - **Silverphase**：产品名称不翻译。
 - **全部胶片与相纸配置名称**：直接使用 catalog 的英文显示名，不翻译、不音译、
   不按示意图重命名。例如 `Kodak Portra 400`；配置 ID 同样保持原值。
-- **CINE、RAW、RGB、ISO、EV、LUT、EDR**：保留通用缩写。说明文字使用中文；
-  不因缩写保留而让整行保持英文。EDR 此处是印相参数，不是显示器 HDR 开关。
+- **滤镜型号**：`Glimmerglass`、`CineBloom` 保持原名；`Black Pro-Mist`、
+  `Pro-Mist` 在中文界面分别显示为“黑柔”、“白柔”。这些是模拟类型，
+  不改变照片设置中保存的型号 ID。
+- **CINE、RAW、RGB、ISO、EV、LUT、DIR**：保留通用缩写。说明文字使用中文；
+  不因缩写保留而让整行保持英文。
 - **110、APS、135、120** 等格式名称，以及 `mm`、`cm`、`in`、`K`、`%`、
   宽高比、快捷键字母和符号保持原样。
 - **sRGB、Display P3、ProPhoto RGB、TIFF、JPEG** 等标准名称在需要出现时保持原样；
@@ -28,23 +31,24 @@
 |---|---|
 | 左栏标题 · Develop | 显影 |
 | 右栏标题 · Edit | 调整 |
-| Input / Camera | 输入 / 相机 |
+| Input / Capture | 输入 / 拍摄 |
 | Film | 胶片 |
-| Print（相纸阶段） | 印相 |
+| Color Enlargement | 彩色放大 |
+| Scan / Output | 扫描 / 输出 |
 | Crop | 裁剪 |
 | Histogram | 直方图 |
 | White Balance | 白平衡 |
 | Exposure | 曝光 |
 | Curve | 曲线 |
 | Color Balance | 色彩平衡 |
-| Metering / AE Method | 测光方式 |
+| Metering Mode / AE Method | 测光模式 |
 | Custom | 自定义 |
 | Balanced | 均衡 |
 | Center | 中央主体 |
 | Protect highlights | 保护高光 |
 | Protect shadows | 保护阴影 |
 | center-weighted (legacy) | 中央重点（旧版） |
-| Film Exposure | 胶片曝光 |
+| Exposure Compensation | 曝光补偿 |
 | As Shot | 拍摄时设置 |
 | Temperature / Temp. | 色温 |
 | Tint | 色调 |
@@ -54,16 +58,31 @@
 | Negative（胶片分类） | 负片 |
 | Still（相纸列表分组） | 静态摄影 |
 | Cine（相纸列表分组） | 电影 |
-| Film Format / Film Type | 胶片画幅 |
-| Side | 基准边 |
+| Film Format / Film Type | 胶片规格 |
+| Size Basis | 尺寸基准 |
 | Short | 短边 |
 | Long | 长边 |
-| Side Length | 边长 |
+| Reference Size | 基准尺寸 |
 | Grain | 颗粒 |
-| Halation | 光晕 |
-| Glare | 耀光 |
+| Grain Size | 颗粒尺度 |
+| Film Halation | 胶片光晕 |
+| Halation Strength | 光晕强度 |
+| Shooting Diffusion | 拍摄柔光 |
+| Diffusion Strength（拍摄） | 柔光强度 |
+| Diffusion Spread（拍摄） | 扩散范围 |
+| Soft-Focus Enlargement | 柔光放大 |
+| Softening Strength（放大） | 柔光强度 |
+| Diffusion Spread（放大） | 扩散范围 |
+| Development Contrast | 显影反差 |
+| DIR Effect | DIR 效应 |
+| Enlarger Exposure | 放大曝光 |
+| Paper Contrast | 相纸反差 |
+| Yellow Filtration (Y) | 黄滤色（Y） |
+| Magenta Filtration (M) | 品红滤色（M） |
+| Paper Preflash | 相纸预闪 |
+| Paper Glare | 相纸眩光 |
+| Highlight Expansion | 高光层次展开 |
 | No Print Profile | 不使用相纸配置 |
-| Extended Dynamic Range (EDR) | 扩展动态范围（EDR） |
 | Developed（显示状态） | 显影效果 |
 | Original（原图显示） | 原图 |
 | Process / Process this frame（现有求解动作） | 自动测光与配光 |
@@ -86,7 +105,7 @@
 | Rotate | 旋转 |
 
 “显影效果”是显示状态，不等于执行“自动测光与配光”。v3 行为决定仍见主 handoff
-§8，翻译不能替代该决定。“光晕”与“耀光”必须保持区分，不合并成一个效果名称。
+§8，翻译不能替代该决定。“光晕”与“眩光”必须保持区分，不合并成一个效果名称。
 “中央主体”与旧版“中央重点”也必须区分，不能让不同测光模式显示同一个名字。
 
 ## 图标辅助标签与必要反馈
@@ -109,7 +128,7 @@
 | Pick a neutral point on the image | 在图像中选取中性色 |
 | White balance preset | 白平衡预设 |
 | Reset | 重置 |
-| Reset film exposure | 重置胶片曝光 |
+| Reset exposure compensation | 重置曝光补偿 |
 | Reset all channels | 重置所有通道 |
 | Reset crop | 重置裁剪 |
 | Straighten to 0° | 拉直到 0° |
@@ -122,12 +141,12 @@
 | Restart（渲染服务） | 重新启动 |
 | Empty filmstrip | 将文件夹或图像拖到此处，或按 ⌘O。 |
 | Decode WB disabled | 仅 RAW 图像支持调整解码白平衡。 |
-| Non-custom side length | 选择“自定义”画幅后可修改边长。 |
-| Positive film disables paper | 正片无需相纸印相。选择负片后可使用相纸配置。 |
-| EDR disabled in scan-film mode | 扩展动态范围仅适用于相纸印相。 |
-| EDR scope | 影响渲染结果：画布、软打样和导出文件同步变化。 |
-| Right-rail WB scope | 对印相扫描结果进行调整。 |
-| Fast flip menu | 快速切换（使用预烘焙 LUT，不含耀光，忽略印相调整） |
+| Non-custom reference size | 选择“自定义”规格后可修改基准尺寸。 |
+| Positive film disables paper | 正片无需经彩色放大曝光到相纸。选择负片后可使用相纸配置。 |
+| Highlight expansion disabled in scan-film mode | 高光层次展开仅适用于相纸输出。 |
+| Highlight expansion scope | 展开相纸成像中压缩的亮部层次；预览与导出同步生效。 |
+| Right-rail WB scope | 对相纸扫描结果进行调整。 |
+| Fast flip menu | 快速切换（使用预烘焙 LUT，不含眩光，忽略彩色放大调整） |
 
 重置按钮的辅助标签必须说明实际作用范围；Camera / Film 的新重置图标尚未确定
 范围时，不用“重置全部”补齐文案。禁用原因必须保留，不能只让控件变灰。

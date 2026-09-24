@@ -1,13 +1,14 @@
-//  CameraSection.swift — how the photograph enters the film: Metering, Film
-//  Exposure, Temperature, Tint, Vignetting, Lens Correction.
+//  CameraSection.swift — how the photograph enters the film: Metering Mode,
+//  Exposure Compensation, Temperature, Tint, Lens Correction and shooting
+//  diffusion.
 //
 //  **v3 (2026-09-18) renamed three things and added one.** The section is
-//  **Input / Camera**; `AE Method` is **Metering**. Both are visual renames
+//  **Input / Capture**; `AE Method` is **Metering Mode**. Both are visual renames
 //  only — `session.aeMethod` keeps its name, its offered values and its
 //  legacy restoration, which handoff §7 requires. The addition is a **reset
 //  arrow on the header**, beside the "•••". Its scope is left open by §8.3,
 //  so it is wired to the one reset this section already had a name for —
-//  film exposure — and the tooltip says exactly that rather than implying it
+//  exposure compensation — and the tooltip says exactly that rather than implying it
 //  resets the section. Camera's labels are set at 9 pt in a 70 pt column,
 //  which is v3's measurement and narrower than the rail's shared 84.
 //
@@ -24,7 +25,7 @@
 //  "linearized baseline as the +0.0 baseline" — and it needed no new field,
 //  because `camera.auto_exposure` has been in the schema all along.
 //
-//  **Film Exposure** (`exposure_compensation_ev`) sits directly under it, as
+//  **Exposure Compensation** (`exposure_compensation_ev`) sits directly under it, as
 //  the PRD asks, because the two are one decision read in two lines: the
 //  method chooses a baseline and the slider offsets it. It is **film
 //  placement, not print brightness** — the print gain is taken from a mid-grey
@@ -72,11 +73,30 @@ struct CameraSection: View {
                                         set: { session.setLensCorrection($0) }),
                           enabled: session.lensCorrectionEnabled,
                           reason: session.lensCorrectionReason)
+                PillMenu(label: L(.cameraDiffusion), options: DiffusionChoice.allCases,
+                         title: { $0.title },
+                         selection: Binding(
+                            get: { DiffusionChoice(rawValue: session.params.cameraDiffusion) ?? .off },
+                            set: { var p = session.params; p.cameraDiffusion = $0.rawValue; session.params = p }))
+                .help(L(.lensFilterHelp))
+                ScrubSlider(label: L(.lensFilterStrength),
+                            value: Binding(get: { session.params.cameraDiffusionStrength },
+                                           set: { var p = session.params; p.cameraDiffusionStrength = $0; session.params = p }),
+                            range: 0.125...2, zero: 0.5, snap: 0.125,
+                            format: { String(format: "%.3g", $0) },
+                            disabled: session.params.cameraDiffusion == "off")
+                ScrubSlider(label: L(.lensHaloRange),
+                            value: Binding(get: { session.params.cameraDiffusionRange },
+                                           set: { var p = session.params; p.cameraDiffusionRange = $0; session.params = p }),
+                            range: 0.5...2, zero: 1, snap: 0.1,
+                            format: { String(format: "%.1f×", $0) },
+                            disabled: session.params.cameraDiffusion == "off")
+                .help(L(.lensHaloRangeHelp))
             }
         }
     }
 
-    /// "As Shot ☐" under Film Exposure — the line the drawing puts under the
+    /// "As Shot ☐" under Exposure Compensation — the line the drawing puts under the
     /// first three sliders. What it means and what clicking it does are
     /// `Session.filmExposureIsAsShot` and `setFilmExposureAsShot(_:)`; this is
     /// only the two views.
@@ -121,12 +141,12 @@ struct CameraSection: View {
 /// The box's own padding is a hit area rather than layout (it is drawn 8 pt),
 /// so the negative vertical padding keeps the line from growing to suit it.
 ///
-/// **One view, three rows.** It draws the line under Film Exposure here and
+/// **One view, three rows.** It draws the line under Exposure Compensation here and
 /// under Temperature and Tint in `WhiteBalanceRows`, so its label is one
 /// string in all three places: the two white-balance rows cannot say "As
 /// Shot" while this one says 拍摄时设置 without a `label:` parameter, which
 /// would be a shape change this pass was told not to make. The spec lists
-/// "As Shot" once, next to Film Exposure.
+/// "As Shot" once, next to Exposure Compensation.
 struct AsShotLine: View {
     @Binding var isOn: Bool
     var enabled: Bool

@@ -37,6 +37,7 @@ struct RightPanel: View {
                          ("film", AnyView(FilmSection(session: session, part: .params))),
                          ("development", AnyView(DevelopmentSection(session: session))),
                          ("print", AnyView(PrintProfileSection(session: session, part: .params))),
+                         ("output", AnyView(ScanOutputSection(session: session))),
                          ("crop", AnyView(CropSection(session: session)))]
                         + (FeatureFlags.masks
                            ? [("masks", AnyView(MasksSection(session: session)))] : [])

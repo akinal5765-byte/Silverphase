@@ -2807,6 +2807,9 @@ final class Session: CanvasHost {
         // non-custom film type is selected".
         if frame.id != FilmFrame.custom.id {
             p.sideLengthMM = frame.side(filmSide)
+        } else {
+            p.sideLengthMM = Self.customSideLength(p.sideLengthMM, side: filmSide,
+                                                   aspect: physicalAspect)
         }
         p.filmFormatMM = Self.filmFormatMM(side: filmSide, sideLengthMM: p.sideLengthMM,
                                            aspect: physicalAspect)
@@ -2818,6 +2821,9 @@ final class Session: CanvasHost {
         p.filmSide = side.rawValue
         if p.filmFrame != FilmFrame.custom.id {
             p.sideLengthMM = FilmFrame.named(p.filmFrame).side(side)
+        } else {
+            p.sideLengthMM = Self.customSideLength(p.sideLengthMM, side: side,
+                                                   aspect: physicalAspect)
         }
         p.filmFormatMM = Self.filmFormatMM(side: side, sideLengthMM: p.sideLengthMM,
                                            aspect: physicalAspect)
@@ -2830,7 +2836,8 @@ final class Session: CanvasHost {
     func setSideLengthMM(_ mm: Double) {
         var p = params
         p.filmFrame = FilmFrame.custom.id
-        p.sideLengthMM = mm.clamped(to: 1...500)
+        p.sideLengthMM = Self.customSideLength(mm, side: filmSide,
+                                               aspect: physicalAspect)
         p.filmFormatMM = Self.filmFormatMM(side: filmSide, sideLengthMM: p.sideLengthMM,
                                            aspect: physicalAspect)
         params = p
@@ -2848,17 +2855,37 @@ final class Session: CanvasHost {
     /// found). The value still reaches the engine, because `openDelta` is
     /// built from the sidecar a moment later and now carries it.
     func recomputeFilmFormat(beforeOpen: Bool = false) {
-        let mm = Self.filmFormatMM(side: filmSide, sideLengthMM: params.sideLengthMM,
+        let sideLength = filmFrame.id == FilmFrame.custom.id
+            ? Self.customSideLength(params.sideLengthMM, side: filmSide, aspect: physicalAspect)
+            : params.sideLengthMM
+        let mm = Self.filmFormatMM(side: filmSide, sideLengthMM: sideLength,
                                    aspect: physicalAspect)
-        guard abs(mm - params.filmFormatMM) > 0.001 else { return }
+        guard abs(mm - params.filmFormatMM) > 0.001
+                || sideLength != params.sideLengthMM else { return }
         if beforeOpen {
+            sidecar.params.sideLengthMM = sideLength
             sidecar.params.filmFormatMM = mm
             scheduleSave()
         } else {
             var p = params
+            p.sideLengthMM = sideLength
             p.filmFormatMM = mm
             params = p
         }
+    }
+
+    /// Keep a Custom field in the range the engine can actually use. For a
+    /// short-side entry the ceiling depends on this photograph's aspect.
+    nonisolated static func customSideLengthRange(side: FilmSide,
+                                                   aspect: Double) -> ClosedRange<Double> {
+        let scale = side == .long ? 1.0 : max(aspect, 1)
+        return (4 / scale)...(200 / scale)
+    }
+
+    nonisolated static func customSideLength(_ mm: Double, side: FilmSide,
+                                              aspect: Double) -> Double {
+        let range = customSideLengthRange(side: side, aspect: aspect)
+        return (mm.isFinite ? mm : range.lowerBound).clamped(to: range)
     }
 
     /// long ÷ short of the photograph, as the physical scale sees it.

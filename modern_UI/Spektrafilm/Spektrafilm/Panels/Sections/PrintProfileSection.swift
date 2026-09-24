@@ -128,32 +128,6 @@ struct PrintProfileSection: View {
     private var paramSection: some View {
         PanelSection(L(.sectionPrint), key: "print", menu: { AnyView(menu) }) {
             VStack(alignment: .leading, spacing: 0) {
-                // **Scope, on the row.** EDR is a *print* parameter: it
-                // changes the paper's shoulder and toe in the engine, which
-                // means the canvas, the export proof and the written file all
-                // change together and none of them can disagree.
-                //
-                // That is why it is here, under the paper it belongs to, and
-                // not on the export page. But sitting under a stock list it
-                // read as a fourth kind of thing — the user's note was that
-                // "its current position under Print leaves that scope
-                // unclear" — because the controls near it are a viewing
-                // choice (Original), a solve (Process) and a selection, and a
-                // checkbox among those could be any of the three. The
-                // sublabel settles it without moving it.
-                RailRows {
-                    ToggleRow(label: L(.printEDR),
-                              isOn: param(\.extendedDynamicRange),
-                              labelFont: Theme.Font.edrLabel,
-                              enabled: !session.params.scanFilm,
-                              reason: L(.reasonEDRDisabledInScanFilm),
-                              sublabel: L(.statusEDRScope),
-                              help: "A calibrated per-paper profile with more room in the "
-                              + "highlight shoulder and the toe. It is part of the print "
-                              + "stage, not a way of looking at it: what you see on the "
-                              + "canvas is what the exported file carries.")
-                }
-                .padding(.top, Theme.Metric.blockGap)
                 RailRows {
                     ScrubSlider(label: L(.printExposure), sublabel: "stops · brighter +",
                                 value: Binding(get: { session.params.printBrightnessStops },
@@ -161,6 +135,13 @@ struct PrintProfileSection: View {
                                 range: -3...3, snap: 0.25,
                                 format: { String(format: "%+.2f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive)
+                    ScrubSlider(label: L(.printContrast),
+                                value: Binding(get: { session.params.printContrast },
+                                               set: { var p = session.params; p.printContrast = $0; session.params = p }),
+                                range: 0.7...1.3, zero: 1, snap: 0.05,
+                                format: { String(format: "%.2f×", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive)
+                    .help("Reshapes the selected paper's density response, separate from film development contrast. 1× preserves the original paper profile.")
                     ScrubSlider(label: L(.printYellow), sublabel: "Kodak CC",
                                 value: Binding(get: { session.params.yFilterShift },
                                                set: { var p = session.params; p.yFilterShift = $0; session.params = p }),
@@ -176,20 +157,37 @@ struct PrintProfileSection: View {
                     ScrubSlider(label: L(.printPreflash),
                                 value: Binding(get: { session.params.preflashExposure },
                                                set: { var p = session.params; p.preflashExposure = $0; session.params = p }),
-                                range: 0...1, snap: 0.05,
-                                format: { String(format: "%.2f", $0) },
+                                // The engine and sidecars still use raw 0...1.
+                                // Only dragging is limited to the useful span.
+                                range: 0...0.05, entryRange: 0...1, snap: 0.005,
+                                format: { String(format: "%.3f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive)
-                    ToggleRow(label: L(.filmGlare), isOn: param(\.glareActive),
-                              help: "Print/scan glare, a separate stochastic finishing effect; not film halation.")
+                    PillMenu(label: L(.enlargerDiffusion), options: DiffusionChoice.allCases,
+                             title: { $0.title },
+                             selection: Binding(
+                                get: { DiffusionChoice(rawValue: session.params.enlargerDiffusion) ?? .off },
+                                set: { var p = session.params; p.enlargerDiffusion = $0.rawValue; session.params = p }))
+                    .disabled(session.params.scanFilm || filmIsPositive)
+                    .help(L(.enlargerSoftnessHelp))
+                    ScrubSlider(label: L(.enlargerSoftnessStrength),
+                                value: Binding(get: { session.params.enlargerDiffusionStrength },
+                                               set: { var p = session.params; p.enlargerDiffusionStrength = $0; session.params = p }),
+                                range: 0.125...2, zero: 0.5, snap: 0.125,
+                                format: { String(format: "%.3g", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive ||
+                                          session.params.enlargerDiffusion == "off")
+                    ScrubSlider(label: L(.enlargerSoftnessRange),
+                                value: Binding(get: { session.params.enlargerDiffusionRange },
+                                               set: { var p = session.params; p.enlargerDiffusionRange = $0; session.params = p }),
+                                range: 0.5...2, zero: 1, snap: 0.1,
+                                format: { String(format: "%.1f×", $0) },
+                                disabled: session.params.scanFilm || filmIsPositive ||
+                                          session.params.enlargerDiffusion == "off")
+                    .help(L(.enlargerSoftnessRangeHelp))
                 }
                 .padding(.top, Theme.Metric.blockGap)
             }
         }
-    }
-
-    private func param(_ keyPath: WritableKeyPath<FilmParams, Bool>) -> Binding<Bool> {
-        Binding(get: { session.params[keyPath: keyPath] },
-                set: { var p = session.params; p[keyPath: keyPath] = $0; session.params = p })
     }
 
     /// Only says something when there is something to say: which film the

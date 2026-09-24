@@ -16,7 +16,7 @@ struct SliderMetrics {
     /// uses it, Camera included.** v3 drew Camera a second way — 9 pt labels
     /// in a 70 pt column — and that second density was a typographic
     /// inconsistency inside one rail, not a hierarchy the section can carry:
-    /// 测光方式 sat 1.5 pt shorter than the 胶片 label above it for no reason
+    /// 测光模式 sat 1.5 pt shorter than the 胶片 label above it for no reason
     /// a reader can see. UI-SPEC 字体一节 records the unification; the drawing's
     /// x 86.35 for Camera's controls is history.
     static let rail = SliderMetrics()
@@ -42,6 +42,9 @@ struct ScrubSlider: View {
     var sublabelView: AnyView? = nil
     @Binding var value: Double
     let range: ClosedRange<Double>
+    /// The value field can accept legacy values beyond the useful drag range.
+    /// Omitted for ordinary sliders, whose text and track have the same bounds.
+    var entryRange: ClosedRange<Double>? = nil
     var zero: Double = 0
     var snap: Double = 0.5
     var format: (Double) -> String = { String(format: "%.1f", $0) }
@@ -210,7 +213,10 @@ struct ScrubSlider: View {
     }
 
     private func commitText() {
-        if let v = parse(text) { value = v.clamped(to: range); onCommit() }
+        if let v = parse(text), v.isFinite {
+            value = v.clamped(to: entryRange ?? range)
+            onCommit()
+        }
         editing = false
     }
 }
