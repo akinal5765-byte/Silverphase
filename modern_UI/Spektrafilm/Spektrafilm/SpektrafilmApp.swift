@@ -19,7 +19,7 @@ struct SpektrafilmApp: App {
     var body: some Scene {
         Window("Silverphase", id: "editor") {
             EditorWindow(session: session)
-                .id(InterfaceScaleStore.shared.scale)
+                .id(Theme.appearanceKey)
                 .environment(\.snapshotMode, snapshot != nil)
                 .frame(minWidth: Theme.Metric.minWindow.width, minHeight: Theme.Metric.minWindow.height)
         }
@@ -53,7 +53,7 @@ struct SpektrafilmApp: App {
         // `RFC-016 §6` is what the page itself is for.
         Window("Settings", id: "settings") {
             SettingsWindow(session: session)
-                .id(InterfaceScaleStore.shared.scale)
+                .id(Theme.appearanceKey)
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
@@ -64,7 +64,7 @@ struct SpektrafilmApp: App {
         // through `ExportWindowID.scene` when something asks for an export.
         Window("Export", id: ExportWindowID.scene) {
             ExportWindow(session: session)
-                .id(InterfaceScaleStore.shared.scale)
+                .id(Theme.appearanceKey)
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
@@ -270,6 +270,12 @@ struct SnapshotRequest {
     /// that holds every diagnostic readout in the app has no capture at all,
     /// which is how it spent a release with half its copy in English.
     var settings = false
+    /// `--boot` — capture the boot window (and `--boot-phase` to choose which
+    /// moment of it). It cannot be photographed any other way: the real one is
+    /// up for a couple of seconds and `screencapture` needs Screen Recording
+    /// permission this harness does not have.
+    var boot = false
+    var bootPhase: String?
     /// `--export` — capture the export page instead of the editor. It is its
     /// own window now (RFC-018 §6), so it is its own root view here; the soft
     /// proof in the centre is a render of the real recipe, which is the thing
@@ -312,6 +318,8 @@ struct SnapshotRequest {
         }
         r.original = args.contains("--original")
         r.settings = args.contains("--settings")
+        r.boot = args.contains("--boot")
+        if let j = args.firstIndex(of: "--boot-phase"), args.count > j + 1 { r.bootPhase = args[j + 1] }
         if let j = args.firstIndex(of: "--print"), args.count > j + 1, let s = Double(args[j + 1]) {
             r.printAfter = s
         }
@@ -415,7 +423,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let session else { snapshotExit(2) }
         // Own window, own hosting view: the capture must not depend on when
         // (or whether) the SwiftUI scene's window is ordered in.
-        let host = NSHostingView(rootView: req.settings
+        let host = NSHostingView(rootView: req.boot
+            ? AnyView(BootWindow(session: session, phase: req.bootPhase.flatMap {
+                  switch $0 {
+                  case "starting": .starting
+                  case "warming": .warming
+                  case "ready": .ready
+                  default: nil
+                  }
+              }))
+            : req.settings
             ? AnyView(SettingsWindow(session: session).environment(\.snapshotMode, true))
             : (req.export
                ? AnyView(ExportWindow(session: session, startIn: req.exportGrid ? .grid : .viewer))

@@ -189,6 +189,13 @@ changing numeric values as P. Do not globally repoint `Font.Export`, which
 currently aliases editor roles: this task's drawing only specifies the main
 editor. Capture current export values before any later shared-token migration.
 
+> **`cameraLabel` was removed (2026-09-23).** The row above is what the drawing
+> says — Camera's labels one step smaller than Film's — and the app now
+> **deviates from it on purpose**: one label column (84 pt) and one size
+> (10.5 pt) for every rail. The user read that second density as a bug, and a
+> size that changes between two rows of the same rank is one. `stockGroup` also
+> moved to Medium. See UI-SPEC, "字号与字重:as-built 规范".
+
 ## 6. Icon ownership: SF Symbols versus custom
 
 “SF Pro icons” means **SF Symbols**; SF Pro is the text family. Names below

@@ -101,7 +101,7 @@ struct AboutWindow: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable().frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Silverphase").font(.system(size: 20, weight: .semibold))
+                Text("Silverphase").font(Theme.Font.of(20, .semibold))
                 Text(AboutWindow.version).font(Theme.Font.sublabel).foregroundStyle(.secondary)
                 Text(L(.aboutTagline))
                     .font(Theme.Font.sublabel).foregroundStyle(.secondary)
@@ -207,7 +207,7 @@ private struct LicenceSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(licence.title).font(.system(size: 13, weight: .semibold))
+            Text(licence.title).font(Theme.Font.of(13, .semibold))
             ScrollView {
                 Text(text)
                     .font(.system(size: 10.5, design: .monospaced))
@@ -224,7 +224,14 @@ private struct LicenceSheet: View {
                     .buttonStyle(.link).font(Theme.Font.caption)
                 }
                 Spacer()
-                Button(L(.aboutDone), action: dismiss).keyboardShortcut(.defaultAction)
+                // **The one primary on this page**, and it wears the app's
+                // primary rank rather than AppKit's default bezel: a bare
+                // `Button` in this window drew the system button, which was
+                // the only control in the application not on the theme (button
+                // audit 2026-09-23).
+                Button(L(.aboutDone), action: dismiss)
+                    .buttonStyle(.primarySurface)
+                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(16)

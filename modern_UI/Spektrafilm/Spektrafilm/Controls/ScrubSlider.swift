@@ -12,13 +12,14 @@ import SwiftUI
 /// export page's drawing has a narrower label column, a thinner track and a
 /// shorter row. The knob is not here because both drawings agree on it.
 struct SliderMetrics {
-    /// The rails' default: an 84 pt label column at 10.5 pt.
+    /// The rails' default: an 84 pt label column at 10.5 pt. **Every rail
+    /// uses it, Camera included.** v3 drew Camera a second way — 9 pt labels
+    /// in a 70 pt column — and that second density was a typographic
+    /// inconsistency inside one rail, not a hierarchy the section can carry:
+    /// 测光方式 sat 1.5 pt shorter than the 胶片 label above it for no reason
+    /// a reader can see. UI-SPEC 字体一节 records the unification; the drawing's
+    /// x 86.35 for Camera's controls is history.
     static let rail = SliderMetrics()
-    /// **Camera's own.** v3 sets its labels at 9 pt in a 70 pt column — the
-    /// section's rows are the densest in the interface and the drawing gives
-    /// them less room than Film's, not the same room in a smaller face.
-    static let camera = SliderMetrics(labelWidth: Theme.Metric.cameraLabelWidth,
-                                      labelFont: Theme.Font.cameraLabel)
 
     var labelWidth: CGFloat = Theme.Metric.sliderLabelWidth
     var valueWidth: CGFloat = Theme.Metric.sliderValueWidth
@@ -330,6 +331,6 @@ struct ToggleRow: View {
         .frame(height: sublabel.isEmpty ? Theme.Metric.toggleRowHeight : nil)
         .frame(minHeight: sublabel.isEmpty ? nil : Theme.Metric.toggleRowHeight)
         .rowEnabled(enabled, because: reason)
-        .help(help)
+        .modifier(DisabledReason(show: !help.isEmpty, reason: help))
     }
 }

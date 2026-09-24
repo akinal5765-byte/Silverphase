@@ -9,7 +9,7 @@ struct DevelopmentSection: View {
     var body: some View {
         PanelSection(L(.sectionDevelopment), key: "development",
                      initiallyExpanded: false,
-                     action: SectionAction(help: "Reset development to the stock defaults") {
+                     action: SectionAction(help: L(.helpResetDevelopment)) {
                          var p = session.params
                          p.developmentContrast = 1
                          p.colorSeparation = 1

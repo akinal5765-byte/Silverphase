@@ -1145,13 +1145,13 @@ final class Session: CanvasHost {
         case ready
         case failed(String)
 
-        var label: String {
-            switch self {
-            case .starting: "Starting the render engine…"
-            case .warming: "Preparing the film pipeline…"
-            case .ready: "Ready"
-            case .failed(let why): why
-            }
+        /// The line the boot window prints. A failure is its own message
+        /// (there is nobody to translate a capabilities refusal), so the
+        /// window draws that case directly and this only covers the three
+        /// that are copy — see `S.boot*`.
+        var message: String {
+            if case .failed(let why) = self { return why }
+            return ""
         }
     }
 

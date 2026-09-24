@@ -136,7 +136,7 @@ struct FilmSection: View {
     /// `helpResetFilmExposure`: this resets the stock, that one the exposure.
     private var listSection: some View {
         PanelSection(L(.sectionFilm), key: "filmList",
-                     action: SectionAction(help: "Reset the film stock to Portra 400") {
+                     action: SectionAction(help: L(.helpResetFilmStock)) {
                          var p = session.params; p.filmStock = "kodak_portra_400"; session.params = p
                          session.applyFilmStageRule()
                      }) {
@@ -172,7 +172,7 @@ struct FilmSection: View {
                               enabled: isCustom,
                               reason: L(.reasonNonCustomSideLength))
                 }
-                .padding(.top, Theme.Metric.rowSpacing + 4)
+                .padding(.top, Theme.Metric.blockGap)
                 RailRows {
                     ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
                     PillMenu(label: L(.filmHalation),
@@ -202,7 +202,7 @@ struct FilmSection: View {
                                 disabled: !session.params.halationActive)
                     .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
                 }
-                .padding(.top, Theme.Metric.rowSpacing + 4)
+                .padding(.top, Theme.Metric.blockGap)
             }
         }
     }
@@ -412,8 +412,7 @@ struct StockRow: View {
                                - Theme.Metric.stockTrailingInset)
                 let h = Theme.Metric.stockSelectionHeight
                 let y = (geo.size.height - h) / 2
-                let shape = RoundedRectangle(cornerRadius: Theme.Metric.stockSelectionRadius,
-                                             style: .continuous)
+                let shape = Capsule()
                 if selected {
                     shape
                         .fill(Theme.selection)
@@ -423,7 +422,7 @@ struct StockRow: View {
                         .offset(x: Theme.Metric.stockLeadingInset, y: y)
                 } else if hovered && row.enabled {
                     shape
-                        .fill(Color.white.opacity(0.05))
+                        .fill(Theme.rowHoverWash)
                         .frame(width: w, height: h)
                         .offset(x: Theme.Metric.stockLeadingInset, y: y)
                 }

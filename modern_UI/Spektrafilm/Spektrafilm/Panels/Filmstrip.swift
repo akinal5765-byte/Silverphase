@@ -23,7 +23,7 @@ struct Filmstrip: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            edgeButton("chevron.left") { session.selectRelative(-1) }
+            edgeButton("chevron.left", L(.helpPreviousFrame), enabled: !session.frames.isEmpty) { session.selectRelative(-1) }
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 14) {
@@ -57,7 +57,7 @@ struct Filmstrip: View {
                     if let new { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(new, anchor: .center) } }
                 }
             }
-            edgeButton("chevron.right") { session.selectRelative(1) }
+            edgeButton("chevron.right", L(.helpNextFrame), enabled: !session.frames.isEmpty) { session.selectRelative(1) }
         }
         .overlay(alignment: .center) {
             // Always in the tree, hidden by opacity. As a `if
@@ -74,13 +74,19 @@ struct Filmstrip: View {
         .railCard()
     }
 
-    private func edgeButton(_ name: String, action: @escaping () -> Void) -> some View {
+    /// A chevron at the strip's edge. It had no tooltip and no disabled
+    /// reason, and its ink was 18 pt wide inside a full-height box (button
+    /// audit 2026-09-23); the box is now `railIconTarget` wide and the two
+    /// states are said out loud.
+    private func edgeButton(_ name: String, _ help: String, enabled: Bool,
+                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: name).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.text)
-                .frame(width: 18, height: Theme.Metric.filmstripHeight).contentShape(Rectangle())
+                .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.filmstripHeight).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(session.frames.isEmpty)
+        .rowEnabled(enabled, because: L(.reasonNoFrames))
+        .help(help)
     }
 }
 

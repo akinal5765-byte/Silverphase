@@ -411,8 +411,10 @@ struct ExportPage: View {
     }
 
     private func zoomButton(_ glyph: String, _ help: String, _ factor: CGFloat) -> some View {
-        ExportIcon(glyph: glyph, help: help, restOpacity: 0.5,
-                   disabled: mode != .viewer) {
+        // No `disabled:` — this control is only built inside the viewer
+        // branch, so `mode != .viewer` could never be true (space audit,
+        // dead state). `ExportIcon`'s parameter stays for the mode buttons.
+        ExportIcon(glyph: glyph, help: help, restOpacity: 0.5) {
             zoom = (zoom * factor).clamped(to: 0.1...8)
         }
     }
@@ -435,8 +437,6 @@ struct ExportPage: View {
                 .contentShape(Capsule())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .disabled(mode != .viewer)
-        .opacity(mode == .viewer ? 1 : 0.4)
     }
 
     private var countPill: some View {
@@ -576,16 +576,22 @@ struct ExportPage: View {
         return min(rows * Theme.Metric.listRowHeight, M.formulaListHeight)
     }
 
+    /// A glyph on the recipe rail. The **target** is `railIconTarget`
+    /// (26 pt) rather than the 16×14 the ink was drawn at, and a dimmed one
+    /// says why through `reason` instead of only greying out — both from the
+    /// button audit (2026-09-23).
     private func railButton(_ glyph: String, _ help: String, dimmed: Bool,
-                            _ action: @escaping () -> Void) -> some View {
+                            reason: String = "", _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: glyph)
                 .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(dimmed ? Theme.text.opacity(0.4) : Theme.text)
-                .frame(width: 16, height: 14).contentShape(Rectangle())
+                .foregroundStyle(dimmed ? Theme.text.opacity(Theme.disabledOpacity) : Theme.text)
+                .frame(width: Theme.Metric.railIconTarget,
+                       height: Theme.Metric.railIconTarget)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(dimmed)
+        .rowEnabled(!dimmed, because: reason)
         .help(help)
     }
 
@@ -619,8 +625,7 @@ struct ExportPage: View {
             .background(alignment: .leading) {
                 if on {
                     GeometryReader { geo in
-                        let shape = RoundedRectangle(cornerRadius: Theme.Metric.stockSelectionRadius,
-                                                     style: .continuous)
+                        let shape = Capsule()
                         shape
                             .fill(Theme.selection)
                             .overlay { shape.strokeBorder(Color.black.opacity(0.18), lineWidth: 1) }
@@ -1202,7 +1207,7 @@ struct ExportPage: View {
         Button(action: action) {
             Text(title)
                 .font(F.label)
-                .foregroundStyle(enabled ? Theme.card : Theme.text.opacity(0.4))
+                .foregroundStyle(enabled ? Theme.card : Theme.text.opacity(Theme.disabledOpacity))
                 .padding(.horizontal, 12)
                 .frame(height: M.rowHeight)
                 .pillSurface(base: enabled ? Theme.accent : Theme.pill, wash: !enabled)
@@ -1328,7 +1333,7 @@ struct ExportPage: View {
                         VStack(spacing: 8) {
                             ProgressView().controlSize(.small)
                             Text("Rendering the preview…")
-                                .font(Theme.Font.label).foregroundStyle(Theme.Ink.tertiary)
+                                .font(F.label).foregroundStyle(Theme.Ink.tertiary)
                         }
                     } else {
                         Text(worklist.isEmpty
@@ -1336,7 +1341,7 @@ struct ExportPage: View {
                              : session.selection == nil
                                ? "No frame is open. Choose one from the strip."
                                : "Nothing to prove for this recipe.")
-                            .font(Theme.Font.label).foregroundStyle(Theme.dim)
+                            .font(F.label).foregroundStyle(Theme.dim)
                     }
                 }
                 .frame(width: max(geo.size.width, fitted.width * zoom),
@@ -1524,7 +1529,7 @@ struct ExportPage: View {
 
     private var emptyWorklist: some View {
         Text("Nothing is selected. ⌘-click images in the filmstrip to add them.")
-            .font(Theme.Font.label)
+            .font(F.label)
             .foregroundStyle(Theme.dim)
             .multilineTextAlignment(.center)
             .padding(20)
@@ -1901,7 +1906,11 @@ func exportFittedImageSize(imageSize: CGSize, in box: CGSize) -> CGSize {
 private struct PillField<MenuContent: View>: View {
     let title: String
     var dimmed = false
-    var font: Font = Theme.Font.label
+    /// The **export page's** label, not the rails': this page has its own
+    /// drawing and its own scale (UI-SPEC 字体一节). Every call site passes `F.label`
+    /// today; the default is what keeps the next one from silently taking the
+    /// editor's 10.5.
+    var font: Font = Theme.Font.Export.label
     var help: String?
     @ViewBuilder var menu: () -> MenuContent
 
@@ -1926,8 +1935,8 @@ private struct PillField<MenuContent: View>: View {
             .contentShape(Capsule())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
-        .disabled(dimmed)
-        .help(help ?? "")
+        .rowEnabled(!dimmed, because: dimmed ? (help ?? "") : "")
+        .modifier(DisabledReason(show: !dimmed && help != nil, reason: help ?? ""))
     }
 }
 
@@ -2053,7 +2062,7 @@ private struct ExportIcon: View {
                 .background {
                     if hovered && !disabled {
                         RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous)
-                            .fill(Color.white.opacity(0.07))
+                            .fill(Theme.buttonHoverWash)
                             .padding(.vertical, 4)
                     }
                 }
@@ -2067,7 +2076,7 @@ private struct ExportIcon: View {
     }
 
     private var ink: Color {
-        if disabled { return Theme.text.opacity(0.4) }
+        if disabled { return Theme.text.opacity(Theme.disabledOpacity) }
         if selected { return Theme.exportAccent }
         return hovered ? Theme.text : Theme.text.opacity(restOpacity)
     }

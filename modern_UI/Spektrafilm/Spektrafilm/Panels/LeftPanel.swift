@@ -118,15 +118,28 @@ struct SidebarToggle: View {
         }
     }
 
+    @State private var hovered = false
+
     var body: some View {
         Button { withAnimation(.easeOut(duration: 0.18)) { collapsed.toggle() } } label: {
             Image(systemName: symbol)
                 .font(.system(size: Theme.Metric.sidebarIcon, weight: .regular))
                 .foregroundStyle(Theme.text)
-                .frame(width: 26, height: 26)
+                .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
+                // The same pointer wash the bar's glyphs draw: this button
+                // and `PanelIconButton` are the two rail-header glyphs that
+                // sat next to hoverable siblings with no hover of their own
+                // (button audit 2026-09-23).
+                .background {
+                    if hovered {
+                        RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous)
+                            .fill(Theme.buttonHoverWash)
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovered = $0 }
         .help(help)
     }
 }
@@ -134,22 +147,35 @@ struct SidebarToggle: View {
 struct PanelIconButton: View {
     let systemImage: String
     var help: String = ""
+    /// Why it cannot be used, when it cannot. `rowEnabled(_:because:)` is the
+    /// app's one answer to §5.1's "never grey a control without saying why";
+    /// this control used to pass no reason at all (button audit 2026-09-23).
+    var reason: String = ""
     var active = false
     /// A glyph that cannot be used is greyed, like every other non-selectable
     /// control in the app (PRD; `View.rowEnabled(_:)`).
     var enabled = true
     let action: () -> Void
+    @State private var hovered = false
+
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: Theme.Metric.panelIcon, weight: .regular))
                 .foregroundStyle(active ? Theme.accent : Theme.text)
-                .frame(width: 26, height: 26)
+                .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
+                .background {
+                    if hovered && enabled {
+                        RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous)
+                            .fill(Theme.buttonHoverWash)
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .rowEnabled(enabled)
-        .help(help)
+        .rowEnabled(enabled, because: reason)
+        .onHover { hovered = $0 }
+        .modifier(DisabledReason(show: !help.isEmpty, reason: help))
     }
 }
 

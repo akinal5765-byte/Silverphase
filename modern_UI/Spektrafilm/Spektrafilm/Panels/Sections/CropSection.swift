@@ -82,8 +82,8 @@ struct CropSection: View {
         return Button { setAspect(g.aspect.transposed) } label: {
             Image(systemName: g.aspect.isPortrait ? "rectangle.portrait" : "rectangle")
                 .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(on ? Theme.text : Theme.text.opacity(0.4))
-                .frame(width: 18, height: 16)
+                .foregroundStyle(on ? Theme.text : Theme.text.opacity(Theme.disabledOpacity))
+                .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -127,7 +127,7 @@ struct CropSection: View {
             Image(systemName: name)
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(active ? Theme.accent : Theme.text)
-                .frame(width: 18, height: 16)
+                .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

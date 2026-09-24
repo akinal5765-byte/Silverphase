@@ -60,20 +60,16 @@ struct CameraSection: View {
                          options: AEMethod.offered + (session.aeMethod == .legacy ? [.legacy] : []),
                          title: { L($0.key) },
                          selection: Binding(get: { session.aeMethod },
-                                            set: { session.aeMethod = $0 }),
-                         labelWidth: Theme.Metric.cameraLabelWidth,
-                         font: Theme.Font.cameraLabel)
+                                            set: { session.aeMethod = $0 }))
                 ScrubSlider(label: L(.cameraFilmExposure),
                             sublabelView: asShotLine,
                             value: Binding(get: { session.params.exposureCompensationEV },
                                            set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
-                            range: -4...4, snap: 1 / 3, format: { String(format: "%+.1f", $0) },
-                            metrics: .camera)
+                            range: -4...4, snap: 1 / 3, format: { String(format: "%+.1f", $0) })
                 WhiteBalanceRows(session: session)
                 ToggleRow(label: L(.cameraLensCorrection),
                           isOn: Binding(get: { session.decode.lensCorrection },
                                         set: { session.setLensCorrection($0) }),
-                          labelFont: Theme.Font.cameraLabel,
                           enabled: session.lensCorrectionEnabled,
                           reason: session.lensCorrectionReason)
             }

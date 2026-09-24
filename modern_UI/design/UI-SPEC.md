@@ -432,41 +432,45 @@ default、hover、active、focus、disabled 五种;缺哪个要有理由。
 
 ---
 
-## 8. 现状违规(2026-09-23)
+## 8. 现状违规(2026-09-23 **全量复核**)
 
-### P0 — 裸英文
+复核方式:每一条旧记录**重新取证**(文件:行号 + 计数),不照抄。计数口径:ASCII 字面量出现在
+`Text(` / `Button(` / `Label(` / `Toggle(` / `Menu(` / `CommandMenu(` / `TextField(` /
+`help:` / `reason:` 参数里。上一版这一节写于本地化动工之前,下面的"现状"是动工之后的数字。
 
-| 区域 | 规模 | 位置与示例 |
+### P0 — 裸英文(约 70 条 → 剩 ≈53 条)
+
+| 区域 | 复核 | 证据 |
 |---|---|---|
-| 菜单栏 | 全部 | `SpectrafilmApp.swift`:`CommandMenu("View"/"Frame"/"Crop"/"Mask")`、`Button("Undo")`、`"Copy Settings"` … |
-| 导出页 | ~35 处 | `Export/ExportPage.swift`:`"Fit"` `"Cancel"` `"Rename"` `"New Recipe"` `"Duplicate"` `"Delete"` `"Choose Folder…"` `"Reveal in Finder"` `"Select All"` `Text("Format")` `"Color Space"` `"Quality"` `"Rendering the preview…"` … |
-| 设置页 | ~8 处 | `Windows/SettingsWindow.swift`:`"Preview"` `"Fast stock preview"` `"Crop re-maps the frame"` `"Log level"` `"Unlimited"` … |
-| 左栏 | 5 处 | `FilmSection.swift:225` `Reset the film stock to Portra 400`(同时写死配置名)、`DevelopmentSection.swift:12`、`EnlargerSection.swift:22/26/31/42` |
-| 提示文字 | 14 处 | 各页 `.help("...")`;导出页 3、设置页 2、蒙版区 3 最集中 |
-| 关于窗 / 更新状态 | 8 处 | `Windows/AboutWindow.swift`、`Updates/UpdateCheck.swift:116–139` |
-| 已关功能仍违规 | — | `MasksSection.swift`;`ColorWheel.swift`、`CurveEditor.swift`(已是死代码,应删不是翻译) |
+| 菜单栏 | **部分关闭** | `EditorCommands` 里除 Mask 子菜单外全部走 `L(...)`;`SpektrafilmApp.swift:185–199` 仍有 `CommandMenu("Mask")` + 7 个英文按钮 |
+| 导出页 | **未动**(~32 条 + 2 条 help) | `ExportPage.swift`:424 `"Fit"`、496 `"Name"`、657 `"Choose Folder…"`、920 `"Color Space"`、928 `"Quality"`、1029/1128 两条 help |
+| 设置页 | **已关闭**(0 条) | 整页 `L(.set*)` |
+| 左栏 | 只剩 2 条 | `FilmSection.swift:139`「Reset the film stock to Portra 400」(还写死了配置名)、`DevelopmentSection.swift:12` |
+| 提示文字 | 剩 11 条 | `.help(` 6 条:`MasksSection.swift:88/225`、`ExportPage.swift:964/1002`、`EditorWindow.swift:325`、`FilmSection.swift:203`;`help:` 参数 5 条:`ExportPage.swift:1029/1128`、`PrintProfileSection.swift:151/183`、`TopBar.swift:98`(`"Crop (C)"`,而它的左右邻居都走 `L(.help*)`) |
+| 关于窗 / 更新状态 | **已关闭** | `AboutWindow` 全量 `L(.about*)`;`Updates/UpdateCheck.swift` 已删除 |
 
-`Text("CINE")` 是 §7.3 允许的缩写,不算违规。
+`Text("CINE")`(§7.3 允许)与 `"Silverphase"`(品牌名)不算违规。
 
 ### P1 — 结构
 
-| 现象 | 说明 |
+| 现象 | 复核 |
 |---|---|
-| 打开 / 导出会随参数栏消失 | 两个文件级动作挂在左栏头部;折叠左栏后只剩 ⌘O / ⌘E。按 §1.4 搬到顶栏 |
-| 印相控制有两个家 | `PrintProfileSection` 与 `EnlargerSection` 有同一批印相曝光/滤光;按 §1.4 删掉后者 |
-| 参数与预设挤在一个左栏 | 胶片/相纸列表和全部参数在同一个栏里。按 §1.4 拆成「左预设 + 右参数」。**注意**:`Session.rightCollapsed` 与 `Theme.Metric.rightPanelRange` 因此会重新有用,不要当死代码删 |
-| 旧输出调色的控件是死代码 | `CurveEditor`、`ColorWheel`、`helpEditRail*` 属于已删除的 Layer 2 输出调色,新右栏是**管线参数**不是它,这些不会再回来,删掉 |
-| 直方图做法违规(位置是对的) | `EditorWindow.swift` 的 `CanvasHistogram` 有底色、圆角、内边距,还塞了 `Convert legacy grade` 按钮,违反 §1.3 第 2 条 |
-| 画布右上角三类东西叠放 | 直方图卡片 + 分辨率徽章 + 按钮,没有主次和间距规则 |
-| 组件状态不全 | 滑杆缺 hover / focus / 键盘;下拉缺键盘选择;列表缺 hover |
+| 打开 / 导出会随参数栏消失 | **已关闭** —— 两个动作在顶栏,`TopBar.swift:74/77`,⌘O / ⌘E 不变 |
+| 印相控制有两个家 | **已关闭** —— `EnlargerSection` 已删,只剩 `PrintProfileSection` |
+| 参数与预设挤在一个左栏 | **已关闭** —— 左栏 = `L(.railPresets)`(Navigator + 胶片/相纸列表),右栏 = `RightPanel.swift:36–42` 的 camera / film / development / print / crop(/ masks) |
+| 旧输出调色的控件是死代码 | **按既定口径** —— `CurveEditor.swift` 已删;`Controls/ColorWheel.swift` 里 `ColorBalanceEditor` / `ZoneWheel` / `ArcSlider` 三个视图零引用,但**暂留是有理由的**(§1.4):同文件里的 `ColorBalanceLayout` 与 `colorBalanceWidth` 环境值仍被 `EditorWindow.swift:162` 使用,整块删除要先分离,单独一次做 |
+| 直方图做法违规 | **已关闭** —— `CanvasHistogram` 现在是 `Theme.overlayScrim` 的糊底 + 纯墨迹:无圆角面板、无内边距、无 `Convert legacy grade` 按钮(`EditorWindow.swift:352–370`) |
+| 画布右上角三类东西叠放 | **已关闭** —— 一个 `VStack`,一个 `CanvasBadges.inset` + 一个 `CanvasBadges.spacing`,直方图只在有数据时出现 |
+| 组件状态不全 | **部分** —— hover 已覆盖 14 处(滑杆、药丸、分区头、胶片列表、胶片条、面板把手、顶栏图标、导出页行、折叠页签);**键盘与焦点仍缺**:全 app 除菜单外只有 3 处 `keyboardShortcut`,滑杆不可聚焦、不能用方向键调。另有**无障碍**:全 app 只有 4 处 `accessibility*`,26 个 SF Symbol 按钮绝大多数只有 `.help` 而没有标签,唯一那处 `accessibilityLabel("Resize panel")`(`PanelResize.swift:132`)还是英文 —— 中文界面里 VoiceOver 会念英文 |
 
 ### P2 — 视觉
 
-| 现象 | 说明 |
+| 现象 | 复核 |
 |---|---|
-| 临时颜色 | `CanvasHistogram` 用 `.black.opacity(0.58)` 与 `.clear`,不是 token |
-| token 注释与值不符 | `Theme.Metric.sliderLabelWidth` 注释写 74,值是 84 |
-| 过时描述 | `LOCALIZATION-zh-Hans.md` 仍写 Develop=显影、Halation=光晕、Glare=耀光、有右栏 |
+| 临时颜色 | **已关闭** —— `CanvasHistogram` 用 `Theme.overlayScrim` / `overlayInkShadow` |
+| token 注释与值不符 | **已关闭** —— `sliderLabelWidth` 的注释改成 84(2026-09-23,同"字号与字重"那一轮) |
+| 过时描述 | **仍在** —— `LOCALIZATION-zh-Hans.md:29/30` 写"左栏标题 · Develop \| 显影 / 右栏标题 · Edit \| 调整",而 as-built 是**左=胶片与相纸·胶片工艺、右=参数**(§7.2)。术语表以 §7.2 为准 |
+| 同一种阴影两个值 | **新发现** —— 画布叠加层写 `.black.opacity(0.5)`(6 处:`CompareOverlay` ×2、`MaskOverlay` ×3、`CropOverlay` ×2),而 `Theme.overlayInkShadow` 是 `0.55`(6 处)。同一个"让浅色标记在照片上可读"的活,两个值 |
 
 ---
 
@@ -821,3 +825,279 @@ grep -c 'case \.' Localization/Strings.swift
 抓图能拍到它 —— 这也是它底下半页能一直是英文的原因。`--settings` 渲染这一页,并且在
 `snapshotMode` 下**去掉固定高度**,让 10 个分区一次全部出现在一张图里(真窗口是 640 pt 高的滚动栏,
 一张截图最多只能看到前四节)。验证:中文一页到底、英文一页到底,各抓一张。
+
+## 应用图标(2026-09-23,Silverphase)
+
+概念图是两卷叠在一起的胶片:后面一卷银色、偏左上,前面一卷橙色、偏右下。实现是
+`Spektrafilm/Silverphase.icon` —— 一个 **Icon Composer 文档**(`icon.json` + `Assets/*.svg`),
+由 `Tools/make-icon.py` 从一组参数画出两条素材。
+
+**为什么是文档而不是一张 PNG**:macOS 26 起图标的最终样子由系统合成 —— 圆角外壳(遮罩)、
+Liquid Glass 的高光与折射、阴影都是系统加的。往 SVG 里烤一层高光,屏幕上就会有两层;所以
+素材里**只有材质**:
+
+- **背景**:文档的 `fill` 是一条很浅的渐变(白 → 冷灰)。**dark 外观不写 specialization** ——
+  系统自己给深色底,这正是"玻璃由 Apple 自动添加"的同一件事:浅色/深色两种底座都是系统的。
+- **两条胶片**:各自一个 **group**(各自一份玻璃与阴影,前面那卷的影子才会落在后面那卷上),
+  `glass: true`、`lighting: individual`、`blur-material 0.4`、轻微 `translucency`,
+  前面那卷多一个 `refractivity`(要在文档顶部声明 `features: ["refractivity"]`)。
+- **齿孔是孔,不是白点**:一条 `fill-rule="evenodd"` 的 path 把外框和 12 个孔放在一起,
+  所以背景和玻璃会从孔里透出来。**画格窗是面板**(胶片透明的片基),画在上面。
+- **齿孔每边 6 个,不是 35 mm 的 9 个**:16 pt 下 9 个只会连成一条虚线。
+
+**第四个踩到的点,而且它是"图标没换"的元凶**:上一个产品名留下的 `SpektraLab.icns` 不在源码树里、
+也不在 `git ls-files` 里,而在**构建中间产物** `DerivedData/…/assetcatalog_output/thinned/`(时间戳
+14:09,改名之前那次构建)。actool 的增量构建会把整个 thinned 目录**复制**进 bundle,**连时间戳一起**
+—— 所以只从 bundle 里删掉它没用,下一次构建它又回来了,`Contents/Resources/` 里就一直是
+"新图标 + 一个旧的 `.icns`"。删要删中间产物那份(或 clean)。**判断"跑的是哪一版"仍然看时间戳**,
+但看的是 `Assets.car` 和 `Silverphase.icns` 的,不是"有没有 `SpektraLab.icns`"。
+
+**三个踩到的点,都记在这儿**:
+
+1. **`groups` 的顺序是"前 → 后"**(和 Icon Composer 的图层列表一样,第一行在最前面)。
+   把橙色那卷写在前面才压在银色上面 —— 先写银色时渲染出来是反的。
+2. **`color-space-for-untagged-svg-colors` 只接受 `display-p3`**(这个 Icon Composer 构建
+   会拒收 `srgb`,报 "The data couldn't be read because it isn't in the correct format")。
+   于是 SVG 里没标色的十六进制会被当成 **P3 数值**读,而设计是在 sRGB 里选的 —— 直接把 sRGB
+   的十六进制写进去,屏幕上每个颜色都会比设计的更艳。所以 `make-icon.py` 把 sRGB 经过
+   线性光 + CSS Color 4 的矩阵转成 P3 数值再写文件:sRGB `#FF9F0A`(界面的 accent)
+   落到 P3 的 `#F2A33C`,是同一个橙色。
+3. **`position` 必须同时给 `scale` 和 `translation-in-points`**,只给 scale 会让 Icon Composer
+   打不开文档(而旧 schema 会放它过)。
+
+**"透明叠加"是怎么做出来的(用户三次反馈,从"上面黄的把下面灰的覆盖了"到最后一次"和之前一样",
+参照官方照片 App 那朵花瓣)** —— 五件事,每一件都是我一开始做错的:
+
+0. **"透过来"是材质的事,不是把 `glass` 关掉。** 这一条我前后搞错了两次,最后按用户的提醒回去读规范
+   才做对:玻璃的**透射**由**组**上的 `translucency` 控制(UI 里叫 Translucency,"content behind
+   the glass shows through"),`blur-material` 控制它透过来时**糊不糊**,`refractivity` 是边缘那层
+   折射/放大(照片 App 花瓣边上的"透镜"),`specular` 是highlight。正确的组合是:
+
+   | 键 | 值 | 作用 |
+   |---|---|---|
+   | 层 `glass` | **true**(两卷都开) | 这一层参与 Liquid Glass |
+   | 组 `translucency` | 前卷 **0.60**(dark 外观 0.40) | 后面那卷透过来多少 |
+   | 组 `blur-material` | 前卷 **0** | 0 = 透过来是**清晰**的胶片,不是磨砂玻璃 |
+   | 组 `refractivity` | `{enabled, strength 0.35, depth 0.30}` | 边缘的透镜感 |
+   | 组 `lighting` | `individual` | 每层各自受光 |
+   | 素材 alpha | 前卷 **0.96**(窗 0.70) | **只管颜色**,不要拿它当透射 |
+
+   - **我错在哪**:先用整卷 alpha 0.60/0.68/0.75 去做透射 —— 结果是橙色被冲成奶白,而
+     透明度并没读出来;然后干脆把前面那卷的 `glass` 关掉(那一版**确实**透,但**没有玻璃质感**,
+     用户的反馈:"透是透了,但是没有玻璃质感")。**材质开着才对**,alpha 交给材质。
+   - **实测颜色**(白底,以 sRGB 读):`#F89D13` —— Apple 橙是 `#FF9F0A`,差 2/2/9,已是同一条橙。
+   - **dark 外观必须单独给 `translucency`**(`translucency-specializations`,整个对象替换):
+     0.75 的透射在近黑底上会把橙卷压成褐色;dark 用 0.40,灰卷依然透得出来。
+   - **透射也不能给太多**:0.75 + refractivity 0.5 在 1024 尺寸下会把橙卷下半段冲成奶白
+     (白底从那里透上来),最后落在 **0.60 / 0.35** —— 橙卷保住自己的橙,灰卷照样透得出来。
+     这两个数就是最后的旋钮。
+1. **"透明"也可以是形状上的开口。** 这是最后一层、也是最关键的一层:把画格窗
+   做成 alpha 很低的**填充**(0.18)时,系统仍然把它**填成一块玻璃** —— 于是"透过去"看起来只是
+   "变淡",而不是"看见后面那卷"。只有把窗做成**真正的开口**(和齿孔一样进 `evenodd` 那条 path,
+   那里根本没有面积),后面那卷才会 **100% 透出来**。所以现在:**橙卷的边框是不透明的 Apple 橙,
+   画格窗是三个洞**;银卷的窗仍是浅灰面板(胶片片基),孔也是洞。这也是物理上对的 ——
+   画格窗本来就是片基露出来的地方。
+2. **每一卷是"半透明的彩色形状",不是"不透明的形状加一层雾"**。花瓣那种观感 =
+   颜色本身带 alpha(底色上偏粉彩、两个形状交叠处变深),而不是把整组的 `translucency` 拉高
+   —— 后者只会把橙色冲成奶白(试过 0.6/0.75/0.9,一路变浑浊)。现在素材最外层是一个
+   `<g opacity>`(前面那卷 0.96、后面 0.94)。**整卷压到 0.68 会把橙色冲成奶白** —— 0.60/0.68/0.75
+   三档都试过,越透越不像 Apple 橙;所以 alpha 只留一点点材料感,"透"交给第 0 条的开口。
+   - **实测**:`<g opacity="0.68">` 与 `opacity="1.00"` 两张渲染 psnr 28.65 —— 组的 `opacity`
+     是被认的;而最初把 alpha 写在渐变路径的 `fill-opacity` 上,画面上**看不出任何变化**,
+     所以现在一律写在组和渐变的 `stop-opacity` 上。
+3. **后面那卷必须是一块灰板,不是"白底加灰框"**。一开始银色那卷的窗是接近白的(#E8EDF4),
+   于是前面那卷底下几乎全是亮的 —— **没有东西可以透**。概念图里灰卷是一整块灰、只有齿孔是
+   白的,所以现在银色卷的窗只比片身亮一点点(#B4BFCB 对 #C2CAD6→#7C8797),齿孔仍然是真孔。
+   这时候橙色压过去才会明显地变灰、变深,而齿孔透出来是亮点。
+4. **两卷要错开**(见上):窗对窗互相抵消。竖直方向错开接近一个画格间距,前面的窗落在后面的
+   片身/齿孔上,叠加才读得出来。
+
+**`blend-mode` 在 Liquid Glass 层上是失效的**:去掉前面那层的 `blend-mode: "multiply"` 再渲染,
+PNG **逐位相同**(psnr = inf),所以那个键已经从文档里删掉,不留一个看起来在起作用的东西。
+
+**验证**:`ictool`(在 `Icon Composer.app/Contents/Executables/`,注意**不是**
+`Developer/usr/bin/ictool`,那是另一个同名工具)渲染 Default/Dark/128 pt 三个 rendition 看效果;
+然后构建 app,`Assets.car` + `Silverphase.icns` 进包,再用 `Tools/render-icon.swift` 按 Finder
+的方式读回来 —— 那就是 `screenshots/app-icon.png`。**图标编译失败是一句话的构建错误,
+图标没进包却是"构建成功"**:所以这一步每次都要做。
+
+### 图标这条路上最贵的一课:缓存骗了两个人
+
+改完素材之后我连着做了四件事,每一件都在"验证",而**四件里有三件读的是缓存**:
+
+1. **`NSWorkspace.icon(forFile:)` 是 `iconservicesagent` 给的,按路径缓存。** 同一个路径反复读,
+   拿到的是**几轮之前那次编译**的图标 —— 所以我的"从构建产物读回"证据一直是旧的,而
+   `ictool` 直接渲染包一直是对的,两边**长期不一致**,我却用 psnr 去比、还比错了(见第 2 条),
+   于是把"包是对的、读回是旧的"误读成"包和构建产物一致"。**判据**:换一个**从未存在过的路径**
+   (`ditto` 到 `build/view-<时间戳>/`)再读,或者直接看包里的 `Silverphase.icns`(`sips` 能读)。
+   同一个路径删了重建也没用 —— 缓存是按**路径**记的。
+2. **不要对两张不同取景的图标做 psnr。** 构建产物里的 rendition 带 macOS 标准的**外边距**
+   (824/1024),`ictool --width N` 渲染的是**贴边**的 —— 同一张图 psnr 只有 4.7 dB,
+   看起来很"不同",其实一模一样。图标只能**看**,不能这样量。
+3. **改目录里的文件不会改目录的 mtime**,而 Xcode 把 `.icon` 当**一个输入**看:于是 asset catalog
+   每一步都跑了,图标本身却没重编。`Tools/make-icon.py` 现在写完素材会 `os.utime()` 一下
+   包目录 —— 一行,根治。
+4. 顺带:`Contents/Resources/` 里那个**上一个产品名的 `.icns`** 来自**中间产物**
+   (`assetcatalog_output/thinned/`,actool 每次连时间戳一起复制),删 bundle 里那份没用。
+
+**现在这份图标的样子**(以 sRGB 读):橙卷是一整卷**半透明 Apple 橙**(整卷 alpha 0.85,
+画格窗 0.62),白底上的实测值 `#F4A327`(Apple 橙 `#FF9F0A`);灰卷的身子、画格窗边界与齿孔
+都从橙卷里透出来。层的 `glass` 前面那卷关掉了 —— 见上一节,那是"透不出来"的真正原因。
+
+**第三版(用户:"拿掉的话进度条左侧不平衡…左侧的文字可以长一些,可以编一些内容,没必要是啥就写啥")**:
+右侧的 `NATIVE-METAL` 徽标删掉,左侧状态行改成**两段式**、写得更具体 ——
+`正在启动渲染引擎 · 初始化 Metal 设备` / `正在准备胶片管线 · 配置、特性曲线与印相表` /
+`就绪 · 胶片管线已加载`(英文同构)。两个理由:徽标是**行话**,而且它报告的东西
+**设置页「渲染核心」和每一条日志记录里都有**;启动画面是品牌时刻,不是诊断面板。
+删掉之后那一行由状态行**独占**,所以它必须够长 —— 这也是"编一些内容"的真正用途:
+不是编造,是把本来就没说清的相位写成一句像个产品的话。
+
+### 定案:一卷胶片 = **片基 + 画框**(2026-09-23,最后一版)
+
+用户第三次反馈:"这个透的不太对吧"。这一次不是缓存,是我的模型错了 —— 我把"透"整个交给
+**材质透射**,于是白底也从每一处透上来,橙卷下半段被冲成奶白(材质还把灰卷的窗糊成一块)。
+物理上没错(半透明的橙色滤片压在白纸上就是发白),但**那不是胶片的样子**。
+
+**一卷胶片其实是两样东西**,现在按这个做:
+
+- **画框**(`2-orange-strip.svg`,层名 "Orange frame",`glass: true`):不透明的 Apple 橙,
+  齿孔是孔、**画格窗是开口**。材质给它边缘高光与折射 —— 这是用户要的"玻璃质感"。
+- **片基**(`2-orange-strip-base.svg`,层名 "Clear base",`glass: false`):三个画格窗大小的
+  **浅橙**块(`#FFB84D`,`opacity 0.55`),画在框后面。它把透过去的灰卷染成胶片的颜色,
+  于是窗读起来是"片基"而不是"框上挖的洞"(用户否掉过那个:为什么橙色只剩下外框了)。
+
+于是组上的 `translucency` 不再承担"透",退回**0.25**(dark 0.20)只留一点材料感;
+`blur-material: 0` 让透过去的东西保持清晰;`refractivity 0.35/0.30` 是窗边的透镜。
+
+**实测(sRGB,白底)**:框 `#FC9C0A` / `#F19313` —— Apple 橙是 `#FF9F0A`,同一条橙;
+窗内(灰卷处) `#F2CC92`,灰卷的身、窗、孔都还看得见。
+
+**两个旋钮**:`Tools/make-icon.py` 里 `ORANGE` 的 `base`/`base_alpha`(片基的颜色与浓度)
+与 `icon.json` 里那组的 `translucency`。用户最后定的是 `base_alpha = 0.75`
+(0.55 偏淡、0.90 层次没了;窗内实测 `#F8C374`,画框 `#FC9C0A`)。
+
+**图标缓存有两层,杀 agent 不够**:`iconservicesagent` 的**按路径**缓存之外,磁盘上还有
+`~/Library/Caches/com.apple.iconservices.store` 与 `/private/var/folders/<...>/C/com.apple.iconservicesagent`。
+只 `killall iconservicesagent` 时,重启后的 agent 会把这些 store 读回来,**同一个路径仍然给你几轮前的图**
+(用户的 Finder"简介"预览和 Dock 都是这样)。要真刷新:删掉上面两处 store + `killall iconservicesagent`
++ `touch` bundle 目录 + `lsregister -f`,然后重开"简介"窗口。
+另外 **bundle 的"修改时间"不会因为里面文件被重写而变**(只有增删文件才变),所以 Finder 显示
+"修改时间 22:39"而 `Assets.car` 是 23:01 是正常的 —— 判据看 `Assets.car`/`Silverphase.icns` 的
+时间戳,或者把 app `ditto` 到一个新路径读回。
+
+### 深色底是**系统设置**,不是"深色模式"带来的
+
+用户问"按理说符合规范的图标是不是可以变成深色底?" —— 可以,但 macOS 26 里**图标的深色底是一个
+独立的设置项**,和"浅色/深色模式"不是一回事:
+
+**系统设置 ▸ 外观 ▸ 图标与小组件样式**(Icon & Widget Style),四选一:**默认 / 深色 / 通透 / 色调**,
+后三种还有 **自动 / 始终** 两种(自动 = 跟随系统的浅色/深色)。
+
+- **默认**:图标就按开发者画的样子显示(背景的颜色都在)。**macOS 自带的 App 也一样** ——
+  用户截图里深色模式下的 Dock,照片的白色花、访达的蓝白脸都还是原样,就是这个设置停在"默认"。
+- **深色**:系统把图标的**背景**去饱和压暗,前景(我们那两卷胶片)保留颜色。
+- **通透**:整个图标变成 Liquid Glass,**背景透出桌面壁纸** —— 想要"透明"就是这个,而且是*系统*
+  给所有 App 的,不需要 App 做什么。
+- **色调**:整体上一个系统色。
+
+**文档这一侧该做的**:把深色底**写出来**(`fill-specializations` 里 `"system-dark"`),
+这样"深色"这一档落在一个开发者认可的背景上,而不是让系统去猜 —— 实测写不写它,
+`--rendition Dark` 逐位相同(系统本来就会兜底),但文档说了才是一个可复核的意图。
+
+**为什么我之前的"读回"看不到这些档**:`NSWorkspace.icon(forFile:)` 在命令行进程里画的是
+**默认外观**,所以从 bundle 读回永远得到浅色那一版 ✗ 它只能证明"图标进包了",
+**要比较外观必须用 `ictool --rendition Default|Dark|ClearLight|ClearDark|TintedLight`**。
+
+## 启动画面(2026-09-23,用户要求"更有质感、慢一点、强调色用 Apple 橙")
+
+**它原来是什么**:360×190 的 `Theme.card` 上一行字、一行 "film simulation"、一个系统 spinner 加一行状态。
+
+**现在**:一张 **360×194 的圆角卡片**,自上而下 —— **Silverphase** 字标(28 pt semibold)、
+一行 tagline、**确定进度条**(Apple 橙、纯色,轨道是下沉的 well + 内描边)、底部一行状态 +
+状态行(右侧原来那个 `NATIVE-METAL` 徽标**已拿掉** —— 见下)。进度条的三档就是三个相位
+(`starting` 0.28 / `warming` 0.68 / `ready` 1.0),不是转圈:同一件事,状态行已经在说了。
+
+**第二版(用户看了真窗口之后的两条)**:① "不用出现图标了…加上图标感觉整个版面太大了" ——
+图标拿掉,字标和进度条就是全部信息,卡片因此收小到 360×194;② "顶部那一条黑条也很奇怪,
+这里并没有窗口" —— 那是 `.titled` 窗口的**标题栏**:即使 `titlebarAppearsTransparent` +
+`fullSizeContentView`,系统仍会在顶部画一条。所以窗口改成 **`.borderless` + 透明背景**,
+卡片由视图自己画(圆角 14、L1 材质、1 px 内描边、自己的投影),窗口比卡片大 28 pt
+—— **SwiftUI 的投影会被窗口裁掉**,不放大就没有投影;`hasShadow = false`,因为无边框窗口的
+系统投影是**矩形**的,会和圆角卡片打架。
+
+**"宁可慢一点"是明确要求,所以有了下限**:`BootWindowController.minimumOnScreen = 2.6 s`。
+这是**人为的**,文件头里原来那句"nothing sleeps and nothing is padded"已经改掉并写明原因 ——
+本机热启动只要 ~650 ms,不设下限时这个窗口只闪三分之二秒,读不出名字,也就不是品牌时刻。
+下限只加在**成功**路径上:失败(能力拒绝)立刻交接,不能把"应用坏了"的解释扣在 logo 后面。
+实测时序:`open` 后 0.9–3.3 s 屏幕上**只有**启动画面,3.7 s 出主窗口。
+
+**顺带修掉一个潜伏的 bug**:文件头一直写着"Show it, hide the editor",但代码从来没隐藏过编辑器 ——
+交接只要 0.65 s 的时候没人看得见,加了 2.6 s 下限之后,主窗口就明晃晃地停在启动画面后面。
+现在 `present` 里隐藏一次,等待期间**每个 tick 再隐藏一次**(SwiftUI 随时可能把它 order in),
+交接时只把它拿到最前。
+
+**强调色**:进度条、徽标、失败图标都用 `Theme.accent`(Apple 橙 `#FF9F0A`),和界面一致;
+进度条**纯色不渐变**(沿用"橙色不需要渐变了"那条)。tagline 的**字距只在英文里加** ——
+中文加字距是每个字之间的缝,读起来像排版事故。
+
+**抓图**:`--boot`(`--boot-phase starting|warming|ready`)渲染这一页,三档各一张,存
+`modern_UI/design/snapshots/boot-*.png`。为什么不能用 `screencapture`:它要屏幕录制权限,
+这个 harness 没有;而这个窗口的真实生命也只有 2.6 s。文案在字符串表里(`bootTagline` /
+`bootStarting` / `bootWarming` / `bootReady`),相位行由 `Session.BootPhase.key` 查表。
+
+## 字体：macOS 系统字体（2026-09-24）
+
+界面统一使用 macOS 系统字体。设置页只提供界面缩放，不提供字体选择；应用不检测、加载或随包分发第三方字体。`Theme.Font` 仍按界面角色指定字号和字重，数值保留等宽数字特性。
+
+**规则表**(代码里的 `Theme.Font`,pt / 字重 / 用在哪):
+
+| 角色 | pt | 字重 | 用在哪 |
+|---|---:|---|---|
+| `railTitle`、`leftSectionTitle`、`sectionTitle` | 12 | **Semibold** | 栏标题、左栏分区标题(设置页与关于面板仍用兼容名 `sectionTitle`) |
+| `rightSectionTitle` | 10.5 | **Semibold** | 右栏分区标题(直方图 / 白平衡 / 曝光 / 曲线 / 色彩平衡) |
+| `body`、`filmLabel`、`edrLabel`、`label`、`tab` | 10.5 | **Regular** | **所有栏的控件标签**、EDR、下拉与药丸的标签、标签页 |
+| `stockGroup`、`groupHeader` | 10.5 | **Medium** | 正片 / 负片 眉标、关于面板的字段名 |
+| `zoomValue` | 10.5 | Medium + 等宽数字 | 缩放百分比 |
+| `small`、`listItem`、`stockItem`、`asShot` | 9 | **Regular** | 列表行、胶片条目、"拍摄时设置" |
+| `value`、`pill` | 9 | **Medium** + 等宽数字 | 每一个控件数值 |
+| `action` | 13.11 | Medium | Developed / Original 两枚胶囊 |
+| `cine` | 5.71 | Medium | CINE 徽标(§5 手记:需目检) |
+| `meta`、`sublabel`、`caption` | 9 | **Light** | 说明文字:图注、禁用原因、画布状态、启动画面副标题 |
+
+导出页是**另一张图纸**,有自己的刻度(`Theme.Font.Export`,冻结在 `eda971b` 的字面值):
+`sectionTitle` 12.5 SemiBold、`label` / `listItem` 11 Regular、`chip` 11 Medium、
+`value` 11 Medium 等宽数字、`pill` 9.5 Medium。它**不**跟着主界面的改动走,直到它自己的图纸被
+翻译为止(TOKENS-v3 明说"Do not globally repoint `Font.Export`")。
+
+**改掉的四处**:
+
+1. **相机不再有第二套标签密度**(核心那条)。v3 给相机分区一个 **70 pt 的标签列 + 9 pt 的标签**,
+   `Theme.Font.cameraLabel` 与 `Theme.Metric.cameraLabelWidth` 就是它;其它每个分区的标签是
+   **84 pt 列 + 10.5 pt**。同一个栏里,测光方式比它下面的胶片曝光小一档半,而两者是同一层级 ——
+   这不是层级,是图纸上两处不同的文字框。九个角色的字重分配本来就是为了让层级由**字重**说,
+   不由**字号**说。现在 `SliderMetrics.camera` 这个预设被删掉,相机分行与胶片分行取同一个
+   `Theme.Font.label` / `sliderLabelWidth = 84`。代价是相机的控件整体右移 14 pt(图纸里它们在
+   x 86.35),换来的是一栏之内只有一条竖直的标签轴。
+2. **正片 / 负片 眉标 Regular → Medium**。规则表里它一直是 Medium,代码却是 `body` 的
+   Regular,于是列表的分组标题和它下面的胶片条目同重,读完像多了一行条目。
+3. **设置 ▸ 诊断的读数**(`readout`):标签留在 `caption`(它说的是那个数,不是控件),**数值**
+   改回 `value` —— 同样 9 pt,但 Medium + 等宽数字,和界面上每一个数字一致,跳动时也不左右挪。
+4. **导出页四处串了刻度**:空态 / "Rendering the preview…" / 空工作列表 / `PillField` 的默认字体
+   用的是**主界面**的 `Theme.Font.label`(10.5),而这一页其它文字是 11。改成本页的
+   `Theme.Font.Export.label`,`PillField` 的默认值也一并改掉 —— 它今天的五个调用点都显式传了
+   `F.label`,默认值只会害到下一个调用点。
+
+**核对方法(可重跑)**:把 spektra 目录下每个 `.font(.system(` 的**文本**找出来(留着的只有
+关于面板里那段 `.monospaced` 的许可证正文,那是有意的),再找每个没有设字体的 `Text`(剩下的都在
+AppKit 菜单与 `.alert` 里,那是系统的字,不该动)。两条命令都干净:
+
+```
+grep -rn "\.font(\.system(" Spektrafilm/ | grep -v Image(systemName   # → 只有 AboutWindow 的许可证
+grep -rn "\.custom(" Spektrafilm/                                    # → 空
+```
+
+**像素证据**(1:1,`--snapshot 1400x900`,右栏裁切):相机与胶片两行**同字不同行**的
+`胶片`两字,墨迹框都是 42×22 px,逐像素最大差 3/255、超过阈值 8 的像素 **0 个** ——
+同一字号、同一字重、同一字体。标签轴一律起于 x 16 pt;控件区起于 x 100 pt(= 16 + 84),
+测光方式的药丸就落在这里。改动后 `LayoutTests`(9 例)与 `PanelResizeWiringTests`(4 例)全绿,
+前者有两处断言从"相机另一列"改成"没有哪一栏还是相机那列"。

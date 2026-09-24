@@ -87,7 +87,8 @@ enum S: String, CaseIterable, Sendable {
     case actionDeveloped, actionProcess, actionPrintNegative, actionRestart
 
     // MARK: tooltips, menus and accessibility labels
-    case helpOpen, helpExport, helpSelect, helpPan, helpBeforeAfter, helpHoldOriginal
+    case helpOpen, helpExport, helpSelect, helpCrop, helpPan, helpBeforeAfter, helpHoldOriginal
+    case helpPreviousFrame, helpNextFrame, helpSectionMenu
     case helpPrintNegative
     case helpZoomIn, helpZoomOut, helpFit
     case helpFullScreenEnter, helpFullScreenLeave
@@ -97,6 +98,8 @@ enum S: String, CaseIterable, Sendable {
     case helpReset, helpResetFilmExposure, helpResetChannels, helpResetCrop
     case helpStraightenZero, helpCropWholeFrame, helpRevealInFinder
     case helpResetDefaults, helpUseFilmPaper
+    case helpResetFilmStock, helpResetDevelopment
+    case reasonNoFrames
     case helpAllEffectsOn, helpAllEffectsOff, helpFastFlip
 
     // MARK: status and disabled reasons
@@ -108,10 +111,11 @@ enum S: String, CaseIterable, Sendable {
     // MARK: the Settings page's Language section
     case setLanguage, setLanguageCaption, languageFollowSystem
     // MARK: the app's menus, the canvas menu and the About panel
+    case bootTagline, bootStarting, bootWarming, bootReady
     case menuAbout, menuSettings, menuOpen, menuExport, menuUndo, menuCopySettings, menuPasteSettings, menuView, menuZoomIn, menuZoomOut, menuZoomFit, menuZoomHundred, menuDevelopRail, menuFilmstrip, menuBeforeAfter, menuHideBeforeAfter, menuRestartService, menuFrame, menuPrevious, menuNext, menuResetAll, menuConvertLegacy, menuRevealSettings, menuCropSection, menuRotateLeft, menuRotateRight, menuFlipHorizontal, menuFlipVertical, menuResetCrop, menuTool, menuToolSelect, menuToolCrop
 
     // MARK: the Settings page and the About panel
-    case setInterface, setScale, setScaleCaption, setRendering, setPreview, setPreviewCaption, setFastStockPreview, setFastStockPreviewCaption, setCropRemaps, setCropRemapsCaption, setDiagnostics, setLogLevel, setLevelNormal, setLevelNormalDetail, setLevelDetailed, setLevelDetailedDetail, setLevelVerbose, setLevelVerboseDetail, setPerNodeTimings, setPerNodeTimingsNote, setMemory, setFootprint, setSessionPeak, setFree, setNotSampled, setReserve, setReserveNote, setWorkingSetCap, setUnlimited, setCapNote, setHeldByApp, setEvictable, setAllowOverReserve, setAllowOverReserveCaption, setDiskCache, setInUse, setCacheUnavailable, setLimit, setCacheNote, setLocation, setRevealInFinder, setEmptyCache, setEmptyCacheHelp, setLogs, setKeepFor, setKeepAtMost, setUnitDays, setUnitFiles, setRetentionCaption, setDestination, setChoose, setChooseLogMessage, setLogDirectoryNote, setClearLogs, setClearLogsHelp, setBundle, setIncludeFileNames, setFileNamesNote, setPlaceholderNames, setSaving, setSaveBundle, setBundleCaption, setWroteBundle, setBundleFailed, setMachine, setApp, setEngine, setRenderCore, setLogFile, setNotReported, setNone, setLastSession, setEndedCleanly, setEndedUnclean, setNoEarlierLog, setUncleanCaption, setLastError, setNoCacheAllocations
+    case setInterface, setScale, setScaleCaption, setRendering, setPreview, setPreviewCaption, setFastStockPreview, setFastStockPreviewCaption, setCropRemaps, setCropRemapsCaption, setDiagnostics, setLogLevel, setLevelNormal, setLevelNormalDetail, setLevelDetailed, setLevelDetailedDetail, setLevelVerbose, setLevelVerboseDetail, setPerNodeTimings, setPerNodeTimingsNote, setMemory, setFootprint, setSessionPeak, setFree, setNotSampled, setReserve, setReserveNote, setWorkingSetCap, setUnlimited, setCapNote, setHeldByApp, setEvictable, setAllowOverReserve, setAllowOverReserveCaption, setDiskCache, setInUse, setCacheUnavailable, setLimit, setCacheNote, setLocation, setRevealInFinder, setEmptyCache, setEmptyCacheHelp, reasonNoDiskCache, setLogs, setKeepFor, setKeepAtMost, setUnitDays, setUnitFiles, setRetentionCaption, setDestination, setChoose, setChooseLogMessage, setLogDirectoryNote, setClearLogs, setClearLogsHelp, setBundle, setIncludeFileNames, setFileNamesNote, setPlaceholderNames, setSaving, setSaveBundle, setBundleCaption, setWroteBundle, setBundleFailed, setMachine, setApp, setEngine, setRenderCore, setLogFile, setNotReported, setNone, setLastSession, setEndedCleanly, setEndedUnclean, setNoEarlierLog, setUncleanCaption, setLastError, setNoCacheAllocations
     case aboutTagline, aboutEngine, aboutCreditsProfiles, aboutCreditsApp, aboutLicenceBody, aboutLutBody, aboutLicences, aboutShowLicenceFiles, aboutNoLicences, aboutShowInFinder, aboutDone
 }
 
@@ -245,6 +249,10 @@ extension S {
         case .helpOpen: "Open a folder or image"
         case .helpExport: "Export"
         case .helpSelect: "Select"
+        case .helpCrop: "Crop"
+        case .helpPreviousFrame: "Open the previous frame"
+        case .helpNextFrame: "Open the next frame"
+        case .helpSectionMenu: "More actions for this section"
         case .helpPan: "Pan"
         // The trailing clause is **not** dropped. The spec's row gives
         // the control's *name*; this key is its tooltip, and the split's
@@ -277,6 +285,9 @@ extension S {
         case .helpCropWholeFrame: "Crop to whole frame"
         case .helpRevealInFinder: "Reveal in Finder"
         case .helpResetDefaults: "Reset to defaults"
+        case .helpResetFilmStock: "Reset the film stock to the default — Kodak Portra 400"
+        case .helpResetDevelopment: "Reset development to the defaults the film stock asks for"
+        case .reasonNoFrames: "No frames are open yet — open a folder or an image first."
         case .helpUseFilmPaper: "Use the film's declared paper"
         case .helpAllEffectsOn: "All effects on"
         case .helpAllEffectsOff: "All effects off"
@@ -304,6 +315,12 @@ extension S {
             "Film, paper, camera and lens names stay in English, as do technical abbreviations. "
             + "The change applies immediately — nothing needs restarting."
         case .languageFollowSystem: "Follow the system"
+
+        // the boot window (2026-09-23)
+        case .bootTagline: "film simulation"
+        case .bootStarting: "Starting the render engine · bringing up the Metal device"
+        case .bootWarming: "Preparing the film pipeline · profiles, curves and print tables"
+        case .bootReady: "Ready · the film pipeline is loaded"
 
         // menus, Settings and About (2026-09-23)
         case .menuAbout: "About Silverphase"
@@ -380,6 +397,7 @@ extension S {
         case .setLocation: "Location"
         case .setRevealInFinder: "Reveal in Finder"
         case .setEmptyCache: "Empty cache now"
+        case .reasonNoDiskCache: "There is nothing on disk to empty yet — the cache has not been used."
         case .setEmptyCacheHelp: "Deletes every cached decode and print. Nothing of yours is in it."
         case .setLogs: "Logs"
         case .setKeepFor: "Keep for"
@@ -542,6 +560,10 @@ extension S {
         case .helpOpen: "打开文件夹或图像"
         case .helpExport: "导出"
         case .helpSelect: "选择"
+        case .helpCrop: "裁剪"
+        case .helpPreviousFrame: "打开上一张"
+        case .helpNextFrame: "打开下一张"
+        case .helpSectionMenu: "这一节的更多操作"
         case .helpPan: "平移"
         case .helpBeforeAfter: "原图 / 效果对比 — 在画布上拖动分界线"
         case .helpHoldOriginal: "按住空格键看整张原图"
@@ -565,6 +587,9 @@ extension S {
         case .helpCropWholeFrame: "恢复完整画面"
         case .helpRevealInFinder: "在 Finder 中显示"
         case .helpResetDefaults: "恢复默认设置"
+        case .helpResetFilmStock: "恢复默认胶片 — Kodak Portra 400"
+        case .helpResetDevelopment: "恢复该胶片给出的默认显影参数"
+        case .reasonNoFrames: "还没有打开任何画面 —— 先打开一个文件夹或一张图。"
         case .helpUseFilmPaper: "使用胶片预设的相纸"
         case .helpAllEffectsOn: "开启所有效果"
         case .helpAllEffectsOff: "关闭所有效果"
@@ -587,6 +612,12 @@ extension S {
         case .setLanguageCaption:
             "胶片、相纸、相机与镜头名称以及技术缩写保持英文。切换立即生效，无需重新启动。"
         case .languageFollowSystem: "跟随系统"
+
+        // 启动画面（2026-09-23）
+        case .bootTagline: "胶片与相纸模拟"
+        case .bootStarting: "正在启动渲染引擎 · 初始化 Metal 设备"
+        case .bootWarming: "正在准备胶片管线 · 配置、特性曲线与印相表"
+        case .bootReady: "就绪 · 胶片管线已加载"
 
         // 菜单、设置与关于（2026-09-23）
         case .menuAbout: "关于 Silverphase"
@@ -663,6 +694,7 @@ extension S {
         case .setLocation: "位置"
         case .setRevealInFinder: "在访达中显示"
         case .setEmptyCache: "立即清空缓存"
+        case .reasonNoDiskCache: "磁盘缓存还是空的，没有可清的内容。"
         case .setEmptyCacheHelp: "删除所有缓存的解码与成品。里面没有你自己的东西。"
         case .setLogs: "日志"
         case .setKeepFor: "保留时长"
@@ -759,6 +791,18 @@ private extension String {
 //  That also keeps `Model/` free of the main actor — every one of these is a
 //  `nonisolated` computed property on a `Sendable` enum, which is what lets it
 //  be read from a `PillMenu`'s `(T) -> String`.
+
+extension Session.BootPhase {
+    /// The one line under the progress bar.
+    var key: S {
+        switch self {
+        case .starting: .bootStarting
+        case .warming: .bootWarming
+        case .ready: .bootReady
+        case .failed: .bootReady        // unreachable: a failure draws its own
+        }
+    }
+}
 
 extension LogLevelSetting {
     /// The pill's label, and the one sentence under it (§6: Detailed and

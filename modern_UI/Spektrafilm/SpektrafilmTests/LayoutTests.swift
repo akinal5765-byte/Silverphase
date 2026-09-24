@@ -92,11 +92,15 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(m.controlHeight, 27.8 / 2, accuracy: 0.05)
         XCTAssertEqual(m.sliderValueWidth, 87.46 / 2, accuracy: 0.05)
         XCTAssertEqual(m.sliderValueGap, (383.67 - 353.56) / 2, accuracy: 0.05)
-        // Camera's own column, narrower than the shared one: its labels are
-        // at x 16 and its controls at x 86.35.
-        XCTAssertEqual(m.cameraLabelWidth, (86.35 - 16) / 2 + 35, accuracy: 1.5)
-        XCTAssertLessThan(m.cameraLabelWidth, m.sliderLabelWidth,
-                          "Camera's rows are denser than Film's, not the same rows smaller")
+        // **One label column for every rail.** v3 drew Camera a second one —
+        // 9 pt labels in a 70 pt column, its controls at x 86.35 — and that
+        // x is the narrower column, kept here as the number that is *no
+        // longer* the layout: Camera shares `sliderLabelWidth` now, so its
+        // controls start 14 pt further right (UI-SPEC 字体一节). The assertion is
+        // the inequality the unification is: no rail's column is Camera's.
+        XCTAssertEqual(m.sliderLabelWidth, 84, accuracy: 0.5)
+        XCTAssertGreaterThan(m.sliderLabelWidth, (86.35 - 16) / 2 + 35,
+                             "Camera no longer has a column of its own")
         // Film's controls.
         XCTAssertEqual(m.pickerWidth, 214.06 / 2, accuracy: 0.05)
         XCTAssertEqual(m.fieldWidth, 99.53 / 2, accuracy: 0.05)
@@ -266,11 +270,12 @@ final class LayoutTests: XCTestCase {
         let m = Theme.Metric.self
         XCTAssertEqual(m.leftPanelRange.standard, m.leftPanelWidth)
         XCTAssertEqual(m.rightPanelRange.standard, m.rightPanelWidth)
-        // The left rail's floor is the Metering row: Camera's label column,
+        // The left rail's floor is the Metering row: the shared label column,
         // two row insets, and a pill wide enough for `center-weighted
-        // (legacy)`. Camera's column is narrower than the shared one now, so
-        // this floor has more room than it did, not less.
-        let meteringFloor = m.cameraLabelWidth + 2 * m.rowInset
+        // (legacy)`. The column is the wider one now that Camera shares it,
+        // so this floor is 14 pt tighter than it was — the same arithmetic
+        // `PanelResizeWiringTests` does from the other end.
+        let meteringFloor = m.sliderLabelWidth + 2 * m.rowInset
         XCTAssertGreaterThan(m.leftPanelRange.narrowest - meteringFloor, 110,
                              "the Metering pill has to hold its longest string")
         XCTAssertLessThanOrEqual(m.leftPanelRange.narrowest, m.leftPanelWidth)

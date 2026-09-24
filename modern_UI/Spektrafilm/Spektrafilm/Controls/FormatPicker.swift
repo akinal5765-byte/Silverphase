@@ -21,9 +21,12 @@ struct PillMenu<T: Hashable>: View {
     let options: [T]
     let title: (T) -> String
     @Binding var selection: T
-    /// The label column. The editor's rails take the drawing's 74; the export
-    /// page's is 68.5 — its own drawing — and every row on a page has to pass
-    /// the same one or the pills stop lining up.
+    /// The label column. The editor's rails take the shared 84 — the drawing
+    /// asks for 68.35 and macOS sets the same strings wider, so the column is
+    /// `Theme.Metric.sliderLabelWidth`; the export page's is 68.5, its own
+    /// drawing, and every row on a page has to pass the same one or the pills
+    /// stop lining up. (This comment said 74 for a release after the token
+    /// moved to 84 — the same half-fixed pair the audit found in `Theme`.)
     var labelWidth: CGFloat = Theme.Metric.sliderLabelWidth
     /// The face both the label and the value are drawn in.
     var font: Font = Theme.Font.label

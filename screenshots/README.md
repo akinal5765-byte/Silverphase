@@ -14,7 +14,7 @@ offscreen at a stated size so a layout can be *measured* against the drawing in
 | `spektralab-main_new.png` | the editor in a window: `_DSC0897.NEF` (Nikon Z7 II, 8256×5504), Lower Manhattan at dusk, on **Kodak Portra 400**, printed on **Kodak Professional Portra Endura**; 135 film; grain, halation, glare and EDR on; straightened −0.6°; `28 %` with the `full` badge up. Taken before the Print section's buttons became Solve / Original | 2048 px wide, from 3824 |
 | `natural_halation.png` | the before/after split on a San Francisco frame — left of the line is Apple's decode of the RAW, right is the same pixels through film and paper | 1386 px wide, from 1798 |
 | `physically_accurate_grain.png` | the canvas at 1:1 on the Yosemite frame: the engine's grain at the render's own pixels | **native, 1226 px, unresampled** |
-| `app-icon.png` | the app icon as macOS draws it, read back out of the built bundle | 1024 px, from a 2048 px rendition |
+| `app-icon.png` | the app icon as macOS draws it, read back out of the built bundle: two film strips, the silver one behind and the orange one in front, composed by `Spektrafilm/Silverphase.icon` (layers + materials, no baked glass — the system adds the specular, the refraction and the shadow) | 1024 px, from a 2048 px rendition |
 
 **The 1:1 capture must not be resized.** At and above 100 % the canvas samples
 nearest (`canvasFragment` in `Canvas/Shaders.metal`), so the pixels in that
@@ -27,12 +27,12 @@ made rather than taken — build the app, then
 
 ```bash
 swiftc -O Tools/render-icon.swift -o /tmp/render-icon
-/tmp/render-icon "$PWD/build/DerivedData/Build/Products/Debug/SpektraLab.app" \
+/tmp/render-icon "$PWD/build/DerivedData/Build/Products/Debug/Silverphase.app" \
                  ../../screenshots/app-icon.png 1024
 ```
 
 from `modern_UI/Spektrafilm`. It reads the icon the way the Finder does, so it
-is also the check that `Spektrafilm/SpektraLab.icon` reached the bundle — an
+is also the check that `Spektrafilm/Silverphase.icon` reached the bundle — an
 app icon that failed to compile is a build that succeeds.
 
 ## Re-taking them

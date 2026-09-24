@@ -112,6 +112,14 @@ final class InterfaceScaleStore: @unchecked Sendable {
 
 enum Theme {
 
+    /// The identity the app's windows are keyed on.
+    ///
+    /// `Theme.Font.scaled` reads the scale inside a plain function call,
+    /// which observation cannot see, so a change re-creates the window content.
+    static var appearanceKey: String {
+        InterfaceScaleStore.shared.scale.rawValue
+    }
+
     // MARK: colours
     //
     // The palette got *smaller*. The drawing draws pills, wells, slider
@@ -305,6 +313,14 @@ enum Theme {
     /// material rather than a line painted on top of it. `rule` is kept for
     /// the places that want the drawing's brighter line.
     static let ruleSoft = Color.white.opacity(0.08)
+    /// The pointer's wash on a **list row** (§2.4: 4–6 % white). One value for
+    /// one job: the section header asked for 4 %, the stock row and the proof
+    /// pane for 5 %, and nothing said why three numbers meant "hovered" (space
+    /// audit 2026-09-23).
+    static let rowHoverWash = Color.white.opacity(0.05)
+    /// The pointer's wash on an **icon button** — a smaller shape than a row,
+    /// so it needs a touch more ink to be seen at all.
+    static let buttonHoverWash = Color.white.opacity(0.07)
 
     static let histR = Color(hex: 0xE8524E)
     static let histG = Color(hex: 0x62C462)
@@ -518,16 +534,15 @@ enum Theme {
         /// The label column. The drawing's is 68.35 (its labels start at
         /// 17.6 and its first control at 86.35) and `Film Exposure` fills
         /// 66 of it *there*, at Illustrator's optical size. macOS sets the
-        /// same string wider, so the column is 74 — a truncated label is
-        /// worse than a column six points wide.
+        /// same string wider, so the column is 84 — a truncated label is
+        /// worse than a column twenty points wide.
+        ///
+        /// **Camera shares it.** v3 gave Camera a column of its own, 70 pt at
+        /// 9 pt type, with its controls at x 86.35; that second density was a
+        /// typographic inconsistency inside one rail (UI-SPEC 字体一节), so Camera's
+        /// labels are 10.5 now and its controls start 14 pt further right.
         static let sliderLabelWidth: CGFloat = 84
-        /// Camera's own label column. v3 puts its track and menu at x 86.35
-        /// and its labels at 16, so 70 — narrower than the shared 84, and
-        /// `Film Exposure` is the string that has to fit. Film's rows keep
-        /// the wider shared column: their labels are set at 10.5 rather than
-        /// Camera's 9 and `Side Length` is the longest of them.
-        static let cameraLabelWidth: CGFloat = 70
-        /// Camera's metering menu fills the row after that column
+        /// Camera's metering menu fills the row after the shared column
         /// (298.44 / 2), and its slider tracks are 90.44 at the reference
         /// rail width. Both grow with the rail; they are recorded so a
         /// capture can be measured against them.
@@ -680,6 +695,19 @@ enum Theme {
         /// The shared pointer target for compact controls. It stays larger
         /// than the visible square so the pointer does not have to find ink.
         static let controlHitTarget: CGFloat = 28
+        /// The **rail's** icon target, one step smaller than the bar's:
+        /// TOKENS §6 keeps the toolbar at 28 and a rail action at 26, and the
+        /// audit found the two numbers scattered as raw literals (26 on two
+        /// rails, 28 on the bar, 18×16 in Crop). A rail row is 22 pt tall, so
+        /// a 28 pt square would overlap the row above it; the bar's row is
+        /// 38 pt and can afford 28.
+        static let railIconTarget: CGFloat = 26
+        /// Between two row **blocks** inside one section — the Film rows after
+        /// the format block, the Print sliders after the paper picker. It used
+        /// to be `rowSpacing + 4` in one file and `rowSpacing + 5` in the
+        /// other, with nothing recording why they differed (space audit
+        /// 2026-09-23); 13 is the value both drawings round to.
+        static let blockGap: CGFloat = 13
 
         // MARK: glyphs
 
@@ -742,6 +770,11 @@ enum Theme {
             static let height: CGFloat = 640
             static let verticalInset: CGFloat = 12
             static let rowSpacing: CGFloat = 6
+            /// Between a row's label and its control. Every settings row uses
+            /// it now: `labelled` asked for 4, `intRow` for 6 and `readout`
+            /// for 0, so four rows of the same stack put their controls at
+            /// x 100.5, 104, 106 and 112.5 (space audit 2026-09-23).
+            static let labelGap: CGFloat = 6
         }
 
         /// The export page's own geometry (RFC-018 §6).
@@ -1003,65 +1036,73 @@ enum Theme {
     // override it.
 
     enum Font {
-        private static func scaled(_ size: CGFloat, weight: SwiftUI.Font.Weight = .bold) -> SwiftUI.Font {
-            SwiftUI.Font.system(size: size * InterfaceScaleStore.shared.scale.factor, weight: weight)
+        private static func scaled(_ size: CGFloat,
+                                   _ weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
+            .system(size: size * InterfaceScaleStore.shared.scale.factor, weight: weight)
+        }
+
+        /// The system-font ramp, for the handful of places that set a size inline.
+        static func of(_ size: CGFloat, _ weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
+            scaled(size, weight)
         }
 
         /// A rail's own name — Develop, Edit.
-        static var railTitle: SwiftUI.Font { scaled(12) }
+        static var railTitle: SwiftUI.Font { scaled(12, .semibold) }
         /// A section title on the **left** rail: Input / Camera, Film, Print,
         /// Crop.
-        static var leftSectionTitle: SwiftUI.Font { scaled(12) }
+        static var leftSectionTitle: SwiftUI.Font { scaled(12, .semibold) }
         /// A section title on the **right** rail: Histogram, White Balance,
         /// Exposure, Curve, Color Balance. A step smaller, and that is the
         /// drawing rather than a compromise — see the note above.
-        static var rightSectionTitle: SwiftUI.Font { scaled(10.5) }
+        static var rightSectionTitle: SwiftUI.Font { scaled(10.5, .semibold) }
         /// The old single title role, kept pointing at the left rail's size
         /// so that anything not yet migrated — the Settings page, the export
         /// page's own `Export.sectionTitle` — keeps a title-sized title.
         static var sectionTitle: SwiftUI.Font { leftSectionTitle }
 
-        /// **The workhorse**, and v3 halves it into two.
+        /// **The workhorse.**
         ///
-        /// `body` is 10.5: Film's labels, the stock group eyebrows, the EDR
-        /// row, the zoom readout. `small` is 9: Camera's labels, every
-        /// control value, a stock row, "As Shot". They are not a hierarchy —
-        /// a stock row is not subordinate to a Film label — they are two
-        /// densities, and which one a row takes is a property of the block
-        /// it is in.
-        static var body: SwiftUI.Font { scaled(10.5) }
-        static var small: SwiftUI.Font { scaled(9) }
+        /// `body` is 10.5: every rail's control labels — Film's and Camera's
+        /// alike (UI-SPEC 字体一节) — the EDR row, the zoom readout. `small` is 9:
+        /// every control value, a stock row, "As Shot", the list items. They
+        /// are not a hierarchy — a stock row is not subordinate to a label —
+        /// they are two densities, and which one a row takes is a property of
+        /// the block it is in.
+        static var body: SwiftUI.Font { scaled(10.5, .regular) }
+        static var small: SwiftUI.Font { scaled(9, .regular) }
 
         static var filmLabel: SwiftUI.Font { body }
-        static var stockGroup: SwiftUI.Font { body }
+        /// 正片 / 负片 in the stock list — the eyebrow over a group of rows.
+        /// The size is `body`'s, the weight a half step up: at Regular it read
+        /// as one more row of the list it heads (UI-SPEC 字体一节).
+        static var stockGroup: SwiftUI.Font { scaled(10.5, .medium) }
         static var edrLabel: SwiftUI.Font { body }
-        static var zoomValue: SwiftUI.Font { scaled(10.5).monospacedDigit() }
+        static var zoomValue: SwiftUI.Font { scaled(10.5, .medium).monospacedDigit() }
 
-        static var cameraLabel: SwiftUI.Font { small }
         static var listItem: SwiftUI.Font { small }
         static var stockItem: SwiftUI.Font { small }
         static var asShot: SwiftUI.Font { small }
         /// Values keep monospaced digits — a number that changes under the
         /// pointer must not reflow the row it is in (preserved policy).
-        static var value: SwiftUI.Font { scaled(9).monospacedDigit() }
+        static var value: SwiftUI.Font { scaled(9, .medium).monospacedDigit() }
         static var pill: SwiftUI.Font { value }
 
-        /// `label` is the *shared* label role, and it is Film's: the wider of
-        /// the two, so a row that has not been told which block it is in gets
-        /// the readable one rather than the tight one. Camera passes
-        /// `cameraLabel` explicitly.
+        /// `label` is the shared label role — the default a control takes when
+        /// its caller names no font — and it is the rails' 10.5 pt `body`.
+        /// There is no second, tighter label face: v3's `cameraLabel` was
+        /// removed in the UI-SPEC 字体一节 unification.
         static var label: SwiftUI.Font { body }
         static var tab: SwiftUI.Font { body }
 
         /// Developed / Original, the two capsules under the print list. The
         /// largest type in the interface, and measured — v3 sets them at
         /// 26.22 / 2.
-        static var action: SwiftUI.Font { scaled(13.11) }
+        static var action: SwiftUI.Font { scaled(13.11, .medium) }
 
         /// Text that is *about* a control rather than part of it: a caption
         /// under a plot, a disabled reason. `Ink.tertiary` wherever it is
         /// used.
-        static var meta: SwiftUI.Font { scaled(9) }
+        static var meta: SwiftUI.Font { scaled(9, .light) }
         static var sublabel: SwiftUI.Font { meta }
         static var groupHeader: SwiftUI.Font { stockGroup }
         static var caption: SwiftUI.Font { meta }
@@ -1069,7 +1110,7 @@ enum Theme {
         /// The `CINE` badge. v3 sets it at 11.42 / 2 = **5.71** inside a
         /// 21.59 pt pill — very small, and §5 of the handoff flags it for
         /// optical QA rather than asserting it reads.
-        static var cine: SwiftUI.Font { scaled(5.71) }
+        static var cine: SwiftUI.Font { scaled(5.71, .medium) }
 
         /// The export page's ramp is **the same ramp**.
         ///
@@ -1092,12 +1133,12 @@ enum Theme {
         /// — written out, so the export page holds still until its own
         /// drawing is translated.
         enum Export {
-            static var sectionTitle: SwiftUI.Font { scaled(12.5) }
-            static var label: SwiftUI.Font { scaled(11) }
-            static var listItem: SwiftUI.Font { scaled(11) }
-            static var chip: SwiftUI.Font { scaled(11) }
-            static var value: SwiftUI.Font { scaled(11).monospacedDigit() }
-            static var pill: SwiftUI.Font { scaled(9.5) }
+            static var sectionTitle: SwiftUI.Font { scaled(12.5, .semibold) }
+            static var label: SwiftUI.Font { scaled(11, .regular) }
+            static var listItem: SwiftUI.Font { scaled(11, .regular) }
+            static var chip: SwiftUI.Font { scaled(11, .medium) }
+            static var value: SwiftUI.Font { scaled(11, .medium).monospacedDigit() }
+            static var pill: SwiftUI.Font { scaled(9.5, .medium) }
         }
     }
 
@@ -1315,7 +1356,7 @@ private struct SurfaceButton<Label: View>: View {
 
 /// `.help("")` still installs an empty tooltip, so the explanation has to be
 /// attached conditionally rather than passed empty.
-private struct DisabledReason: ViewModifier {
+struct DisabledReason: ViewModifier {
     let show: Bool
     let reason: String
     func body(content: Content) -> some View {

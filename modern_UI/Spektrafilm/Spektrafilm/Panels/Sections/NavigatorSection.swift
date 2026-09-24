@@ -20,12 +20,20 @@ struct NavigatorSection: View {
 
     var body: some View {
         PanelSection(L(.sectionNavigator), key: "navigator") {
-            VStack(alignment: .leading, spacing: 6) {
-                picture
-                Text(caption)
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(Theme.dim)
-                    .lineLimit(1)
+            // **The rail's inset**, the same `RailRows` every other section
+            // uses: this section used to draw its picture and caption
+            // full-bleed, at x 0, while every control label and list row in
+            // the window starts at 16 (space audit 2026-09-23). The caption
+            // was the visible half of it — it sat 16 pt left of the caption
+            // under any other section.
+            RailRows {
+                VStack(alignment: .leading, spacing: Theme.Metric.rowSpacing) {
+                    picture
+                    Text(caption)
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(Theme.dim)
+                        .lineLimit(1)
+                }
             }
         }
         .task(id: session.selection) {

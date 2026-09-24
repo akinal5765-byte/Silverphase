@@ -103,7 +103,7 @@ struct SectionHeader: View {
                         // 9 pt of ink inside a 26 pt target: §3 and §6 both
                         // require the hit region to be independent of how
                         // small the drawing sets the glyph.
-                        .frame(width: 26, height: 26)
+                        .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -112,12 +112,23 @@ struct SectionHeader: View {
             }
             if let menu {
                 Menu { menu() } label: {
-                    EllipsisGlyph().frame(width: 15, height: 3).padding(8).contentShape(Rectangle())
+                    // The dots are 15×3 of ink; the **target** is the rail's
+                    // 26 pt square, the same one the reset arrow beside it
+                    // keeps. It used to be 31×19 — the ink plus its own 8 pt
+                    // padding — which is not a size anything else in the
+                    // interface uses, and it had no tooltip at all (button
+                    // audit 2026-09-23: §2.8 asks for both).
+                    EllipsisGlyph()
+                        .frame(width: 15, height: 3)
+                        .frame(width: Theme.Metric.railIconTarget,
+                               height: Theme.Metric.railIconTarget)
+                        .contentShape(Rectangle())
                 }
                 .menuStyle(.button)
                 .buttonStyle(.plain)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .help(L(.helpSectionMenu))
                 .padding(.trailing, Theme.Metric.headerTrailing - 8)
             }
             // **No menu, no glyph.** There used to be an inert `EllipsisGlyph`
@@ -135,7 +146,7 @@ struct SectionHeader: View {
         // or brighten its text — a header that moves under the pointer makes a
         // rail of five sections feel like a stack of loose cards.
         .background {
-            if hovered { Rectangle().fill(Color.white.opacity(0.04)) }
+            if hovered { Rectangle().fill(Theme.rowHoverWash) }
         }
         .contentShape(Rectangle())
         .onHover { hovered = $0 }

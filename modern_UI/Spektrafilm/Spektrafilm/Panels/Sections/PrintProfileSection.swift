@@ -153,7 +153,7 @@ struct PrintProfileSection: View {
                               + "stage, not a way of looking at it: what you see on the "
                               + "canvas is what the exported file carries.")
                 }
-                .padding(.top, Theme.Metric.rowSpacing + 5)
+                .padding(.top, Theme.Metric.blockGap)
                 RailRows {
                     ScrubSlider(label: L(.printExposure), sublabel: "stops · brighter +",
                                 value: Binding(get: { session.params.printBrightnessStops },
@@ -182,7 +182,7 @@ struct PrintProfileSection: View {
                     ToggleRow(label: L(.filmGlare), isOn: param(\.glareActive),
                               help: "Print/scan glare, a separate stochastic finishing effect; not film halation.")
                 }
-                .padding(.top, Theme.Metric.rowSpacing + 5)
+                .padding(.top, Theme.Metric.blockGap)
             }
         }
     }

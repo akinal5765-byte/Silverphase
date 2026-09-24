@@ -95,7 +95,7 @@ struct TopBar: View {
             // and Pan among the toolbar's tools and gives Crop no row, and its
             // Chinese in the table (裁剪) belongs to the *section*.
             toolButton("cursorarrow", .select, L(.helpSelect) + " (V)")
-            toolButton("crop", .crop, "Crop (C)")
+            toolButton("crop", .crop, L(.helpCrop) + " (C)")
                 .padding(.leading, Theme.Metric.barItemGap)
             clusterDivider()
             // ---- the drag surface, then the view cluster ------------------
@@ -133,12 +133,12 @@ struct TopBar: View {
                                 showingBefore: showingOriginal)
                     .frame(width: Theme.Metric.beforeAfterIcon.width,
                            height: Theme.Metric.beforeAfterIcon.height)
-                    .frame(width: 28, height: 28)
+                    .frame(width: Theme.Metric.controlHitTarget, height: Theme.Metric.controlHitTarget)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!session.canCompare)
-            .opacity(session.canCompare ? 1 : 0.4)
+            .opacity(session.canCompare ? 1 : Theme.disabledOpacity)
             // The spec's row is the phrase only. Its "drag the line on the
             // canvas" clause has no row and an English sentence cannot be
             // appended to a Chinese one, so the tooltip is the phrase plus the
@@ -294,11 +294,11 @@ private struct BarIcon: View {
             Image(systemName: name)
                 .font(.system(size: Theme.Metric.toolIcon, weight: .regular))
                 .foregroundStyle(ink)
-                .frame(width: 28, height: 28)
+                .frame(width: Theme.Metric.controlHitTarget, height: Theme.Metric.controlHitTarget)
                 .background {
                     if hovered && !disabled {
                         RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous)
-                            .fill(Color.white.opacity(0.07))
+                            .fill(Theme.buttonHoverWash)
                     }
                 }
                 .contentShape(Rectangle())
@@ -310,7 +310,7 @@ private struct BarIcon: View {
     }
 
     private var ink: Color {
-        if disabled { return Theme.text.opacity(0.4) }
+        if disabled { return Theme.text.opacity(Theme.disabledOpacity) }
         if selected { return Theme.accent }
         return hovered ? Theme.text : Theme.text.opacity(restOpacity)
     }

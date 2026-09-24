@@ -292,9 +292,15 @@ struct SettingsWindow: View {
                             session.clearDiskCacheNow()
                         }
                         .buttonStyle(.surface)
-                        .foregroundStyle(session.hasDiskCache ? Theme.accent : Theme.dim)
+                        // **No `foregroundStyle` here.** `.surface` sets its
+                        // own ink inside the style, so the accent branch this
+                        // used to carry never painted anything — and the accent
+                        // is the page's one primary ("Save bundle") anyway.
+                        // The disabled state now says *why* rather than only
+                        // greying out, the way `ExportPage.primaryButton` does
+                        // (button audit 2026-09-23).
                         .disabled(!session.hasDiskCache)
-                        .help(L(.setEmptyCacheHelp))
+                        .help(session.hasDiskCache ? L(.setEmptyCacheHelp) : L(.reasonNoDiskCache))
                         Spacer()
                     }
                     .padding(.top, 2)
@@ -410,11 +416,15 @@ struct SettingsWindow: View {
 
     // MARK: - pieces
 
+    /// A diagnostics key/value line. The label is a caption — it is *about*
+    /// the number, not a control — but the number itself keeps the app's
+    /// value role: same 9 pt, Medium with monospaced digits, so a readout
+    /// that ticks does not shuffle its own digits sideways (UI-SPEC 字体一节).
     private func readout(_ label: String, _ value: String, help: String? = nil) -> some View {
         HStack(spacing: 0) {
             Text(label).font(Theme.Font.caption).foregroundStyle(Theme.dim)
-                .frame(width: 96, alignment: .leading)
-            Text(value).font(Theme.Font.caption).foregroundStyle(Theme.text)
+                .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
+            Text(value).font(Theme.Font.value).foregroundStyle(Theme.text)
                 .lineLimit(1).truncationMode(.middle)
         }
         .help(help ?? "")
@@ -434,7 +444,7 @@ struct SettingsWindow: View {
     /// range from here.
     private func intRow(_ label: String, _ value: Int, _ unit: String,
                         _ range: ClosedRange<Int>, _ set: @escaping (Int) -> Void) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Theme.Metric.Settings.labelGap) {
             Text(label).font(Theme.Font.label).foregroundStyle(Theme.text)
                 .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
             Stepper(value: Binding(get: { value }, set: set), in: range) {
@@ -448,7 +458,7 @@ struct SettingsWindow: View {
     }
 
     private func labelled<C: View>(_ label: String, @ViewBuilder _ content: () -> C) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Metric.Settings.labelGap) {
             Text(label).font(Theme.Font.label).foregroundStyle(Theme.text)
                 .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
             content()
