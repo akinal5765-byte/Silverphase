@@ -80,6 +80,18 @@ const SchemaField kFields[] = {
     {"output_cctf_encoding",     "io.output_cctf_encoding",               B, PRINT, false, 0, 0, false},
     {"scan_film",                "io.scan_film",                          B, PRINT, false, 0, 0, false},
     {"extended_dynamic_range",   "print_render.edr_enabled",              B, PRINT, false, 0, 0, false},
+    // Product controls absent from the Python reference. Keep these before
+    // preview_long_edge, as pinned by parity_schema's native-only table.
+    {"grain_size_scale",         "film_render.grain.size_scale",        F, SHOOT, true, 0.5, 2.0, false},
+    {"print_contrast",           "print_render.density_curves_morph.gamma_factor", F, PRINT, true, 0.7, 1.3, false},
+    {"camera_diffusion_active",  "camera.diffusion_filter.active",      B, SHOOT, false, 0, 0, false},
+    {"camera_diffusion_family",  "camera.diffusion_filter.filter_family", S, SHOOT, false, 0, 0, false},
+    {"camera_diffusion_strength", "camera.diffusion_filter.strength",   F, SHOOT, true, 0, 2, false},
+    {"camera_diffusion_range", "camera.diffusion_filter.spatial_scale", F, SHOOT, true, 0.5, 2.0, false},
+    {"enlarger_diffusion_active", "enlarger.diffusion_filter.active",    B, PRINT, false, 0, 0, false},
+    {"enlarger_diffusion_family", "enlarger.diffusion_filter.filter_family", S, PRINT, false, 0, 0, false},
+    {"enlarger_diffusion_strength", "enlarger.diffusion_filter.strength", F, PRINT, true, 0, 2, false},
+    {"enlarger_diffusion_range", "enlarger.diffusion_filter.spatial_scale", F, PRINT, true, 0.5, 2.0, false},
     // RFC-020 §4's striped execution -- three fields, and the split is the
     // point: `striped` is the switch, `strip_rows` the height (0 = the engine's
     // policy decides, §7), and the budget is accepted and varied by nothing
@@ -121,6 +133,11 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "camera.lens_blur_um") return &p.camera.lens_blur_um;
     if (path == "film_render.halation.halation_amount") return &p.film_render.halation.halation_amount;
     if (path == "film_render.halation.boost_ev") return &p.film_render.halation.boost_ev;
+    if (path == "film_render.grain.size_scale") return &p.film_render.grain.size_scale;
+    if (path == "camera.diffusion_filter.strength") return &p.camera.diffusion_filter.strength;
+    if (path == "enlarger.diffusion_filter.strength") return &p.enlarger.diffusion_filter.strength;
+    if (path == "camera.diffusion_filter.spatial_scale") return &p.camera.diffusion_filter.spatial_scale;
+    if (path == "enlarger.diffusion_filter.spatial_scale") return &p.enlarger.diffusion_filter.spatial_scale;
     if (path == "film_render.dir_couplers.amount") return &p.film_render.dir_couplers.amount;
     if (path == "film_render.density_curve_gamma") return &p.film_render.density_curve_gamma;
     if (path == "io.geometry.crop_x") return &p.io.geometry.crop_x;
@@ -135,12 +152,16 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "enlarger.m_filter_neutral") return &p.enlarger.m_filter_neutral;
     if (path == "enlarger.y_filter_neutral") return &p.enlarger.y_filter_neutral;
     if (path == "enlarger.preflash_exposure") return &p.enlarger.preflash_exposure;
+    if (path == "print_render.density_curves_morph.gamma_factor")
+        return &p.print_render.density_curves_morph.gamma_factor;
     if (path == "scanner.lens_blur") return &p.scanner.lens_blur;
     return nullptr;
 }
 
 bool* bool_slot(Params& p, const std::string& path) {
     if (path == "camera.auto_exposure") return &p.camera.auto_exposure;
+    if (path == "camera.diffusion_filter.active") return &p.camera.diffusion_filter.active;
+    if (path == "enlarger.diffusion_filter.active") return &p.enlarger.diffusion_filter.active;
     if (path == "film_render.halation.active") return &p.film_render.halation.active;
     if (path == "film_render.grain.active") return &p.film_render.grain.active;
     if (path == "film_render.grain.sublayers_active") return &p.film_render.grain.sublayers_active;
@@ -165,6 +186,8 @@ std::string* str_slot(Params& p, const std::string& path) {
     if (path == "enlarger.illuminant") return &p.enlarger.illuminant;
     if (path == "io.output_color_space") return &p.io.output_color_space;
     if (path == "camera.auto_exposure_method") return &p.camera.auto_exposure_method;
+    if (path == "camera.diffusion_filter.filter_family") return &p.camera.diffusion_filter.filter_family;
+    if (path == "enlarger.diffusion_filter.filter_family") return &p.enlarger.diffusion_filter.filter_family;
     if (path == "film_render.halation.antihalation_mode") return &p.film_render.halation.antihalation_mode;
     return nullptr;
 }
@@ -268,6 +291,13 @@ bool validate_delta(const Json& delta, std::string& error, std::string& param) {
             param = kv.first;
             return false;
         }
+        if ((kv.first == "camera_diffusion_family" || kv.first == "enlarger_diffusion_family") &&
+            v.as_string() != "glimmerglass" && v.as_string() != "black_pro_mist" &&
+            v.as_string() != "pro_mist" && v.as_string() != "cinebloom") {
+            error = "diffusion family must be glimmerglass, black_pro_mist, pro_mist, or cinebloom";
+            param = kv.first;
+            return false;
+        }
         if (f->has_range) {
             const double d = v.as_double();
             if (!(d >= f->lo && d <= f->hi)) {
@@ -306,6 +336,11 @@ void apply_delta(Params& params, const Json& delta) {
             case FieldType::Int: if (int* s = int_slot(params, f->path)) *s = kv.second.as_int(); break;
         }
     }
+    // A value of 1 follows the unchanged paper model. Non-default contrast
+    // enables its existing curve morph; returning to 1 disables it again.
+    if (delta.has("print_contrast"))
+        params.print_render.density_curves_morph.active =
+            params.print_render.density_curves_morph.gamma_factor != 1.0;
     if (delta.has("antihalation_mode")) apply_halation_preset(params);
 }
 

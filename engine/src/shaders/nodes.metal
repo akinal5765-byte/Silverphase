@@ -13,6 +13,14 @@
 // rather than a transcription.
 #include "spk_common.h"
 
+kernel void spk_exp10_diffusion(device const float* x [[buffer(0)]],
+                                constant uint& n [[buffer(1)]],
+                                device float* out [[buffer(2)]],
+                                uint3 thread_position_in_grid [[thread_position_in_grid]]) {
+    uint i = thread_position_in_grid.x;
+    if (i < n) out[i] = exp2(x[i] * 3.321928094887362f);
+}
+
 // ``log10(fmax(x * c, 0) + 1e-10)`` -- the guard every log node uses;
 // ``c`` may be per channel.
 kernel void spk_log10_guarded(device const float* x [[buffer(0)]],

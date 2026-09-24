@@ -79,6 +79,46 @@ NATIVE_ONLY = {
         "path": "print_render.edr_enabled", "type": "bool", "layer": "print",
         "default": False, "live": False, "range": None,
     },
+    "grain_size_scale": {
+        "path": "film_render.grain.size_scale", "type": "float", "layer": "shoot",
+        "default": 1.0, "live": False, "range": [0.5, 2.0],
+    },
+    "print_contrast": {
+        "path": "print_render.density_curves_morph.gamma_factor", "type": "float", "layer": "print",
+        "default": 1.0, "live": False, "range": [0.7, 1.3],
+    },
+    "camera_diffusion_active": {
+        "path": "camera.diffusion_filter.active", "type": "bool", "layer": "shoot",
+        "default": False, "live": False, "range": None,
+    },
+    "camera_diffusion_family": {
+        "path": "camera.diffusion_filter.filter_family", "type": "str", "layer": "shoot",
+        "default": "black_pro_mist", "live": False, "range": None,
+    },
+    "camera_diffusion_strength": {
+        "path": "camera.diffusion_filter.strength", "type": "float", "layer": "shoot",
+        "default": 0.5, "live": False, "range": [0, 2],
+    },
+    "camera_diffusion_range": {
+        "path": "camera.diffusion_filter.spatial_scale", "type": "float", "layer": "shoot",
+        "default": 1.0, "live": False, "range": [0.5, 2.0],
+    },
+    "enlarger_diffusion_active": {
+        "path": "enlarger.diffusion_filter.active", "type": "bool", "layer": "print",
+        "default": False, "live": False, "range": None,
+    },
+    "enlarger_diffusion_family": {
+        "path": "enlarger.diffusion_filter.filter_family", "type": "str", "layer": "print",
+        "default": "black_pro_mist", "live": False, "range": None,
+    },
+    "enlarger_diffusion_strength": {
+        "path": "enlarger.diffusion_filter.strength", "type": "float", "layer": "print",
+        "default": 0.5, "live": False, "range": [0, 2],
+    },
+    "enlarger_diffusion_range": {
+        "path": "enlarger.diffusion_filter.spatial_scale", "type": "float", "layer": "print",
+        "default": 1.0, "live": False, "range": [0.5, 2.0],
+    },
     # RFC-020 §4's striped execution. Three, not one, and the split is the
     # point: `striped` is the switch, `strip_rows` the height (`0` = the
     # engine's policy decides, per §7), and the budget is accepted and varied

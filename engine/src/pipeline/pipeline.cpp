@@ -1,8 +1,10 @@
 #include "pipeline.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 namespace spk {
 
@@ -60,6 +62,169 @@ constexpr double kMeterFloor = kMidgray / 4096.0;
 constexpr double kMinEffectiveBlurSigma = 0.4;
 
 void fill3(double dst[3], double v) { dst[0] = dst[1] = dst[2] = v; }
+
+// Family constants and the scatter curve come from Andrea Volpato's
+// spektrafilm/model/diffusion.py. The reference convolves its radial
+// exponential PSF with FFT; this native path uses Blur's established
+// three-Gaussian exponential surrogate to stay on Metal. It is an
+// approximation, not a claim of bit-exact FFT parity.
+struct DiffusionShape {
+    double core_um, halo_um, bloom_um;
+    double core_weight, halo_weight, bloom_weight;
+    double bloom_alpha, warmth, gain;
+};
+
+bool diffusion_shape(const std::string& family, DiffusionShape& shape) {
+    if (family == "glimmerglass")
+        shape = {10, 50, 260, 0.60, 0.30, 0.10, 3.2, 0.0, 0.65};
+    else if (family == "black_pro_mist")
+        shape = {16, 95, 380, 0.40, 0.47, 0.13, 3.5, 0.65, 0.75};
+    else if (family == "pro_mist")
+        shape = {14, 150, 650, 0.28, 0.42, 0.30, 2.9, 0.40, 1.05};
+    else if (family == "cinebloom")
+        shape = {20, 200, 1000, 0.22, 0.30, 0.48, 2.5, 0.85, 1.0};
+    else return false;
+    return true;
+}
+
+double diffusion_scatter(double strength, double gain) {
+    if (strength <= 0.0) return 0.0;
+    constexpr double stops[] = {0.125, 0.25, 0.5, 1.0, 2.0};
+    constexpr double fractions[] = {0.10, 0.20, 0.35, 0.55, 0.75};
+    double base = fractions[4];
+    if (strength <= stops[0]) base = fractions[0];
+    else for (int i = 0; i < 4; ++i) {
+        if (strength <= stops[i + 1]) {
+            const double t = std::log2(strength / stops[i]);
+            base = fractions[i] + t * (fractions[i + 1] - fractions[i]);
+            break;
+        }
+    }
+    return std::clamp(base * gain, 0.0, 0.99);
+}
+
+// A diffusion PSF starts as nine radial exponentials, each represented by
+// three Gaussians. Running all 27 full-frame blurs dominates the node. Merge
+// neighbouring scales while preserving each channel's total energy and
+// second moment. Choose the least visible merge by its transfer-function
+// error across the entire scale range, rather than just dropping the tails.
+void compact_diffusion_components(std::vector<Blur::Component>& components) {
+    constexpr size_t kBlurBudget = 11;
+    if (components.size() <= kBlurBudget + 1) return;
+    const auto scale = [](const Blur::Component& c) {
+        return std::log(c.sigma[0]);
+    };
+    std::sort(components.begin() + 1, components.end(),
+              [&](const auto& a, const auto& b) { return scale(a) < scale(b); });
+    const double min_sigma = components[1].sigma[0];
+    const double max_sigma = components.back().sigma[0];
+    constexpr int kSamples = 24;
+    const double log_min = std::log(min_sigma * 0.5);
+    const double log_span = std::log(max_sigma * 2.0) - log_min;
+    while (components.size() > kBlurBudget + 1) {
+        size_t best = 1;
+        double best_cost = std::numeric_limits<double>::infinity();
+        for (size_t i = 1; i + 1 < components.size(); ++i) {
+            const auto& a = components[i];
+            const auto& b = components[i + 1];
+            double cost = 0.0;
+            for (int sample = 0; sample < kSamples; ++sample) {
+                const double probe = std::exp(log_min +
+                    log_span * double(sample) / double(kSamples - 1));
+                const double frequency = 0.5 / (probe * probe);
+                for (int c = 0; c < 3; ++c) {
+                    const double weight = a.weight[c] + b.weight[c];
+                    if (weight <= 0.0) continue;
+                    const double variance = (a.weight[c] * a.sigma[c] * a.sigma[c] +
+                                             b.weight[c] * b.sigma[c] * b.sigma[c]) / weight;
+                    const double before = a.weight[c] * std::exp(-frequency * a.sigma[c] * a.sigma[c]) +
+                                          b.weight[c] * std::exp(-frequency * b.sigma[c] * b.sigma[c]);
+                    const double after = weight * std::exp(-frequency * variance);
+                    const double delta = before - after;
+                    cost += delta * delta;
+                }
+            }
+            if (cost < best_cost) { best_cost = cost; best = i; }
+        }
+        auto& a = components[best];
+        const auto& b = components[best + 1];
+        for (int c = 0; c < 3; ++c) {
+            const double weight = a.weight[c] + b.weight[c];
+            const double variance = weight > 0.0 ?
+                (a.weight[c] * a.sigma[c] * a.sigma[c] +
+                 b.weight[c] * b.sigma[c] * b.sigma[c]) / weight : 0.0;
+            a.weight[c] = weight;
+            a.sigma[c] = std::sqrt(variance);
+        }
+        components.erase(components.begin() + best + 1);
+    }
+}
+
+std::vector<Blur::Component> diffusion_components(const DiffusionFilterParams& filter,
+                                                   double pixel_size_um) {
+    std::vector<Blur::Component> out;
+    if (!filter.active || filter.strength <= 0.0 || filter.spatial_scale <= 0.0 ||
+        pixel_size_um <= 0.0) return out;
+    DiffusionShape shape{};
+    if (!diffusion_shape(filter.filter_family, shape)) return out;
+    const double scattered = diffusion_scatter(filter.strength, shape.gain);
+    if (scattered <= 0.0) return out;
+
+    const double raw_group[3] = {shape.core_weight * std::max(0.0, filter.core_intensity),
+                                 shape.halo_weight * std::max(0.0, filter.halo_intensity),
+                                 shape.bloom_weight * std::max(0.0, filter.bloom_intensity)};
+    const double group_sum = raw_group[0] + raw_group[1] + raw_group[2];
+    if (group_sum <= 0.0) return out;
+    Blur::Component identity{};
+    fill3(identity.weight, 1.0 - scattered);
+    out.push_back(identity);
+
+    const double centers[3] = {shape.core_um * std::max(filter.core_size, 1e-6),
+                               shape.halo_um * std::max(filter.halo_size, 1e-6),
+                               shape.bloom_um * std::max(filter.bloom_size, 1e-6)};
+    constexpr double spreads[3] = {1.5, 2.0, 2.5};
+    constexpr int counts[3] = {2, 3, 4};
+    const double warmth = std::clamp(shape.warmth + filter.halo_warmth, -1.5, 1.5);
+    constexpr double warmth_axis[3] = {1.30, 0.15, -1.45};
+    for (int group = 0; group < 3; ++group) {
+        const int n = counts[group];
+        double decay[4], weights[4], sum = 0.0;
+        for (int k = 0; k < n; ++k) {
+            const double t = double(k) / double(n - 1);
+            decay[k] = centers[group] * std::pow(spreads[group], 2.0 * t - 1.0);
+            weights[k] = group == 2 ? std::pow(decay[k], 2.0 - shape.bloom_alpha) : 1.0;
+            sum += weights[k];
+        }
+        for (int k = 0; k < n; ++k) weights[k] /= sum;
+        for (int k = 0; k < n; ++k) {
+            double channel_weight[3];
+            for (int c = 0; c < 3; ++c) {
+                double w = weights[k];
+                if (group == 1) {
+                    double normalized = 0.0, mean_gradient = 0.0;
+                    for (int j = 0; j < n; ++j)
+                        mean_gradient += weights[j] * (2.0 * double(j) / double(n - 1) - 1.0);
+                    for (int j = 0; j < n; ++j) {
+                        const double gradient = 2.0 * double(j) / double(n - 1) - 1.0 - mean_gradient;
+                        normalized += std::max(0.0, weights[j] *
+                            (1.0 + warmth * warmth_axis[c] * gradient));
+                    }
+                    const double gradient = 2.0 * double(k) / double(n - 1) - 1.0 - mean_gradient;
+                    w = normalized > 0.0 ? std::max(0.0, weights[k] *
+                        (1.0 + warmth * warmth_axis[c] * gradient)) / normalized : weights[k];
+                }
+                channel_weight[c] = scattered * raw_group[group] / group_sum * w;
+            }
+            double lambda[3];
+            fill3(lambda, decay[k] * filter.spatial_scale / pixel_size_um);
+            std::vector<Blur::Component> gaussian;
+            Blur::exponential_components(lambda, channel_weight, gaussian);
+            out.insert(out.end(), gaussian.begin(), gaussian.end());
+        }
+    }
+    compact_diffusion_components(out);
+    return out;
+}
 
 // The (K, 3) axis and its reciprocal steps, for an axis that is *not* a scaled
 // log-exposure -- grain's density axis. `interp_tables`'s `1/dx` with 0 where
@@ -151,8 +316,12 @@ bool Pipeline::build(const Params& params, std::string& error) {
                 "engine; it always evaluates the exact spectral integral";
         return false;
     }
-    if (params_.camera.diffusion_filter.active || params_.enlarger.diffusion_filter.active) {
-        error = "diffusion filters are not implemented by the native engine";
+    DiffusionShape checked_shape{};
+    if ((params_.camera.diffusion_filter.active &&
+         !diffusion_shape(params_.camera.diffusion_filter.filter_family, checked_shape)) ||
+        (params_.enlarger.diffusion_filter.active &&
+         !diffusion_shape(params_.enlarger.diffusion_filter.filter_family, checked_shape))) {
+        error = "unknown diffusion filter family";
         return false;
     }
     if (params_.io.crop || params_.io.upscale_factor != 1.0) {
@@ -426,6 +595,8 @@ bool Pipeline::build(const Params& params, std::string& error) {
     node_count_ += 1;                                                    // upsample
     node_count_ += 1;                                                    // exposure
     node_count_ += 1;                                                    // boost
+    node_count_ += (params_.camera.diffusion_filter.active &&
+                    params_.camera.diffusion_filter.strength > 0.0) ? 1 : 0;
     node_count_ += params_.camera.lens_blur_um > 0.0 ? 1 : 0;            // lens_blur
     node_count_ += params_.film_render.halation.active ? 1 : 0;          // halation
     node_count_ += 1;                                                    // expose.log
@@ -433,6 +604,8 @@ bool Pipeline::build(const Params& params, std::string& error) {
     node_count_ += params_.film_render.dir_couplers.active ? 1 : 0;      // dir_couplers
     node_count_ += params_.film_render.grain.active ? 1 : 0;             // grain
     if (!params_.io.scan_film) node_count_ += 3;                         // the printing stage
+    node_count_ += (!params_.io.scan_film && params_.enlarger.diffusion_filter.active &&
+                    params_.enlarger.diffusion_filter.strength > 0.0) ? 1 : 0;
     node_count_ += 5;                                                    // scan..gamut_compress
     node_count_ += params_.print_render.edr_enabled && !params_.io.scan_film ? 1 : 0;
     node_count_ += params_.scanner.lens_blur > 0.0 ? 1 : 0;              // scanner_blur
@@ -1054,12 +1227,19 @@ Blur::Demand Pipeline::film_blurs_demand() const {
     fill3(sigma, lens_blur_sigma());
     const HalationBlurs hal = halation_blurs();
     const Blur::Demand lens = Blur::demand(sigma);
+    const Blur::Demand diffusion = Blur::demand(diffusion_components(
+        params_.camera.diffusion_filter, pixel_size_um_));
     const Blur::Demand scatter = Blur::demand(hal.scatter);
     const Blur::Demand bounces = Blur::demand(hal.bounces);
     Blur::Demand d;
-    d.carried = lens.carried || scatter.carried || bounces.carried;
-    d.halo = lens.halo + scatter.halo + bounces.halo;
+    d.carried = diffusion.carried || lens.carried || scatter.carried || bounces.carried;
+    d.halo = diffusion.halo + lens.halo + scatter.halo + bounces.halo;
     return d;
+}
+
+Blur::Demand Pipeline::print_diffusion_demand() const {
+    if (params_.io.scan_film) return {};
+    return Blur::demand(diffusion_components(params_.enlarger.diffusion_filter, pixel_size_um_));
 }
 
 Blur::Demand Pipeline::film_couplers_demand() const {
@@ -1086,6 +1266,33 @@ Blur::Demand Pipeline::print_scan_finish_demand() const {
         d.carried = d.carried || scanner.carried;
     }
     return d;
+}
+
+bool Pipeline::node_diffusion(const Image& in, const DiffusionFilterParams& filter,
+                              bool log_encoded, Image& out, std::string& error) {
+    const auto components = diffusion_components(filter, pixel_size_um_);
+    if (components.empty()) { out = in; return true; }
+    Timer t(this, log_encoded ? "printing.expose.diffusion_filter"
+                              : "filming.expose.diffusion_filter");
+    Image linear = in;
+    if (log_encoded) {
+        if (!alloc_like(in, linear, error)) return false;
+        const uint32_t n = uint32_t(in.elements());
+        if (!gpu_->dispatch("spk_exp10_diffusion",
+                            {gpu::Arg::buf(in.buf), gpu::Arg::inline_bytes(&n, 1),
+                             gpu::Arg::buf(linear.buf)}, in.elements(), error)) return false;
+    }
+    Image blurred;
+    if (!blur_.mixture(linear, components, blurred, error)) return false;
+    if (!log_encoded) { out = blurred; return true; }
+    const float unity[3] = {1.0f, 1.0f, 1.0f};
+    gpu::BufferRef gain = gpu_->upload(unity, sizeof unity, error);
+    if (!gain || !alloc_like(in, out, error)) return false;
+    const uint32_t n[1] = {uint32_t(in.elements())};
+    return gpu_->dispatch("spk_log10_guarded",
+                          {gpu::Arg::buf(blurred.buf), gpu::Arg::buf(gain),
+                           gpu::Arg::inline_bytes(n, 1), gpu::Arg::buf(out.buf)},
+                          in.elements(), error);
 }
 
 bool Pipeline::node_lens_blur(const Image& in, Image& out, std::string& error) {
@@ -1245,7 +1452,8 @@ bool Pipeline::node_grain(const Image& in, Image& out, std::string& error) {
         bool dye_clouds = false;
         for (size_t ch = 0; ch < 3; ++ch)
             for (size_t sl = 0; sl < 3; ++sl) {
-                const double area = g.particle_area_um2 * g.particle_scale[ch] * g.particle_scale_layers[sl];
+                const double area = g.particle_area_um2 * g.size_scale * g.size_scale
+                                  * g.particle_scale[ch] * g.particle_scale_layers[sl];
                 const double n_particles = px * px * fractions[sl][ch] / area;
                 const double od = dmax_layers[sl][ch] / n_particles;
                 sigma_particle[sl][ch] = g.blur_dye_clouds_um > 0.0
@@ -1306,7 +1514,8 @@ bool Pipeline::node_grain(const Image& in, Image& out, std::string& error) {
         float lp[12];
         for (int ch = 0; ch < 3; ++ch) {
             density_max[ch] = params_.film.density_max[ch] + g.density_min[ch];
-            n_particles[ch] = px * px / (g.particle_area_um2 * g.particle_scale[ch]);
+            n_particles[ch] = px * px / (g.particle_area_um2 * g.size_scale * g.size_scale
+                                        * g.particle_scale[ch]);
             if (nsub > 1) n_particles[ch] /= double(nsub);
             lp[4 * ch + 0] = float(g.density_min[ch]);
             lp[4 * ch + 1] = float(density_max[ch]);
@@ -1761,6 +1970,7 @@ bool Pipeline::film_blurs(const Chain& in, Chain& out, std::string& error) {
     // halation's two mixtures are where a channel can straddle the crossover,
     // and a `carried` demand sends the whole stage back to whole-frame.
     Image cur = in.cur, next;
+    SPK_NODE(node_diffusion(cur, params_.camera.diffusion_filter, false, next, error)); cur = next;
     SPK_NODE(node_lens_blur(cur, next, error)); cur = next;
     SPK_NODE(node_halation(cur, next, error)); cur = next;
     out = in;
@@ -1798,11 +2008,27 @@ bool Pipeline::film_grain(const Chain& in, Chain& out, std::string& error) {
     return true;
 }
 
-bool Pipeline::print_spectral(const Chain& in, Chain& out, std::string& error) {
+bool Pipeline::print_expose(const Chain& in, Chain& out, std::string& error) {
     Image cur = in.cur, next;
     if (!params_.io.scan_film) {
         SPK_NODE(node_enlarger_spectral(cur, next, error)); cur = next;
         SPK_NODE(node_print_exposure(cur, next, error)); cur = next;
+    }
+    out = in;
+    out.cur = cur;
+    return true;
+}
+
+bool Pipeline::print_diffusion(const Chain& in, Chain& out, std::string& error) {
+    out = in;
+    if (params_.io.scan_film) return true;
+    SPK_NODE(node_diffusion(in.cur, params_.enlarger.diffusion_filter, true, out.cur, error));
+    return true;
+}
+
+bool Pipeline::print_develop_and_scan(const Chain& in, Chain& out, std::string& error) {
+    Image cur = in.cur, next;
+    if (!params_.io.scan_film) {
         SPK_NODE(node_print_curves(cur, next, error)); cur = next;
     }
     SPK_NODE(node_scan_spectral(cur, next, error)); cur = next;
@@ -1864,7 +2090,10 @@ const Pipeline::Stage Pipeline::kFilmStages[] = {
 };
 const size_t Pipeline::kFilmStageCount = sizeof(kFilmStages) / sizeof(kFilmStages[0]);
 const Pipeline::Stage Pipeline::kPrintStages[] = {
-    {"print_spectral",    StageClass::Pointwise,     &Pipeline::print_spectral,    nullptr},
+    {"print_expose",      StageClass::Pointwise,     &Pipeline::print_expose, nullptr},
+    {"print_diffusion",   StageClass::Neighbourhood, &Pipeline::print_diffusion,
+                          &Pipeline::print_diffusion_demand},
+    {"print_develop_and_scan", StageClass::Pointwise, &Pipeline::print_develop_and_scan, nullptr},
     {"print_glare",       StageClass::Whole,         &Pipeline::print_glare,       nullptr},
     {"print_linear",      StageClass::Pointwise,     &Pipeline::print_linear,      nullptr},
     {"print_scan_finish", StageClass::Neighbourhood, &Pipeline::print_scan_finish, &Pipeline::print_scan_finish_demand},

@@ -33,6 +33,9 @@ struct GrainParams {
     bool active = true;
     bool sublayers_active = true;
     double particle_area_um2 = 0.2;
+    // Linear particle-size multiplier. Area scales quadratically so 2x
+    // really means twice the modeled diameter, not twice the area.
+    double size_scale = 1.0;
     double particle_scale[3] = {1.6, 1.6, 3.2};
     double particle_scale_layers[3] = {2.0, 1.0, 0.5};
     double density_min[3] = {0.03, 0.03, 0.03};

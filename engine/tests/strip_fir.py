@@ -223,7 +223,8 @@ def main() -> int:
             want_bands = {
                 "film": {"film_scale_and_expose", "film_blurs", "film_log_and_curves",
                          "film_couplers"},
-                "print": {"print_spectral", "print_linear", "print_scan_finish", "print_output"},
+                "print": {"print_expose", "print_diffusion", "print_develop_and_scan",
+                          "print_linear", "print_scan_finish", "print_output"},
             }
             got_bands = {g["stage"]: {st["name"] for st in g["stages"] if st["band_able"]}
                          for g in segs}

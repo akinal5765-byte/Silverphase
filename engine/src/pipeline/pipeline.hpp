@@ -397,7 +397,9 @@ public:
     bool film_log_and_curves(const Chain& in, Chain& out, std::string& error);
     bool film_couplers(const Chain& in, Chain& out, std::string& error);
     bool film_grain(const Chain& in, Chain& out, std::string& error);
-    bool print_spectral(const Chain& in, Chain& out, std::string& error);
+    bool print_expose(const Chain& in, Chain& out, std::string& error);
+    bool print_diffusion(const Chain& in, Chain& out, std::string& error);
+    bool print_develop_and_scan(const Chain& in, Chain& out, std::string& error);
     bool print_glare(const Chain& in, Chain& out, std::string& error);
     bool print_linear(const Chain& in, Chain& out, std::string& error);
     bool print_scan_finish(const Chain& in, Chain& out, std::string& error);
@@ -529,6 +531,7 @@ private:
     // with the branch the kernel takes is a different picture, and neither has
     // a second place to come from.
     Blur::Demand film_blurs_demand() const;
+    Blur::Demand print_diffusion_demand() const;
     Blur::Demand film_couplers_demand() const;
     Blur::Demand print_scan_finish_demand() const;
     /// The class as it appears in `spk_progress` -- "pointwise",
@@ -565,6 +568,8 @@ private:
     bool node_exposure(const Image& in, Image& out, std::string& error);
     bool node_boost(const Image& in, Image& out, std::string& error);
     bool node_lens_blur(const Image& in, Image& out, std::string& error);
+    bool node_diffusion(const Image& in, const DiffusionFilterParams& filter,
+                        bool log_encoded, Image& out, std::string& error);
     bool node_halation(const Image& in, Image& out, std::string& error);
     bool node_expose_log(const Image& in, Image& out, std::string& error);
     bool node_film_curves(const Image& in, Image& out, std::string& error);
