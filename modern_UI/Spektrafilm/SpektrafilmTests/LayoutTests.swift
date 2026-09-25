@@ -58,6 +58,24 @@ final class LayoutTests: XCTestCase {
         }
     }
 
+    func testTraditionalEditorStillLaysOutWithBothRails() {
+        let key = Session.uiKey + "editorLayout"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.set(EditorLayoutStyle.traditional.rawValue, forKey: key)
+        let session = Session()
+        XCTAssertFalse(session.leftCollapsed)
+        XCTAssertFalse(session.rightCollapsed)
+        let host = NSHostingView(rootView: EditorWindow(session: session)
+            .environment(\.snapshotMode, true))
+        host.frame = CGRect(origin: .zero, size: Self.sizes[0].1)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(host.fittingSize.width, 0)
+    }
+
     /// The v3 artboard is 3840×2160; a 1920×1080 window is exactly half of it.
     func testTokensMatchTheDrawing() {
         let m = Theme.Metric.self

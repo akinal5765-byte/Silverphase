@@ -16,13 +16,23 @@ struct ViewportState: Equatable, Sendable {
     var offset = CGPoint.zero
     /// Points per device pixel. 100 % means one image pixel per device pixel.
     var backingScale: CGFloat = 2
+    /// Floating editor chrome covers the canvas without changing its size.
+    /// Only Fit uses the unobscured rectangle; zoomed views keep their pan.
+    var obscuredLeft: CGFloat = 0
+    var obscuredRight: CGFloat = 0
+    var obscuredTop: CGFloat = 0
+    var obscuredBottom: CGFloat = 0
 
     static let minZoom: CGFloat = 0.05, maxZoom: CGFloat = 8   // as a fraction of 100 %
 
     var fitScale: CGFloat {
         guard image.width > 0, image.height > 0 else { return 1 }
-        return min(viewport.width / image.width, viewport.height / image.height)
+        return min(visibleWidth / image.width, visibleHeight / image.height)
     }
+    private var visibleWidth: CGFloat { max(viewport.width - obscuredLeft - obscuredRight, 1) }
+    private var visibleHeight: CGFloat { max(viewport.height - obscuredTop - obscuredBottom, 1) }
+    private var visibleMidX: CGFloat { obscuredLeft + visibleWidth / 2 }
+    private var visibleMidY: CGFloat { obscuredTop + visibleHeight / 2 }
     var hundredScale: CGFloat { 1 / backingScale }
     var isFit: Bool { abs(scale - fitScale) < 1e-6 }
     /// Zoom relative to 100 %, e.g. 0.5 → "50 %".
@@ -33,6 +43,20 @@ struct ViewportState: Equatable, Sendable {
     mutating func fit() {
         scale = fitScale
         centre()
+    }
+
+    mutating func setObscuredEdges(left: CGFloat, right: CGFloat,
+                                  top: CGFloat = 0, bottom: CGFloat = 0) {
+        let newLeft = max(left, 0), newRight = max(right, 0)
+        let newTop = max(top, 0), newBottom = max(bottom, 0)
+        guard newLeft != obscuredLeft || newRight != obscuredRight
+                || newTop != obscuredTop || newBottom != obscuredBottom else { return }
+        let wasFit = isFit
+        obscuredLeft = newLeft
+        obscuredRight = newRight
+        obscuredTop = newTop
+        obscuredBottom = newBottom
+        if wasFit { fit() }
     }
 
     /// Fit a rect given in **normalised image coordinates**, leaving `margin`
@@ -55,17 +79,17 @@ struct ViewportState: Equatable, Sendable {
         guard w > 0, h > 0 else { return }
         // A canvas narrower than twice the margin would give a negative
         // scale, which mirrors the picture rather than shrinking it.
-        let avail = CGSize(width: max(viewport.width - 2 * margin, 1),
-                           height: max(viewport.height - 2 * margin, 1))
+        let avail = CGSize(width: max(visibleWidth - 2 * margin, 1),
+                           height: max(visibleHeight - 2 * margin, 1))
         scale = min(avail.width / w, avail.height / h)
         let c = CGPoint(x: rect.midX * image.width, y: rect.midY * image.height)
-        offset = CGPoint(x: viewport.width / 2 - c.x * scale,
-                         y: viewport.height / 2 - c.y * scale)
+        offset = CGPoint(x: visibleMidX - c.x * scale,
+                         y: visibleMidY - c.y * scale)
     }
 
     mutating func centre() {
-        offset = CGPoint(x: (viewport.width - image.width * scale) / 2,
-                         y: (viewport.height - image.height * scale) / 2)
+        offset = CGPoint(x: visibleMidX - image.width * scale / 2,
+                         y: visibleMidY - image.height * scale / 2)
     }
 
     /// Called when the view or image changes size: keep the fit if we were

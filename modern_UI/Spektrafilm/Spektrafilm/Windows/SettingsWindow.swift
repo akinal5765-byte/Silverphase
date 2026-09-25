@@ -125,10 +125,15 @@ struct SettingsWindow: View {
     // MARK: - appearance
 
     private var appearanceSection: some View {
+        let active = Localization.shared.resolved
         return PanelSection(L(.setInterface),
                             systemImage: "textformat.size", key: "setAppearance") {
             SettingsRows {
                 VStack(spacing: Theme.Metric.Settings.rowSpacing) {
+                    PillMenu(label: T("Editor layout", "编辑界面"),
+                             options: EditorLayoutStyle.allCases,
+                             title: { $0.label(in: active) },
+                             selection: $session.interfaceLayout)
                     PillMenu(label: L(.setScale),
                              options: InterfaceScale.allCases,
                              title: { $0.label },

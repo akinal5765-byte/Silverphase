@@ -17,6 +17,39 @@ final class ViewportStateTests: XCTestCase {
         XCTAssertEqual(v.zoomPercent, 40)
     }
 
+    func testInspectorOverlaysFullCanvasAndOnlyMovesFittedPhoto() {
+        var v = makeVP()
+        let fullCanvas = v.viewport
+        v.setObscuredEdges(left: 0, right: 200)
+        XCTAssertEqual(v.viewport, fullCanvas, "the Metal canvas must retain its full width")
+        XCTAssertTrue(v.isFit)
+        XCTAssertEqual(v.scale, 0.15, accuracy: 1e-9)
+        XCTAssertEqual(v.imageFrame.midX, 300, accuracy: 1e-9)
+
+        v.setObscuredEdges(left: 100, right: 200)
+        XCTAssertEqual(v.imageFrame.midX, 350, accuracy: 1e-9)
+        v.setScale(0.5, about: CGPoint(x: 400, y: 300))
+        let zoomedFrame = v.imageFrame
+        v.setObscuredEdges(left: 0, right: 0)
+        XCTAssertEqual(v.viewport, fullCanvas)
+        XCTAssertEqual(v.imageFrame, zoomedFrame,
+                       "an enlarged photograph stays put while an inspector covers it")
+    }
+
+    func testFloatingTopAndBottomBarsDoNotReduceCanvasHeight() {
+        var v = makeVP()
+        let fullCanvas = v.viewport
+        v.setObscuredEdges(left: 0, right: 0, top: 50, bottom: 100)
+        XCTAssertEqual(v.viewport, fullCanvas)
+        XCTAssertEqual(v.scale, 0.15, accuracy: 1e-9)
+        XCTAssertEqual(v.imageFrame.midY, 275, accuracy: 1e-9)
+        v.setScale(0.5, about: CGPoint(x: 400, y: 300))
+        let zoomedFrame = v.imageFrame
+        v.setObscuredEdges(left: 0, right: 0, top: 0, bottom: 0)
+        XCTAssertEqual(v.imageFrame, zoomedFrame,
+                       "Floating bars only reposition Fit, never an enlarged photograph")
+    }
+
     func testZoomKeepsAnchorFixed() {
         var v = makeVP()
         let anchor = CGPoint(x: 200, y: 150)

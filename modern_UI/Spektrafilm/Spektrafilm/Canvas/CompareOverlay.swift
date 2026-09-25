@@ -68,6 +68,7 @@ struct CompareOverlay: View {
     /// there too — which they are whenever the picture reaches the canvas's
     /// right edge, i.e. at any zoom past fit. Then it sits below them.
     private func afterY(_ y: CGFloat, right: CGFloat, width: CGFloat) -> CGFloat {
+        guard session.interfaceLayout == .traditional else { return y }
         let badges = session.canvasBadges.count
         guard badges > 0, width - right < CanvasBadges.reservedWidth else { return y }
         let stack = CanvasBadges.inset + CGFloat(badges) * (CanvasBadges.height + CanvasBadges.spacing)

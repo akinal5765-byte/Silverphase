@@ -31,7 +31,6 @@
 			path = "Canvas";
 			sourceTree = "<group>";
 		};
-		841BAB5289564CFBE151982F /* BeforeAfterIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BeforeAfterIcon.swift"; sourceTree = "<group>"; };
 		1967107938C5043791D8A984 /* ColorWheel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorWheel.swift"; sourceTree = "<group>"; };
 		949AA76515DB21F6736FB674 /* DetentSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DetentSlider.swift"; sourceTree = "<group>"; };
 		97C523570EE6096E0B873D38 /* FormatPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FormatPicker.swift"; sourceTree = "<group>"; };
@@ -43,7 +42,6 @@
 		8BA0238B9B43478A480FB02A /* Controls */ = {
 			isa = PBXGroup;
 			children = (
-				841BAB5289564CFBE151982F /* BeforeAfterIcon.swift */,
 				1967107938C5043791D8A984 /* ColorWheel.swift */,
 				949AA76515DB21F6736FB674 /* DetentSlider.swift */,
 				97C523570EE6096E0B873D38 /* FormatPicker.swift */,
@@ -160,7 +158,6 @@
 		6C657B8C7E1214B913754799 /* DevelopmentSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DevelopmentSection.swift"; sourceTree = "<group>"; };
 		D683EAE35F9582121B7AA62C /* FilmSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FilmSection.swift"; sourceTree = "<group>"; };
 		D8C62B445BB801BDB4827701 /* MasksSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MasksSection.swift"; sourceTree = "<group>"; };
-		AAE77600C4DB8964A93036B8 /* NavigatorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NavigatorSection.swift"; sourceTree = "<group>"; };
 		CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintProfileSection.swift"; sourceTree = "<group>"; };
 		6C0642179D137112024ADEB7 /* ScanOutputSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScanOutputSection.swift"; sourceTree = "<group>"; };
 		6D96546C1610FE27FA9014C7 /* Sections */ = {
@@ -171,7 +168,6 @@
 				6C657B8C7E1214B913754799 /* DevelopmentSection.swift */,
 				D683EAE35F9582121B7AA62C /* FilmSection.swift */,
 				D8C62B445BB801BDB4827701 /* MasksSection.swift */,
-				AAE77600C4DB8964A93036B8 /* NavigatorSection.swift */,
 				CBC3A4A2D1A91A9075EFE386 /* PrintProfileSection.swift */,
 				6C0642179D137112024ADEB7 /* ScanOutputSection.swift */
 			);
@@ -470,7 +466,6 @@
 		5D85BEFE331A36C24B5B536E /* Shaders.metal */ = {isa = PBXBuildFile; fileRef = 45A2278A553E7F675C711BDF; };
 		85D1E032EFD5BDC74795F31F /* TextureStore.swift */ = {isa = PBXBuildFile; fileRef = 3596117B90D8381030422780; };
 		9E8CF353A140A91815632E92 /* ViewportState.swift */ = {isa = PBXBuildFile; fileRef = 10D9844F361A8278E8F4736F; };
-		86CA5E37AE96FD3988B8353B /* BeforeAfterIcon.swift */ = {isa = PBXBuildFile; fileRef = 841BAB5289564CFBE151982F; };
 		AB4FADB19B22ECAFDD97B461 /* ColorWheel.swift */ = {isa = PBXBuildFile; fileRef = 1967107938C5043791D8A984; };
 		0153ACDC12C71FC7B62DF950 /* DetentSlider.swift */ = {isa = PBXBuildFile; fileRef = 949AA76515DB21F6736FB674; };
 		68FC8AC938F3589F7FA482EC /* FormatPicker.swift */ = {isa = PBXBuildFile; fileRef = 97C523570EE6096E0B873D38; };
@@ -516,7 +511,6 @@
 		74A39A3D1B6DD04FBF5A87CE /* DevelopmentSection.swift */ = {isa = PBXBuildFile; fileRef = 6C657B8C7E1214B913754799; };
 		3A77169194DAFBA07FFC2E92 /* FilmSection.swift */ = {isa = PBXBuildFile; fileRef = D683EAE35F9582121B7AA62C; };
 		3A4E60CE3031E48A48519664 /* MasksSection.swift */ = {isa = PBXBuildFile; fileRef = D8C62B445BB801BDB4827701; };
-		0CCA806D2F95EB2D2949855E /* NavigatorSection.swift */ = {isa = PBXBuildFile; fileRef = AAE77600C4DB8964A93036B8; };
 		384534AC4F4E049FF3365CE8 /* PrintProfileSection.swift */ = {isa = PBXBuildFile; fileRef = CBC3A4A2D1A91A9075EFE386; };
 		CCCD59252655FC6848596B59 /* ScanOutputSection.swift */ = {isa = PBXBuildFile; fileRef = 6C0642179D137112024ADEB7; };
 		5B7419D000CA2224A11A3D08 /* Filmstrip.swift */ = {isa = PBXBuildFile; fileRef = E5F0DD211AC8BBD623882342; };
@@ -567,7 +561,6 @@
 				5D85BEFE331A36C24B5B536E /* Shaders.metal */,
 				85D1E032EFD5BDC74795F31F /* TextureStore.swift */,
 				9E8CF353A140A91815632E92 /* ViewportState.swift */,
-				86CA5E37AE96FD3988B8353B /* BeforeAfterIcon.swift */,
 				AB4FADB19B22ECAFDD97B461 /* ColorWheel.swift */,
 				0153ACDC12C71FC7B62DF950 /* DetentSlider.swift */,
 				68FC8AC938F3589F7FA482EC /* FormatPicker.swift */,
@@ -613,7 +606,6 @@
 				74A39A3D1B6DD04FBF5A87CE /* DevelopmentSection.swift */,
 				3A77169194DAFBA07FFC2E92 /* FilmSection.swift */,
 				3A4E60CE3031E48A48519664 /* MasksSection.swift */,
-				0CCA806D2F95EB2D2949855E /* NavigatorSection.swift */,
 				384534AC4F4E049FF3365CE8 /* PrintProfileSection.swift */,
 				CCCD59252655FC6848596B59 /* ScanOutputSection.swift */,
 				5B7419D000CA2224A11A3D08 /* Filmstrip.swift */,
@@ -726,7 +718,6 @@
 		44672454991CCD80FEA733AF /* Shaders.metal */ = {isa = PBXBuildFile; fileRef = 45A2278A553E7F675C711BDF; };
 		B326A05681DA1C98238F21A8 /* TextureStore.swift */ = {isa = PBXBuildFile; fileRef = 3596117B90D8381030422780; };
 		BED1F75657E8AC18880BA6AC /* ViewportState.swift */ = {isa = PBXBuildFile; fileRef = 10D9844F361A8278E8F4736F; };
-		1F2F3C2DB16D103262458BB6 /* BeforeAfterIcon.swift */ = {isa = PBXBuildFile; fileRef = 841BAB5289564CFBE151982F; };
 		5C385FA2E465B7FBC75946E1 /* ColorWheel.swift */ = {isa = PBXBuildFile; fileRef = 1967107938C5043791D8A984; };
 		314B0CB8B06973B9576AC98A /* DetentSlider.swift */ = {isa = PBXBuildFile; fileRef = 949AA76515DB21F6736FB674; };
 		2C1255C351CED632FF1180E5 /* FormatPicker.swift */ = {isa = PBXBuildFile; fileRef = 97C523570EE6096E0B873D38; };
@@ -772,7 +763,6 @@
 		8D547861C13817B0903C85F9 /* DevelopmentSection.swift */ = {isa = PBXBuildFile; fileRef = 6C657B8C7E1214B913754799; };
 		892D59704DF88006FFC3F195 /* FilmSection.swift */ = {isa = PBXBuildFile; fileRef = D683EAE35F9582121B7AA62C; };
 		917B38BDBB45954BEDEC818C /* MasksSection.swift */ = {isa = PBXBuildFile; fileRef = D8C62B445BB801BDB4827701; };
-		6AAD8973CE3B98DD57053895 /* NavigatorSection.swift */ = {isa = PBXBuildFile; fileRef = AAE77600C4DB8964A93036B8; };
 		9476B966137052CD34C19AE8 /* PrintProfileSection.swift */ = {isa = PBXBuildFile; fileRef = CBC3A4A2D1A91A9075EFE386; };
 		0D81FBB881EF09AF0918AEB0 /* ScanOutputSection.swift */ = {isa = PBXBuildFile; fileRef = 6C0642179D137112024ADEB7; };
 		3A9D6F08175C3700BE7F4D44 /* Filmstrip.swift */ = {isa = PBXBuildFile; fileRef = E5F0DD211AC8BBD623882342; };
@@ -864,7 +854,6 @@
 				44672454991CCD80FEA733AF /* Shaders.metal */,
 				B326A05681DA1C98238F21A8 /* TextureStore.swift */,
 				BED1F75657E8AC18880BA6AC /* ViewportState.swift */,
-				1F2F3C2DB16D103262458BB6 /* BeforeAfterIcon.swift */,
 				5C385FA2E465B7FBC75946E1 /* ColorWheel.swift */,
 				314B0CB8B06973B9576AC98A /* DetentSlider.swift */,
 				2C1255C351CED632FF1180E5 /* FormatPicker.swift */,
@@ -910,7 +899,6 @@
 				8D547861C13817B0903C85F9 /* DevelopmentSection.swift */,
 				892D59704DF88006FFC3F195 /* FilmSection.swift */,
 				917B38BDBB45954BEDEC818C /* MasksSection.swift */,
-				6AAD8973CE3B98DD57053895 /* NavigatorSection.swift */,
 				9476B966137052CD34C19AE8 /* PrintProfileSection.swift */,
 				0D81FBB881EF09AF0918AEB0 /* ScanOutputSection.swift */,
 				3A9D6F08175C3700BE7F4D44 /* Filmstrip.swift */,

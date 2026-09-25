@@ -169,11 +169,12 @@ struct AsShotLine: View {
 /// kind of drift a capture catches late.
 struct RailRows<Content: View>: View {
     @ViewBuilder var content: () -> Content
+    @Environment(\.modernPanelChrome) private var modernPanelChrome
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metric.rowSpacing) {
             content()
         }
-        .padding(.horizontal, Theme.Metric.rowInset)
+        .padding(.horizontal, modernPanelChrome ? 0 : Theme.Metric.rowInset)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

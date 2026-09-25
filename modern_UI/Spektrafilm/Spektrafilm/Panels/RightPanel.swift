@@ -1,4 +1,5 @@
-//  RightPanel.swift — the parameters rail: everything you *set*.
+//  RightPanel.swift — parameters: one selected stage in Modern, the whole
+//  process chain in Traditional.
 //
 //  The counterpart of `LeftPanel`, and the division is Lightroom Classic's:
 //  the left rail holds the two catalogues (choose a film, choose a paper), and
@@ -10,11 +11,10 @@
 //  single rail holding both is where "the buttons have no logic" came from.
 //  The stock lists went left; the sliders came here.
 //
-//  Section order is the pipeline's, top to bottom: what the camera saw, what
-//  the film did with it, what development did to the negative, what the paper
-//  did with that, and finally how the frame is cropped. The two sections that
-//  share a name with one on the left rail ("Film", "Print") are the *numbers*
-//  for the catalogue entry chosen over there.
+//  The toolbar selects one physical stage at a time, in pipeline order:
+//  capture, film, development, enlargement and scan/output. Geometry groups
+//  crop and (when enabled) masks outside that chain. This changes navigation,
+//  not the parameter bindings or the engine.
 //
 //  **The section keys are not the left rail's.** `PanelSection` persists
 //  whether a section is open under a key, and the two rails have one section
@@ -23,53 +23,103 @@
 
 import SwiftUI
 
+enum InspectorStage: String, CaseIterable, Identifiable {
+    case camera, film, development, print, output, geometry
+
+    var id: String { rawValue }
+
+    @MainActor var title: String {
+        switch self {
+        case .camera: L(.sectionCamera)
+        case .film: L(.sectionFilm)
+        case .development: L(.sectionDevelopment)
+        case .print: L(.sectionPrint)
+        case .output: L(.sectionOutput)
+        case .geometry: T("Geometry", "构图")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .camera: "camera.aperture"
+        case .film: "film"
+        case .development: "drop.fill"
+        case .print: "photo.on.rectangle.angled"
+        case .output: "scanner"
+        case .geometry: "aspectratio"
+        }
+    }
+}
+
 struct RightPanel: View {
     @Bindable var session: Session
+    var traditional = false
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Hairline()
+            if traditional {
+                header
+                Hairline()
+            }
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    let sections: [(String, AnyView)] =
-                        [("camera", AnyView(CameraSection(session: session))),
-                         ("film", AnyView(FilmSection(session: session, part: .params))),
-                         ("development", AnyView(DevelopmentSection(session: session))),
-                         ("print", AnyView(PrintProfileSection(session: session, part: .params))),
-                         ("output", AnyView(ScanOutputSection(session: session))),
-                         ("crop", AnyView(CropSection(session: session)))]
-                        + (FeatureFlags.masks
-                           ? [("masks", AnyView(MasksSection(session: session)))] : [])
-                    ForEach(Array(sections.enumerated()), id: \.element.0) { index, entry in
-                        if index > 0 { Hairline() }
-                        entry.1
+                    if traditional {
+                        CameraSection(session: session)
+                        Hairline()
+                        FilmSection(session: session, part: .params)
+                        Hairline()
+                        DevelopmentSection(session: session)
+                        Hairline()
+                        PrintProfileSection(session: session, part: .params)
+                        Hairline()
+                        ScanOutputSection(session: session)
+                        Hairline()
+                        CropSection(session: session)
+                        if FeatureFlags.masks { Hairline(); MasksSection(session: session) }
+                    } else {
+                        switch session.inspectorStage {
+                        case .camera: CameraSection(session: session)
+                        case .film: FilmSection(session: session, part: .params)
+                        case .development: DevelopmentSection(session: session)
+                        case .print: PrintProfileSection(session: session, part: .params)
+                        case .output: ScanOutputSection(session: session)
+                        case .geometry:
+                            CropSection(session: session)
+                            if FeatureFlags.masks {
+                                Hairline()
+                                MasksSection(session: session)
+                            }
+                        }
                     }
                 }
+                .id(traditional ? "traditional" : session.inspectorStage.rawValue)
+                .padding(.horizontal, traditional ? 0 : Theme.Metric.modernContentInset)
+                .padding(.vertical, traditional ? 0 : Theme.Metric.modernContentInset)
             }
+            .environment(\.modernPanelChrome, !traditional)
         }
-        .railCard()
+        .frame(maxHeight: .infinity)
+        .modifier(EditorChromeSurface(modern: !traditional))
+        .onAppear {
+            guard !traditional else { return }
+            let key = session.inspectorStage == .geometry ? "crop" : session.inspectorStage.rawValue
+            UserDefaults.standard.set(true, forKey: Session.uiKey + "section." + key)
+        }
     }
 
     private var header: some View {
-        HStack(spacing: 0) {
-            // **No traffic-light reservation.** The window buttons sit on the
-            // *left* rail's header, on the same centreline; this row starts at
-            // the rail's own inset. The toggle leads rather than trails so it
-            // is the first thing the eye meets coming from the canvas — the
-            // door is at the edge the rail shares with the picture.
-            SidebarToggle(edge: .trailing, collapsed: $session.rightCollapsed)
-                .padding(.leading, Theme.Metric.panelHeaderTrailing)
+        ZStack {
             Text(L(.railEdit))
                 .font(Theme.Font.railTitle)
                 .foregroundStyle(Theme.text)
-                .lineLimit(1)
-            Spacer(minLength: 4)
+                .frame(maxWidth: .infinity)
+            HStack {
+                SidebarToggle(edge: .trailing, collapsed: $session.rightCollapsed)
+                    .padding(.leading, Theme.Metric.panelHeaderTrailing)
+                Spacer()
+            }
         }
         .frame(height: Theme.Metric.panelHeaderHeight)
-        // The header row is the window's drag surface, as it is on the left:
-        // with the titlebar hidden, a rail's header is where a title bar would
-        // be, and both rails are part of the window's frame.
         .background(WindowDragHandle())
     }
 }

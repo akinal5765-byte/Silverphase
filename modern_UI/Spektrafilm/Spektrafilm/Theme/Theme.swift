@@ -415,6 +415,13 @@ enum Theme {
         /// Bar height, `(75.59 − .59) / 2` = 37.5, taken as the rail header's
         /// own 38 so the two cannot drift apart by half a point.
         static let topBarHeight: CGFloat = panelHeaderHeight
+        /// Modern's window-wide chrome has more breathing room than the
+        /// compact 38 pt rail headers retained by Traditional.
+        static let modernTopBarHeight: CGFloat = 52
+        static let modernChromeInset: CGFloat = 12
+        /// Content inside floating panels; the bare photo row uses only the
+        /// common outer inset so its first image aligns with other surfaces.
+        static let modernContentInset: CGFloat = 20
         /// **Zero.** Kept as tokens rather than deleted because the views read
         /// them and because a later drawing that floats the bar again should
         /// be three numbers rather than a re-plumbing — but a flush bar has
@@ -445,10 +452,6 @@ enum Theme {
         /// plus a visible divider says the grouping without measuring it.
         static let barItemGap: CGFloat = 4
         static let barClusterGap: CGFloat = 10
-        /// The before/after glyph: the drawing's two rectangles side by side,
-        /// `20.1 + 21.3` units wide of 30.1 tall, halved and rounded.
-        static let beforeAfterIcon = CGSize(width: 25, height: 16)
-
         // MARK: the window buttons
         //
         // `.windowStyle(.hiddenTitleBar)` does not remove the three buttons;
@@ -1156,6 +1159,75 @@ enum Theme {
         static let secondary = secondaryText
         /// Metadata: "As Shot", captions, an inactive tab, a unit.
         static let tertiary = dim
+    }
+}
+
+/// Editor chrome only. The photograph remains the content layer; glass is
+/// reserved for floating navigation and inspector surfaces in Modern.
+struct EditorChromeSurface: ViewModifier {
+    var modern: Bool
+    var bare = false
+    var traditionalBar = false
+    var radius: CGFloat = 16
+    var wash: Double = 0.60
+    var flat = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if bare {
+            content
+        } else if !modern {
+            if traditionalBar { content.barCard() }
+            else { content.railCard() }
+        } else if flat && reduceTransparency {
+            content
+                .background(Theme.card)
+                .overlay(alignment: .bottom) {
+                    Color.white.opacity(0.12).frame(height: 1)
+                }
+        } else if flat {
+            if #available(macOS 26.0, *) {
+                content
+                    .background(Color.black.opacity(wash))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 0))
+                    .overlay(alignment: .bottom) {
+                        Color.white.opacity(0.12).frame(height: 1)
+                    }
+            } else {
+                content
+                    .background(Color.black.opacity(wash))
+                    .background(.regularMaterial)
+                    .overlay(alignment: .bottom) {
+                        Color.white.opacity(0.12).frame(height: 1)
+                    }
+            }
+        } else if reduceTransparency {
+            content
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                }
+        } else if #available(macOS 26.0, *) {
+            content
+                .background(Color.black.opacity(wash),
+                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .glassEffect(.regular, in: .rect(cornerRadius: radius))
+                .overlay {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                }
+        } else {
+            content
+                .background(Color.black.opacity(wash),
+                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .background(.regularMaterial,
+                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                }
+        }
     }
 }
 

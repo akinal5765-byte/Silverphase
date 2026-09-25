@@ -23,6 +23,17 @@
 
 import SwiftUI
 
+private struct ModernPanelChromeKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var modernPanelChrome: Bool {
+        get { self[ModernPanelChromeKey.self] }
+        set { self[ModernPanelChromeKey.self] = newValue }
+    }
+}
+
 /// The four numbers a section row is drawn with. A default-constructed one is
 /// the editor's rails; the export page's drawing has tighter rows and a
 /// heavier title, so it passes its own (`Theme.Metric.Export` and
@@ -68,8 +79,56 @@ struct SectionHeader: View {
     var metrics = SectionMetrics()
 
     @State private var hovered = false
+    @Environment(\.modernPanelChrome) private var modernPanelChrome
 
+    @ViewBuilder
     var body: some View {
+        if modernPanelChrome {
+            modernHeader
+        } else {
+            traditionalHeader
+        }
+    }
+
+    private var modernHeader: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(Theme.Font.leftSectionTitle)
+                .foregroundStyle(Theme.text)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            if let menu {
+                Menu {
+                    if let action {
+                        Button(action.help, action: action.perform)
+                            .disabled(!action.enabled)
+                        Divider()
+                    }
+                    menu()
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.text)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .help(L(.helpSectionMenu))
+            } else if let action {
+                Button(T("Reset", "重置"), action: action.perform)
+                    .buttonStyle(.plain)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .rowEnabled(action.enabled)
+                    .help(action.help)
+            }
+        }
+        .frame(height: 40)
+    }
+
+    private var traditionalHeader: some View {
         HStack(spacing: 0) {
             // The triangle is **ink, not a button**: the whole row opens and
             // closes the section (UI-SPEC §3.7). A 30 pt row whose only live
@@ -225,6 +284,7 @@ struct PanelSection<Content: View>: View {
     var metrics = SectionMetrics()
     @ViewBuilder var content: () -> Content
     @AppStorage private var expanded: Bool
+    @Environment(\.modernPanelChrome) private var modernPanelChrome
 
     init(_ title: String, systemImage: String? = nil, key: String, initiallyExpanded: Bool = true,
          action: SectionAction? = nil,
@@ -245,9 +305,9 @@ struct PanelSection<Content: View>: View {
             // drawing's two shut sections are 30 pt apart, which is the
             // header, so bottom padding here would put air under a row that
             // has nothing under it.
-            if expanded {
+            if expanded || modernPanelChrome {
                 content()
-                    .padding(.top, metrics.headerToWell)
+                    .padding(.top, modernPanelChrome ? 8 : metrics.headerToWell)
                     .padding(.bottom, metrics.wellToHeader)
             }
         }

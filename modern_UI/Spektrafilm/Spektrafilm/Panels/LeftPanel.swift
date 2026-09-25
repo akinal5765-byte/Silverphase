@@ -1,12 +1,8 @@
-//  LeftPanel.swift — the darkroom rail: a header row, then the sections in
-//  the drawing's order, each one closed by a hairline. To add a section:
-//  write a view in Panels/Sections and add one line to the stack.
+//  LeftPanel.swift — film and paper catalogues. Traditional shows the former
+//  header; Modern puts its material button in the window-wide toolbar.
 //
-//  **v3 (2026-09-18) gave the header a name.** It reads **Develop**, set in
-//  `Theme.Font.railTitle`, with import and export at the *trailing* end — the
-//  older layout had the two glyphs leading and nothing else on the row. It is
-//  a label and not a mode button: there is no second rail to switch to, and a
-//  word that looks pressable and is not is worse than a word.
+//  The header names the rail, centred like the parameter rail and canvas.
+//  It is a label, not a mode button; file actions live in the centre bar.
 //
 //  It is also the row the three window buttons are placed on, so it opens
 //  with their clearance rather than with v3's 10 pt
@@ -14,20 +10,20 @@
 //  window buttons nor the sidebar toggles; handoff §8.2 says to keep both and
 //  **record the deviation rather than hide the functionality**, which is what
 //  this row does — the title sits after the buttons' clearance, and
-//  `sidebar.left` stays at the far end past import and export.
-//
-//  Import and export are here rather than on the top bar. The bar is a
-//  *canvas* control, and opening a file is not a thing you do to the picture.
+//  `sidebar.left` stays at the far end.
 
 import SwiftUI
 
 struct LeftPanel: View {
     @Bindable var session: Session
+    var traditional = false
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Hairline()
+            if traditional {
+                header
+                Hairline()
+            }
             // **The rail still scrolls as a whole**, and the lists keep their
             // own fixed heights. That is deliberate: a `ScrollView` is greedy,
             // so a list told to "fill the slack" eats the rail and pushes the
@@ -47,8 +43,7 @@ struct LeftPanel: View {
                 // bottom border, not a separator.
                 VStack(spacing: 0) {
                     let sections: [(String, AnyView)] =
-                        [("navigator", AnyView(NavigatorSection(session: session))),
-                         ("filmList", AnyView(FilmSection(session: session, part: .list))),
+                        [("filmList", AnyView(FilmSection(session: session, part: .list))),
                          ("printList", AnyView(PrintProfileSection(session: session, part: .list)))]
                     ForEach(Array(sections.enumerated()), id: \.element.0) { index, entry in
                         if index > 0 { Hairline() }
@@ -57,33 +52,23 @@ struct LeftPanel: View {
                 }
             }
         }
+        .frame(maxHeight: .infinity)
         .railCard()
     }
 
     private var header: some View {
-        HStack(spacing: 0) {
-            // The three window buttons live here (Windows/TrafficLights.swift).
-            // They are *placed* in window coordinates, so this is a reservation
-            // and not a container — which is why folding the rail does not move
-            // them: the bar takes over the same reservation.
-            Spacer().frame(width: Theme.Metric.trafficLightClearance)
+        ZStack {
             Text(L(.railPresets))
                 .font(Theme.Font.railTitle)
                 .foregroundStyle(Theme.text)
-                .lineLimit(1)
-            Spacer(minLength: 4)
-            // **Import and export moved to the top bar.** They used to live
-            // here, which meant folding this rail took them off screen and
-            // left only ⌘O / ⌘E — two file actions disappearing with a panel
-            // of parameters. A file action is not a property of the thing it
-            // sits beside. UI-SPEC §1.4.
-            SidebarToggle(edge: .leading, collapsed: $session.leftCollapsed)
-                .padding(.trailing, Theme.Metric.panelHeaderTrailing)
+                .frame(maxWidth: .infinity)
+            HStack {
+                Spacer()
+                SidebarToggle(edge: .leading, collapsed: $session.leftCollapsed)
+                    .padding(.trailing, Theme.Metric.panelHeaderTrailing)
+            }
         }
         .frame(height: Theme.Metric.panelHeaderHeight)
-        // The header row is the window's drag surface, as a sidebar header is
-        // in Xcode. It is a background so that the glyphs above it still take
-        // their own clicks.
         .background(WindowDragHandle())
     }
 }

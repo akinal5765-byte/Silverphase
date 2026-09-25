@@ -68,25 +68,101 @@ final class FrontendPolicyTests: XCTestCase {
         XCTAssertFalse(session.params.scanFilm)
     }
 
-    /// Both rails open expanded, every time.
+    /// Both rails start folded, every time, so the photograph has the window.
     ///
-    /// Not a default-value test — `bool(forKey:)` was already false for an
-    /// unwritten key — but a *persistence* test: a rail folded in one session
-    /// must not decide how the app opens in the next.
-    func testTheRailsDoNotRememberBeingFolded() {
+    /// The old persisted flags must not override the photograph-first default.
+    func testRailsStartFoldedAndStageSelectionTogglesInspector() {
+        let savedLayout = UserDefaults.standard.object(forKey: Session.uiKey + "editorLayout")
+        UserDefaults.standard.set(EditorLayoutStyle.modern.rawValue,
+                                  forKey: Session.uiKey + "editorLayout")
         UserDefaults.standard.set(true, forKey: Session.uiKey + "leftCollapsed")
         UserDefaults.standard.set(true, forKey: Session.uiKey + "rightCollapsed")
+        let savedFilmSection = UserDefaults.standard.object(forKey: Session.uiKey + "section.film")
+        let savedOutputSection = UserDefaults.standard.object(forKey: Session.uiKey + "section.output")
         defer {
+            if let savedLayout { UserDefaults.standard.set(savedLayout, forKey: Session.uiKey + "editorLayout") }
+            else { UserDefaults.standard.removeObject(forKey: Session.uiKey + "editorLayout") }
             UserDefaults.standard.removeObject(forKey: Session.uiKey + "leftCollapsed")
             UserDefaults.standard.removeObject(forKey: Session.uiKey + "rightCollapsed")
+            for (key, value) in [("section.film", savedFilmSection),
+                                 ("section.output", savedOutputSection)] {
+                let fullKey = Session.uiKey + key
+                if let value { UserDefaults.standard.set(value, forKey: fullKey) }
+                else { UserDefaults.standard.removeObject(forKey: fullKey) }
+            }
         }
         let session = Session()
+        XCTAssertTrue(session.leftCollapsed)
+        XCTAssertTrue(session.rightCollapsed)
+
+        // They still open for as long as the window lives.
+        session.leftCollapsed = false
+        XCTAssertFalse(session.leftCollapsed)
+        session.selectInspectorStage(.film)
+        XCTAssertFalse(session.rightCollapsed)
+        XCTAssertEqual(session.inspectorStage, .film)
+        session.selectInspectorStage(.film)
+        XCTAssertTrue(session.rightCollapsed)
+        UserDefaults.standard.set(false, forKey: Session.uiKey + "section.output")
+        session.selectInspectorStage(.output)
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: Session.uiKey + "section.output"))
+    }
+
+    func testEditorLayoutSwitchKeepsTraditionalAvailable() {
+        XCTAssertEqual(EditorLayoutStyle.modern.label(in: .simplifiedChinese), "现代")
+        XCTAssertEqual(EditorLayoutStyle.traditional.label(in: .simplifiedChinese), "传统")
+        let key = Session.uiKey + "editorLayout"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.set(EditorLayoutStyle.modern.rawValue, forKey: key)
+        let session = Session()
+        XCTAssertEqual(session.interfaceLayout, .modern)
+        session.interfaceLayout = .traditional
         XCTAssertFalse(session.leftCollapsed)
         XCTAssertFalse(session.rightCollapsed)
-
-        // They still fold for as long as the window lives.
-        session.leftCollapsed = true
+        XCTAssertEqual(UserDefaults.standard.string(forKey: key), "traditional")
+        XCTAssertEqual(Session().interfaceLayout, .traditional)
+        session.interfaceLayout = .modern
         XCTAssertTrue(session.leftCollapsed)
+        XCTAssertTrue(session.rightCollapsed)
+    }
+
+    func testModernFilmChooserAndStockSelectionShareTheRailRules() {
+        let key = Session.uiKey + "editorLayout"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.set(EditorLayoutStyle.modern.rawValue, forKey: key)
+        let session = Session()
+        XCTAssertFalse(session.modernFilmChooserActive)
+        session.selectInspectorStage(.film)
+        XCTAssertTrue(session.modernFilmChooserActive)
+        session.leftCollapsed = false
+        XCTAssertTrue(session.modernFilmChooserActive,
+                      "The old left rail must not control film mode")
+
+        session.selectFilmStock("fujifilm_velvia_100")
+        XCTAssertEqual(session.params.filmStock, "fujifilm_velvia_100")
+        XCTAssertTrue(session.params.scanFilm)
+
+        session.selectFilmStock("kodak_portra_400")
+        XCTAssertEqual(session.params.filmStock, "kodak_portra_400")
+        XCTAssertFalse(session.params.scanFilm,
+                       "Returning from a slide film should restore the paper stage")
+        XCTAssertEqual(session.params.printStock,
+                       session.catalog.stock("kodak_portra_400")?.targetPrint)
+
+        session.selectInspectorStage(.film)
+        XCTAssertFalse(session.modernFilmChooserActive)
+        session.selectInspectorStage(.film)
+        session.interfaceLayout = .traditional
+        session.leftCollapsed = false
+        XCTAssertFalse(session.modernFilmChooserActive)
     }
 
     /// When a frame gets a native render: whenever it is bigger than the

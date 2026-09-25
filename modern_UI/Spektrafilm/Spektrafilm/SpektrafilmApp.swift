@@ -296,6 +296,8 @@ struct SnapshotRequest {
     /// measurement). This asks for the state on purpose.
     var foldLeft = false
     var foldRight = false
+    /// `--stage film` captures the Modern material chooser and its histogram.
+    var inspectorStage: InspectorStage?
 
     static func parse(_ args: [String]) -> SnapshotRequest? {
         guard let i = args.firstIndex(of: "--snapshot"), args.count > i + 2 else { return nil }
@@ -308,6 +310,9 @@ struct SnapshotRequest {
             let which = args[j + 1]
             r.foldLeft = which == "left" || which == "both"
             r.foldRight = which == "right" || which == "both"
+        }
+        if let j = args.firstIndex(of: "--stage"), args.count > j + 1 {
+            r.inspectorStage = InspectorStage(rawValue: args[j + 1])
         }
         if let j = args.firstIndex(of: "--zoom"), args.count > j + 1, let z = Double(args[j + 1]) { r.zoom = CGFloat(z) }
         if let j = args.firstIndex(of: "--mask"), args.count > j + 1 {
@@ -456,6 +461,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // whole card from the measurement.
         session.leftCollapsed = req.foldLeft
         session.rightCollapsed = req.foldRight
+        if let stage = req.inspectorStage { session.inspectorStage = stage }
         session.filmstripCollapsed = false
         // The same trap, one door along: a **rail width** persists too, and a
         // rail dragged to 328 in some earlier session makes every capture

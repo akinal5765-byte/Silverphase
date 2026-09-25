@@ -27,6 +27,21 @@ import Foundation
 import Observation
 import SwiftUI
 
+enum EditorLayoutStyle: String, CaseIterable, Identifiable, Sendable {
+    case modern, traditional
+
+    var id: String { rawValue }
+
+    nonisolated func label(in language: Language) -> String {
+        switch (self, language) {
+        case (.modern, .simplifiedChinese): "现代"
+        case (.traditional, .simplifiedChinese): "传统"
+        case (.modern, .english): "Modern"
+        case (.traditional, .english): "Traditional"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class Session: CanvasHost {
@@ -315,21 +330,62 @@ final class Session: CanvasHost {
     // wrote, and it opened this one with both panels and the filmstrip folded
     // away for no reason the user could see.
     nonisolated static let uiKey = "ui2."
-    // **The two rails always open expanded**, and are deliberately not
+    // **The two rails start folded**, leaving the photograph the full width
+    // of the window. They are deliberately not
     // restored from the last session.
     //
-    // A fresh install already opened expanded — `bool(forKey:)` is `false` for
-    // a key that was never written — so this is not about the default value.
-    // It is about *persistence*: folding a rail is a momentary thing you do to
-    // see the picture, and writing it to disk means one such moment decides
+    // Opening a rail is a momentary thing you do to choose a material or edit
+    // parameters. Writing it to disk would mean one such moment decides
     // how the app looks every time it is opened afterwards. The comment above
     // describes the previous build shipping exactly that bug from stale keys;
     // restoring our own is the same outcome by a tidier route.
     //
     // They still fold, and the fold still lasts as long as the window does.
     // It just does not outlive it.
-    var leftCollapsed = false
-    var rightCollapsed = false
+    var leftCollapsed = true
+    var rightCollapsed = true
+    /// The right-hand Film stage is the Modern material-selection mode.
+    var modernFilmChooserActive: Bool {
+        interfaceLayout == .modern && !rightCollapsed && inspectorStage == .film
+    }
+    var interfaceLayout = EditorLayoutStyle(rawValue: UserDefaults.standard.string(forKey: Session.uiKey + "editorLayout") ?? "") ?? .modern {
+        didSet {
+            UserDefaults.standard.set(interfaceLayout.rawValue, forKey: Session.uiKey + "editorLayout")
+            if interfaceLayout == .traditional {
+                leftCollapsed = false
+                rightCollapsed = false
+            } else {
+                leftCollapsed = true
+                rightCollapsed = true
+            }
+        }
+    }
+    var inspectorStage: InspectorStage = .camera
+
+    func setCanvasOcclusion(left: CGFloat, right: CGFloat,
+                            top: CGFloat = 0, bottom: CGFloat = 0) {
+        let old = renderer.viewport
+        renderer.viewport.setObscuredEdges(left: left, right: right, top: top, bottom: bottom)
+        guard renderer.viewport != old else { return }
+        if renderer.editingCrop { renderer.fitRotatedPhoto() }
+        viewportChanged()
+        renderer.needsDraw?()
+    }
+
+    func selectInspectorStage(_ stage: InspectorStage) {
+        if !rightCollapsed && inspectorStage == stage {
+            rightCollapsed = true
+        } else {
+            inspectorStage = stage
+            // A stage is a destination, not a disclosure group. An older
+            // all-sections inspector may have saved this group as folded;
+            // opening a stage must reveal its controls rather than a blank
+            // panel with only a repeated section title.
+            let key = stage == .geometry ? "crop" : stage.rawValue
+            UserDefaults.standard.set(true, forKey: Session.uiKey + "section." + key)
+            rightCollapsed = false
+        }
+    }
     var topCollapsed = UserDefaults.standard.bool(forKey: Session.uiKey + "topCollapsed") { didSet { UserDefaults.standard.set(topCollapsed, forKey: Session.uiKey + "topCollapsed") } }
     var filmstripCollapsed = UserDefaults.standard.bool(forKey: Session.uiKey + "filmstripCollapsed") { didSet { UserDefaults.standard.set(filmstripCollapsed, forKey: Session.uiKey + "filmstripCollapsed") } }
     /// Snapshot mode only: hold both rails at `PanelWidthRange.standard`.
@@ -478,13 +534,11 @@ final class Session: CanvasHost {
         status = "\(url.lastPathComponent)  ·  the film, developed"
     }
 
-    /// The status badges in the canvas's top-right corner, top to bottom.
+    /// Canvas information: under the histogram in Modern, top-right in Traditional.
     ///
-    /// One list rather than conditions written into the view, because two
-    /// things need it: the badge stack draws it, and `CompareOverlay` moves
-    /// its "After" label out from under it — at 200 % the picture fills the
-    /// canvas, its top-right corner *is* the canvas's, and "After" and "full"
-    /// were drawn on top of each other.
+    /// One list rather than conditions written into the view. Traditional's
+    /// `CompareOverlay` also uses the count to avoid its top-right "After"
+    /// label colliding with that layout's badge stack.
     var canvasBadges: [String] {
         var badges: [String] = []
         // **Before the develop lands, the canvas is the decode**, and that has
@@ -998,6 +1052,10 @@ final class Session: CanvasHost {
         Task { await client.set(onTermination: { [weak self] reason in
             Task { @MainActor in self?.serviceReady = false; self?.status = reason; self?.lastError = reason }
         }) }
+        if interfaceLayout == .traditional {
+            leftCollapsed = false
+            rightCollapsed = false
+        }
         bootTask = warmUp()
     }
 
@@ -2681,6 +2739,23 @@ final class Session: CanvasHost {
     /// than printed. The catalogue has carried `type` since it was generated
     /// and nothing read it until now.
     var filmIsPositive: Bool { catalog.stock(params.filmStock)?.isPositive ?? false }
+
+    /// Shared by the rail and the compact film chooser so both apply the
+    /// declared paper pairing and slide-film rule in exactly the same way.
+    func selectFilmStock(_ stock: String) {
+        guard catalog.stock(stock)?.isFilm == true else { return }
+        let returningFromPositive = filmIsPositive && catalog.stock(stock)?.isPositive == false
+        var p = params
+        p.filmStock = stock
+        if returningFromPositive { p.scanFilm = false }
+        if let target = catalog.stock(stock)?.targetPrint,
+           catalog.stock(target) != nil,
+           !catalog.isDeclaredPairing(film: stock, paper: p.printStock) {
+            p.printStock = target
+        }
+        params = p
+        applyFilmStageRule()
+    }
 
     func selectPrintStock(_ stock: String) {
         // The one gate. `PrintProfileSection` greys the rows so the interface
