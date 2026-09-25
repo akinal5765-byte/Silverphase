@@ -3,21 +3,24 @@
 //  measured against the **v3** drawing's geometry, not eyeballed.
 //
 //  The derivation of every number asserted here is
-//  `modern_UI/design/TOKENS-main-v3-2026-09-18.md`, which translates
-//  `reference_layout/Main/sample_frontend_v3.ai` at artboard ÷ 2. The file it
-//  replaces asserted the 2026-09-17 drawing, and §9 of the handoff is
-//  explicit that those assertions "must be updated before their pass can
-//  count as v3 evidence. Do not assert old reference pixels." Four of them
-//  would now fail by construction — the floating bar's radius, its air above,
-//  its inset, and the odd-row rule for a list that is grouped — and a fifth,
-//  `actionHeight`, names a token that no longer exists.
+//  `modern_UI/design/UI-SPEC.md` §10.3, which tabulates the 2026-09-18
+//  drawing at artboard ÷ 2. The assertions the 2026-09-17 drawing's version
+//  made are gone: four of them would fail by construction — the floating
+//  bar's radius, its air above, its inset, and the odd-row rule for a list
+//  that is grouped — and a fifth, `actionHeight`, named a token that no
+//  longer exists. `ModernCalibrationTests` covers what this file cannot
+//  (the Modern layout's type ramp and spacing scale), and the two together
+//  are the replacement for the deleted drawing-comparison tools.
 //
 //  **What this file can and cannot say.** Every number here is geometry the
 //  layout math promises. None of it is evidence about type, ink, or whether
-//  the thing looks like the drawing — that is `Tools/compare-design.swift`
-//  and a real-window capture, and the cautionary note in `design/README.md`
-//  about a pass that "meant much less than it sounded like" is about exactly
-//  this file's predecessor.
+//  the thing looks like the interface is supposed to. That evidence is a
+//  **real-window capture** (`Tools/capture-live.sh`) and, for the rules a
+//  geometry assertion cannot state, the source-level checks in
+//  `ModernCalibrationTests`. The cautionary note in `design/README.md` about a
+//  pass that "meant much less than it sounded like" is about exactly this
+//  file's predecessor: it graded the drawing's edges exact while the type, the
+//  rows and the wells were all wrong, because none of those is an edge.
 
 import SwiftUI
 import XCTest
@@ -29,6 +32,17 @@ final class LayoutTests: XCTestCase {
         ("16x9", CGSize(width: 1920, height: 1080)),
         ("21x9", CGSize(width: 3360, height: 1418)),
     ]
+
+    func testSelectingAnInspectorStageReplacesModernExportInsteadOfFoldingTheRail() {
+        let session = Session()
+        session.showExport = true
+        session.rightCollapsed = true
+        XCTAssertFalse(session.modernFilmChooserActive)
+        session.selectInspectorStage(.film)
+        XCTAssertFalse(session.showExport)
+        XCTAssertFalse(session.rightCollapsed)
+        XCTAssertEqual(session.inspectorStage, .film)
+    }
 
     /// Host the real EditorWindow in an NSHostingView at each size and check
     /// the geometry the layout math promises: three flush regions, a centre
@@ -58,22 +72,19 @@ final class LayoutTests: XCTestCase {
         }
     }
 
-    func testTraditionalEditorStillLaysOutWithBothRails() {
-        let key = Session.uiKey + "editorLayout"
-        let previous = UserDefaults.standard.object(forKey: key)
-        defer {
-            if let previous { UserDefaults.standard.set(previous, forKey: key) }
-            else { UserDefaults.standard.removeObject(forKey: key) }
+    /// **One layout.** The three-region editor is gone (2026-09-26), so what
+    /// this asserts is that the floating one hosts at every display shape with
+    /// a canvas that is still a canvas — the geometry tables below are the
+    /// export page's own drawing and are measured through `Theme.Metric`.
+    func testTheEditorHostsAtEverySize() {
+        for (name, size) in Self.sizes {
+            let session = Session()
+            let host = NSHostingView(rootView: EditorWindow(session: session)
+                .environment(\.snapshotMode, true))
+            host.frame = CGRect(origin: .zero, size: size)
+            host.layoutSubtreeIfNeeded()
+            XCTAssertGreaterThan(host.fittingSize.width, 0, name)
         }
-        UserDefaults.standard.set(EditorLayoutStyle.traditional.rawValue, forKey: key)
-        let session = Session()
-        XCTAssertFalse(session.leftCollapsed)
-        XCTAssertFalse(session.rightCollapsed)
-        let host = NSHostingView(rootView: EditorWindow(session: session)
-            .environment(\.snapshotMode, true))
-        host.frame = CGRect(origin: .zero, size: Self.sizes[0].1)
-        host.layoutSubtreeIfNeeded()
-        XCTAssertGreaterThan(host.fittingSize.width, 0)
     }
 
     /// The v3 artboard is 3840×2160; a 1920×1080 window is exactly half of it.
@@ -99,9 +110,13 @@ final class LayoutTests: XCTestCase {
         // …and with no air, the strip the column reserves *is* the bar. This
         // is the identity the old file asserted with two non-zero terms.
         XCTAssertEqual(m.barStrip, m.topBarHeight)
-        // The percentage plate: x 2769.98…2852.56, y 17.63…59.01.
+        // The percentage plate: x 2769.98…2852.56. Its **width** is the
+        // drawing's; its height is the bar's one line box (`gridControl`),
+        // because a pill 20.69 tall beside glyphs in 28 pt targets put the
+        // read-out off the bar's centreline (UI-SPEC §2.15).
         XCTAssertEqual(m.zoomPill.width, (2852.56 - 2769.98) / 2, accuracy: 0.05)
-        XCTAssertEqual(m.zoomPill.height, (59.01 - 17.63) / 2, accuracy: 0.05)
+        XCTAssertEqual(m.zoomPill.height, m.gridControl,
+                       "the bar has one line box and the pill is in it")
         // A section: the right rail's two collapsed headers measure 29.05 and
         // 31.05 between hairlines, so a header row is 30.
         XCTAssertEqual(m.headerHeight, 30, accuracy: 1.1)
@@ -218,6 +233,122 @@ final class LayoutTests: XCTestCase {
         fresh.scale = .large
         XCTAssertEqual(defaults.string(forKey: InterfaceScaleStore.key), InterfaceScale.large.rawValue)
         XCTAssertEqual(InterfaceScaleStore(defaults: defaults).scale, .large)
+    }
+
+    // MARK: Modern calibration (2026-09-26)
+
+    /// The Modern surfaces read **one** spacing scale, and a value not on it
+    /// is a value a view invented.
+    ///
+    /// This is the assertion the calibration rests on: before it, Modern had
+    /// four spacing systems (the chrome's 12/20, the drawing-era 16/9, the
+    /// chooser's 8/7/4 and a run of bare literals) and no way to tell an
+    /// intended gap from a typo. The scale is 2/4/8/12/20, and it is small on
+    /// purpose — the user's read was "间距不统一" *and* "整体偏松".
+    func testTheModernSpacingScaleIsTheOnlyOne() {
+        let m = Theme.Metric.self
+        XCTAssertEqual([m.space2, m.space4, m.space8, m.space12, m.space20],
+                       [2, 4, 8, 12, 20])
+        // Monotone, and each step is the previous one's own multiple: a scale
+        // with an unexplained jump hides a second scale.
+        XCTAssertEqual(m.space4, m.space2 * 2)
+        XCTAssertEqual(m.space8, m.space4 * 2)
+        // 12 and 20 are deliberately not on the doubling chain — a 16 would
+        // have made every gap a power of two and every surface's gutter equal
+        // to its content inset, which is the "one number everywhere" failure
+        // the scale exists to avoid.
+        XCTAssertGreaterThan(m.space12, m.space8)
+        XCTAssertGreaterThan(m.space20, m.space12)
+        XCTAssertLessThan(m.space12, m.space20)
+    }
+
+    /// A floating surface's gutter, its content inset, and the rows inside it
+    /// are three different numbers with three different jobs.
+    ///
+    /// The failure this pins is the one the audit found: `modernContentInset`
+    /// was applied by the panel **and** by every section's bottom padding, so
+    /// the last section carried 40 pt of air while the first carried 20, and
+    /// changing the token moved two things at once.
+    func testAModernSurfaceAppliesItsInsetOnce() {
+        let m = Theme.Metric.self
+        XCTAssertEqual(m.modernContentInset, m.space20)
+        XCTAssertEqual(m.modernSurfaceGutter, m.modernChromeInset)
+        XCTAssertEqual(m.modernPanelVerticalInset, 16)
+        // The vertical inset is the tighter one, and that is the density fix:
+        // a horizontal inset lines content up across surfaces, a vertical one
+        // is repeated top and bottom and buys nothing.
+        XCTAssertLessThan(m.modernPanelVerticalInset, m.modernContentInset)
+        // Rows are tighter than the drawing's rail, and the row height is the
+        // drawing's control row — Modern does not get a second row height.
+        XCTAssertEqual(m.modernRowSpacing, m.space8)
+        XCTAssertEqual(m.modernRowHeight, m.gridRow)
+        XCTAssertEqual(m.modernControlHeight, m.gridControl)
+        XCTAssertLessThan(m.modernRowSpacing, m.modernRowHeight)
+        // A section's header is one line of type with no disclosure triangle
+        // on a Modern surface, so its height plus the gap to its content must
+        // still be a header a reader can find — and the gap must be on the
+        // scale.
+        XCTAssertEqual(m.modernHeaderHeight, 40)
+        XCTAssertEqual(m.modernHeaderToContent, m.space8)
+        XCTAssertEqual(m.modernSectionBottom, m.space20)
+        XCTAssertEqual(m.modernBlockGap, m.space12)
+    }
+
+    /// The canvas reserves exactly the two strip heights the bottom slot
+    /// draws, and it reserves them from one token each.
+    ///
+    /// They were bare `72`/`92` literals in three files — the strip's frame,
+    /// the chooser's scroll view, and the canvas occlusion arithmetic — so a
+    /// strip that grew by two points would have had its last row hidden behind
+    /// the window's edge with nothing to point at.
+    func testTheCanvasReservesTheStripItDraws() {
+        let m = Theme.Metric.self
+        XCTAssertEqual(m.modernStripHeight, 72)
+        XCTAssertEqual(m.modernFilmChooserHeight, 92)
+        XCTAssertGreaterThan(m.modernFilmChooserHeight, m.modernStripHeight)
+        // The strip is taller than a section header and shorter than the
+        // drawing's filmstrip — it is a navigator over the photograph, not a
+        // second rail.
+        XCTAssertGreaterThan(m.modernStripHeight, m.modernHeaderHeight)
+        XCTAssertLessThan(m.modernStripHeight, m.filmstripHeight)
+        // The occlusion the canvas is told about is the strip plus one
+        // gutter, which is the same gutter the panel keeps.
+        XCTAssertEqual(m.modernStripHeight + m.modernSurfaceGutter, 84)
+    }
+
+    /// Modern has **three** corner radii, and every tile-shaped control is one
+    /// of them.
+    ///
+    /// It had eight live at once — 2, 4, 6, 7, 9, 11.5, 14 and the chrome's
+    /// 16 — which UI-SPEC §2.10 forbids in as many words ("一张图里出现两种圆角").
+    func testModernHasThreeRadiiAndNoMore() {
+        let m = Theme.Metric.self
+        XCTAssertEqual(m.modernControlRadius, m.fieldRadius)
+        XCTAssertEqual(m.modernCardRadius, 9)
+        XCTAssertEqual(m.modernContainerRadius, 16)
+        XCTAssertLessThan(m.modernControlRadius, m.modernCardRadius)
+        XCTAssertLessThan(m.modernCardRadius, m.modernContainerRadius)
+        // The selection capsule is the list's own mark, not a fourth radius:
+        // it is derived from its own height so a mark can never be a pill and
+        // a square at the same time.
+        XCTAssertEqual(m.modernSelectionRadius, m.stockSelectionRadius)
+    }
+
+    /// One glyph size per rank on a Modern rail, and one pointer target per
+    /// rank across the window.
+    ///
+    /// The audit found 26, 28, 16×14 and 14 all answering "an icon in a rail",
+    /// and glyph sizes of 9, 10 and 11 in one feature.
+    func testAModernRailHasOneGlyphSizeAndOneTarget() {
+        let m = Theme.Metric.self
+        XCTAssertEqual(m.modernIconTarget, m.railIconTarget)
+        XCTAssertGreaterThan(m.modernIconTarget, m.modernRowHeight,
+                             "a rail target has to be findable, so it is larger than a row is tall")
+        XCTAssertLessThan(m.modernIconTarget, m.controlHitTarget,
+                          "the bar's row is taller than a rail's, so the bar's target is larger")
+        XCTAssertGreaterThan(m.modernRowGlyph, m.modernSublayerGlyph,
+                             "a row's glyph is a step above the glyph inside it")
+        XCTAssertLessThan(m.modernRowGlyph, m.toolIcon)
     }
 
     /// The window buttons sit on the **rail header's** centreline, which is

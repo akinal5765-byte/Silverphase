@@ -64,6 +64,36 @@ final class SelectionModelTests: XCTestCase {
         XCTAssertEqual(session.selection, urls[3], "a plain click did not open the frame")
     }
 
+    func testModernBatchGridTracksMultiplePicksAndKeepsPhotoNavigator() throws {
+        let (session, urls) = try openedSession()
+        session.click(urls[0])
+        session.selectInspectorStage(.film)
+        XCTAssertTrue(session.modernFilmChooserActive)
+        XCTAssertFalse(session.modernBatchGridActive)
+
+        session.click(urls[1], command: true)
+        XCTAssertEqual(session.selectedFrames, [urls[0], urls[1]])
+        XCTAssertTrue(session.modernBatchGridActive)
+        XCTAssertFalse(session.modernFilmChooserActive,
+                       "The photo navigator must remain available for batch selection")
+
+        session.open(urls[1])
+        XCTAssertEqual(session.selectedFrames, [urls[0], urls[1]])
+        XCTAssertTrue(session.modernBatchGridActive)
+        session.click(urls[1])
+        XCTAssertFalse(session.modernBatchGridActive)
+        XCTAssertTrue(session.modernFilmChooserActive)
+
+        // A plain click is a **pick**: it replaces the batch with the frame
+        // it named. ⌘-click then grows it again, and the contact sheet
+        // follows the batch rather than any mode.
+        XCTAssertEqual(session.selectedFrames, [urls[1]])
+        session.click(urls[0], command: true)
+        XCTAssertEqual(session.selectedFrames, [urls[0], urls[1]],
+                       "⌘-click toggles membership without moving the canvas")
+        XCTAssertTrue(session.modernBatchGridActive)
+    }
+
     /// The export-page gesture opens a picked frame without changing the batch.
     func testOpeningAnExportCellMovesSelectionAndLeavesPickedUnchanged() throws {
         let (session, urls) = try openedSession()
@@ -108,6 +138,38 @@ final class SelectionModelTests: XCTestCase {
         session.click(urls[3], command: true)
         session.click(urls[3], command: true)
         XCTAssertEqual(session.selectedFrames, [urls[0]])
+    }
+
+    func testShiftSelectsInclusiveRangeWithoutMovingViewedFrame() throws {
+        let (session, urls) = try openedSession()
+        session.click(urls[0])
+        session.click(urls[3], shift: true)
+        XCTAssertEqual(session.selectedFrames, urls)
+        XCTAssertEqual(session.selection, urls[0])
+
+        // The original anchor remains fixed: moving the range end narrows it.
+        session.click(urls[2], shift: true)
+        XCTAssertEqual(session.selectedFrames, Array(urls[0...2]))
+        XCTAssertEqual(session.selection, urls[0])
+
+        session.click(urls[2])
+        session.click(urls[0], shift: true)
+        XCTAssertEqual(session.selectedFrames, Array(urls[0...2]))
+        XCTAssertEqual(session.selection, urls[2])
+    }
+
+    func testCommandShiftAddsRangeAndPlainClickResetsAnchor() throws {
+        let (session, urls) = try openedSession()
+        session.click(urls[0])
+        session.click(urls[2], command: true)
+        session.click(urls[3], command: true, shift: true)
+        XCTAssertEqual(session.selectedFrames, [urls[0], urls[2], urls[3]])
+        XCTAssertEqual(session.selection, urls[0])
+
+        session.click(urls[1])
+        session.click(urls[3], shift: true)
+        XCTAssertEqual(session.selectedFrames, Array(urls[1...3]))
+        XCTAssertEqual(session.selection, urls[1])
     }
 
     /// The open frame can never leave the set, however it is clicked.

@@ -27,21 +27,6 @@ import Foundation
 import Observation
 import SwiftUI
 
-enum EditorLayoutStyle: String, CaseIterable, Identifiable, Sendable {
-    case modern, traditional
-
-    var id: String { rawValue }
-
-    nonisolated func label(in language: Language) -> String {
-        switch (self, language) {
-        case (.modern, .simplifiedChinese): "现代"
-        case (.traditional, .simplifiedChinese): "传统"
-        case (.modern, .english): "Modern"
-        case (.traditional, .english): "Traditional"
-        }
-    }
-}
-
 @MainActor
 @Observable
 final class Session: CanvasHost {
@@ -60,6 +45,8 @@ final class Session: CanvasHost {
     /// reason the export run can walk a batch without eating it. Writable from
     /// a view, this would be a fifth notion of "selected".
     private(set) var picked: Set<URL> = []
+    /// Last direct pick; range gestures keep this fixed until another direct pick.
+    private var pickAnchor: URL?
 
     /// Every picked frame, **in display order**.
     ///
@@ -74,6 +61,9 @@ final class Session: CanvasHost {
     /// ⌘-click must be able to grow this set without moving it (`notes.md`:
     /// "the viewed image stays as the one the user is previously on").
     var selectedFrames: [URL] { frames.map(\.id).filter(picked.contains) }
+
+    /// The canvas becomes a contact sheet only for an actual batch.
+    var modernBatchGridActive: Bool { selectedFrames.count > 1 }
 
     /// Membership alone. The export page's grids want this and not `framing`:
     /// they draw every chosen frame the same way (`notes.md`) rather than
@@ -344,24 +334,16 @@ final class Session: CanvasHost {
     // It just does not outlive it.
     var leftCollapsed = true
     var rightCollapsed = true
-    /// The right-hand Film stage is the Modern material-selection mode.
-    var modernFilmChooserActive: Bool {
-        interfaceLayout == .modern && !rightCollapsed && inspectorStage == .film
-    }
-    var interfaceLayout = EditorLayoutStyle(rawValue: UserDefaults.standard.string(forKey: Session.uiKey + "editorLayout") ?? "") ?? .modern {
-        didSet {
-            UserDefaults.standard.set(interfaceLayout.rawValue, forKey: Session.uiKey + "editorLayout")
-            if interfaceLayout == .traditional {
-                leftCollapsed = false
-                rightCollapsed = false
-            } else {
-                leftCollapsed = true
-                rightCollapsed = true
-            }
-        }
-    }
+    /// **Which physical stage the rail is showing.** The rail shows one at a
+    /// time; the tool bar's stage buttons and this property are the only way
+    /// it changes.
     var inspectorStage: InspectorStage = .camera
-
+    /// The right-hand Film stage is the material-selection mode: the bottom
+    /// slot becomes the film and paper chooser instead of the navigator.
+    var modernFilmChooserActive: Bool {
+        !modernBatchGridActive && !showExport
+            && !rightCollapsed && inspectorStage == .film
+    }
     func setCanvasOcclusion(left: CGFloat, right: CGFloat,
                             top: CGFloat = 0, bottom: CGFloat = 0) {
         let old = renderer.viewport
@@ -373,7 +355,9 @@ final class Session: CanvasHost {
     }
 
     func selectInspectorStage(_ stage: InspectorStage) {
-        if !rightCollapsed && inspectorStage == stage {
+        let wasExporting = showExport
+        showExport = false
+        if !wasExporting && !rightCollapsed && inspectorStage == stage {
             rightCollapsed = true
         } else {
             inspectorStage = stage
@@ -940,6 +924,9 @@ final class Session: CanvasHost {
     private var developTask: Task<String?, Never>?
     /// The decode in flight. `ensureDeveloped` waits on it; a reopen replaces it.
     private var loadTask: Task<Void, Never>?
+    /// A restored print is shown immediately, then its engine session is
+    /// prepared after a short navigation debounce. A later click cancels it.
+    private var restoredPrintTask: Task<Void, Never>?
     /// The single-flight frame pipeline (IMP §3, step 1). Every heavy stage of
     /// a load — RAW decode, preview render, native original — runs on its one
     /// serial queue under a generation that a frame switch supersedes.
@@ -1008,6 +995,7 @@ final class Session: CanvasHost {
         let cache = diskCache ?? (try? DiskCacheStore(root: Self.diskCacheRoot,
                                                      capBytes: diagnostics.diskCacheCapBytes))
         self.diskCache = cache
+        ThumbnailCache.shared.useDiskCache(cache)
         self.printWriteback = cache.map { PrintWriteback(store: $0) }
         // The engine is in this process now (RFC-014): no subprocess, no
         // workspace directory, and no walking up to a checkout's `.venv`. It
@@ -1052,10 +1040,6 @@ final class Session: CanvasHost {
         Task { await client.set(onTermination: { [weak self] reason in
             Task { @MainActor in self?.serviceReady = false; self?.status = reason; self?.lastError = reason }
         }) }
-        if interfaceLayout == .traditional {
-            leftCollapsed = false
-            rightCollapsed = false
-        }
         bootTask = warmUp()
     }
 
@@ -1282,6 +1266,7 @@ final class Session: CanvasHost {
         // the count would disagree with the set. Dropped here, at the one
         // point where `frames` is replaced.
         picked = []
+        pickAnchor = nil
         // One file is a handoff — Finder's "Open With", a Capture One "Edit
         // With", a single drop — and it means "develop this".
         //
@@ -1308,6 +1293,7 @@ final class Session: CanvasHost {
     /// where it went, because it is also what `remove(_:)` calls when the
     /// open frame is the one dropped.
     private func unloadSelection() {
+        restoredPrintTask?.cancel(); restoredPrintTask = nil
         if let selection { enqueuePrintWriteback(for: selection) }
         selection = nil
         renderer.store.dropIdleScratch()
@@ -1357,6 +1343,7 @@ final class Session: CanvasHost {
         frames.removeAll { $0.id == url }
         frameStates[url] = nil
         picked.remove(url)
+        if pickAnchor == url { pickAnchor = selection == url ? nil : selection }
         renderer.store.invalidatePrint(for: url)
         if frames.isEmpty {
             selection = nil
@@ -1382,20 +1369,34 @@ final class Session: CanvasHost {
     /// collapsing whatever set there was, and opens it; ⌘-click toggles one
     /// frame's membership and **leaves the canvas where it is**, which is what
     /// `notes.md` asks for ("the viewed image stays as the one the user is
-    /// previously on"). There is no ⇧-click and no range extension: the two
-    /// modifiers this app has are the two that change one frame at a time, so
-    /// a stray ⇧-click does nothing rather than silently adding a range.
+    /// previously on"). ⇧-click replaces the picked set with the inclusive
+    /// range from the last direct pick; ⌘⇧-click adds that range. Both leave
+    /// the viewed frame in place and in the set.
     ///
     /// The modifier is a parameter and not read off `NSEvent` in here, so that
     /// what a ⌘-click does is testable without synthesising one — the reading
     /// itself stays in the gesture, once, at each call site.
-    func click(_ url: URL, command: Bool = false) {
+    func click(_ url: URL, command: Bool = false, shift: Bool = false) {
+        guard frames.contains(where: { $0.id == url }) else { return }
+        if shift {
+            let anchor = pickAnchor ?? selection ?? url
+            guard let start = frames.firstIndex(where: { $0.id == anchor }),
+                  let end = frames.firstIndex(where: { $0.id == url }) else { return }
+            let range = Set(frames[min(start, end)...max(start, end)].map(\.id))
+            // An additive range leaves existing picks alone; a plain range
+            // replaces them, but always keeps the displayed frame in the set.
+            picked = command ? picked.union(range) : range.union(selection.map { [$0] } ?? [])
+            pickAnchor = anchor
+            return
+        }
         guard command else {
             picked = [url]
+            pickAnchor = url
             select(url)
             return
         }
         togglePick(url)
+        pickAnchor = url
     }
 
     /// One frame in or out of the set, canvas unmoved.
@@ -1425,6 +1426,7 @@ final class Session: CanvasHost {
 
     func select(_ url: URL) {
         guard url != selection || decoded == nil else { return }
+        restoredPrintTask?.cancel(); restoredPrintTask = nil
         flushSave()
         renderer.store.dropIdleScratch()
         if let leaving = selection, leaving != url {
@@ -1515,8 +1517,20 @@ final class Session: CanvasHost {
             // on `loadTask`: a load that asked for its own develop would wait
             // on itself. This closure is about to end, so the develop it
             // spawns finds a task that finishes.
-            if wantsDevelop, selection == url, renderer.store.print(for: url) == nil {
-                requestPrint()
+            if wantsDevelop, selection == url {
+                if renderer.store.print(for: url) == nil {
+                    requestPrint()
+                } else if serviceSessionID == nil {
+                    // The disk/live cache is a fast first picture, not a
+                    // reason to leave the selected frame unprepared until
+                    // zoom. Debounce scrubbing across the navigator so only
+                    // the frame the person settles on pays for the decode.
+                    restoredPrintTask = Task { [weak self] in
+                        try? await Task.sleep(for: .milliseconds(200))
+                        guard let self, !Task.isCancelled, self.selection == url else { return }
+                        _ = await self.ensureDeveloped()
+                    }
+                }
             }
         }
         // `prefetchNeighbours(of:)` was deleted here (IMPL-decode-pipeline §4).
@@ -1799,13 +1813,18 @@ final class Session: CanvasHost {
         )
     }
 
-    nonisolated static func printCacheKey(url: URL, params: FilmParams, tier: CacheTier,
+    nonisolated static func printCacheKey(url: URL, params: FilmParams,
+                                          decode: DecodeSettings, tier: CacheTier,
                                           previewLongEdge: Int,
                                           engineVersion: String) -> CacheKey {
         CacheKey(
             kind: tier == .live ? .printLive : .printFull,
             sourceIdentity: CacheKey.sourceIdentity(for: url),
-            configuration: printStamp(params),
+            // The engine sees the linear decode. A white-balance or lens
+            // correction edit changes that input even when film params do
+            // not; omitting it restored an old print until zoom forced a
+            // fresh render.
+            configuration: printStamp(params) + "|" + CacheKey.encodedConfiguration(decode),
             tier: tier,
             previewLongEdge: tier == .live ? previewLongEdge : nil,
             engineVersion: engineVersion
@@ -1822,6 +1841,7 @@ final class Session: CanvasHost {
         let key = Self.printCacheKey(
             url: url,
             params: sidecar.params,
+            decode: sidecar.decode,
             tier: .live,
             previewLongEdge: previewLongEdge,
             engineVersion: diagnostics.engineVersion ?? "unknown"
@@ -2377,7 +2397,7 @@ final class Session: CanvasHost {
         let firstPrint = renderer.store.print(for: url) == nil
         let sourceSize = decoded?.pixelSize
         let printKey = Self.printCacheKey(
-            url: url, params: scheduler.sent, tier: .live,
+            url: url, params: scheduler.sent, decode: sidecar.decode, tier: .live,
             previewLongEdge: previewLongEdge,
             engineVersion: diagnostics.engineVersion ?? "unknown"
         )
@@ -2472,7 +2492,11 @@ final class Session: CanvasHost {
     }
 
     private func updateThumbnail(_ url: URL, from tex: MTLTexture) {
-        let maxEdge = 320
+        // A 640 px edge remains sharp in the 240 pt batch grid on Retina and
+        // is still tiny compared with the live print this is derived from.
+        let maxEdge = 640
+        let edit = sidecar
+        let ticket = ThumbnailCache.shared.beginRenderedThumbnail(for: url)
         let long = max(tex.width, tex.height)
         let source: MTLTexture
         if long > maxEdge {
@@ -2493,7 +2517,9 @@ final class Session: CanvasHost {
                                       space: ImageDecoder.displayP3, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return }
             ctx.interpolationQuality = .high
             ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
-            if let small = ctx.makeImage() { ThumbnailCache.shared.store(small, for: url) }
+            if let small = ctx.makeImage() {
+                ThumbnailCache.shared.store(small, for: url, edit: edit, ticket: ticket)
+            }
             await MainActor.run { NotificationCenter.default.post(name: .thumbnailUpdated, object: url) }
         }
     }
@@ -2527,7 +2553,9 @@ final class Session: CanvasHost {
     /// is why this needs no confirmation and why the caption says so.
     func clearDiskCacheNow() {
         guard let diskCache else { return }
+        ThumbnailCache.shared.clear()
         Task { [weak self] in
+            await ThumbnailCache.shared.finishPendingDiskWrites()
             try? await diskCache.clearAll()
             let bytes = (try? await diskCache.totalBytes()) ?? 0
             await MainActor.run { self?.diskCacheBytes = bytes }
@@ -2542,6 +2570,7 @@ final class Session: CanvasHost {
     }
 
     private func scheduleReopen() {
+        restoredPrintTask?.cancel(); restoredPrintTask = nil
         reopenTask?.cancel()
         reopenTask = Task {
             try? await Task.sleep(for: .milliseconds(350))
@@ -3338,7 +3367,7 @@ final class Session: CanvasHost {
                   let tex = outcome.texture, let w = r.width, let h = r.height else { return }
             let sourceSize = decoded?.pixelSize
             let key = Self.printCacheKey(
-                url: url, params: scheduler.sent, tier: .full,
+                url: url, params: scheduler.sent, decode: sidecar.decode, tier: .full,
                 previewLongEdge: previewLongEdge,
                 engineVersion: diagnostics.engineVersion ?? "unknown"
             )

@@ -64,16 +64,10 @@ struct CompareOverlay: View {
         .allowsHitTesting(session.comparing)
     }
 
-    /// Where "After" goes: its corner, unless the canvas's status badges are
-    /// there too — which they are whenever the picture reaches the canvas's
-    /// right edge, i.e. at any zoom past fit. Then it sits below them.
-    private func afterY(_ y: CGFloat, right: CGFloat, width: CGFloat) -> CGFloat {
-        guard session.interfaceLayout == .traditional else { return y }
-        let badges = session.canvasBadges.count
-        guard badges > 0, width - right < CanvasBadges.reservedWidth else { return y }
-        let stack = CanvasBadges.inset + CGFloat(badges) * (CanvasBadges.height + CanvasBadges.spacing)
-        return max(y, stack + CanvasBadges.height / 2 + CanvasBadges.spacing)
-    }
+    /// Where "After" goes: the picture's own corner. The Traditional layout
+    /// drew a second badge stack there and this moved the label below it;
+    /// that layout is gone, and with it the collision.
+    private func afterY(_ y: CGFloat, right: CGFloat, width: CGFloat) -> CGFloat { y }
 
     /// The split's x in view points.
     private func lineX(_ v: ViewportState) -> CGFloat {
@@ -88,7 +82,7 @@ struct CompareOverlay: View {
                 Image(systemName: "arrowtriangle.left.fill")
                 Image(systemName: "arrowtriangle.right.fill")
             }
-            .font(.system(size: 7))
+            .font(.system(size: Theme.Metric.tinyGlyph))
             .foregroundStyle(Theme.selectionFrame)
         }
         .frame(width: CompareOverlay.handle * 2, height: CompareOverlay.handle * 2)
@@ -115,16 +109,4 @@ struct CompareOverlay: View {
                 session.comparePosition = Double((g.location.x - v.offset.x) / span)
             }
     }
-}
-
-/// The geometry of the canvas's top-right badge stack (`EditorWindow`), shared
-/// with the one overlay that has to stay out of its way.
-enum CanvasBadges {
-    static let inset: CGFloat = 8
-    static let spacing: CGFloat = 4
-    /// A caption-size capsule: the font's line plus 2 pt above and below.
-    static let height: CGFloat = 18
-    /// How far in from the canvas's right edge the stack can reach — its
-    /// widest badge, "full resolution…", plus the inset, with a margin.
-    static let reservedWidth: CGFloat = 150
 }

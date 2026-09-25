@@ -17,7 +17,8 @@
 //  repaint the interface. The lookup itself is `L(_:)` in that file — read the
 //  note there about why every call goes through this class.
 //
-//  Read `design/LOCALIZATION-zh-Hans.md` before adding copy. It is the spec for
+//  Read `design/UI-SPEC.md` §7 before adding copy — the term table, the range
+//  that deliberately stays English, and the five hard rules. It is the spec for
 //  what is translated and, just as much, for what is deliberately not.
 
 import Foundation

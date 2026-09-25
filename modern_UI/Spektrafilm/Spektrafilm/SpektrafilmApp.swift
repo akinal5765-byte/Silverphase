@@ -284,6 +284,14 @@ struct SnapshotRequest {
     /// transition have one.
     var export = false
     var exportGrid = false
+    /// `--export-rail` — capture the Modern editor with its **export
+    /// inspector** open, instead of the export page's own window.
+    ///
+    /// The same view serves two homes (`ExportPage(compact:)`), and the two
+    /// are only comparable in one capture: the rail draws beside the
+    /// parameter inspector and has to read as the same material, while the
+    /// window draws alone. Nothing else can photograph that pair.
+    var exportRail = false
     /// `--folded left|right|both` — capture with a rail folded.
     ///
     /// The 2026-09-17 PRD makes one requirement about state rather than
@@ -329,7 +337,8 @@ struct SnapshotRequest {
             r.printAfter = s
         }
         r.exportGrid = args.contains("--export-grid")
-        r.export = r.exportGrid || args.contains("--export")
+        r.exportRail = args.contains("--export-rail")
+        r.export = (r.exportGrid || args.contains("--export")) && !r.exportRail
         if let j = args.firstIndex(of: "--compare") {
             r.compare = args.count > j + 1 ? (Double(args[j + 1]) ?? 0.5) : 0.5
         }
@@ -462,6 +471,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         session.leftCollapsed = req.foldLeft
         session.rightCollapsed = req.foldRight
         if let stage = req.inspectorStage { session.inspectorStage = stage }
+        if req.exportRail { session.showExport = true }
         session.filmstripCollapsed = false
         // The same trap, one door along: a **rail width** persists too, and a
         // rail dragged to 328 in some earlier session makes every capture

@@ -23,35 +23,53 @@
 
 import SwiftUI
 
-private struct ModernPanelChromeKey: EnvironmentKey {
-    static let defaultValue = false
-}
+/// The pinned stage title shared by the Modern inspector and export page.
+/// Content-block titles and their actions scroll beneath it.
+struct StageHeader<Trailing: View>: View {
+    let title: String
+    @ViewBuilder var trailing: () -> Trailing
 
-extension EnvironmentValues {
-    var modernPanelChrome: Bool {
-        get { self[ModernPanelChromeKey.self] }
-        set { self[ModernPanelChromeKey.self] = newValue }
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: Theme.Metric.space8) {
+                Text(title)
+                    .font(Theme.Font.modernSectionTitle)
+                    .foregroundStyle(Theme.Ink.primary)
+                    .lineLimit(1)
+                Spacer(minLength: Theme.Metric.space8)
+                trailing()
+            }
+            .padding(.horizontal, Theme.Metric.modernContentInset)
+            .frame(height: Theme.Metric.modernHeaderHeight)
+            Hairline()
+        }
     }
 }
 
-/// The four numbers a section row is drawn with. A default-constructed one is
-/// the editor's rails; the export page's drawing has tighter rows and a
-/// heavier title, so it passes its own (`Theme.Metric.Export` and
-/// `Theme.Font.Export`).
-struct SectionMetrics {
-    /// The left rail: 12 pt titles.
-    static let left = SectionMetrics()
-    /// The right rail: 10.5 pt titles, everything else the same.
-    static let right = SectionMetrics(titleFont: Theme.Font.rightSectionTitle)
+/// A stage header with nothing beside its name; actions belong to its blocks.
+struct BareStageHeader: View {
+    let title: String
+    var body: some View {
+        StageHeader(title: title) { EmptyView() }
+    }
+}
 
-    var headerHeight: CGFloat = Theme.Metric.headerHeight
-    /// Air between the header and the content under it. **Zero on the
-    /// editor's rails**: `headerHeight` was measured from one hairline to the
-    /// content below it, so the gap is already inside it.
-    var headerToWell: CGFloat = 0
-    /// Air under the content, before the next hairline.
-    var wellToHeader: CGFloat = Theme.Metric.sectionBottom
-    var titleFont: Font = Theme.Font.leftSectionTitle
+/// A menu button for pages that still place actions in their pinned header.
+struct StageHeaderMenu: View {
+    let menu: AnyView
+    var body: some View {
+        Menu { menu } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: Theme.Metric.panelIcon - 2, weight: .semibold))
+                .foregroundStyle(Theme.text)
+                .frame(width: Theme.Metric.controlHitTarget,
+                       height: Theme.Metric.controlHitTarget)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+        .help(L(.helpSectionMenu))
+        .padding(.trailing, -Theme.Metric.space4)
+    }
 }
 
 /// A direct affordance on a section header, beside its menu. v3 draws one on
@@ -71,32 +89,44 @@ struct SectionAction {
 }
 
 struct SectionHeader: View {
-    let title: String
+    /// Nil is supported for older callers; Modern content blocks use titles.
+    let title: String?
+    /// Kept for the callers that still pass a name (the export page's own
+    /// sections, and every settings/harness caller).
+    init(title: String?, systemImage: String? = nil, expanded: Binding<Bool>,
+         action: SectionAction? = nil, menu: (() -> AnyView)? = nil) {
+        self.title = title
+        self.systemImage = systemImage
+        self._expanded = expanded
+        self.action = action
+        self.menu = menu
+    }
     var systemImage: String? = nil
     @Binding var expanded: Bool
     var action: SectionAction? = nil
     var menu: (() -> AnyView)? = nil
-    var metrics = SectionMetrics()
 
     @State private var hovered = false
-    @Environment(\.modernPanelChrome) private var modernPanelChrome
 
-    @ViewBuilder
-    var body: some View {
-        if modernPanelChrome {
-            modernHeader
-        } else {
-            traditionalHeader
-        }
-    }
+    var body: some View { modernHeader }
 
+    /// A content-block header: title and optional actions, 40 pt tall.
+    ///
+    /// **No disclosure triangle**, and that is the layout rather than a gap:
+    /// the inspector shows one physical stage at a time and the tool bar's
+    /// stage buttons change it, so a section here is the whole panel and has
+    /// nothing to fold away from. `PanelSection` therefore keeps its content
+    /// whatever the stored expansion says, and drawing a triangle would be a
+    /// control that reports a state it never keeps.
     private var modernHeader: some View {
-        HStack(spacing: 8) {
-            Text(title)
-                .font(Theme.Font.leftSectionTitle)
-                .foregroundStyle(Theme.text)
-                .lineLimit(1)
-            Spacer(minLength: 4)
+        HStack(spacing: Theme.Metric.space8) {
+            if let title {
+                Text(title)
+                    .font(Theme.Font.modernSectionTitle)
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: Theme.Metric.space4)
             if let menu {
                 Menu {
                     if let action {
@@ -107,9 +137,10 @@ struct SectionHeader: View {
                     menu()
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: Theme.Metric.panelIcon - 2, weight: .semibold))
                         .foregroundStyle(Theme.text)
-                        .frame(width: 28, height: 28)
+                        .frame(width: Theme.Metric.controlHitTarget,
+                               height: Theme.Metric.controlHitTarget)
                         .contentShape(Rectangle())
                 }
                 .menuStyle(.button)
@@ -128,89 +159,6 @@ struct SectionHeader: View {
         .frame(height: 40)
     }
 
-    private var traditionalHeader: some View {
-        HStack(spacing: 0) {
-            // The triangle is **ink, not a button**: the whole row opens and
-            // closes the section (UI-SPEC §3.7). A 30 pt row whose only live
-            // part is the 18 pt glyph is the "looks pressable where it is not"
-            // problem in reverse.
-            Triangle()
-                .stroke(Theme.text, style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
-                .frame(width: Theme.Metric.disclosure.width, height: Theme.Metric.disclosure.height)
-                .rotationEffect(.degrees(expanded ? 0 : -90))
-                .frame(width: 18, height: 18)
-                .padding(.leading, Theme.Metric.headerLeading)
-                .allowsHitTesting(false)
-            if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Theme.text)
-                    .frame(width: Theme.Metric.sectionIcon + 4, height: Theme.Metric.sectionIcon)
-                    .padding(.leading, 8)
-            }
-            Text(title)
-                .font(metrics.titleFont)
-                .foregroundStyle(Theme.text)
-                .padding(.leading, Theme.Metric.headerTitleGap)
-                .lineLimit(1)
-            Spacer(minLength: 4)
-            if let action {
-                Button(action: action.perform) {
-                    Image(systemName: action.systemImage)
-                        .font(.system(size: Theme.Metric.resetIcon, weight: .regular))
-                        .foregroundStyle(Theme.text)
-                        // 9 pt of ink inside a 26 pt target: §3 and §6 both
-                        // require the hit region to be independent of how
-                        // small the drawing sets the glyph.
-                        .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .rowEnabled(action.enabled)
-                .help(action.help)
-            }
-            if let menu {
-                Menu { menu() } label: {
-                    // The dots are 15×3 of ink; the **target** is the rail's
-                    // 26 pt square, the same one the reset arrow beside it
-                    // keeps. It used to be 31×19 — the ink plus its own 8 pt
-                    // padding — which is not a size anything else in the
-                    // interface uses, and it had no tooltip at all (button
-                    // audit 2026-09-23: §2.8 asks for both).
-                    EllipsisGlyph()
-                        .frame(width: 15, height: 3)
-                        .frame(width: Theme.Metric.railIconTarget,
-                               height: Theme.Metric.railIconTarget)
-                        .contentShape(Rectangle())
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help(L(.helpSectionMenu))
-                .padding(.trailing, Theme.Metric.headerTrailing - 8)
-            }
-            // **No menu, no glyph.** There used to be an inert `EllipsisGlyph`
-            // here for a section that passes none, because the drawing draws
-            // "..." on every header it has. But it is pixel-for-pixel the live
-            // one, so the only way to learn which is which is to click both —
-            // the same trap as the dotted circle that came off the grade
-            // rail's header, and the user's question about that one was "I
-            // still have no idea what it can do and why it exists". A section
-            // with nothing to put in a menu is better off saying so by being
-            // quiet.
-        }
-        .frame(height: metrics.headerHeight)
-        // A hover wash is the only feedback. The row does not indent, resize,
-        // or brighten its text — a header that moves under the pointer makes a
-        // rail of five sections feel like a stack of loose cards.
-        .background {
-            if hovered { Rectangle().fill(Theme.rowHoverWash) }
-        }
-        .contentShape(Rectangle())
-        .onHover { hovered = $0 }
-        .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } }
-    }
 }
 
 struct Triangle: Shape {
@@ -272,44 +220,64 @@ struct Well<Content: View>: View {
     }
 }
 
-/// A section: header + collapsible well. `expanded` persists per key.
+/// A named content block. Legacy expansion keys remain readable.
 struct PanelSection<Content: View>: View {
     let title: String
+    /// A named content block beneath a pinned stage header. The stage names
+    /// the process step; this names the operation, so the two do not repeat.
+    var blockTitle: String? = nil
     var systemImage: String? = nil
     let key: String
     var initiallyExpanded = true
     var action: SectionAction? = nil
     var menu: (() -> AnyView)? = nil
-    /// See `SectionMetrics` — the editor's panels unless a page says otherwise.
-    var metrics = SectionMetrics()
     @ViewBuilder var content: () -> Content
     @AppStorage private var expanded: Bool
-    @Environment(\.modernPanelChrome) private var modernPanelChrome
 
     init(_ title: String, systemImage: String? = nil, key: String, initiallyExpanded: Bool = true,
+         blockTitle: String? = nil,
          action: SectionAction? = nil,
-         menu: (() -> AnyView)? = nil, metrics: SectionMetrics = SectionMetrics(),
+         menu: (() -> AnyView)? = nil,
          @ViewBuilder content: @escaping () -> Content) {
-        self.title = title; self.systemImage = systemImage; self.key = key
+        self.title = title; self.blockTitle = blockTitle
+        self.systemImage = systemImage; self.key = key
         self.initiallyExpanded = initiallyExpanded; self.action = action
-        self.menu = menu; self.metrics = metrics
+        self.menu = menu
         self.content = content
         _expanded = AppStorage(wrappedValue: initiallyExpanded, Session.uiKey + "section.\(key)")
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            SectionHeader(title: title, systemImage: systemImage, expanded: $expanded,
-                          action: action, menu: menu, metrics: metrics)
-            // A **collapsed** section is its header and nothing else. The
-            // drawing's two shut sections are 30 pt apart, which is the
-            // header, so bottom padding here would put air under a row that
-            // has nothing under it.
-            if expanded || modernPanelChrome {
-                content()
-                    .padding(.top, modernPanelChrome ? 8 : metrics.headerToWell)
-                    .padding(.bottom, metrics.wellToHeader)
-            }
+            SectionHeader(title: blockTitle ?? title, systemImage: systemImage, expanded: $expanded,
+                          action: action, menu: menu)
+            // A floating surface's section is **never collapsed**: the rail
+            // shows one stage at a time and the tool bar's stage buttons
+            // change it, so there is nothing to fold and the header draws no
+            // disclosure (UI-SPEC §3.7). The stored `expanded` key survives
+            // only so an older preferences file still decodes.
+            content()
+                .padding(.top, Theme.Metric.modernHeaderToContent)
+                .padding(.bottom, Theme.Metric.modernSectionBottom)
         }
+    }
+
+}
+
+/// A second or later content block in a stage. The first uses PanelSection's
+/// `blockTitle`; every following block gets the same header rhythm and rule.
+struct InspectorSubblock<Content: View>: View {
+    let title: String
+    var menu: (() -> AnyView)? = nil
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Hairline()
+            SectionHeader(title: title, expanded: .constant(true), menu: menu)
+            content()
+                .padding(.top, Theme.Metric.modernHeaderToContent)
+        }
+        .padding(.top, Theme.Metric.modernSectionBottom)
     }
 }

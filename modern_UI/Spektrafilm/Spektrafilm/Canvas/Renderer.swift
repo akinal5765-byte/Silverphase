@@ -2,7 +2,7 @@
 //  Layer 2 pass used by export.
 //
 //  Draw-on-demand: the MTKView is paused and `needsDisplay` is set on state
-//  change (UI-GUIDELINE §4). Each draw: (1) if Layer 2 or its input changed,
+//  change (UI-SPEC §11.4). Each draw: (1) if Layer 2 or its input changed,
 //  run the `layer2` kernel into `adjusted` and the `histogram` kernel over it;
 //  (2) blit `adjusted` (or the original, while Space is held) to the drawable
 //  through the sampling transform. The histogram buffer is read back on the
@@ -499,7 +499,7 @@ final class Renderer: NSObject {
     /// variants — and setting anything else raises
     /// `CAMetalLayerInvalid: invalid pixel format`. `rgba16Unorm` (110) is a
     /// perfectly good *texture* format and is not on that list; it crashed the
-    /// app on the first real launch. Float16 also matches UI-GUIDELINE §4.
+    /// app on the first real launch. Float16 also matches UI-SPEC §11.4.
     ///
     /// This does not change the colour rule: the layer's colour space is
     /// Display P3 and the values written are already P3-encoded, so ColorSync
@@ -951,7 +951,7 @@ final class Renderer: NSObject {
         cb.present(drawable)
         cb.commit()
         // **The animation asks for its own next frame.** The canvas has no
-        // display link by design (UI-GUIDELINE §4) — it draws when something
+        // display link by design (UI-SPEC §11.4) — it draws when something
         // changes — and a develop is the one thing that changes without being
         // touched. `scheduleDraw` lands on the next runloop turn, so this paces
         // itself to the display rather than to a timer.

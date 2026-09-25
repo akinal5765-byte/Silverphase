@@ -23,7 +23,7 @@ struct SliderMetrics {
 
     var labelWidth: CGFloat = Theme.Metric.sliderLabelWidth
     var valueWidth: CGFloat = Theme.Metric.sliderValueWidth
-    var rowHeight: CGFloat = Theme.Metric.rowHeight
+    var rowHeight: CGFloat = Theme.Metric.gridRow
     var trackHeight: CGFloat = Theme.Metric.trackHeight
     var labelFont: Font = Theme.Font.label
     var valueFont: Font = Theme.Font.value
@@ -76,7 +76,16 @@ struct ScrubSlider: View {
                 valueField
                     .frame(width: metrics.valueWidth)
             }
-            .frame(height: metrics.rowHeight)
+            // **The ink band.** Every row of every table puts its control's
+            // ink in a `gridControl`-tall band at the top of a `gridRow`-tall
+            // box, so two rows read as the same distance apart whatever kind
+            // of control they hold: a pill's fill is 16 pt, a slider's knob 9,
+            // a readout's text 10 — centred in the same 16 the *visible* gap
+            // below each row is the same. Top-aligning the ink to the row box
+            // instead (option A on its own) left a pill 3 pt closer to the row
+            // below than a text line.
+            .frame(height: Theme.Metric.gridControl)
+            .frame(height: metrics.rowHeight, alignment: .top)
             // The second line is the drawing's own: "As Shot" and its box sit
             // **under the label**, not beside the value, so they line up with
             // the label column rather than floating in the middle of the row.
@@ -206,7 +215,7 @@ struct ScrubSlider: View {
         }
         .lineLimit(1)
         .frame(maxWidth: .infinity)
-        .frame(height: metrics.valueInPill ? Theme.Metric.controlHeight : nil)
+        .frame(height: metrics.valueInPill ? Theme.Metric.gridControl : nil)
         // The value box is the same material as every pill and field; Camera's
         // rows show the number as plain text and so opt out of the surface.
         .modifier(ValueBoxSurface(inPill: metrics.valueInPill, hovered: hovered, pressed: editing))
@@ -281,9 +290,19 @@ struct CheckBox: View {
                                   lineWidth: 1)
             }
             .frame(width: Theme.Metric.checkbox, height: Theme.Metric.checkbox)
-            .frame(width: Theme.Metric.controlHitTarget, height: Theme.Metric.controlHitTarget)
+            // **A `gridControl` box, a 28 pt target.** The frame used to be
+            // the 28 pt target, which made every row that carries a checkbox
+            // 28 pt tall; it is the ink band now — the same 16 every other
+            // control fills — and the target is a shape the row's overlay
+            // tests against, which the layout does not pay for.
+            .frame(width: Theme.Metric.gridControl, height: Theme.Metric.gridControl)
             .contentShape(Rectangle())
         }
+        // The pointer's region, which is wider than the ink: `contentShape`
+        // above is the box, and this is what the *row* tests against, so the
+        // 6 pt around the box belong to the control rather than to the label.
+        .contentShape(Rectangle()
+            .inset(by: -(Theme.Metric.controlHitTarget - Theme.Metric.checkbox) / 2))
         .buttonStyle(.plain)
     }
 }
@@ -333,8 +352,10 @@ struct ToggleRow: View {
                 .padding(.trailing, -(Theme.Metric.controlHitTarget - Theme.Metric.checkbox) / 2)
         }
         // A row with a sublabel is two lines and sizes itself; one without is
-        // the drawing's fixed row, unchanged.
-        .frame(height: sublabel.isEmpty ? Theme.Metric.toggleRowHeight : nil)
+        // the grid's row, with its ink in the same band every other row uses.
+        .frame(height: sublabel.isEmpty ? Theme.Metric.gridControl : nil)
+        .frame(height: sublabel.isEmpty ? Theme.Metric.toggleRowHeight : nil,
+               alignment: sublabel.isEmpty ? .top : .center)
         .frame(minHeight: sublabel.isEmpty ? nil : Theme.Metric.toggleRowHeight)
         .rowEnabled(enabled, because: reason)
         .modifier(DisabledReason(show: !help.isEmpty, reason: help))

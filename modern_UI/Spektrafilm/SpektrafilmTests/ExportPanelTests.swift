@@ -41,6 +41,40 @@ final class ExportPanelTests: XCTestCase {
         try await super.tearDown()
     }
 
+    func testModernExportIsACompactSettingsPanelWithoutTheOldPreviewRails() {
+        let host = NSHostingView(rootView: ExportPage(session: Session(), compact: true)
+            .frame(width: Theme.Metric.modernExportPanelWidth, height: 580))
+        host.frame = CGRect(x: 0, y: 0, width: Theme.Metric.modernExportPanelWidth, height: 580)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertEqual(host.fittingSize.width, Theme.Metric.modernExportPanelWidth, accuracy: 1)
+        XCTAssertEqual(host.fittingSize.height, 580, accuracy: 1)
+
+        func bands(in view: NSView) -> [HoverBand.Band] {
+            (view as? HoverBand.Band).map { [$0] } ?? view.subviews.flatMap(bands(in:))
+        }
+        XCTAssertTrue(bands(in: host).isEmpty,
+                      "modern export should not mount the legacy preview's folding rail")
+    }
+
+    func testTransitionalPhotoSizeDoesNotCrashMountedExportPanel() {
+        XCTAssertNil(ExportPage.formattedPixelSize(.zero))
+        XCTAssertNil(ExportPage.formattedPixelSize(CGSize(width: CGFloat.nan, height: 3000)))
+        XCTAssertNil(ExportPage.formattedPixelSize(CGSize(width: 4000, height: CGFloat.infinity)))
+        XCTAssertNil(OutputSize.longEdge(2048).pixels(for: CGSize(width: CGFloat.nan, height: 3000)))
+        XCTAssertEqual(ExportPage.formattedPixelSize(CGSize(width: 4000, height: 3000)),
+                       "4000 × 3000 px")
+
+        // Selection changes before its decode supplies source dimensions.
+        // Rendering the still-open rail used to force an invalid Int bridge.
+        let session = Session()
+        session.selection = URL(fileURLWithPath: "/tmp/next-photo.ARW")
+        let host = NSHostingView(rootView: ExportPage(session: session, compact: true)
+            .frame(width: Theme.Metric.modernExportPanelWidth, height: 580))
+        host.frame = CGRect(x: 0, y: 0, width: Theme.Metric.modernExportPanelWidth, height: 580)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(host.fittingSize.height, 0)
+    }
+
     /// Host the page in a window and hand back the **pill's** leading edge, in
     /// window coordinates so two hosts can be compared.
     ///

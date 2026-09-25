@@ -53,73 +53,33 @@ enum InspectorStage: String, CaseIterable, Identifiable {
 
 struct RightPanel: View {
     @Bindable var session: Session
-    var traditional = false
-
+    /// Stage identity stays pinned; its operation blocks scroll below.
     var body: some View {
         VStack(spacing: 0) {
-            if traditional {
-                header
-                Hairline()
-            }
+            // Keep the stage title visible while its content blocks scroll.
+            StageHeader(title: session.inspectorStage.title) { EmptyView() }
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    if traditional {
-                        CameraSection(session: session)
-                        Hairline()
-                        FilmSection(session: session, part: .params)
-                        Hairline()
-                        DevelopmentSection(session: session)
-                        Hairline()
-                        PrintProfileSection(session: session, part: .params)
-                        Hairline()
-                        ScanOutputSection(session: session)
-                        Hairline()
+                    switch session.inspectorStage {
+                    case .camera: CameraSection(session: session)
+                    case .film: FilmSection(session: session, part: .params)
+                    case .development: DevelopmentSection(session: session)
+                    case .print: PrintProfileSection(session: session, part: .params)
+                    case .output: ScanOutputSection(session: session)
+                    case .geometry:
                         CropSection(session: session)
-                        if FeatureFlags.masks { Hairline(); MasksSection(session: session) }
-                    } else {
-                        switch session.inspectorStage {
-                        case .camera: CameraSection(session: session)
-                        case .film: FilmSection(session: session, part: .params)
-                        case .development: DevelopmentSection(session: session)
-                        case .print: PrintProfileSection(session: session, part: .params)
-                        case .output: ScanOutputSection(session: session)
-                        case .geometry:
-                            CropSection(session: session)
-                            if FeatureFlags.masks {
-                                Hairline()
-                                MasksSection(session: session)
-                            }
+                        if FeatureFlags.masks {
+                            Hairline()
+                            MasksSection(session: session)
                         }
                     }
                 }
-                .id(traditional ? "traditional" : session.inspectorStage.rawValue)
-                .padding(.horizontal, traditional ? 0 : Theme.Metric.modernContentInset)
-                .padding(.vertical, traditional ? 0 : Theme.Metric.modernContentInset)
+                .id(session.inspectorStage.rawValue)
+                .padding(.horizontal, Theme.Metric.modernContentInset)
+                .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
             }
-            .environment(\.modernPanelChrome, !traditional)
         }
         .frame(maxHeight: .infinity)
-        .modifier(EditorChromeSurface(modern: !traditional))
-        .onAppear {
-            guard !traditional else { return }
-            let key = session.inspectorStage == .geometry ? "crop" : session.inspectorStage.rawValue
-            UserDefaults.standard.set(true, forKey: Session.uiKey + "section." + key)
-        }
-    }
-
-    private var header: some View {
-        ZStack {
-            Text(L(.railEdit))
-                .font(Theme.Font.railTitle)
-                .foregroundStyle(Theme.text)
-                .frame(maxWidth: .infinity)
-            HStack {
-                SidebarToggle(edge: .trailing, collapsed: $session.rightCollapsed)
-                    .padding(.leading, Theme.Metric.panelHeaderTrailing)
-                Spacer()
-            }
-        }
-        .frame(height: Theme.Metric.panelHeaderHeight)
-        .background(WindowDragHandle())
+        .modifier(EditorChromeSurface())
     }
 }

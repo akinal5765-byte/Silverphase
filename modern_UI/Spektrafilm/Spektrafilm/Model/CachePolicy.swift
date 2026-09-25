@@ -5,6 +5,7 @@ enum CacheKind: String, Codable, Hashable, Sendable {
     case source
     case printLive = "print_live"
     case printFull = "print_full"
+    case thumbnail
 }
 
 enum CacheTier: String, Codable, Hashable, Sendable {

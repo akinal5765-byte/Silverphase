@@ -445,7 +445,7 @@ enum OutputSize: Hashable, Sendable {
     func pixels(for source: CGSize) -> CGSize? {
         guard case .longEdge(let e) = self else { return nil }
         let w = source.width, h = source.height
-        guard w > 0, h > 0 else { return nil }
+        guard w.isFinite, h.isFinite, w > 0, h > 0 else { return nil }
         let scale = CGFloat(e) / max(w, h)
         guard scale < 1 else { return nil }
         return CGSize(width: max(1, (w * scale).rounded()),
@@ -717,7 +717,14 @@ final class ExportRecipeStore {
     /// Nil when everything is fine.
     private(set) var problem: String?
 
-    var selectedID: UUID?
+    var selectedID: UUID? {
+        didSet {
+            if let selectionKey {
+                UserDefaults.standard.set(selectedID?.uuidString, forKey: selectionKey)
+            }
+        }
+    }
+    private let selectionKey: String?
 
     var selected: ExportRecipe? {
         get { recipes.first { $0.id == selectedID } ?? recipes.first }
@@ -739,12 +746,17 @@ final class ExportRecipeStore {
     /// overwrite the user's own recipes, which is not a thing a test may do.
     let url: URL
 
-    init(url: URL = ExportRecipeStore.url) {
+    init(url: URL = ExportRecipeStore.url, selectionKey: String? = nil) {
         self.url = url
+        // The default page remembers its last recipe. An injected test store
+        // remains isolated unless its caller supplies a test-only key.
+        self.selectionKey = selectionKey ?? (url == Self.url ? "export.selectedRecipeID" : nil)
         let loaded = Self.load(from: url)
         recipes = loaded.recipes
         problem = loaded.problem
-        selectedID = recipes.first?.id
+        let saved = self.selectionKey.flatMap { UserDefaults.standard.string(forKey: $0) }
+            .flatMap(UUID.init(uuidString:))
+        selectedID = recipes.contains(where: { $0.id == saved }) ? saved : recipes.first?.id
         // Seed the file on first run, so "set in some separated json" is true
         // from the first launch rather than after the first edit.
         if loaded.problem == nil, !FileManager.default.fileExists(atPath: url.path) { save() }

@@ -61,6 +61,7 @@ final class SessionPrintWritebackTests: XCTestCase {
         let key = Session.printCacheKey(
             url: firstURL,
             params: first.scheduler.sent,
+            decode: first.sidecar.decode,
             tier: .live,
             previewLongEdge: first.previewLongEdge,
             engineVersion: version

@@ -52,10 +52,8 @@ struct CameraSection: View {
 
     var body: some View {
         PanelSection(L(.sectionCamera), key: "camera",
-                     action: SectionAction(help: L(.helpResetFilmExposure)) {
-                         var p = session.params; p.exposureCompensationEV = 0; session.params = p
-                     },
-                     menu: { AnyView(menu) }) {
+                     blockTitle: T("Metering & Exposure", "测光与曝光"),
+                     menu: { AnyView(exposureMenu) }) {
             RailRows {
                 PillMenu(label: L(.cameraMetering),
                          options: AEMethod.offered + (session.aeMethod == .legacy ? [.legacy] : []),
@@ -67,31 +65,38 @@ struct CameraSection: View {
                             value: Binding(get: { session.params.exposureCompensationEV },
                                            set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
                             range: -4...4, snap: 1 / 3, format: { String(format: "%+.1f", $0) })
+            }
+            InspectorSubblock(title: T("White Balance", "白平衡"),
+                              menu: { AnyView(whiteBalanceMenu) }) {
                 WhiteBalanceRows(session: session)
-                ToggleRow(label: L(.cameraLensCorrection),
-                          isOn: Binding(get: { session.decode.lensCorrection },
-                                        set: { session.setLensCorrection($0) }),
-                          enabled: session.lensCorrectionEnabled,
-                          reason: session.lensCorrectionReason)
-                PillMenu(label: L(.cameraDiffusion), options: DiffusionChoice.allCases,
-                         title: { $0.title },
-                         selection: Binding(
-                            get: { DiffusionChoice(rawValue: session.params.cameraDiffusion) ?? .off },
-                            set: { var p = session.params; p.cameraDiffusion = $0.rawValue; session.params = p }))
-                .help(L(.lensFilterHelp))
-                ScrubSlider(label: L(.lensFilterStrength),
-                            value: Binding(get: { session.params.cameraDiffusionStrength },
-                                           set: { var p = session.params; p.cameraDiffusionStrength = $0; session.params = p }),
-                            range: 0.125...2, zero: 0.5, snap: 0.125,
-                            format: { String(format: "%.3g", $0) },
-                            disabled: session.params.cameraDiffusion == "off")
-                ScrubSlider(label: L(.lensHaloRange),
-                            value: Binding(get: { session.params.cameraDiffusionRange },
-                                           set: { var p = session.params; p.cameraDiffusionRange = $0; session.params = p }),
-                            range: 0.5...2, zero: 1, snap: 0.1,
-                            format: { String(format: "%.1f×", $0) },
-                            disabled: session.params.cameraDiffusion == "off")
-                .help(L(.lensHaloRangeHelp))
+            }
+            InspectorSubblock(title: T("Lens & Diffusion", "镜头与柔化")) {
+                RailRows {
+                    ToggleRow(label: L(.cameraLensCorrection),
+                              isOn: Binding(get: { session.decode.lensCorrection },
+                                            set: { session.setLensCorrection($0) }),
+                              enabled: session.lensCorrectionEnabled,
+                              reason: session.lensCorrectionReason)
+                    PillMenu(label: L(.cameraDiffusion), options: DiffusionChoice.allCases,
+                             title: { $0.title },
+                             selection: Binding(
+                                get: { DiffusionChoice(rawValue: session.params.cameraDiffusion) ?? .off },
+                                set: { var p = session.params; p.cameraDiffusion = $0.rawValue; session.params = p }))
+                    .help(L(.lensFilterHelp))
+                    ScrubSlider(label: L(.lensFilterStrength),
+                                value: Binding(get: { session.params.cameraDiffusionStrength },
+                                               set: { var p = session.params; p.cameraDiffusionStrength = $0; session.params = p }),
+                                range: 0.125...2, zero: 0.5, snap: 0.125,
+                                format: { String(format: "%.3g", $0) },
+                                disabled: session.params.cameraDiffusion == "off")
+                    ScrubSlider(label: L(.lensHaloRange),
+                                value: Binding(get: { session.params.cameraDiffusionRange },
+                                               set: { var p = session.params; p.cameraDiffusionRange = $0; session.params = p }),
+                                range: 0.5...2, zero: 1, snap: 0.1,
+                                format: { String(format: "%.1f×", $0) },
+                                disabled: session.params.cameraDiffusion == "off")
+                    .help(L(.lensHaloRangeHelp))
+                }
             }
         }
     }
@@ -111,12 +116,14 @@ struct CameraSection: View {
     /// eyedropper on a row of their own. The drawing's Camera section is five
     /// rows and none of them is that row — so they are here, in the "•••" the
     /// drawing *does* give every section.
-    private var menu: some View {
+    private var exposureMenu: some View {
+        Button(L(.helpResetFilmExposure)) {
+            var p = session.params; p.exposureCompensationEV = 0; session.params = p
+        }
+    }
+
+    private var whiteBalanceMenu: some View {
         Group {
-            Button(L(.helpResetFilmExposure)) {
-                var p = session.params; p.exposureCompensationEV = 0; session.params = p
-            }
-            Divider()
             Button(L(.helpPickNeutral)) { session.wbPickerActive.toggle() }
                 .disabled(session.selection == nil)
             // The presets are not in the spec's tables, and their names are
@@ -151,30 +158,56 @@ struct AsShotLine: View {
     @Binding var isOn: Bool
     var enabled: Bool
     var body: some View {
-        HStack(spacing: 3) {
-            Text(L(.cameraFilmExposureAsShot)).font(Theme.Font.sublabel).foregroundStyle(Theme.Ink.tertiary)
+        // **The app's one switch shape**: the label on the row's leading edge,
+        // the box on its trailing edge, the whole row clickable
+        // (UI-SPEC §2.12).
+        //
+        // It was a caption with a bare checkbox right after it — the text read
+        // as an explanation and the box as something appended to a sentence,
+        // which is why the user asked why a caption has a switch at all. It
+        // *is* a switch: "this value is the one the camera recorded". What was
+        // wrong was its shape, not its existence.
+        HStack(spacing: 0) {
+            Text(L(.cameraFilmExposureAsShot))
+                .font(Theme.Font.sublabel)
+                .foregroundStyle(Theme.Ink.tertiary)
+            Spacer(minLength: Theme.Metric.space4)
+            // The box's target is wider than its ink, so it is pulled back to
+            // put the *square* on the row's trailing inset.
             CheckBox(isOn: $isOn)
-            Spacer(minLength: 0)
+                .padding(.trailing, -(Theme.Metric.controlHitTarget - Theme.Metric.checkbox) / 2)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { isOn.toggle() }
         .rowEnabled(enabled)
     }
 }
 
-/// The rows of a section, inset and spaced the way the drawing insets and
-/// spaces them: 18 pt from both edges of the rail, 5 pt apart.
+/// The rows of a section: the grid's gap between them, and no inset of its
+/// own.
 ///
 /// One container rather than a modifier on each row, because the inset is a
 /// property of the *column* — a row that forgot it would not look wrong on
 /// its own, only out of line with the four above it, which is exactly the
 /// kind of drift a capture catches late.
+///
+/// **Both numbers are Modern's on a Modern surface.** They used to be the
+/// drawing's 16/9 in both layouts, because the drawing's rail and the
+/// floating inspector both happen to hold a stack of rows — but they are not
+/// the same surface: Traditional's rail carries the whole process chain and
+/// Modern's inspector shows one stage of it, so the tighter scale is the
+/// right one there and the drawing's is the right one here. The horizontal
+/// inset is 0 on a Modern surface because the panel already pads by
+/// `modernContentInset` and this container must not add a second one.
 struct RailRows<Content: View>: View {
     @ViewBuilder var content: () -> Content
-    @Environment(\.modernPanelChrome) private var modernPanelChrome
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Metric.rowSpacing) {
+        VStack(alignment: .leading, spacing: Theme.Metric.modernRowSpacing) {
             content()
         }
-        .padding(.horizontal, modernPanelChrome ? 0 : Theme.Metric.rowInset)
+        // **No horizontal inset.** The panel pads its whole body by
+        // `modernContentInset`; a container that added its own put every row's
+        // first glyph on a second left edge.
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

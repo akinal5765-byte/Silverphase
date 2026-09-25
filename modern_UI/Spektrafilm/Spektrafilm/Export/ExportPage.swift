@@ -30,6 +30,10 @@ import UniformTypeIdentifiers
 
 struct ExportPage: View {
     @Bindable var session: Session
+    /// Modern presents only the recipe controls from the editor's toolbar.
+    /// Traditional keeps the full three-column export window.
+    var compact = false
+    var editorProofRecipe: Binding<ExportRecipe?>? = nil
     /// Which mode to open in. Only the snapshot harness passes anything but
     /// the default: `--export-grid` is how the Grid half of the mode
     /// transition gets looked at, and a transition only ever exercised in one
@@ -82,18 +86,109 @@ struct ExportPage: View {
     /// "Untitled" for good, which the drawing would not have caught because it
     /// draws the list, not the making of one.
     @State private var renameDraft: String?
+    @State private var confirmRecipeDeletion = false
+    @State private var confirmRecipeReset = false
 
     /// The drawing's own numbers, so the body reads the way the drawing does.
     private typealias M = Theme.Metric.Export
-    private typealias F = Theme.Font.Export
 
-    private static let sectionMetrics = SectionMetrics(
-        headerHeight: M.headerHeight, headerToWell: M.headerToWell,
-        wellToHeader: M.wellToHeader, titleFont: F.sectionTitle)
+    // MARK: one body, two homes
+    //
+    // This page is served two ways — its own window (`ExportWindow`) and the
+    // Modern editor's right-hand **export rail** (`compactPanel`) — and it
+    // used to draw its own typography and its own rhythm in both. Measured
+    // against the parameter inspector it sits beside, the rail's table
+    // content was **16 pt further right** and its rows **10 pt tighter**, with
+    // six different gaps where the inspector has two: two panels, one window,
+    // two designs.
+    //
+    // So the **body** takes the editor's scale in either home. What stays the
+    // drawing's is only what geometry forces: the standalone window's own
+    // width, and the fact that it has room for a 20 pt well inset where the
+    // 344 pt rail does not.
+    //
+    //     body          editor role        why
+    //     label / value  Font.label 10.5 / Font.value 9   the ranks every other
+    //                                                     control uses
+    //     label column   84                the editor's one label axis, so a
+    //                                     table and a slider row line up
+    //     row height     22                the editor's line box
+    //     control height 13.9              the editor's pill
+    //     row spacing    8                 Modern's scale step
+    //     section title  Font.modernSectionTitle (10.5 semibold)  one header rank
+    //
+    // `F.sectionTitle` was 12.5 — the export drawing's frozen value — so the
+    // page's section titles were **two points larger than the inspector's** in
+    // the same window. The export ramp is kept below for the one role that is
+    // still its own (a chip's face), which is where the size difference is
+    // deliberate rather than accidental.
 
-    private static let sliderMetrics = SliderMetrics(
-        labelWidth: M.labelWidth, valueWidth: 40, rowHeight: M.rowHeight,
-        trackHeight: M.trackHeight, labelFont: F.label, valueFont: F.value)
+    /// A body label — the question half of a table row.
+    private var bodyLabel: Font { Theme.Font.label }
+    /// A body value — the answer half of a table row.
+    private var bodyValue: Font { Theme.Font.value }
+
+    /// The label column.
+    ///
+    /// **The one width the export page keeps for itself**, and it is a width
+    /// rather than a rhythm: the editor's 84 pt column plus a control leaves
+    /// this page's 293 pt of body 209 pt of control, and the four naming chips
+    /// (原文件名 / 胶片 / 相纸 / 日期) need 208 — so 84 clips them and the
+    /// drawing's 68.5 does not. The label's *font* is the editor's, its axis
+    /// starts on `modernContentInset`, and only the column's width is the
+    /// window's own.
+    private var labelColumn: CGFloat { M.labelWidth }
+    /// A table row's line box.
+    private var bodyRowHeight: CGFloat { Theme.Metric.modernRowHeight }
+    /// Between two rows of one table.
+    private var bodyRowSpacing: CGFloat { Theme.Metric.modernRowSpacing }
+    /// A control's own height: a field, a pill, a chip.
+    private var bodyControlHeight: CGFloat { Theme.Metric.modernControlHeight }
+
+    /// **Zero, on every surface.** `modernContentInset` (20) is the one
+    /// horizontal inset this panel has, and anything added to it is added
+    /// twice.
+    ///
+    /// The drawing insets its wells 5.9 pt inside a 20 pt page, and this used
+    /// to follow it here and add a well *padding* on top — so the table's
+    /// first glyph landed at **37 pt** in the standalone window and 38 pt in
+    /// the rail, against 20 for a section title in the same panel. The
+    /// measured screenshot: `分区标题 x=21 pt`, `文件夹 x=37 pt`. One column
+    /// cannot have two left edges, and the panel's own inset is the one that
+    /// matters.
+    ///
+    /// So the well starts at the content edge and its `padding` is what sets
+    /// where *inside* the table the glyphs begin.
+    private var wellInset: CGFloat { 0 }
+    /// A table's own inner padding — the air between the well's edge and the
+    /// first glyph, and the **only** horizontal offset inside the panel.
+    ///
+    /// It is 0, so a table row starts on the same `modernContentInset` edge as
+    /// the section title above it. The drawing's 9.8 was right while an inset
+    /// sat under it and put the glyphs at a *third* number; with the inset
+    /// gone, keeping it would move the table 10 pt right of its own header —
+    /// which is the misalignment, one size smaller.
+    private var wellPadding: CGFloat { 0 }
+    /// Air above and below a well's rows.
+    private var wellVertical: CGFloat { Theme.Metric.modernBlockGap }
+
+    /// **No `compact ?` in any of these.** The window and the rail are the same
+    /// page, so a value that differed by home was a second design by another
+    /// name — and the two had drifted into opposite errors: measured on
+    /// 2026-09-26, the standalone window's table sat 17 pt right of its own
+    /// section title and the rail's rows ran 6.5 pt apart against the
+    /// inspector's 17–20. Both now read the editor's scale, and the only thing
+    /// the window keeps is the width it has room for.
+    ///
+    /// The one deliberate difference is **`Metric.Export.labelWidth`**: the
+    /// editor's 84 pt column plus a control leaves a 313 pt card 209 pt of
+    /// control, and the naming chips need 208. A *narrower* label column is a
+    /// width decision, not a second rhythm — and it is the same decision
+    /// `TOKENS-main-v3` records for the export page's own drawing.
+    private var sliderMetrics: SliderMetrics {
+        SliderMetrics(labelWidth: labelColumn, valueWidth: 40, rowHeight: bodyRowHeight,
+                      trackHeight: M.trackHeight, labelFont: bodyLabel, valueFont: bodyValue)
+    }
 
     enum Mode: String, CaseIterable, Identifiable {
         case grid, viewer
@@ -119,6 +214,71 @@ struct ExportPage: View {
     }
 
     var body: some View {
+        Group {
+            if compact { compactPanel }
+            else { classicLayout }
+        }
+        .onAppear { if !compact { mode = startIn } }
+        .task(id: compact ? nil : proofKey) { if !compact { await makeProof() } }
+        .task(id: recipe.wrappedValue.format) { OpenWithCatalog.refresh(for: recipe.wrappedValue.format) }
+        .onChange(of: recipe.wrappedValue) { _, newRecipe in
+            if editorProofRecipe?.wrappedValue != nil { editorProofRecipe?.wrappedValue = newRecipe }
+        }
+        .alert(T("Rename Recipe", "重命名配方"), isPresented: Binding(
+            get: { renameDraft != nil },
+            set: { if !$0 { renameDraft = nil } })) {
+            TextField(T("Name", "名称"), text: Binding(get: { renameDraft ?? "" },
+                                            set: { renameDraft = $0 }))
+            Button(T("Cancel", "取消"), role: .cancel) { renameDraft = nil }
+            Button(T("Rename", "重命名")) {
+                let trimmed = (renameDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { recipe.wrappedValue.name = trimmed }
+                renameDraft = nil
+            }
+        } message: {
+            Text(T("The name in the recipe list.", "此名称会显示在配方列表中。"))
+        }
+        .confirmationDialog(T("Delete Recipe?", "删除配方？"),
+                            isPresented: $confirmRecipeDeletion) {
+            Button(T("Delete Recipe", "删除配方"), role: .destructive) {
+                if let selected = store.selected { store.remove(selected) }
+            }
+            Button(T("Cancel", "取消"), role: .cancel) {}
+        } message: {
+            Text(T("The selected recipe will be removed. Exported files are not affected.",
+                   "将移除当前配方，已导出的文件不会受影响。"))
+        }
+        .confirmationDialog(T("Reset Recipe Settings?", "重置配方设置？"),
+                            isPresented: $confirmRecipeReset) {
+            Button(T("Reset Settings", "重置设置"), role: .destructive) {
+                resetSelectedRecipe()
+            }
+            Button(T("Cancel", "取消"), role: .cancel) {}
+        } message: {
+            Text(T("This recipe's location, naming and format settings will return to their defaults.",
+                   "此配方的位置、命名和格式等设置将恢复默认值。"))
+        }
+    }
+
+    private var compactPanel: some View {
+        VStack(spacing: 0) {
+            StageHeader(title: T("Export", "导出")) { EmptyView() }
+            recipeSelector
+                .disabled(running)
+            Hairline()
+            ScrollView {
+                settingsSections
+                    .disabled(running)
+                    .padding(.horizontal, Theme.Metric.modernContentInset)
+                    .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
+            }
+            footer
+        }
+        .frame(maxHeight: .infinity)
+        .modifier(EditorChromeSurface())
+    }
+
+    private var classicLayout: some View {
         // Three flush columns, and the bar floats over the middle one.
         //
         // This page kept the **old** shape for two months after the editor
@@ -164,11 +324,6 @@ struct ExportPage: View {
         // animation is on the row that holds them.
         .animation(.easeOut(duration: 0.18), value: mode)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onAppear {
-            mode = startIn
-        }
-        .task(id: proofKey) { await makeProof() }
-        .task(id: recipe.wrappedValue.format) { OpenWithCatalog.refresh(for: recipe.wrappedValue.format) }
     }
 
     // MARK: - the worklist
@@ -185,12 +340,9 @@ struct ExportPage: View {
     /// away from what the person was looking at while they pick the rest of
     /// the batch.
     ///
-    /// There is no ⇧-click, and the user's rule is the one that decides it —
-    /// "single click only selects one item, only cmd + click can be used to
-    /// select multiple one". It used to extend a range from an anchor here and
-    /// it was removed. A range would also be the one selection gesture that
-    /// changes its meaning when the sort order does, but that is a second
-    /// reason, not the reason.
+    /// The editor's bottom navigator handles ⇧ range selection. This export
+    /// worklist contains only already-picked frames, so tapping here changes
+    /// the frame being previewed rather than establishing a new range.
     ///
     /// The modifier is read off `NSEvent` rather than declared as two
     /// gestures: a plain `TapGesture` on macOS matches a ⌘-click too, so
@@ -430,7 +582,7 @@ struct ExportPage: View {
             }
         } label: {
             Text("\(Int((zoom * 100).rounded())) %")
-                .font(F.pill)
+                .font(bodyValue)
                 .foregroundStyle(Theme.text)
                 .frame(width: M.pillWidth, height: M.pillHeight)
                 .pillSurface(base: Theme.well)
@@ -441,7 +593,7 @@ struct ExportPage: View {
 
     private var countPill: some View {
         Text(imageCount(batch.count))
-            .font(F.label)
+            .font(bodyLabel)
             .foregroundStyle(Theme.text)
             .frame(width: M.pillWidth + 22, height: M.pillHeight)
             .background(Theme.well, in: Capsule())
@@ -465,45 +617,31 @@ struct ExportPage: View {
             // the close button.
             railHeader
             Hairline()
+            recipeSelector
+                .disabled(running)
+            Hairline()
             ScrollView {
-                // A hairline **between** sections, never after the last —
-                // the same rule the editor's rail follows, and for the same
-                // reason: a rule with nothing under it is a border, and this
-                // rail has no bottom to border. The sections used to sit
-                // flush against each other inside a card, which is what made
-                // five headers read as one undifferentiated column.
-                VStack(spacing: 0) {
-                    let sections: [(String, AnyView)] =
-                        [("formula", AnyView(formulaSection)),
-                         ("location", AnyView(locationSection)),
-                         ("naming", AnyView(namingSection)),
-                         ("format", AnyView(formatSection)),
-                         ("summary", AnyView(summarySection))]
-                    ForEach(Array(sections.enumerated()), id: \.element.0) { index, entry in
-                        if index > 0 { Hairline() }
-                        entry.1
-                    }
-                }
+                settingsSections
+                    .disabled(running)
             }
             footer
         }
         .railCard()
-        // The system's own alert with a text field in it — the same rule the
-        // section menus follow, applied to the one thing on this page that
-        // needs typing.
-        .alert(T("Rename Recipe", "重命名配方"), isPresented: Binding(
-            get: { renameDraft != nil },
-            set: { if !$0 { renameDraft = nil } })) {
-            TextField(T("Name", "名称"), text: Binding(get: { renameDraft ?? "" },
-                                            set: { renameDraft = $0 }))
-            Button(T("Cancel", "取消"), role: .cancel) { renameDraft = nil }
-            Button(T("Rename", "重命名")) {
-                let trimmed = (renameDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty { recipe.wrappedValue.name = trimmed }
-                renameDraft = nil
+    }
+
+    /// Settings belong to the selected recipe; the selector itself is outside
+    /// this stack, above it, rather than pretending to be a peer section.
+    private var settingsSections: some View {
+        VStack(spacing: 0) {
+            let sections: [(String, AnyView)] =
+                [("location", AnyView(locationSection)),
+                 ("naming", AnyView(namingSection)),
+                 ("format", AnyView(formatSection)),
+                 ("summary", AnyView(summarySection))]
+            ForEach(Array(sections.enumerated()), id: \.element.0) { index, entry in
+                if index > 0 { Hairline() }
+                entry.1
             }
-        } message: {
-            Text(T("The name in the recipe list.", "此名称会显示在配方列表中。"))
         }
     }
 
@@ -517,132 +655,82 @@ struct ExportPage: View {
             .background(WindowDragHandle())
     }
 
-    /// The recipe list. `notes.md` fixes the "..." as a system menu — "Do not
-    /// rewrite three dot click second layer button, use system-provided one
-    /// only" — which is the `Menu` `SectionHeader` already draws, so nothing
-    /// here opens a popover of its own.
-    private var formulaSection: some View {
-        PanelSection(T("Export Formula", "导出配方"), key: "exportFormula", menu: sectionMenu {
-            Button(T("New Recipe", "新建配方")) { store.add() }
-            Button(T("Duplicate", "复制配方")) { if let s = store.selected { store.duplicate(s) } }
-                .disabled(store.selected == nil)
-            Button(T("Rename…", "重命名…")) { renameDraft = store.selected?.name ?? "" }
-                .disabled(store.selected == nil)
-            Divider()
-            Button(T("Delete", "删除")) { if let s = store.selected { store.remove(s) } }
-                .disabled(store.recipes.count < 2)
-            Divider()
-            Button(T("Reveal Recipes File in Finder", "在访达中显示配方文件")) {
-                NSWorkspace.shared.activateFileViewerSelecting([store.url])
-            }
-        }, metrics: Self.sectionMetrics) {
-            // **No plate under the list.** It used to sit on a `Well`, which
-            // put a second surface behind the chosen row's capsule and made
-            // this list look like a different species from the editor's film
-            // and print lists — those sit straight on the rail. The rows now
-            // span the rail and the mark is the editor's own: same insets,
-            // same height, same radius (`Theme.Metric.stock*`), so the two
-            // lists mean one thing by one picture (UI-SPEC §2.4).
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(store.recipes) { r in recipeRow(r) }
+    /// A recipe is the parent of every setting below, not one more settings block.
+    /// Keep its identity visible while scrolling. Management actions belong
+    /// to the block header; choosing a recipe is the content beneath it.
+    private var recipeSelector: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeader(title: T("Export Recipe", "导出配方"),
+                          expanded: .constant(true),
+                          menu: { AnyView(recipeManagementActions) })
+            Menu {
+                ForEach(store.recipes) { item in
+                    Button {
+                        store.selectedID = item.id
+                    } label: {
+                        if item.id == store.selected?.id {
+                            Label(item.name, systemImage: "checkmark")
+                        } else {
+                            Text(item.name)
+                        }
                     }
                 }
-                // As tall as it needs to be, up to the drawing's height.
-                // Fixed at 144 it held a 144 pt plate around four rows — two
-                // thirds of it empty, on a page whose whole complaint was that
-                // it does not look like the rest of the app.
-                .frame(height: formulaListHeight)
-                .padding(.top, 9)
-                HStack(spacing: 14) {
-                    Spacer()
-                    railButton("plus", T("New recipe", "新建配方"), dimmed: false) { store.add() }
-                    railButton("minus", T("Delete this recipe", "删除此配方"), dimmed: store.recipes.count < 2) {
-                        if let s = store.selected { store.remove(s) }
-                    }
+            } label: {
+                HStack(spacing: Theme.Metric.space8) {
+                    Text(store.selected?.name ?? T("Choose a Recipe", "选择配方"))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
                 }
-                .padding(.trailing, 16)
-            }
-        }
-    }
-
-    /// The recipe list's height: its rows, bounded by the drawing's own 144 so
-    /// a long list still scrolls rather than pushing Location off the rail.
-    ///
-    /// The row pitch is the **editor's** (`listRowHeight`, no spacing), because
-    /// the two lists are now the same list as far as the eye is concerned.
-    private var formulaListHeight: CGFloat {
-        let rows = CGFloat(max(1, store.recipes.count))
-        return min(rows * Theme.Metric.listRowHeight, M.formulaListHeight)
-    }
-
-    /// A glyph on the recipe rail. The **target** is `railIconTarget`
-    /// (26 pt) rather than the 16×14 the ink was drawn at, and a dimmed one
-    /// says why through `reason` instead of only greying out — both from the
-    /// button audit (2026-09-23).
-    private func railButton(_ glyph: String, _ help: String, dimmed: Bool,
-                            reason: String = "", _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: glyph)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(dimmed ? Theme.text.opacity(Theme.disabledOpacity) : Theme.text)
-                .frame(width: Theme.Metric.railIconTarget,
-                       height: Theme.Metric.railIconTarget)
+                .font(bodyLabel)
+                .foregroundStyle(Theme.text)
+                .padding(.horizontal, PillFieldGeometry.textInset)
+                .frame(height: bodyControlHeight)
+                .pillSurface(base: Theme.pill)
                 .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .frame(maxWidth: .infinity)
+            .padding(.top, Theme.Metric.modernHeaderToContent)
+            Text(T("Location, naming and format changes are saved to this recipe automatically.",
+                   "位置、命名和格式等修改会自动保存到此配方。"))
+                .font(Theme.Font.caption)
+                .foregroundStyle(Theme.Ink.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Metric.space8)
         }
-        .buttonStyle(.plain)
-        .rowEnabled(!dimmed, because: reason)
-        .help(help)
+        .padding(.horizontal, Theme.Metric.modernContentInset)
+        .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
     }
 
-    /// The chosen row is a **band**, as every other list in the app marks one.
-    ///
-    /// It was a 1.3 pt white outline, which is what this page's own drawing
-    /// draws — and which the 2026-09-17 drawing had already retired everywhere
-    /// else, in the user's own words: "selected entries has shallow, instead
-    /// of framed square around it, and the text turns from white to black".
-    /// The film list and the paper list both do that; this one kept the frame,
-    /// so the app marked a selection two different ways depending on which
-    /// page you were on. That is the mismatch with "the actual frontend" at
-    /// its most literal, and the newer drawing is the one that wins.
-    ///
-    /// Plain views with a tap gesture rather than a `Button`, for the reason
-    /// `StockRow` gives: on this release a `.plain` button still draws a
-    /// rounded plate of its own inside the band.
-    private func recipeRow(_ r: ExportRecipe) -> some View {
-        let on = r.id == store.selected?.id
-        return Text(r.name)
-            .font(F.listItem)
-            .foregroundStyle(on ? Theme.onSelection : Theme.Ink.secondary)
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // **The editor's mark, token for token** — `StockRow` in
-            // `Panels/Sections/FilmSection.swift` draws the same capsule from
-            // the same five numbers. Two lists that mean "one of these is
-            // chosen" must not mean it two ways.
-            .padding(.leading, Theme.Metric.stockTextLeadingInset)
-            .frame(height: Theme.Metric.listRowHeight)
-            .background(alignment: .leading) {
-                if on {
-                    GeometryReader { geo in
-                        let shape = Capsule()
-                        shape
-                            .fill(Theme.selection)
-                            .overlay { shape.strokeBorder(Color.black.opacity(0.18), lineWidth: 1) }
-                            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-                            .frame(width: max(0, geo.size.width
-                                                 - Theme.Metric.stockLeadingInset
-                                                 - Theme.Metric.stockTrailingInset),
-                                   height: Theme.Metric.stockSelectionHeight)
-                            .offset(x: Theme.Metric.stockLeadingInset,
-                                    y: (geo.size.height - Theme.Metric.stockSelectionHeight) / 2)
-                    }
-                }
+    @ViewBuilder private var recipeManagementActions: some View {
+        Button(T("New Recipe…", "新建配方…")) {
+            store.add()
+            renameDraft = store.selected?.name
+        }
+        Button(T("Duplicate Recipe…", "复制配方…")) {
+            if let selected = store.selected {
+                store.duplicate(selected)
+                renameDraft = store.selected?.name
             }
-            .contentShape(Rectangle())
-            .onTapGesture { store.selectedID = r.id }
-            .help(r.name)
+        }
+        .disabled(store.selected == nil)
+        Button(T("Rename Recipe…", "重命名配方…")) {
+            renameDraft = store.selected?.name
+        }
+        .disabled(store.selected == nil)
+        Divider()
+        Button(T("Reset Recipe Settings…", "重置配方设置…")) { confirmRecipeReset = true }
+            .disabled(store.selected == nil)
+        Button(T("Delete Recipe…", "删除配方…")) { confirmRecipeDeletion = true }
+            .disabled(store.recipes.count < 2)
+        Divider()
+        Button(T("Reveal Recipes File in Finder", "在访达中显示配方文件")) {
+            NSWorkspace.shared.activateFileViewerSelecting([store.url])
+        }
     }
 
     /// Where the files land, and — the part that was missing — **how many
@@ -659,21 +747,29 @@ struct ExportPage: View {
     /// as if it were the answer. It now counts them, and the button beside it
     /// opens the one it can show.
     private var locationSection: some View {
-        PanelSection(T("Location", "位置"), key: "exportLocation", menu: sectionMenu {
-            Button(T("Choose Folder…", "选择文件夹…")) { chooseFolder() }
-            Button(T("Use the Frame's Own Folder", "使用照片所在文件夹")) { recipe.wrappedValue.folder = .besideOriginal }
-            Divider()
-            Button(T("Clear Subfolder", "清除子文件夹")) { recipe.wrappedValue.subfolder = "" }
-            Button(T("Reveal in Finder", "在访达中显示")) { reveal(destinationFolders.first) }
-                .disabled(destinationFolders.isEmpty)
-        }, metrics: Self.sectionMetrics) {
-            Well(padding: M.wellPadding, vertical: M.wellVertical, inset: M.wellInset, fill: false) {
-                VStack(spacing: M.rowSpacing) {
-                    HStack(spacing: 6) {
-                        Text(T("Folder", "文件夹")).font(F.label).foregroundStyle(Theme.Ink.secondary)
-                            .lineLimit(1)
-                            .frame(width: M.labelWidth, alignment: .leading)
-                        PillField(title: folderLabel(recipe.wrappedValue.folder), font: F.label,
+        // **No menu.** Every item it had was already a row on screen — the
+        // folder picker is the 文件夹 pill's own menu, the subfolder is a text
+        // field, and Reveal is the button on the destination line. A `•••`
+        // whose items the reader can already see is a second way to do four
+        // things and a fifth place to look (UI-SPEC §2.16g).
+        PanelSection(T("Location", "位置"), key: "exportLocation") {
+            Well(padding: wellPadding, vertical: wellVertical, inset: wellInset, fill: false) {
+                VStack(spacing: bodyRowSpacing) {
+                    // **Three rows, one shape.** They used to be three
+                    // different things — a hand-written `HStack` around a
+                    // `PillField`, a `TextField` with its own padding, and a
+                    // `PillMenu` — and the three controls came out at three
+                    // widths: the folder pill hugged its text, the field
+                    // stretched to its own padding, the menu filled its row.
+                    // The user's read of it was "三个下拉菜单用了三个尺寸".
+                    //
+                    // So all three go through `row(_:control:)`, which is the
+                    // one place that says what a row in this panel is: a label
+                    // column, a control that fills what is left, and one line
+                    // box. `PillField` and the field take `.frame(maxWidth:
+                    // .infinity)` for the same reason `PillMenu` already did.
+                    row(T("Folder", "文件夹")) {
+                        PillField(title: folderLabel(recipe.wrappedValue.folder), font: bodyLabel,
                                   help: folderHelp) {
                             Button(T("Beside the original", "与原片同目录")) {
                                 recipe.wrappedValue.folder = .besideOriginal
@@ -686,19 +782,38 @@ struct ExportPage: View {
                             Button(T("Choose Folder…", "选择文件夹…")) { chooseFolder() }
                         }
                     }
-                    .frame(height: M.rowHeight)
                     row(T("Subfolder", "子文件夹")) {
-                        TextField(T("none", "无"), text: recipe.subfolder)
-                            .textFieldStyle(.plain)
-                            .font(F.label).foregroundStyle(Theme.text)
-                            .padding(.horizontal, 8)
-                            .frame(height: M.rowHeight)
-                            .pillSurface(base: Theme.pill)
-                            .onSubmit { store.save() }
+                        // The pill's surface with a field inside it, so this
+                        // row's control is the *same box* as the two pills
+                        // around it rather than a field wearing a background.
+                        // A field's intrinsic width is its own, so the shape
+                        // has to come from the container.
+                        HStack(spacing: 0) {
+                            TextField(T("none", "无"), text: recipe.subfolder)
+                                .textFieldStyle(.plain)
+                                .font(bodyLabel).foregroundStyle(Theme.text)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .onSubmit { store.save() }
+                        }
+                        .padding(.horizontal, PillFieldGeometry.textInset)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: bodyControlHeight)
+                        .pillSurface(base: Theme.pill)
                     }
-                    PillMenu(label: T("Existing File", "同名文件"), options: ExistingFilePolicy.allCases,
-                             title: { $0.localizedLabel }, selection: recipe.existing,
-                             labelWidth: M.labelWidth, font: F.label)
+                    // `PillField`, the same shape as the Folder row: the
+                    // label is the row's, so the control is only the pill.
+                    // `PillMenu` carries its own label column and would have
+                    // drawn a second one.
+                    row(T("Existing File", "同名文件")) {
+                        // `PillMenu` with a zero label column: the row above
+                        // owns the label, and the pill has to be the same shape
+                        // as the Folder row's — which is why this is neither a
+                        // second `PillField` shape nor a `PillMenu` that draws
+                        // its own label twice.
+                        PillMenu(label: "", options: ExistingFilePolicy.allCases,
+                                 title: { $0.localizedLabel }, selection: recipe.existing,
+                                 labelWidth: 0, font: bodyLabel)
+                    }
                     destinationLine
                 }
             }
@@ -709,13 +824,13 @@ struct ExportPage: View {
     private var destinationLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(destinationSummary)
-                .font(F.value).foregroundStyle(Theme.Ink.tertiary)
+                .font(bodyValue).foregroundStyle(Theme.Ink.tertiary)
                 .lineLimit(2).truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .help(destinationHelp)
             Button(T("Reveal", "显示")) { reveal(destinationFolders.first) }
                 .buttonStyle(.plain)
-                .font(F.value).foregroundStyle(Theme.exportAccent)
+                .font(bodyValue).foregroundStyle(Theme.exportAccent)
                 .help(destinationFolders.count > 1
                       ? T("Open the first of these folders. The rest are beside their own frames.",
                           "打开第一个文件夹。其余文件会保存在各自原片旁。")
@@ -790,27 +905,12 @@ struct ExportPage: View {
     /// the grey plate the drawing gives every chip, and dragging one onto
     /// another reorders the row.
     private var namingSection: some View {
-        PanelSection(T("Naming", "命名"), key: "exportNaming", menu: sectionMenu {
-            Button(T("Original Name Only", "仅使用原文件名")) {
-                var n = recipe.wrappedValue.naming
-                for t in n.chips where n.isOn(t) && t != .originalName { n.toggle(t) }
-                if !n.isOn(.originalName) { n.toggle(.originalName) }
-                recipe.wrappedValue.naming = n
-            }
-            Button(T("Select All", "全选")) {
-                var n = recipe.wrappedValue.naming
-                for t in n.chips where !n.isOn(t) { n.toggle(t) }
-                recipe.wrappedValue.naming = n
-            }
-            Divider()
-            Button(T("Reset the Order", "重置顺序")) {
-                var n = recipe.wrappedValue.naming
-                n.resetOrder()
-                recipe.wrappedValue.naming = n
-            }
-        }, metrics: Self.sectionMetrics) {
-            Well(padding: M.wellPadding, vertical: M.wellVertical, inset: M.wellInset, fill: false) {
-                VStack(alignment: .leading, spacing: M.rowSpacing) {
+        // **No menu.** Four chips fit one row; "select all" and "original
+        // name only" are bulk conveniences for clicking four things, and the
+        // third item acted on a chip *order* the page does not draw.
+        PanelSection(T("Naming", "命名"), key: "exportNaming") {
+            Well(padding: wellPadding, vertical: wellVertical, inset: wellInset, fill: false) {
+                VStack(alignment: .leading, spacing: bodyRowSpacing) {
                     row(T("Format", "格式")) { tokenRow }
                     resolvedNameRow
                 }
@@ -835,11 +935,11 @@ struct ExportPage: View {
     /// differs only where the original-name token is.
     private var resolvedNameRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(T("File name", "文件名")).font(F.label).foregroundStyle(Theme.Ink.secondary)
+            Text(T("File name", "文件名")).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)
-                .frame(width: M.labelWidth, alignment: .leading)
+                .frame(width: labelColumn, alignment: .leading)
             Text(sampleName)
-                .font(F.value).foregroundStyle(Theme.text)
+                .font(bodyValue).foregroundStyle(Theme.text)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -862,12 +962,12 @@ struct ExportPage: View {
         let on = recipe.wrappedValue.naming.isOn(t)
         let last = recipe.wrappedValue.naming.tokens.count == 1
         return Text(t.localizedLabel)
-            .font(F.chip)
+            .font(bodyValue)
             .foregroundStyle(on ? Theme.card : Theme.text)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 5)
-            .frame(height: M.chipHeight)
+            .frame(height: bodyControlHeight)
             // The chips are the export page's smallest controls and the only
             // two-tone ones: orange means "in the name", grey means "not".
             // Both get the same surface, so the pair reads as one switch
@@ -902,43 +1002,53 @@ struct ExportPage: View {
     /// as the particular fix: a "..." that only repeats the panel under it
     /// teaches people to open it looking for something that is not there.
     private var formatSection: some View {
-        PanelSection(T("Format and Size", "格式与尺寸"), key: "exportFormat", metrics: Self.sectionMetrics) {
-            Well(padding: M.wellPadding, vertical: M.wellVertical, inset: M.wellInset, fill: false) {
-                VStack(spacing: M.rowSpacing) {
-                    HStack(spacing: 12) {
-                        Text(T("Format", "格式")).font(F.label).foregroundStyle(Theme.Ink.secondary)
-                            .frame(width: M.labelWidth, alignment: .leading)
-                        PillField(title: recipe.wrappedValue.format.shortLabel, font: F.label) {
-                            ForEach(ExportFormat.allCases) { f in
-                                Button(f.shortLabel) { recipe.wrappedValue.format = f }
-                            }
-                        }
-                        // Its natural width, so the format name beside it keeps the
-                        // rest of the row. Sharing it evenly truncated "DI
-                        // package" to "DI pack…" to make room for a pill that
-                        // says "16 bit" and cannot be changed.
-                        depthPill.fixedSize()
+        PanelSection(T("Format and Size", "格式与尺寸"), key: "exportFormat") {
+            Well(padding: wellPadding, vertical: wellVertical, inset: wellInset, fill: false) {
+                VStack(spacing: bodyRowSpacing) {
+                    // **One control, filling the column**, like every other
+                    // row on the page. This one used to be a hand-written
+                    // `HStack` with a second, `.fixedSize()` pill beside it, so
+                    // its right edge was wherever that pill left off — 4 pt
+                    // inside every neighbouring row's. It was also a second way
+                    // to say one thing: `ExportFormat` *is* the pair of
+                    // container and depth, and `withDepth` switches format.
+                    // The depth therefore lives in the item's own title, where
+                    // it is read as part of the choice rather than as a
+                    // separate control that sometimes cannot be changed.
+                    row(T("Format", "格式")) {
+                        PillMenu(label: "", options: ExportFormat.allCases,
+                                 title: { "\($0.shortLabel) · \($0.bitDepth) bit" },
+                                 selection: recipe.format,
+                                 labelWidth: 0, font: bodyLabel)
                     }
-                    .frame(height: M.rowHeight)
                     if recipe.wrappedValue.format == .di { diNote }
                     if recipe.wrappedValue.format.takesColorSpace {
+                        // **The label is the row's, not the pill's.** It used to
+                        // be drawn by the pill (`labelWidth: labelColumn`),
+                        // which put this row's control 5 pt right of the rows
+                        // whose label came from `row(_:)` — two left edges in
+                        // one table, the same failure as the indent this pass
+                        // started from, one size smaller.
+                        //
                         // The name is data, not a fixed label: an installed
                         // profile can be called anything, and the narrowest
                         // card truncates the long ones. The tooltip carries
                         // the whole of it, so a truncated name costs a hover
                         // rather than the information.
-                        PillMenu(label: T("Color Space", "色彩空间"), options: ColorSpaceCatalog.all.map(\.space),
-                                 title: { ColorSpaceCatalog.name(for: $0) ?? T("Unknown profile", "未知配置文件") },
-                                 selection: recipe.colorSpace,
-                                 labelWidth: M.labelWidth, font: F.label)
-                            .help(ColorSpaceCatalog.name(for: recipe.wrappedValue.colorSpace)
-                                  ?? T("This profile is not on this machine", "本机没有此色彩配置文件"))
+                        row(T("Color Space", "色彩空间")) {
+                            PillMenu(label: "", options: ColorSpaceCatalog.all.map(\.space),
+                                     title: { ColorSpaceCatalog.name(for: $0) ?? T("Unknown profile", "未知配置文件") },
+                                     selection: recipe.colorSpace,
+                                     labelWidth: 0, font: bodyLabel)
+                                .help(ColorSpaceCatalog.name(for: recipe.wrappedValue.colorSpace)
+                                      ?? T("This profile is not on this machine", "本机没有此色彩配置文件"))
+                        }
                     }
                     if recipe.wrappedValue.format.takesQuality {
                         ScrubSlider(label: T("Quality", "质量"), sublabel: nil,
                                     value: recipe.quality, range: 0.3...1, snap: 0.01,
                                     format: { String(format: "%.0f", $0 * 100) },
-                                    metrics: Self.sliderMetrics,
+                                    metrics: sliderMetrics,
                                     onCommit: { store.save() })
                     }
                     if recipe.wrappedValue.format.carriesPreviewPage { previewRow }
@@ -968,7 +1078,7 @@ struct ExportPage: View {
             Text(T("Next: load both into Resolve, Baselight or Nuke and apply the cube to the TIFF. Opened on its own the TIFF is density, not a picture.",
                    "下一步：在 Resolve、Baselight 或 Nuke 中载入两者，并将 LUT 应用于 TIFF。单独打开的 TIFF 是密度数据，不是成片。"))
         }
-        .font(F.value).foregroundStyle(Theme.Ink.tertiary)
+        .font(bodyValue).foregroundStyle(Theme.Ink.tertiary)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .help(T("The TIFF carries the film's density normalised by the LUT's own axes and is written in device RGB on purpose, so nothing converts the numbers the cube indexes. The cube is the paper's transform, domain 0–1, and it carries a preview page so the package has something a person can look at.",
@@ -979,22 +1089,6 @@ struct ExportPage: View {
     /// the depth together, so this pill switches between the two containers
     /// that carry the asked-for depth, and says why it is inert for JPEG and
     /// the DI package rather than pretending to move.
-    private var depthPill: some View {
-        let format = recipe.wrappedValue.format
-        return PillField(title: "\(format.bitDepth) bit",
-                         dimmed: !format.depthIsChoosable,
-                         font: F.label,
-                         help: format.depthIsChoosable
-                         ? T("Bit depth. 16-bit switches to TIFF, 8-bit to PNG.", "位深度：16-bit 对应 TIFF，8-bit 对应 PNG。")
-                         : T("\(format.shortLabel) has one depth — it is part of the format.",
-                             "\(format.shortLabel) 的位深度由格式决定，不能单独调整。")) {
-            ForEach([8, 16], id: \.self) { depth in
-                Button("\(depth) bit") {
-                    if let f = ExportFormat.withDepth(depth, like: format) { recipe.wrappedValue.format = f }
-                }
-            }
-        }
-    }
 
     /// Write a preview into the TIFF. Off by default, TIFF only, and a row
     /// that exists in no drawing — the user's call of 2026-09-14: "every TIFF,
@@ -1029,29 +1123,72 @@ struct ExportPage: View {
     /// it to be inferred: a size control whose consequence you have to work
     /// out is a size control you check after the export instead of before.
     private var sizeRows: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                Text(T("Size", "尺寸")).font(F.label).foregroundStyle(Theme.Ink.secondary)
+        VStack(alignment: .leading, spacing: Theme.Metric.space4) {
+            // **The label meets its control slot at zero; the controls inside
+            // that slot take the grid's gap.** Collapsing the whole stack to
+            // `spacing: 0` to align the label also glued the pill to the number
+            // beside it — one gap was doing two jobs, and only one of them was
+            // the label's.
+            HStack(spacing: 0) {
+                Text(T("Size", "尺寸")).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
                     .lineLimit(1)
-                    .frame(width: M.labelWidth, alignment: .leading)
-                PillField(title: sizeModeLabel, font: F.label,
-                          help: T("Original keeps each frame's own pixels. Long edge resamples every frame so its longer side is the number you set, whichever way round the frame is.",
-                                  "原始尺寸保留每张照片自己的像素尺寸；长边模式按设定值重采样，不受横竖方向影响。")) {
-                    Button(T("Original Size", "原始尺寸")) { recipe.wrappedValue.outputSize = .original }
-                    Button(T("Resize: Long Edge", "调整尺寸：长边")) {
-                        recipe.wrappedValue.outputSize = OutputSize.clamped(currentLongEdge)
+                    .frame(width: labelColumn, alignment: .leading)
+                HStack(spacing: Theme.Metric.space8) {
+                    PillField(title: sizeModeLabel, font: bodyLabel,
+                              help: T("Original keeps each frame's own pixels. Long edge resamples every frame so its longer side is the number you set, whichever way round the frame is.",
+                                      "原始尺寸保留每张照片自己的像素尺寸；长边模式按设定值重采样，不受横竖方向影响。")) {
+                        Button(T("Original Size", "原始尺寸")) { recipe.wrappedValue.outputSize = .original }
+                        Button(T("Resize: Long Edge", "调整尺寸：长边")) {
+                            recipe.wrappedValue.outputSize = OutputSize.clamped(currentLongEdge)
+                        }
                     }
+                    if recipe.wrappedValue.outputSize.edge != nil { longEdgeField }
                 }
-                if recipe.wrappedValue.outputSize.edge != nil { longEdgeField }
+                // The slot fills what the label left, so the pill expands and
+                // the two controls sit exactly `space8` apart — the taxonomy's
+                // one gap between two controls in a row. Without this the slot
+                // hugged its contents and the gap came out twice the grid's.
+                .frame(maxWidth: .infinity)
             }
-            .frame(height: M.rowHeight)
+            .frame(height: Theme.Metric.gridControl)
+            .frame(height: bodyRowHeight, alignment: .top)
             Text(resultingSizeLine)
-                .font(F.value).foregroundStyle(Theme.Ink.tertiary)
+                .font(bodyValue).foregroundStyle(Theme.Ink.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, M.labelWidth)
+                .padding(.leading, labelColumn)
                 .help(resultingSizeHelp)
         }
+    }
+
+    /// Put the selected recipe's settings back to the app's defaults, keeping
+    /// the two things that name it.
+    private func resetSelectedRecipe() {
+        guard var r = store.selected else { return }
+        let id = r.id, name = r.name
+        r = ExportRecipe()
+        r.id = id
+        r.name = name
+        store.selected = r
+    }
+
+    /// **Output Proof**, as a switch: on shows the selected recipe's output on
+    /// the canvas. Disabled with a reason when the recipe cannot be proofed
+    /// (no frame, or a format with no colour space to convert into).
+    private var proofRow: some View {
+        // **The app's `ToggleRow`**, so this switch has the same shape as
+        // every other one — label on the leading edge, box on the trailing
+        // edge, the whole row clickable. Drawn as a bare `row()` it put the box
+        // right after the words, which is what looked wrong in place.
+        ToggleRow(label: T("Output Proof", "输出软打样"),
+                  isOn: Binding(
+                    get: { editorProofRecipe?.wrappedValue != nil },
+                    set: { on in
+                        editorProofRecipe?.wrappedValue = on ? recipe.wrappedValue : nil
+                    }),
+                  enabled: session.selection != nil && recipe.wrappedValue.format.takesColorSpace,
+                  reason: T("A proof needs an open frame and a format that carries colour.",
+                            "需要打开一张照片，且格式要带色彩空间。"))
     }
 
     /// The frame's own long edge, which is what "Resize" starts at — switching
@@ -1059,7 +1196,9 @@ struct ExportPage: View {
     /// changed, not to be discovered afterwards.
     private var currentLongEdge: Int {
         let p = nameContext.pixelSize
-        return max(1, Int(max(p.width, p.height).rounded()))
+        let edge = max(p.width, p.height).rounded()
+        guard edge.isFinite, edge > 0, edge < CGFloat(Int.max) else { return 1 }
+        return Int(edge)
     }
 
     private var sizeModeLabel: String {
@@ -1086,9 +1225,15 @@ struct ExportPage: View {
                   format: .number.grouping(.never))
             .textFieldStyle(.plain)
             .multilineTextAlignment(.center)
-            .font(F.label).foregroundStyle(Theme.text)
-            .frame(width: 62, height: M.rowHeight)
-            .pillSurface(base: Theme.pill)
+            .font(bodyValue).foregroundStyle(Theme.text)
+            // **A field, not a pill.** This is the one place the app drew a
+            // typed value as a capsule: every other value box (the sliders',
+            // the Film panel's reference size) is a rounded rectangle, because
+            // the shape says what the control *is* — a capsule is something
+            // you choose from and a rectangle is something you type into. It
+            // was also 22 pt tall against the pills' 16, and a hard 62 pt wide.
+            .frame(width: Theme.Metric.fieldWidth, height: Theme.Metric.gridControl)
+            .controlSurface()
             .onSubmit { store.save() }
             .help(T("Pixels on the longer side, \(OutputSize.bounds.lowerBound)–\(longEdgeCeiling). Frames are never enlarged.",
                     "长边像素数：\(OutputSize.bounds.lowerBound)–\(longEdgeCeiling)。照片不会被放大。"))
@@ -1104,13 +1249,25 @@ struct ExportPage: View {
     private var resultingSizeLine: String {
         let source = nameContext.pixelSize
         let out = recipe.wrappedValue.outputSize.pixels(for: source) ?? source
-        let px = "\(Int(out.width)) × \(Int(out.height)) px"
+        guard let px = Self.formattedPixelSize(out) else {
+            return T("Reading image size…", "正在读取照片尺寸…")
+        }
         guard batch.count > 1 else { return px }
         let others = batch.count - 1
         return recipe.wrappedValue.outputSize.isOriginal
             ? T("\(px) for this frame · \(others) more at their own sizes", "当前照片 \(px) · 另有 \(others) 张保留各自尺寸")
             : T("\(px) for this frame · \(others) more, each keeping its own shape, none enlarged",
                 "当前照片 \(px) · 另有 \(others) 张保持各自比例，均不放大")
+    }
+
+    /// A photo switch briefly exposes an unset geometry while the new frame
+    /// is decoded. The export rail remains mounted, so never bridge those
+    /// transitional (or malformed) floating-point dimensions to `Int`.
+    static func formattedPixelSize(_ size: CGSize) -> String? {
+        guard size.width.isFinite, size.height.isFinite,
+              size.width > 0, size.height > 0,
+              size.width < CGFloat(Int.max), size.height < CGFloat(Int.max) else { return nil }
+        return "\(Int(size.width)) × \(Int(size.height)) px"
     }
 
     private var resultingSizeHelp: String {
@@ -1128,16 +1285,17 @@ struct ExportPage: View {
     /// them invisible until opened. This is the explicit one and the other two
     /// are gone.
     private var openWithRow: some View {
-        HStack(spacing: 6) {
-            Text(T("Open With", "打开方式")).font(F.label).foregroundStyle(Theme.Ink.secondary)
-                .frame(width: M.labelWidth, alignment: .leading)
-            PillField(title: recipe.wrappedValue.openWith?.name ?? T("None", "无"), font: F.label,
+        HStack(spacing: 0) {
+            Text(T("Open With", "打开方式")).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
+                .frame(width: labelColumn, alignment: .leading)
+            PillField(title: recipe.wrappedValue.openWith?.name ?? T("None", "无"), font: bodyLabel,
                       help: T("Hand the finished files to this application when the export ends.",
                               "导出完成后用此应用打开生成的文件。")) {
                 openWithItems
             }
         }
-        .frame(height: M.rowHeight)
+        .frame(height: Theme.Metric.gridControl)
+        .frame(height: bodyRowHeight, alignment: .top)
     }
 
     @ViewBuilder private var openWithItems: some View {
@@ -1154,20 +1312,31 @@ struct ExportPage: View {
         // rail's bottom third empty to do it. Everything else on this page
         // is a control; this is the read-back, and a read-back nobody opens
         // is a read-back that is not checked.
+        // The summary is a read-out; "copy" is the one thing a read-out is
+        // for, and it is the block's only action — kept, as its `•••`.
         PanelSection(T("Summary", "摘要"), key: "exportSummary", menu: sectionMenu {
             Button(T("Copy Summary", "复制摘要")) {
                 let pb = NSPasteboard.general
                 pb.clearContents()
                 pb.setString(summaryLines.joined(separator: "\n"), forType: .string)
             }
-        }, metrics: Self.sectionMetrics) {
-            Well(padding: M.wellPadding, vertical: M.wellVertical, inset: M.wellInset, fill: false) {
+        }) {
+            Well(padding: wellPadding, vertical: wellVertical, inset: wellInset, fill: false) {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(summaryLines.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(F.value).foregroundStyle(Theme.secondaryText)
+                        Text(line).font(bodyValue).foregroundStyle(Theme.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    // **The proof is a switch on the result, so it lives in the
+                    // block that describes the result.** It was a labelled
+                    // button in the stage header, then a menu item, then a row
+                    // under the recipe *list* — none of which is what it is:
+                    // "show me what this will produce" is a state you turn on
+                    // beside the description of what it will produce
+                    // (UI-SPEC §2.16c).
+                    proofRow
+                        .padding(.top, Theme.Metric.space4)
                 }
             }
         }
@@ -1181,15 +1350,17 @@ struct ExportPage: View {
     /// result beside it: a page that cannot export is not a page, so this is
     /// part of the page rather than an addition to it.
     private var footer: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: Theme.Metric.space8) {
             if let problem = store.problem { message(problem, warning: true) }
             if let note { message(note.text, warning: note.warning) }
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.Metric.space8) {
                 if running, let p = session.exportProgress {
                     ProgressView(value: p).controlSize(.small).frame(width: 70)
                 }
                 Text(running ? T("Exporting…", "正在导出…") : exportButtonTitle)
                     .font(Theme.Font.caption).foregroundStyle(Theme.dim)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 Spacer()
                 // The page has exactly one primary action, so it is drawn as
                 // one (UI-SPEC §3.6): accent-filled, same inner stroke as
@@ -1199,8 +1370,8 @@ struct ExportPage: View {
                               enabled: !running && !batch.isEmpty && store.selected != nil) { run() }
             }
         }
-        .padding(.horizontal, M.wellPadding + 4)
-        .padding(.vertical, 8)
+        .padding(.horizontal, compact ? Theme.Metric.modernContentInset : M.wellPadding + 4)
+        .padding(.vertical, compact ? 12 : 8)
         .overlay(alignment: .top) { Rectangle().fill(Theme.ruleSoft).frame(height: 1) }
     }
 
@@ -1209,10 +1380,10 @@ struct ExportPage: View {
                                action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(F.label)
+                .font(bodyLabel)
                 .foregroundStyle(enabled ? Theme.card : Theme.text.opacity(Theme.disabledOpacity))
                 .padding(.horizontal, 12)
-                .frame(height: M.rowHeight)
+                .frame(height: bodyRowHeight)
                 .pillSurface(base: enabled ? Theme.accent : Theme.pill, wash: !enabled)
                 .contentShape(Capsule())
         }
@@ -1226,7 +1397,7 @@ struct ExportPage: View {
     private var exportButtonTitle: String {
         switch batch.count {
         case 0: T("No images selected", "未选择照片")
-        default: imageCount(batch.count)
+        default: imageCount(batch.count) + " · " + (store.selected?.name ?? "")
         }
     }
 
@@ -1339,7 +1510,7 @@ struct ExportPage: View {
                         VStack(spacing: 8) {
                             ProgressView().controlSize(.small)
                             Text(T("Rendering the preview…", "正在渲染预览…"))
-                                .font(F.label).foregroundStyle(Theme.Ink.tertiary)
+                                .font(bodyLabel).foregroundStyle(Theme.Ink.tertiary)
                         }
                     } else {
                         Text(worklist.isEmpty
@@ -1348,7 +1519,7 @@ struct ExportPage: View {
                              : session.selection == nil
                                ? T("No frame is open. Choose one from the strip.", "尚未打开照片，请从胶片条中选择。")
                                : T("Nothing to prove for this recipe.", "此配方暂无可预览的内容。"))
-                            .font(F.label).foregroundStyle(Theme.dim)
+                            .font(bodyLabel).foregroundStyle(Theme.dim)
                     }
                 }
                 .frame(width: max(geo.size.width, fitted.width * zoom),
@@ -1538,7 +1709,7 @@ struct ExportPage: View {
     private var emptyWorklist: some View {
         Text(T("Nothing is selected. ⌘-click images in the filmstrip to add them.",
                "尚未选择照片。按住 ⌘ 点击胶片条中的照片可将其加入导出。"))
-            .font(F.label)
+            .font(bodyLabel)
             .foregroundStyle(Theme.dim)
             .multilineTextAlignment(.center)
             .padding(20)
@@ -1562,14 +1733,26 @@ struct ExportPage: View {
     /// when there is none — so the page shows a real filename whenever it can.
     private var nameContext: NamingRule.Context {
         guard let sel = session.selection else { return NamingRule.sampleContext }
-        let out = session.geometry.outputSize(for: session.sourceImageSize)
-        let scale = session.sourceLongEdge > 0
-            ? session.sourceLongEdge / max(session.sourceImageSize.width, session.sourceImageSize.height) : 1
+        let source = session.sourceImageSize
+        let sourceEdge = max(source.width, source.height)
+        // During `select` the previous frame's long edge may still be set
+        // while the new source is zero. Dividing those produces infinity and
+        // the settings rail is evaluated before the decode has finished.
+        let pixels: CGSize
+        if source.width.isFinite, source.height.isFinite, sourceEdge > 0,
+           session.sourceLongEdge.isFinite {
+            let out = session.geometry.outputSize(for: source)
+            let scale = session.sourceLongEdge > 0 ? session.sourceLongEdge / sourceEdge : 1
+            pixels = CGSize(width: (out.width * scale).rounded(),
+                            height: (out.height * scale).rounded())
+        } else {
+            pixels = .zero
+        }
         return NamingRule.Context(
             originalName: sel.deletingPathExtension().lastPathComponent,
             filmStock: session.params.filmStock,
             printStock: session.params.printStock,
-            pixelSize: CGSize(width: (out.width * scale).rounded(), height: (out.height * scale).rounded()),
+            pixelSize: pixels,
             counter: 1, date: Date())
     }
 
@@ -1626,14 +1809,32 @@ struct ExportPage: View {
             // competing, nothing leading" the rails were rebuilt to fix — and
             // this page had stayed behind. `PillMenu`'s own rows were already
             // secondary, so the well did not even agree with itself.
-            Text(label).font(F.label).foregroundStyle(Theme.Ink.secondary)
+            Text(label).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)
-                .frame(width: M.labelWidth, alignment: .leading)
+                .frame(width: labelColumn, alignment: .leading)
             content()
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: M.rowHeight)
+        // The ink band, then the row box — see `ScrubSlider` for why both.
+        .frame(height: Theme.Metric.gridControl)
+        .frame(height: bodyRowHeight, alignment: .top)
+    }
+
+    /// One item of the Existing File menu. The check mark is the mark the
+    /// app's other menus use for the chosen row.
+    @ViewBuilder
+    private func existingFileButton(_ policy: ExistingFilePolicy) -> some View {
+        let chosen = policy == recipe.wrappedValue.existing
+        Button {
+            recipe.wrappedValue.existing = policy
+        } label: {
+            if chosen {
+                Label(policy.localizedLabel, systemImage: "checkmark")
+            } else {
+                Text(policy.localizedLabel)
+            }
+        }
     }
 
     /// `PanelSection`'s menu is an `AnyView` closure; this keeps the call sites
@@ -1831,7 +2032,7 @@ private struct ExportStripCell: View {
             .frame(height: Theme.Metric.Export.thumbMax)
             .frame(maxWidth: .infinity)
             Text(frame.name)
-                .font(Theme.Font.Export.label)
+                .font(Theme.Font.stockItem)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1).truncationMode(.middle)
         }
@@ -1913,7 +2114,7 @@ private struct ExportGridCell: View {
                         }
             }
             Text(frame.name)
-                .font(Theme.Font.Export.label)
+                .font(Theme.Font.stockItem)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -1951,14 +2152,34 @@ func exportFittedImageSize(imageSize: CGSize, in box: CGSize) -> CGSize {
 /// The chrome is written out rather than `PillMenu` generalised because
 /// `PillMenu` lives in `Controls/` and belongs to the whole app; when a third
 /// caller wants this shape, that is the moment to give it a home there.
+/// A pill's own text inset, shared by the `PillField` pill and the `TextField`
+/// that plays the same role one row down — the two are the same surface and
+/// had different padding (9 and 8), which is half of why their widths
+/// differed.
+///
+/// A file-level name and not a static on `PillField`: that type is generic, and
+/// Swift will not resolve a static member of a generic type from a call site
+/// that does not name its parameter. (The same trap produced
+/// `PillGeometry` in `Controls/FormatPicker.swift`.)
+enum PillFieldGeometry {
+    /// **The same numbers `PillMenu` uses.** The two are the same surface and
+    /// share a table, so they are one geometry: a 9 pt text inset against the
+    /// other's 10 and a 13.9 pt height against its 16 put every `PillField`
+    /// row 5 pt right, 2 pt shorter and 4 pt narrower than every `PillMenu`
+    /// row — the user's "大大小小" in one section.
+    static let textInset: CGFloat = PillGeometry.textInset
+    static let chevronInset: CGFloat = PillGeometry.chevronInset
+    static let chevron = PillGeometry.chevron
+}
+
 private struct PillField<MenuContent: View>: View {
     let title: String
     var dimmed = false
-    /// The **export page's** label, not the rails': this page has its own
-    /// drawing and its own scale (UI-SPEC 字体一节). Every call site passes `F.label`
-    /// today; the default is what keeps the next one from silently taking the
-    /// editor's 10.5.
-    var font: Font = Theme.Font.Export.label
+    /// **The body label**, in both homes. This used to default to the export
+    /// drawing's own 11 pt face, which is what let the page keep a second
+    /// scale after the editor had one; every call site passes `bodyLabel`
+    /// now, and the default is the same face rather than a third one.
+    var font: Font = Theme.Font.label
     var help: String?
     @ViewBuilder var menu: () -> MenuContent
 
@@ -1966,7 +2187,8 @@ private struct PillField<MenuContent: View>: View {
         Menu { menu() } label: {
             HStack {
                 Text(title).font(font)
-                    .foregroundStyle(dimmed ? Theme.dim : Theme.text).padding(.leading, 9)
+                    .foregroundStyle(dimmed ? Theme.dim : Theme.text)
+                    .padding(.leading, PillFieldGeometry.textInset)
                 Spacer(minLength: 4)
                 // `PillMenu`'s mark, not SF Symbols' double chevron. One
                 // glyph for "there is more under this", everywhere — the two
@@ -1974,10 +2196,11 @@ private struct PillField<MenuContent: View>: View {
                 Triangle()
                     .stroke(dimmed ? Theme.dim : Theme.text,
                             style: StrokeStyle(lineWidth: 1, lineJoin: .round))
-                    .frame(width: 8, height: 5)
-                    .padding(.trailing, 8)
+                    .frame(width: PillFieldGeometry.chevron.width,
+                           height: PillFieldGeometry.chevron.height)
+                    .padding(.trailing, PillFieldGeometry.chevronInset)
             }
-            .frame(height: Theme.Metric.Export.rowHeight - 1)
+            .frame(height: Theme.Metric.gridControl)
             .frame(maxWidth: .infinity)
             .pillSurface(base: Theme.pill)
             .contentShape(Capsule())

@@ -44,13 +44,13 @@ struct MasksSection: View {
     var body: some View {
         PanelSection("Masks", systemImage: "theatermasks", key: "masks",
                      initiallyExpanded: false, menu: { AnyView(menu) }) {
-            VStack(spacing: 6) {
-                Well(vertical: 6) {
+            VStack(spacing: Theme.Metric.space8) {
+                Well(vertical: Theme.Metric.space4) {
                     if session.masks.isEmpty {
                         Text("No masks. Add one from ••• — or ⇧M.")
                             .font(Theme.Font.caption).foregroundStyle(Theme.dim)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 2)
+                            .padding(.vertical, Theme.Metric.space2)
                     } else {
                         VStack(spacing: 0) {
                             ForEach(session.masks) { m in row(m) }
@@ -76,13 +76,13 @@ struct MasksSection: View {
                 if let i = list.firstIndex(where: { $0.id == m.id }) { list[i].enabled.toggle(); session.masks = list }
             } label: {
                 Image(systemName: m.enabled ? "eye" : "eye.slash")
-                    .font(.system(size: 10)).foregroundStyle(m.enabled ? Theme.text : Theme.dim)
+                    .font(.system(size: Theme.Metric.modernRowGlyph)).foregroundStyle(m.enabled ? Theme.text : Theme.dim)
                     .frame(width: 16, height: 14).contentShape(Rectangle())
             }
             .buttonStyle(.plain).help(m.enabled ? "Hide this mask" : "Show this mask")
             Button { session.deleteMask(m.id) } label: {
                 Image(systemName: "delete.left")
-                    .font(.system(size: 10)).foregroundStyle(Theme.dim)
+                    .font(.system(size: Theme.Metric.modernRowGlyph)).foregroundStyle(Theme.dim)
                     .frame(width: 16, height: 14).contentShape(Rectangle())
             }
             .buttonStyle(.plain).help("Delete this mask")
@@ -141,9 +141,9 @@ private struct Sublayer: View {
             // section of the panel.
             RoundedRectangle(cornerRadius: 1)
                 .fill(Theme.accent)
-                .frame(width: 2)
-                .padding(.vertical, 8)
-            VStack(spacing: 5) {
+                .frame(width: Theme.Metric.rule)
+                .padding(.vertical, Theme.Metric.space8)
+            VStack(spacing: Theme.Metric.space4) {
                 header
                 components
                 ScrubSlider(label: "Amount",
@@ -166,12 +166,12 @@ private struct Sublayer: View {
     }
 
     private var header: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Theme.Metric.space4) {
             TextField("", text: Binding(get: { mask.name }, set: { n in update { $0.name = n } }))
                 .textFieldStyle(.plain)
-                .font(Theme.Font.sectionTitle)
+                .font(Theme.Font.modernSectionTitle)
                 .foregroundStyle(Theme.text)
-            Spacer(minLength: 4)
+            Spacer(minLength: Theme.Metric.space4)
             toggle("circle.lefthalf.filled", "Invert the whole mask", on: mask.inverted) {
                 update { $0.inverted.toggle() }
             }
@@ -182,9 +182,9 @@ private struct Sublayer: View {
     }
 
     private var components: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: Theme.Metric.space2) {
             ForEach(mask.components) { c in
-                HStack(spacing: 5) {
+                HStack(spacing: Theme.Metric.space4) {
                     // The first component has nothing to subtract from, so
                     // its chip is a label rather than a control — the same
                     // rule `Mask.swift` packs and the shader applies.
@@ -205,13 +205,14 @@ private struct Sublayer: View {
                     .buttonStyle(.plain)
                     .help(first ? "The first component is what the mask starts from" : "Add to / subtract from the mask")
 
-                    Image(systemName: c.kind.systemImage).font(.system(size: 9)).foregroundStyle(Theme.dim)
+                    Image(systemName: c.kind.systemImage).font(.system(size: Theme.Metric.modernSublayerGlyph)).foregroundStyle(Theme.dim)
                     Text(c.kind.label).font(Theme.Font.sublabel).foregroundStyle(Theme.text).lineLimit(1)
                     if !c.summary.isEmpty {
                         Text(c.summary).font(Theme.Font.caption).foregroundStyle(Theme.dim)
                     }
                     Spacer(minLength: 2)
-                    toggle("arrow.left.arrow.right", "Invert this component", on: c.inverted, size: 9) {
+                    toggle("arrow.left.arrow.right", "Invert this component", on: c.inverted,
+                           size: Theme.Metric.modernSublayerGlyph) {
                         update { m in
                             if let i = m.components.firstIndex(where: { $0.id == c.id }) { m.components[i].inverted.toggle() }
                         }
@@ -219,12 +220,12 @@ private struct Sublayer: View {
                     Button {
                         update { m in m.components.removeAll { $0.id == c.id } }
                     } label: {
-                        Image(systemName: "delete.left").font(.system(size: 9)).foregroundStyle(Theme.dim)
+                        Image(systemName: "delete.left").font(.system(size: Theme.Metric.modernSublayerGlyph)).foregroundStyle(Theme.dim)
                             .frame(width: 14, height: 12).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).help("Remove this component")
                 }
-                .frame(height: 16)
+                .frame(height: Theme.Metric.modernRowHeight)
                 // A component with parameters that are not draggable on the
                 // canvas needs them here; the geometric ones are dragged.
                 if c.kind == .luminanceRange { rangeControls(c) }
@@ -247,8 +248,8 @@ private struct Sublayer: View {
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize(horizontal: false, vertical: true)
             .disabled(mask.components.count >= EditMask.maxComponents)
         }
-        .padding(6)
-        .background(Theme.well, in: RoundedRectangle(cornerRadius: 6))
+        .padding(Theme.Metric.space8)
+        .background(Theme.well, in: RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius))
     }
 
     private func rangeControls(_ c: MaskComponent) -> some View {
@@ -257,14 +258,15 @@ private struct Sublayer: View {
             component(c, "High", \.high, 0...1) { String(format: "%.0f %%", $0 * 100) }
             component(c, "Softness", \.softness, 0.001...0.5) { String(format: "%.0f %%", $0 * 100) }
         }
-        .padding(.leading, 18)
+        .padding(.leading, Theme.Metric.maskNestedIndent)
     }
 
     private func colorControls(_ c: MaskComponent) -> some View {
         VStack(spacing: 2) {
             HStack(spacing: 6) {
                 Text("Colour").font(Theme.Font.sublabel).foregroundStyle(Theme.text)
-                    .frame(width: Theme.Metric.sliderLabelWidth - 18, alignment: .leading)
+                    .frame(width: Theme.Metric.sliderLabelWidth - Theme.Metric.maskNestedIndent,
+                           alignment: .leading)
                 RoundedRectangle(cornerRadius: 3)
                     .fill(Color(.sRGB, red: c.color.x, green: c.color.y, blue: c.color.z))
                     .frame(width: 22, height: 12)
@@ -273,22 +275,22 @@ private struct Sublayer: View {
                     session.maskColorPick = c.id
                 } label: {
                     Image(systemName: "eyedropper")
-                        .font(.system(size: 10))
+                        .font(.system(size: Theme.Metric.modernRowGlyph))
                         .foregroundStyle(session.maskColorPick == c.id ? Theme.accent : Theme.text)
                         .frame(width: 16, height: 14).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).help("Pick the colour from the canvas")
                 Spacer()
             }
-            .frame(height: Theme.Metric.rowHeight)
+            .frame(height: Theme.Metric.gridRow)
             component(c, "Tolerance", \.tolerance, 0.01...1) { String(format: "%.0f %%", $0 * 100) }
         }
-        .padding(.leading, 18)
+        .padding(.leading, Theme.Metric.maskNestedIndent)
     }
 
     private func featherControl(_ c: MaskComponent) -> some View {
         component(c, "Feather", \.feather, 0...1) { String(format: "%.0f %%", $0 * 100) }
-            .padding(.leading, 18)
+            .padding(.leading, Theme.Metric.maskNestedIndent)
     }
 
     private func component(_ c: MaskComponent, _ label: String, _ key: WritableKeyPath<MaskComponent, Double>,
@@ -334,7 +336,8 @@ private struct Sublayer: View {
                     range: range, snap: snap, format: format)
     }
 
-    private func toggle(_ image: String, _ help: String, on: Bool, size: CGFloat = 11,
+    private func toggle(_ image: String, _ help: String, on: Bool,
+                        size: CGFloat = Theme.Metric.modernRowGlyph,
                         _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: image)

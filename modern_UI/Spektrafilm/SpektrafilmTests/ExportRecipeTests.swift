@@ -535,4 +535,41 @@ final class ExportRecipeTests: XCTestCase {
         XCTAssertEqual(store.selected?.format, original.format)
         XCTAssertTrue(store.selected?.name.hasSuffix(T(" copy", " 副本")) ?? false)
     }
+
+    @MainActor
+    func testSelectedRecipeSurvivesPanelRecreation() {
+        let url = FileManager.default.temporaryDirectory
+            .appending(path: "spk-recipes-\(UUID().uuidString)/export-recipes.json")
+        let key = "test.export.selected.\(UUID().uuidString)"
+        defer {
+            UserDefaults.standard.removeObject(forKey: key)
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+        }
+        let first = ExportRecipeStore(url: url, selectionKey: key)
+        let chosen = first.recipes[1].id
+        first.selectedID = chosen
+        let reopened = ExportRecipeStore(url: url, selectionKey: key)
+        XCTAssertEqual(reopened.selected?.id, chosen)
+        reopened.remove(reopened.selected!)
+        XCTAssertNotEqual(ExportRecipeStore(url: url, selectionKey: key).selected?.id, chosen)
+    }
+
+    @MainActor
+    func testEditingOneRecipeDoesNotChangeAnother() {
+        let url = FileManager.default.temporaryDirectory
+            .appending(path: "spk-recipes-\(UUID().uuidString)/export-recipes.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = ExportRecipeStore(url: url)
+        let first = store.recipes[0].id
+        let second = store.recipes[1].id
+        let originalFirst = store.recipes[0].subfolder
+        store.selectedID = second
+        var edited = store.selected!
+        edited.subfolder = "second-only"
+        store.selected = edited
+        store.selectedID = first
+        XCTAssertEqual(store.selected?.subfolder, originalFirst)
+        store.selectedID = second
+        XCTAssertEqual(store.selected?.subfolder, "second-only")
+    }
 }

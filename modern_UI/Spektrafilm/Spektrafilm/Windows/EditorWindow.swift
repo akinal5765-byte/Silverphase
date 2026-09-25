@@ -18,7 +18,18 @@ struct EditorWindow: View {
     /// Opening the export page's scene. A `Window` scene is addressed by its
     /// id from anywhere with the environment, which is how this window hands
     /// the request on without either of them owning the other.
-    @Environment(\.openWindow) private var openWindow
+    @State private var modernProofRecipe: ExportRecipe?
+    @State private var modernProof: SoftProof?
+
+    private struct ModernProofRequest: Hashable {
+        var frame: URL?
+        var recipe: ExportRecipe?
+    }
+
+    private var modernProofRequest: ModernProofRequest {
+        ModernProofRequest(frame: session.selection,
+                           recipe: modernProofRecipe)
+    }
 
     var body: some View {
         // One layout. The window used to switch to a `BrowseView` worklist
@@ -31,9 +42,7 @@ struct EditorWindow: View {
         // either state and the observer outlives every card that can fold.
         // See `TrafficLightAlignment` for why that matters.
         .background(
-            TrafficLightAlignment(centreY: session.interfaceLayout == .modern
-                                  ? Theme.Metric.modernTopBarHeight / 2
-                                  : Theme.Metric.trafficLightCentreY,
+            TrafficLightAlignment(centreY: Theme.Metric.modernTopBarHeight / 2,
                                   leading: Theme.Metric.trafficLightLeading)
                 .frame(width: 0, height: 0)
         )
@@ -50,17 +59,26 @@ struct EditorWindow: View {
             }
             return true
         }
-        // The export page is a window of its own (RFC-018 §6): with a
-        // per-destination transform the canvas is a Display P3 proof of a
-        // different thing, so the two are worth looking at side by side, which
-        // a modal sheet over the editor forbids. `showExport` is unchanged and
-        // still means "an export was asked for" — it is now consumed here
-        // rather than presented, so ⌘E, the editor's menu item and the
-        // toolbar's button all keep working without knowing the page moved.
+        // The export page is this window's right-hand inspector (), so `⌘E`
+        // toggles a rail rather than opening a scene. `ExportWindow` and its
+        // scene are kept only for the standalone capture and for anyone with
+        // the old window in their Window menu.
         .onChange(of: session.showExport) { _, wanted in
-            guard wanted else { return }
-            session.showExport = false
-            openWindow(id: ExportWindowID.scene)
+            if !wanted { modernProofRecipe = nil }
+        }
+        .task(id: modernProofRequest) {
+            let request = modernProofRequest
+            modernProof = nil
+            guard let recipe = request.recipe, request.frame != nil else { return }
+            let made = await session.softProofForDisplay(
+                recipe: recipe, paneSize: session.viewportSnapshot.viewport)
+            guard !Task.isCancelled, request == modernProofRequest else { return }
+            modernProof = made
+        }
+        .onChange(of: session.params) { _, _ in
+            // A proof is a snapshot of a particular development. Never leave
+            // old output pixels on screen after a parameter edit.
+            modernProofRecipe = nil
         }
     }
 
@@ -83,19 +101,23 @@ struct EditorWindow: View {
                                                    range: Theme.Metric.leftPanelRange)
     @State private var rightWidth = PanelWidthStore(name: "editor.right",
                                                     range: Theme.Metric.rightPanelRange)
+    /// How much of the canvas's right-hand side a floating surface covers:
+    /// the inspector **plus one gutter** — the same gutter the canvas keeps at
+    /// its own trailing edge. The panel is already inset by that gutter, so
+    /// adding it twice here (as the old `width + inset * 2` did) left a 24 pt
+    /// hole between the photograph and the inspector, while the strip below
+    /// kept 12.
     private var canvasRightOcclusion: CGFloat {
-        guard session.interfaceLayout == .modern && !session.rightCollapsed else { return 0 }
-        return (session.snapshotPanelWidths ? rightWidth.range.standard : rightWidth.width)
-            + Theme.Metric.modernChromeInset * 2
+        let panel = session.showExport
+            ? Theme.Metric.modernExportPanelWidth : Theme.Metric.modernPanelWidth
+        guard session.showExport || !session.rightCollapsed else { return 0 }
+        return panel + Theme.Metric.modernSurfaceGutter
     }
     private var printLayout: some View {
-        Group {
-            if session.interfaceLayout == .modern { modernLayout }
-            else { traditionalLayout }
-        }
+        modernLayout
         .onAppear { updateCanvasOcclusion() }
-        .onChange(of: session.interfaceLayout) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.rightCollapsed) { _, _ in updateCanvasOcclusion() }
+        .onChange(of: session.showExport) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.inspectorStage) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.filmstripCollapsed) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.snapshotPanelWidths) { _, _ in updateCanvasOcclusion() }
@@ -110,27 +132,13 @@ struct EditorWindow: View {
         }
     }
 
-    private var traditionalLayout: some View {
-        HStack(spacing: 0) {
-            if !session.leftCollapsed { leftRail(traditional: true) }
-            VStack(spacing: 0) {
-                TopBar(session: session)
-                    .frame(height: Theme.Metric.topBarHeight)
-                Hairline()
-                centreColumn
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !session.rightCollapsed { rightRail(traditional: true) }
-        }
-    }
-
     private func updateCanvasOcclusion() {
-        let modern = session.interfaceLayout == .modern
-        let stripVisible = modern || !session.filmstripCollapsed
-        let stripHeight: CGFloat = session.modernFilmChooserActive ? 92 : 72
-        session.setCanvasOcclusion(left: 0, right: canvasRightOcclusion,
-                                   top: modern ? Theme.Metric.modernTopBarHeight + Theme.Metric.modernChromeInset : 0,
-                                   bottom: modern && stripVisible ? stripHeight + Theme.Metric.modernChromeInset : 0)
+        let stripHeight: CGFloat = session.modernFilmChooserActive
+            ? Theme.Metric.modernFilmChooserHeight : Theme.Metric.modernStripHeight
+        session.setCanvasOcclusion(
+            left: 0, right: canvasRightOcclusion,
+            top: Theme.Metric.modernTopBarHeight + Theme.Metric.modernSurfaceGutter,
+            bottom: stripHeight + Theme.Metric.modernSurfaceGutter)
     }
 
     /// The panels are overlays: only the photograph's fitted placement reacts
@@ -139,53 +147,53 @@ struct EditorWindow: View {
         ZStack {
             centreColumn
             HStack(spacing: 0) {
-                // The Modern material catalogue lives in the bottom chooser;
-                // the old left rail remains available only in Traditional.
+                // The material catalogue lives in the bottom chooser, so the
+                // window has one rail: the inspector, or the export page.
                 Spacer(minLength: 0)
-                if !session.rightCollapsed { rightRail(traditional: false) }
+                if session.showExport { modernExportRail }
+                else if !session.rightCollapsed { inspectorRail }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .transition(.opacity)
     }
 
-    private func leftRail(traditional: Bool) -> some View {
-        LeftPanel(session: session, traditional: traditional)
-            .frame(width: session.snapshotPanelWidths ? leftWidth.range.standard : leftWidth.width)
-            .overlay(alignment: .trailing) {
-                PanelResizeHandle(side: .trailingEdge, range: leftWidth.range, width: $leftWidth.width)
-            }
-            .overlay(alignment: .trailing) { VerticalHairline().allowsHitTesting(false) }
-            .transition(.move(edge: .leading))
-    }
-
-    private func rightRail(traditional: Bool) -> some View {
-        RightPanel(session: session, traditional: traditional)
-            .frame(width: session.snapshotPanelWidths ? rightWidth.range.standard : rightWidth.width)
-            .overlay(alignment: .leading) {
-                PanelResizeHandle(side: .leadingEdge, range: rightWidth.range, width: $rightWidth.width)
-            }
-            .overlay(alignment: .leading) {
-                if traditional { VerticalHairline().allowsHitTesting(false) }
-            }
+    /// The one rail. It floats over the canvas at a fixed width, so only the
+    /// photograph's fitted placement reacts to it — never the Metal view.
+    private var inspectorRail: some View {
+        let panelWidth = Theme.Metric.modernPanelWidth
+        return RightPanel(session: session)
+            .frame(width: panelWidth)
             .environment(\.colorBalanceWidth,
-                         ColorBalanceLayout.interior(panelWidth: rightWidth.width))
-            .padding(.top, traditional ? 0 : Theme.Metric.modernTopBarHeight + Theme.Metric.modernChromeInset)
-            .padding(.bottom, traditional ? 0 : Theme.Metric.modernChromeInset)
-            .padding(.trailing, traditional ? 0 : Theme.Metric.modernChromeInset)
+                         ColorBalanceLayout.interior(panelWidth: panelWidth))
+            .padding(.top, Theme.Metric.modernTopBarHeight + Theme.Metric.modernSurfaceGutter)
+            .padding(.bottom, Theme.Metric.modernSurfaceGutter)
+            .padding(.trailing, Theme.Metric.modernSurfaceGutter)
             .transition(.move(edge: .trailing))
     }
 
-    /// Modern keeps the Metal canvas window-sized, with the bottom navigator
-    /// over it. Traditional retains the older stacked centre column.
+    private var modernExportRail: some View {
+        ExportPage(session: session, compact: true,
+                   editorProofRecipe: $modernProofRecipe)
+            .frame(width: Theme.Metric.modernExportPanelWidth)
+            .padding(.top, Theme.Metric.modernTopBarHeight + Theme.Metric.modernSurfaceGutter)
+            .padding(.bottom, Theme.Metric.modernSurfaceGutter)
+            .padding(.trailing, Theme.Metric.modernSurfaceGutter)
+            .transition(.move(edge: .trailing))
+    }
+
+    /// The Metal canvas is **window-sized**: the rails float over it, so the
+    /// photograph is never squeezed into a column and the viewport's
+    /// unobscured rectangle is what Fit placements respect.
     private var centreColumn: some View {
-        Group {
-            if session.interfaceLayout == .modern {
-                CanvasArea(session: session,
-                           obscuredRight: canvasRightOcclusion,
-                           topInset: Theme.Metric.modernTopBarHeight + Theme.Metric.modernChromeInset,
-                           chromeInset: Theme.Metric.modernChromeInset)
-                    .overlay(alignment: .bottom) {
+        CanvasArea(session: session,
+                   obscuredRight: canvasRightOcclusion,
+                   topInset: Theme.Metric.modernTopBarHeight + Theme.Metric.modernSurfaceGutter,
+                   chromeInset: Theme.Metric.modernSurfaceGutter,
+                   outputProof: modernProof,
+                   outputProofRequested: modernProofRecipe != nil,
+                   onHideOutputProof: { modernProofRecipe = nil })
+            .overlay(alignment: .bottom) {
                         Group {
                             if session.modernFilmChooserActive {
                                 FilmChoiceStrip(session: session)
@@ -193,23 +201,24 @@ struct EditorWindow: View {
                                 Filmstrip(session: session, compact: true)
                             }
                         }
-                        .frame(height: session.modernFilmChooserActive ? 92 : 72)
-                        .padding(.leading, Theme.Metric.modernChromeInset)
-                        .padding(.trailing, canvasRightOcclusion == 0 ? Theme.Metric.modernChromeInset : canvasRightOcclusion)
-                        .padding(.bottom, Theme.Metric.modernChromeInset)
+                        .frame(height: session.modernFilmChooserActive
+                               ? Theme.Metric.modernFilmChooserHeight
+                               : Theme.Metric.modernStripHeight)
+                        // **One gutter at the canvas's leading edge, and one
+                        // at the inspector's.** The strip used to be padded
+                        // clear of the whole panel on the right and carry its
+                        // own 20 pt inset on the left, so its first
+                        // photograph sat 32 pt in while the histogram plate
+                        // above it sat at 12 — two left edges on one canvas,
+                        // which is what the user saw. The plate's edge and the
+                        // photograph's edge are the same edge; the panel's
+                        // edge is the other one.
+                        .padding(.leading, Theme.Metric.modernSurfaceGutter)
+                        .padding(.trailing, max(Theme.Metric.modernSurfaceGutter,
+                                                canvasRightOcclusion + Theme.Metric.modernSurfaceGutter))
+                        .padding(.bottom, Theme.Metric.modernSurfaceGutter)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-            } else {
-                VStack(spacing: 0) {
-                    CanvasArea(session: session)
-                    if !session.filmstripCollapsed {
-                        Hairline()
-                        Filmstrip(session: session)
-                            .frame(height: Theme.Metric.filmstripHeight)
-                    }
-                }
-            }
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -221,9 +230,13 @@ struct CanvasArea: View {
     var obscuredLeft: CGFloat = 0
     var obscuredRight: CGFloat = 0
     var topInset: CGFloat = 0
-    var chromeInset: CGFloat = CanvasBadges.inset
+    var chromeInset: CGFloat = Theme.Metric.modernSurfaceGutter
+    var outputProof: SoftProof? = nil
+    var outputProofRequested = false
+    var onHideOutputProof: (() -> Void)? = nil
     @Environment(\.snapshotMode) private var snapshotMode
     @State private var showsMoreInformation = true
+    private var showingBatchGrid: Bool { session.modernBatchGridActive && !outputProofRequested }
 
     var body: some View {
         ZStack {
@@ -232,11 +245,42 @@ struct CanvasArea: View {
             } else {
                 MetalCanvasView(host: session)
             }
+            if showingBatchGrid {
+                GeometryReader { geometry in
+                    let width = max(geometry.size.width - obscuredRight - chromeInset * 2, 1)
+                    let height = max(geometry.size.height - topInset
+                                     - Theme.Metric.modernStripHeight - chromeInset, 1)
+                    SelectedFramesGrid(session: session)
+                        .frame(width: width, height: height)
+                        .position(x: chromeInset + width / 2,
+                                  y: topInset + height / 2)
+                }
+                .background(Theme.ground)
+            }
+            if outputProofRequested, let outputProof {
+                GeometryReader { geometry in
+                    let bottomInset = (session.modernFilmChooserActive
+                                       ? Theme.Metric.modernFilmChooserHeight
+                                       : Theme.Metric.modernStripHeight) + chromeInset
+                    let usableWidth = max(geometry.size.width - obscuredRight - chromeInset * 2, 1)
+                    let usableHeight = max(geometry.size.height - topInset - bottomInset, 1)
+                    ZStack(alignment: .topLeading) {
+                        Theme.ground
+                        Image(decorative: outputProof.displayImage, scale: 1)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: usableWidth, height: usableHeight)
+                            .position(x: (geometry.size.width - obscuredRight) / 2,
+                                      y: topInset + usableHeight / 2)
+                    }
+                }
+                .allowsHitTesting(false)
+            }
             // Handles, thirds grid and the straighten line. The shader does
             // the dimming; this does the lines, which want to stay crisp.
-            if session.tool == .crop && !snapshotMode {
+            if !outputProofRequested && !showingBatchGrid && session.tool == .crop && !snapshotMode {
                 CropOverlay(session: session)
-            } else if FeatureFlags.masks && !snapshotMode && session.selectedMask != nil {
+            } else if !outputProofRequested && !showingBatchGrid && FeatureFlags.masks && !snapshotMode && session.selectedMask != nil {
                 MaskOverlay(session: session)
             }
             // Above both: the split's handle is a control, and it is the only
@@ -247,7 +291,7 @@ struct CanvasArea: View {
             // and the two arithmetics are written in different files — so a
             // capture where the line does not sit on the seam is the only
             // thing that catches them disagreeing.
-            CompareOverlay(session: session)
+            if !outputProofRequested && !showingBatchGrid { CompareOverlay(session: session) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Everything in this stack is positioned in **view coordinates**, and
@@ -269,13 +313,10 @@ struct CanvasArea: View {
         // gallery view remains unchanged" — and is still the pill that
         // appears when the pointer comes near the canvas's lower edge.
         .overlay(alignment: .bottom) {
-            if session.interfaceLayout == .traditional {
-                HoverEdgeTab(edge: .bottom, collapsed: $session.filmstripCollapsed)
-            }
         }
         .overlay {
-            if session.interfaceLayout == .modern && session.frames.isEmpty {
-                VStack(spacing: 12) {
+            if session.frames.isEmpty {
+                VStack(spacing: Theme.Metric.space12) {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 34, weight: .light))
                         .foregroundStyle(Theme.Ink.secondary)
@@ -288,27 +329,34 @@ struct CanvasArea: View {
                         .multilineTextAlignment(.center)
                     Button(T("Open Photos", "打开照片")) { session.openPanel() }
                         .buttonStyle(.primarySurface)
-                        .padding(.top, 4)
+                        .padding(.top, Theme.Metric.space4)
                 }
                 .frame(maxWidth: 420)
-                .padding(24)
+                .padding(Theme.Metric.space20)
             }
         }
         .overlay(alignment: .topLeading) {
-            if session.interfaceLayout == .modern {
-                VStack(alignment: .leading, spacing: 8) {
-                    CanvasHistogram(session: session)
+            if !outputProofRequested && !showingBatchGrid {
+                VStack(alignment: .leading, spacing: Theme.Metric.space8) {
+                    // **Nothing on the canvas until there is a picture to
+                    // measure.** A Modern histogram is a glass plate over the
+                    // photograph, and with no frame open it drew an empty
+                    // rounded rectangle in the corner — a control-shaped mark
+                    // that said "loading" about a state that is simply empty.
+                    if session.selection != nil, session.histogram.contains(where: { $0 > 0 }) {
+                        CanvasHistogram(session: session)
+                    }
                     if !modernCanvasInformation.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Theme.Metric.space4) {
                             Button {
                                 withAnimation(.easeOut(duration: 0.16)) {
                                     showsMoreInformation.toggle()
                                 }
                             } label: {
-                                HStack(spacing: 6) {
+                                HStack(spacing: Theme.Metric.space4) {
                                     Text(T("More Information", "更多信息"))
                                     Image(systemName: showsMoreInformation ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.system(size: Theme.Metric.modernRowGlyph, weight: .medium))
                                 }
                                 .font(Theme.Font.caption)
                                 .foregroundStyle(Theme.Ink.secondary)
@@ -323,25 +371,33 @@ struct CanvasArea: View {
                                 }
                             }
                         }
-                        .padding(.leading, 12)
+                        .padding(.leading, Theme.Metric.space12)
                         .frame(maxWidth: 220, alignment: .leading)
                     }
                 }
                 .padding(.leading, obscuredLeft + chromeInset)
                 .padding(.top, topInset)
-            } else if session.histogram.contains(where: { $0 > 0 }) {
-                CanvasHistogram(session: session)
-                    .padding(.leading, obscuredLeft + chromeInset)
-                    .padding(.top, CanvasBadges.inset)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if session.interfaceLayout == .traditional {
-                VStack(alignment: .trailing, spacing: CanvasBadges.spacing) {
-                    ForEach(session.canvasBadges, id: \.self) { badge($0) }
+        .overlay(alignment: .top) {
+            if outputProofRequested {
+                HStack(spacing: Theme.Metric.space8) {
+                    if outputProof == nil { ProgressView().controlSize(.mini) }
+                    Text(outputProof.map { T("Output Proof · \($0.targetName)", "输出软打样 · \($0.targetName)") }
+                         ?? T("Preparing output proof…", "正在生成输出软打样…"))
+                        .font(Theme.Font.caption)
+                    Button { onHideOutputProof?() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: Theme.Metric.modernRowGlyph, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .help(T("Return to editing", "返回编辑"))
                 }
-                .padding(.trailing, obscuredRight + chromeInset)
-                .padding(.top, CanvasBadges.inset)
+                .foregroundStyle(Theme.Ink.primary)
+                .padding(.horizontal, Theme.Metric.space12)
+                .padding(.vertical, Theme.Metric.space8)
+                .modifier(EditorChromeSurface())
+                .padding(.top, topInset)
             }
         }
         // Contract §2's "a visible error rather than a blank canvas". Centred
@@ -351,55 +407,24 @@ struct CanvasArea: View {
         // a way they can act on without being told.
         .overlay {
             if let why = session.serviceBlocked {
-                VStack(spacing: 8) {
+                VStack(spacing: Theme.Metric.space8) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 22, weight: .regular))
                         .foregroundStyle(Theme.accent)
-                    Text("The render service cannot be used")
+                    Text(T("The render service cannot be used", "渲染服务不可用"))
                         .font(Theme.Font.sectionTitle).foregroundStyle(Theme.text)
                     Text(why)
                         .font(Theme.Font.caption).foregroundStyle(Theme.secondaryText)
                         .multilineTextAlignment(.center).frame(maxWidth: 380)
-                    Button("Restart the render service") { session.restartService() }
+                    Button(T("Restart the render service", "重启渲染服务")) { session.restartService() }
                         .buttonStyle(.plain).font(Theme.Font.caption).foregroundStyle(Theme.accent)
-                        .padding(.top, 2)
+                        .padding(.top, Theme.Metric.space2)
                 }
-                .padding(20)
-                .background(Theme.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .shadow(color: .black.opacity(0.4), radius: 8)
-            }
-        }
-        .overlay(alignment: .bottomLeading) {
-            // Traditional retains its canvas status. Modern keeps task state
-            // under the filename, leaving the photograph and navigator clear.
-            if session.interfaceLayout == .traditional {
-                VStack(alignment: .leading, spacing: 4) {
-                    if let w = session.stockWarning {
-                        Text(w).font(Theme.Font.caption).foregroundStyle(Theme.text)
-                            .lineLimit(2).frame(maxWidth: 360, alignment: .leading)
-                    }
-                    HStack(spacing: 8) {
-                        if session.working {
-                            ProgressView().controlSize(.small).scaleEffect(0.7)
-                        }
-                        Text(session.working
-                             ? String(format: "%@ · %.1f s", session.status, session.workSeconds)
-                             : session.status)
-                            .font(Theme.Font.caption)
-                            .foregroundStyle(Theme.text)
-                            .lineLimit(1)
-                        if !session.serviceReady, session.selection != nil {
-                            Button(L(.actionRestart)) { session.restartService() }
-                                .buttonStyle(.plain)
-                                .font(Theme.Font.caption)
-                                .foregroundStyle(Theme.accent)
-                                .help("The render service is not running. Start it again.")
-                        }
-                    }
-                }
-                .padding(.leading, obscuredLeft + chromeInset)
-                .padding(.bottom, CanvasBadges.inset)
-                .shadow(color: Theme.overlayInkShadow, radius: 1)
+                .padding(Theme.Metric.space20)
+                .background(Theme.card,
+                            in: RoundedRectangle(cornerRadius: Theme.Metric.modernContainerRadius,
+                                                 style: .continuous))
+                .shadow(color: Theme.overlayInkShadow, radius: Theme.Metric.space8)
             }
         }
     }
@@ -408,12 +433,6 @@ struct CanvasArea: View {
         session.canvasBadges.filter { $0 != "full" && $0 != "full resolution…" }
     }
 
-    private func badge(_ text: String) -> some View {
-        // No plate either (§2.9): the ink and its shadow are the badge.
-        Text(text).font(Theme.Font.caption).foregroundStyle(Theme.text)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .shadow(color: Theme.overlayInkShadow, radius: 1)
-    }
 }
 
 /// The histogram is a read-only instrument painted **on** the photograph, not
@@ -426,31 +445,20 @@ struct CanvasArea: View {
 /// one-shot action button does not belong on the canvas at all (UI-SPEC
 /// §1.3). The button moved to the Frame menu.
 ///
-/// Modern gives the plot the same floating glass surface and inset as the
-/// other canvas controls. Traditional keeps the original soft scrim.
+/// The plot wears the same floating glass surface and inset as the other
+/// canvas controls, so the plate on the photograph is the same plate.
 private struct CanvasHistogram: View {
     @Bindable var session: Session
 
     var body: some View {
-        Group {
-            if session.interfaceLayout == .modern {
-                plot.padding(12)
-                    .modifier(EditorChromeSurface(modern: true))
-            } else {
-                plot.background {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Theme.overlayScrim)
-                        .blur(radius: 7)
-                        .padding(-7)
-                }
-            }
-        }
+        plot.padding(Theme.Metric.modernPlotInset)
+            .modifier(EditorChromeSurface())
     }
 
     private var plot: some View {
         HistogramPlot(bins: session.histogram, channels: [.rgb],
                       showGrid: false, background: .clear)
-            .frame(width: 196, height: 54)
+            .frame(width: Theme.Metric.modernPlot.width, height: Theme.Metric.modernPlot.height)
             .shadow(color: Theme.overlayInkShadow, radius: 1)
     }
 }

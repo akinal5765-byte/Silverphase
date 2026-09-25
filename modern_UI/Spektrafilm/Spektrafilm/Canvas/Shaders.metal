@@ -1,7 +1,7 @@
 //  Shaders.metal — the canvas: Layer 2 as a compute pass, the output
 //  transform, a display quad, and the histogram.
 //
-//  Colour rules (UI-GUIDELINE §4, RFC-018 §2.4): **ProPhoto RGB is the working
+//  Colour rules (UI-SPEC §11.4, RFC-018 §2.4): **ProPhoto RGB is the working
 //  space.** The image textures hold the *working* space's encoded values — the
 //  engine applied `output_cctf_encoding` to its ProPhoto output, and the
 //  decoder's preview is rendered into ROMM too — and Layer 2 grades in them.

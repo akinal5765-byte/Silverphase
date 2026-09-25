@@ -2,6 +2,21 @@ import XCTest
 
 @MainActor
 final class PrintCacheTests: XCTestCase {
+    func testPrintCacheKeyChangesWithDecodeSettings() {
+        let url = URL(fileURLWithPath: "/tmp/print-cache-white-balance.nef")
+        let original = Session.printCacheKey(
+            url: url, params: .default, decode: DecodeSettings(), tier: .live,
+            previewLongEdge: 2560, engineVersion: "test")
+        var changed = DecodeSettings()
+        changed.whiteBalance = .custom
+        changed.temperature = 7200
+        let adjusted = Session.printCacheKey(
+            url: url, params: .default, decode: changed, tier: .live,
+            previewLongEdge: 2560, engineVersion: "test")
+        XCTAssertNotEqual(original, adjusted,
+                          "A cached print must not survive a changed linear decode")
+    }
+
     private func smokeFrame() throws -> URL {
         let source = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -61,6 +76,7 @@ final class PrintCacheTests: XCTestCase {
         let key = Session.printCacheKey(
             url: url,
             params: FilmParams.default,
+            decode: DecodeSettings(),
             tier: .live,
             previewLongEdge: session.previewLongEdge,
             engineVersion: engineVersion
@@ -103,6 +119,7 @@ final class PrintCacheTests: XCTestCase {
         let key = Session.printCacheKey(
             url: url,
             params: FilmParams.default,
+            decode: DecodeSettings(),
             tier: .live,
             previewLongEdge: session.previewLongEdge,
             engineVersion: "old-engine"

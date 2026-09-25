@@ -72,16 +72,11 @@ final class FrontendPolicyTests: XCTestCase {
     ///
     /// The old persisted flags must not override the photograph-first default.
     func testRailsStartFoldedAndStageSelectionTogglesInspector() {
-        let savedLayout = UserDefaults.standard.object(forKey: Session.uiKey + "editorLayout")
-        UserDefaults.standard.set(EditorLayoutStyle.modern.rawValue,
-                                  forKey: Session.uiKey + "editorLayout")
         UserDefaults.standard.set(true, forKey: Session.uiKey + "leftCollapsed")
         UserDefaults.standard.set(true, forKey: Session.uiKey + "rightCollapsed")
         let savedFilmSection = UserDefaults.standard.object(forKey: Session.uiKey + "section.film")
         let savedOutputSection = UserDefaults.standard.object(forKey: Session.uiKey + "section.output")
         defer {
-            if let savedLayout { UserDefaults.standard.set(savedLayout, forKey: Session.uiKey + "editorLayout") }
-            else { UserDefaults.standard.removeObject(forKey: Session.uiKey + "editorLayout") }
             UserDefaults.standard.removeObject(forKey: Session.uiKey + "leftCollapsed")
             UserDefaults.standard.removeObject(forKey: Session.uiKey + "rightCollapsed")
             for (key, value) in [("section.film", savedFilmSection),
@@ -108,36 +103,31 @@ final class FrontendPolicyTests: XCTestCase {
         XCTAssertTrue(UserDefaults.standard.bool(forKey: Session.uiKey + "section.output"))
     }
 
-    func testEditorLayoutSwitchKeepsTraditionalAvailable() {
-        XCTAssertEqual(EditorLayoutStyle.modern.label(in: .simplifiedChinese), "现代")
-        XCTAssertEqual(EditorLayoutStyle.traditional.label(in: .simplifiedChinese), "传统")
-        let key = Session.uiKey + "editorLayout"
+    /// **There is one layout, and the fold does not outlive the window.**
+    ///
+    /// The three-region layout and the menu that chose between it and the
+    /// floating one are gone (2026-09-26). What has to survive is the rule the
+    /// chooser was also enforcing: a rail folded is a momentary state, so a
+    /// new session always opens on the photograph with both rails away, and a
+    /// stale `leftCollapsed` key in the store changes nothing.
+    func testThereIsOneLayoutAndTheFoldDoesNotPersist() {
+        let key = Session.uiKey + "leftCollapsed"
         let previous = UserDefaults.standard.object(forKey: key)
         defer {
             if let previous { UserDefaults.standard.set(previous, forKey: key) }
             else { UserDefaults.standard.removeObject(forKey: key) }
         }
-        UserDefaults.standard.set(EditorLayoutStyle.modern.rawValue, forKey: key)
+        UserDefaults.standard.set(false, forKey: key)
         let session = Session()
-        XCTAssertEqual(session.interfaceLayout, .modern)
-        session.interfaceLayout = .traditional
-        XCTAssertFalse(session.leftCollapsed)
-        XCTAssertFalse(session.rightCollapsed)
-        XCTAssertEqual(UserDefaults.standard.string(forKey: key), "traditional")
-        XCTAssertEqual(Session().interfaceLayout, .traditional)
-        session.interfaceLayout = .modern
-        XCTAssertTrue(session.leftCollapsed)
+        XCTAssertTrue(session.leftCollapsed,
+                      "a stale key must not open the window with a rail out")
         XCTAssertTrue(session.rightCollapsed)
+        // It still folds for as long as the window lives.
+        session.leftCollapsed = false
+        XCTAssertFalse(session.leftCollapsed)
     }
 
     func testModernFilmChooserAndStockSelectionShareTheRailRules() {
-        let key = Session.uiKey + "editorLayout"
-        let previous = UserDefaults.standard.object(forKey: key)
-        defer {
-            if let previous { UserDefaults.standard.set(previous, forKey: key) }
-            else { UserDefaults.standard.removeObject(forKey: key) }
-        }
-        UserDefaults.standard.set(EditorLayoutStyle.modern.rawValue, forKey: key)
         let session = Session()
         XCTAssertFalse(session.modernFilmChooserActive)
         session.selectInspectorStage(.film)
@@ -160,9 +150,7 @@ final class FrontendPolicyTests: XCTestCase {
         session.selectInspectorStage(.film)
         XCTAssertFalse(session.modernFilmChooserActive)
         session.selectInspectorStage(.film)
-        session.interfaceLayout = .traditional
-        session.leftCollapsed = false
-        XCTAssertFalse(session.modernFilmChooserActive)
+        XCTAssertTrue(session.modernFilmChooserActive)
     }
 
     /// When a frame gets a native render: whenever it is bigger than the

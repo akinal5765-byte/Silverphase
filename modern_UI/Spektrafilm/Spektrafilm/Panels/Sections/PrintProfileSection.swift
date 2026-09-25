@@ -44,7 +44,6 @@ struct PrintProfileSection: View {
     static let wellRows = 12
 
     @Bindable var session: Session
-
     /// The sentinel `StockList` row id for "No Print Profile". It is not a
     /// paper, so it cannot be a `print_stock` value — see `FilmParams.scanFilm`
     /// for why that separation is load-bearing — and this is the id the list
@@ -126,7 +125,9 @@ struct PrintProfileSection: View {
 
     /// The print's own parameters, on the right rail.
     private var paramSection: some View {
-        PanelSection(L(.sectionPrint), key: "print", menu: { AnyView(menu) }) {
+        PanelSection(L(.sectionPrint), key: "print",
+                     blockTitle: T("Exposure & Filtration", "曝光与滤色"),
+                     menu: { AnyView(menu) }) {
             VStack(alignment: .leading, spacing: 0) {
                 RailRows {
                     ScrubSlider(label: L(.printExposure), sublabel: "stops · brighter +",
@@ -162,30 +163,33 @@ struct PrintProfileSection: View {
                                 range: 0...0.05, entryRange: 0...1, snap: 0.005,
                                 format: { String(format: "%.3f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive)
-                    PillMenu(label: L(.enlargerDiffusion), options: DiffusionChoice.allCases,
-                             title: { $0.title },
-                             selection: Binding(
-                                get: { DiffusionChoice(rawValue: session.params.enlargerDiffusion) ?? .off },
-                                set: { var p = session.params; p.enlargerDiffusion = $0.rawValue; session.params = p }))
-                    .disabled(session.params.scanFilm || filmIsPositive)
-                    .help(L(.enlargerSoftnessHelp))
-                    ScrubSlider(label: L(.enlargerSoftnessStrength),
-                                value: Binding(get: { session.params.enlargerDiffusionStrength },
-                                               set: { var p = session.params; p.enlargerDiffusionStrength = $0; session.params = p }),
-                                range: 0.125...2, zero: 0.5, snap: 0.125,
-                                format: { String(format: "%.3g", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive ||
-                                          session.params.enlargerDiffusion == "off")
-                    ScrubSlider(label: L(.enlargerSoftnessRange),
-                                value: Binding(get: { session.params.enlargerDiffusionRange },
-                                               set: { var p = session.params; p.enlargerDiffusionRange = $0; session.params = p }),
-                                range: 0.5...2, zero: 1, snap: 0.1,
-                                format: { String(format: "%.1f×", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive ||
-                                          session.params.enlargerDiffusion == "off")
-                    .help(L(.enlargerSoftnessRangeHelp))
                 }
-                .padding(.top, Theme.Metric.blockGap)
+                InspectorSubblock(title: T("Optical Diffusion", "光学柔化")) {
+                    RailRows {
+                        PillMenu(label: L(.enlargerDiffusion), options: DiffusionChoice.allCases,
+                                 title: { $0.title },
+                                 selection: Binding(
+                                    get: { DiffusionChoice(rawValue: session.params.enlargerDiffusion) ?? .off },
+                                    set: { var p = session.params; p.enlargerDiffusion = $0.rawValue; session.params = p }))
+                        .disabled(session.params.scanFilm || filmIsPositive)
+                        .help(L(.enlargerSoftnessHelp))
+                        ScrubSlider(label: L(.enlargerSoftnessStrength),
+                                    value: Binding(get: { session.params.enlargerDiffusionStrength },
+                                                   set: { var p = session.params; p.enlargerDiffusionStrength = $0; session.params = p }),
+                                    range: 0.125...2, zero: 0.5, snap: 0.125,
+                                    format: { String(format: "%.3g", $0) },
+                                    disabled: session.params.scanFilm || filmIsPositive ||
+                                              session.params.enlargerDiffusion == "off")
+                        ScrubSlider(label: L(.enlargerSoftnessRange),
+                                    value: Binding(get: { session.params.enlargerDiffusionRange },
+                                                   set: { var p = session.params; p.enlargerDiffusionRange = $0; session.params = p }),
+                                    range: 0.5...2, zero: 1, snap: 0.1,
+                                    format: { String(format: "%.1f×", $0) },
+                                    disabled: session.params.scanFilm || filmIsPositive ||
+                                              session.params.enlargerDiffusion == "off")
+                        .help(L(.enlargerSoftnessRangeHelp))
+                    }
+                }
             }
         }
     }

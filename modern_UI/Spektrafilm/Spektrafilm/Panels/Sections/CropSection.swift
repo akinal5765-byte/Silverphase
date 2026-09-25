@@ -26,7 +26,9 @@ struct CropSection: View {
     // new system, everything else works fine there." So the rows are the
     // rows, moved onto the rail — no well, no section icon, the new insets.
     var body: some View {
-        PanelSection(L(.sectionCrop), key: "crop", initiallyExpanded: false, menu: { AnyView(menu) }) {
+        PanelSection(L(.sectionCrop), key: "crop", initiallyExpanded: false,
+                     blockTitle: T("Crop & Rotate", "裁切与旋转"),
+                     menu: { AnyView(menu) }) {
             RailRows {
                 aspectRow
                 // Scrubbed through `scrubStraighten`, not written straight
@@ -59,7 +61,7 @@ struct CropSection: View {
     /// The picker binds to `canonical`, so an upright crop still shows "3:2"
     /// selected rather than falling off the end of a list it is not in.
     private var aspectRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Theme.Metric.space8) {
             PillMenu(label: L(.cropAspect), options: CropAspect.pickerCases,
                      title: { $0.key.map { L($0) } ?? $0.label },
                      selection: Binding(get: { g.aspect.canonical },
@@ -81,7 +83,7 @@ struct CropSection: View {
         let on = g.aspect.hasOrientation
         return Button { setAspect(g.aspect.transposed) } label: {
             Image(systemName: g.aspect.isPortrait ? "rectangle.portrait" : "rectangle")
-                .font(.system(size: 11, weight: .regular))
+                .font(.system(size: Theme.Metric.modernRowGlyph, weight: .regular))
                 .foregroundStyle(on ? Theme.text : Theme.text.opacity(Theme.disabledOpacity))
                 .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
                 .contentShape(Rectangle())
@@ -109,7 +111,7 @@ struct CropSection: View {
         HStack(spacing: 0) {
             Text(L(.cropRotate)).font(Theme.Font.label).foregroundStyle(Theme.Ink.secondary)
                 .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
-            HStack(spacing: 6) {
+            HStack(spacing: Theme.Metric.space4) {
                 glyph("rotate.left", "Rotate left (⌥⌘[)") { session.geometry = g.turned(by: -1) }
                 glyph("rotate.right", "Rotate right (⌥⌘])") { session.geometry = g.turned(by: 1) }
                 glyph("arrow.left.and.right.righttriangle.left.righttriangle.right", "Flip horizontally",
@@ -119,13 +121,13 @@ struct CropSection: View {
                 Spacer()
             }
         }
-        .frame(height: Theme.Metric.rowHeight)
+        .frame(height: Theme.Metric.gridRow)
     }
 
     private func glyph(_ name: String, _ help: String, active: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: name)
-                .font(.system(size: 11, weight: .regular))
+                .font(.system(size: Theme.Metric.modernRowGlyph, weight: .regular))
                 .foregroundStyle(active ? Theme.accent : Theme.text)
                 .frame(width: Theme.Metric.railIconTarget, height: Theme.Metric.railIconTarget)
                 .contentShape(Rectangle())

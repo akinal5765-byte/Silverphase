@@ -9,12 +9,12 @@ struct DevelopmentSection: View {
     var body: some View {
         PanelSection(L(.sectionDevelopment), key: "development",
                      initiallyExpanded: false,
-                     action: SectionAction(help: L(.helpResetDevelopment)) {
-                         var p = session.params
-                         p.developmentContrast = 1
-                         p.colorSeparation = 1
-                         session.params = p
-                     }) {
+                     blockTitle: T("Negative Response", "负片响应"),
+                     // **Every stage's `•••` carries a Reset.** A stage is a
+                     // group of settings, and "put this group back" is the one
+                     // action every group has — a stage whose menu is empty is
+                     // a stage the user cannot undo from.
+                     menu: { AnyView(resetItem) }) {
             RailRows {
                 ScrubSlider(label: L(.developmentContrast),
                             value: Binding(get: { session.params.developmentContrast },
@@ -30,5 +30,18 @@ struct DevelopmentSection: View {
                             format: { String(format: "%.2f×", $0) })
             }
         }
+    }
+
+    /// The one item a stage's menu is never without — see `ScanOutputSection`
+    /// for the rule.
+    private var resetItem: some View {
+        Button(L(.helpResetDevelopment)) { reset() }
+    }
+
+    private func reset() {
+        var p = session.params
+        p.developmentContrast = 1
+        p.colorSeparation = 1
+        session.params = p
     }
 }

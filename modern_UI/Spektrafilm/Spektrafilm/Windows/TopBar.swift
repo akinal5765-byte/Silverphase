@@ -1,4 +1,4 @@
-//  TopBar.swift — the editor toolbar: open · export · select · crop …… before/after
+//  TopBar.swift — the editor toolbar: select · crop …… before/after · export
 //  · [100 %] · zoom-out · zoom-in · full screen.
 //
 //  **v3 (2026-09-18) flattened it and re-ordered it.** It was a rounded pill
@@ -19,8 +19,8 @@
 //    prefix in the readout, and a 105 pt plate sized for a string that is
 //    only sometimes there was 64 pt of permanent air.
 //
-//  File actions stay visible here even when the preset rail is folded; the
-//  rest of the row is for canvas tools and view controls.
+//  Traditional keeps Open and Export on the left. Modern uses the File menu
+//  for Open and places Export last among the right-hand inspector destinations.
 //
 //  In Modern the old leading material button is gone: the right-hand Film
 //  stage opens film parameters and switches the bottom strip to film/paper
@@ -38,6 +38,7 @@ import SwiftUI
 
 struct TopBar: View {
     @Bindable var session: Session
+    @State private var zoomHovered = false
 
     // **The full-screen button and its state are gone.** Full screen is the
     // green window button, ⌃⌘F, the View menu and the window gesture; a fifth
@@ -52,27 +53,9 @@ struct TopBar: View {
             // edge is either the bar's own padding or the room the window
             // buttons need — they are on this row whenever the left rail is
             // not (Windows/TrafficLights.swift).
-            Spacer().frame(width: session.interfaceLayout == .modern || session.leftCollapsed
-                           ? Theme.Metric.barLeadingWithButtons : Theme.Metric.barPadding)
-            if session.interfaceLayout == .traditional && session.leftCollapsed {
-                SidebarToggle(edge: .leading, collapsed: $session.leftCollapsed)
-                    .padding(.trailing, Theme.Metric.barClusterGap)
-            }
-            // ---- files -------------------------------------------------
-            // **The file actions live here now.** They were on the left rail's
-            // header, which meant folding that rail took Open and Export off
-            // screen and left only their shortcuts — two file actions
-            // disappearing with a panel of presets (UI-SPEC §1.4). The bar is
-            // the one row that is always there.
-            BarIcon(name: "folder", help: L(.helpOpen) + " (⌘O)") {
-                session.openPanel()
-            }
-            BarIcon(name: "square.and.arrow.up", help: L(.helpExport) + " (⌘E)",
-                    disabled: session.selection == nil) {
-                session.showExport = true
-            }
-            .padding(.leading, Theme.Metric.barItemGap)
-            clusterDivider()
+            // The window buttons are always on this row, so the bar always
+            // reserves their clearance.
+            Spacer().frame(width: Theme.Metric.barLeadingWithButtons)
             // ---- tools --------------------------------------------------
             // Shortcuts are appended at the call site rather than stored in the
             // table — the spec's rule, and it is what keeps a translation from
@@ -91,29 +74,40 @@ struct TopBar: View {
             toolButton("cursorarrow", .select, L(.helpSelect) + " (V)")
             toolButton("crop", .crop, L(.helpCrop) + " (C)")
                 .padding(.leading, Theme.Metric.barItemGap)
+            // **The bar's four groups, one divider each.** tools | stages |
+            // view | actions. There were three dividers in four places: none
+            // after the tools, so the two modes sat against the six stages as
+            // if they were eight of one kind.
+            clusterDivider()
             // ---- the drag surface, then the view cluster ------------------
             // The bar's middle is the window's drag surface: the titlebar is
             // hidden, and this is where a toolbar would be.
             WindowDragHandle().frame(minWidth: 8, maxWidth: .infinity)
-            // ---- view ---------------------------------------------------
-            // Traditional retains its original standalone render badge;
-            // Modern reports this state under the document name instead.
-            if session.interfaceLayout == .traditional &&
-                (session.fullPending || session.renderer.showsFullRender) {
-                Text(session.renderer.showsFullRender ? L(.statusFull) : L(.statusFullPending))
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(session.fullPending ? Theme.accent : Theme.dim)
-                    .help(session.renderer.showsFullRender
-                          ? T("The canvas is showing this frame at its own resolution.",
-                              "画布正以原始分辨率显示这张照片。")
-                          : T("Rendering this frame at its own resolution…",
-                              "正在以原始分辨率渲染这张照片…"))
-                    .padding(.trailing, Theme.Metric.barClusterGap)
-            }
-            if session.interfaceLayout == .modern {
+            // ---- destinations ------------------------------------------
+            // **Six stages and Export: one question, seven answers.** "Which
+            // surface is the right rail showing?" The export page is one of
+            // them — the same *navigation* act as choosing Film — so it sits in
+            // this group rather than at the far end with the commands, where a
+            // destination read as an action and the app's rarest button took
+            // the place the eye arrives last.
+            //
+            // The selected glyph is the only stage mark: `showExport` turns the
+            // six stage glyphs off and this one on, because the rail is showing
+            // one surface and only one control may claim it.
+            HStack(spacing: 0) {
                 inspectorStages
-                clusterDivider()
+                BarIcon(name: "square.and.arrow.up", help: L(.helpExport) + " (⌘E)",
+                        disabled: session.selection == nil,
+                        selected: session.showExport) {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        session.showExport.toggle()
+                    }
+                }
             }
+            clusterDivider()
+            // ---- view ---------------------------------------------------
+            // The render state is reported under the document name (below),
+            // not as a badge here.
             // **The original has no button of its own.** It had a filled pill
             // beside this one and both answered "what am I looking at", which is
             // one question and wants one control: the split glyph now carries
@@ -146,15 +140,12 @@ struct TopBar: View {
             .help(L(.helpBeforeAfter) + " (⌥\\)\n" + L(.helpHoldOriginal))
             .padding(.trailing, Theme.Metric.barClusterGap)
             // The value, then out, then in.
-            zoomPill.rowEnabled(!session.zoomLocked)
+            zoomReadout.rowEnabled(!session.zoomLocked)
             iconButton("minus.magnifyingglass", L(.helpZoomOut) + " (⌘−)", disabled: session.zoomLocked) { session.zoomStep(-1) }
                 .padding(.leading, Theme.Metric.barItemGap)
             iconButton("plus.magnifyingglass", L(.helpZoomIn) + " (⌘+)", disabled: session.zoomLocked) { session.zoomStep(1) }
                 .padding(.leading, Theme.Metric.barItemGap)
-            if session.interfaceLayout == .traditional && session.rightCollapsed {
-                clusterDivider()
-                SidebarToggle(edge: .trailing, collapsed: $session.rightCollapsed)
-            }
+
             // **The full-screen button is gone.** It was the fifth way to do
             // the same thing — the green window button, ⌃⌘F, the View menu and
             // the full-screen gesture all reach it — and it was the one item
@@ -177,22 +168,33 @@ struct TopBar: View {
             // yet is a button that gets missed, and the moment it belongs to is
             // the picture. The bar keeps it because a *visible* control is what
             // makes the gesture discoverable at all.
-            if session.negativePending {
-                clusterDivider()
-                Button { session.printNegative() } label: {
-                    Text(L(.actionPrintNegative))
-                        .font(Theme.Font.label)
+            // **A reserved slot.** The negative's action appears for one
+            // moment and disappears; drawn as a plain `if` it pushed every
+            // control to its right back and forth as frames were opened, which
+            // is the bar moving under the pointer. The slot is always there and
+            // always the same width, so the bar's layout is the same with and
+            // without the button — only its ink comes and goes.
+            clusterDivider()
+            ZStack {
+                if session.negativePending {
+                    Button { session.printNegative() } label: {
+                        Text(L(.actionPrintNegative))
+                            .font(Theme.Font.label)
+                    }
+                    .buttonStyle(.primarySurface)
+                    .keyboardShortcut(.return, modifiers: [])
+                    .help(L(.helpPrintNegative))
                 }
-                .buttonStyle(.primarySurface)
-                .keyboardShortcut(.return, modifiers: [])
-                .help(L(.helpPrintNegative))
             }
+            .frame(width: Theme.Metric.primaryActionSlot)
+            // **The reserved slot is the end of the bar.** Export is a
+            // destination and lives with the stages; what is left here is the
+            // one *command* the bar carries, so nothing needs a divider after
+            // it and an empty slot is simply the bar's trailing air.
             Spacer().frame(width: Theme.Metric.barPadding)
         }
-        .frame(height: session.interfaceLayout == .modern
-               ? Theme.Metric.modernTopBarHeight : Theme.Metric.topBarHeight)
-        .modifier(EditorChromeSurface(modern: session.interfaceLayout == .modern,
-                                      traditionalBar: true, flat: true))
+        .frame(height: Theme.Metric.modernTopBarHeight)
+        .modifier(EditorChromeSurface(flat: true))
         // The two rails have centred names; the canvas needs the same anchor
         // so the long drag surface does not read as an unfinished toolbar.
         // Keep it out of the way when the centre column is too narrow for
@@ -200,30 +202,35 @@ struct TopBar: View {
         .overlay {
             GeometryReader { geometry in
                 if geometry.size.width >= 1100 {
-                    VStack(spacing: 2) {
-                        Text(session.selection?.lastPathComponent ?? T("Preview", "预览"))
+                    VStack(spacing: Theme.Metric.space2) {
+                        Text(session.modernBatchGridActive
+                             ? T("\(session.selectedFrames.count) photos selected",
+                                 "已选 \(session.selectedFrames.count) 张照片")
+                             : session.selection?.lastPathComponent ?? T("Preview", "预览"))
                             .font(Theme.Font.railTitle)
                             .foregroundStyle(Theme.Ink.primary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .allowsHitTesting(false)
-                        if session.interfaceLayout == .modern {
-                            HStack(spacing: 6) {
-                                if session.working {
-                                    ProgressView().controlSize(.mini).scaleEffect(0.7)
-                                }
-                                Text(documentDetail)
+                        HStack(spacing: Theme.Metric.space4) {
+                            if session.working {
+                                ProgressView().controlSize(.mini).scaleEffect(0.7)
+                            }
+                            Text(session.modernBatchGridActive
+                                 ? (session.exportProgress == nil
+                                    ? T("Ready for batch export", "可批量导出")
+                                    : T("Exporting batch…", "正在批量导出…"))
+                                 : documentDetail)
+                                .font(Theme.Font.caption)
+                                .foregroundStyle(session.stockWarning == nil ? Theme.Ink.tertiary : Theme.accent)
+                                .lineLimit(1)
+                                .help(session.modernBatchGridActive ? "" : documentDetail)
+                                .allowsHitTesting(false)
+                            if !session.serviceReady && session.selection != nil {
+                                Button(L(.actionRestart)) { session.restartService() }
+                                    .buttonStyle(.plain)
                                     .font(Theme.Font.caption)
-                                    .foregroundStyle(session.stockWarning == nil ? Theme.Ink.tertiary : Theme.accent)
-                                    .lineLimit(1)
-                                    .help(documentDetail)
-                                    .allowsHitTesting(false)
-                                if !session.serviceReady && session.selection != nil {
-                                    Button(L(.actionRestart)) { session.restartService() }
-                                        .buttonStyle(.plain)
-                                        .font(Theme.Font.caption)
-                                        .foregroundStyle(Theme.accent)
-                                }
+                                    .foregroundStyle(Theme.accent)
                             }
                         }
                     }
@@ -270,7 +277,7 @@ struct TopBar: View {
     private func clusterDivider() -> some View {
         Rectangle()
             .fill(Theme.ruleSoft)
-            .frame(width: 1, height: 16)
+            .frame(width: Theme.Metric.rule, height: Theme.Metric.barDividerHeight)
             .padding(.horizontal, Theme.Metric.barClusterGap)
     }
 
@@ -279,7 +286,7 @@ struct TopBar: View {
             HStack(spacing: 0) {
                 ForEach(InspectorStage.allCases) { stage in
                     BarIcon(name: stage.symbol, help: stage.title,
-                            selected: !session.rightCollapsed && session.inspectorStage == stage) {
+                            selected: !session.showExport && !session.rightCollapsed && session.inspectorStage == stage) {
                         withAnimation(.easeOut(duration: 0.18)) {
                             session.selectInspectorStage(stage)
                         }
@@ -328,30 +335,41 @@ struct TopBar: View {
         BarIcon(name: name, help: help, disabled: disabled, action: action)
     }
 
-    private var zoomPill: some View {
+    /// **The zoom read-out, not a pill.**
+    ///
+    /// It was a `.st13` capsule on the argument that a plate makes it read as
+    /// a control. It does — and that is the problem: the capsule is the shape
+    /// this app reserves for *choosing from a list* (UI-SPEC §2.12), and every
+    /// other control on this bar is a bare glyph. One plated control in a row
+    /// of glyphs claims to be a different kind of thing, and what the user
+    /// actually does here is **read** the magnification (the menu is the
+    /// secondary path — the wheel, ⌘± and Fit cover the rest).
+    ///
+    /// So it is ink with the same hover wash every glyph on this bar has, and
+    /// the only plate left on the bar is the primary action's accent fill.
+    private var zoomReadout: some View {
         Menu {
             Button(L(.helpFit)) { session.zoomToFit() }
             ForEach([0.25, 0.5, 1.0, 2.0, 4.0], id: \.self) { f in
                 Button("\(Int(f * 100)) %") { session.zoomTo(fraction: f) }
             }
         } label: {
-            // zoomPercent is 0 until an image is on the canvas.
-            //
-            // **No `Fit ·` prefix.** v3's plate is 41.29 pt and the prefix
-            // does not fit in it. Whether the canvas is fitted is still worth
-            // knowing, so it is said in the tooltip and by the check mark in
-            // this menu rather than by a string that would either truncate
-            // the number or size the plate for a case that is usually absent.
+            // zoomPercent is 0 until an image is on the canvas. There is no
+            // `Fit ·` prefix: whether the canvas is fitted is said in the
+            // tooltip and by the check mark in this menu.
             Text(session.zoomPercent == 0 ? "—" : "\(session.zoomPercent) %")
                 .font(Theme.Font.zoomValue)
                 .foregroundStyle(Theme.text)
                 .frame(width: Theme.Metric.zoomPill.width, height: Theme.Metric.zoomPill.height)
-                // The drawing's plain `.st13` plate, now wearing the shared
-                // pill surface so it is the same material as every other pill
-                // — and so it stops being the one flat capsule on a bar of
-                // bare glyphs, which is how it read in a capture.
-                .pillSurface(base: Theme.pill)
-                .contentShape(Capsule())
+                .background {
+                    if zoomHovered {
+                        RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius,
+                                         style: .continuous)
+                            .fill(Theme.buttonHoverWash)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onHover { zoomHovered = $0 }
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .help(session.isFit

@@ -68,7 +68,7 @@ struct CollapseTab: View {
     var body: some View {
         Button { withAnimation(.easeOut(duration: 0.18)) { collapsed.toggle() } } label: {
             Image(systemName: glyph)
-                .font(.system(size: 8, weight: .bold))
+                .font(.system(size: Theme.Metric.tinyGlyph, weight: .bold))
                 .foregroundStyle(Theme.text)
                 .frame(width: horizontal ? Theme.Metric.tabLength : Theme.Metric.tabThickness,
                        height: horizontal ? Theme.Metric.tabThickness : Theme.Metric.tabLength)

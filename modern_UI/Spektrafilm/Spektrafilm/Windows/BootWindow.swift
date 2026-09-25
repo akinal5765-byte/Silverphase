@@ -81,7 +81,7 @@ struct BootWindow: View {
             HStack(spacing: 7) {
                 if case .failed = phase ?? session.bootPhase {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 10)).foregroundStyle(Theme.accent)
+                        .font(.system(size: Theme.Metric.statusGlyph)).foregroundStyle(Theme.accent)
                 }
                 // **The engine badge is gone** (the user: "拿掉右侧文字", and
                 // the line on the left made longer to carry the row alone).

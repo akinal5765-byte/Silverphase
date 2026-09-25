@@ -27,7 +27,7 @@ private struct DiskCacheHeader: Codable, Equatable {
 
 private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-/// One disk cache shared by display decodes and prints. The file is complete
+/// One disk cache shared by display decodes, prints and developed thumbnails. The file is complete
 /// before its index row is written; a row without a file is garbage, and a
 /// file without a row is collected at launch.
 actor DiskCacheStore {
@@ -112,8 +112,8 @@ actor DiskCacheStore {
         guard width > 0, height > 0, sourceWidth > 0, sourceHeight > 0 else {
             throw Failure.invalidDimensions
         }
-        let expected = width * height * 8
-        guard data.count == expected else { throw Failure.invalidPayload }
+        guard Self.validPayload(kind: key.kind, format: format, bytes: data.count,
+                                width: width, height: height) else { throw Failure.invalidPayload }
 
         let header = DiskCacheHeader(version: CacheKey.formatVersion, key: key,
                                      width: width, height: height,
@@ -209,7 +209,8 @@ actor DiskCacheStore {
                 throw Failure.corrupt
             }
             let payload = file.subdata(in: decoded.byteCount..<file.count)
-            guard payload.count == width * height * 8 else { throw Failure.corrupt }
+            guard Self.validPayload(kind: key.kind, format: format, bytes: payload.count,
+                                    width: width, height: height) else { throw Failure.corrupt }
             let nextHits = hits + 1
             let now = Date().timeIntervalSince1970
             let priority = gdsfPriority(hits: nextHits, costMs: costMs,
@@ -229,6 +230,22 @@ actor DiskCacheStore {
         } catch {
             try remove(key: key, path: path)
             return nil
+        }
+    }
+
+    private static func validPayload(kind: CacheKind, format: String,
+                                     bytes: Int, width: Int, height: Int) -> Bool {
+        switch format {
+        case "rgba16Unorm":
+            guard kind != .thumbnail else { return false }
+            let (pixels, overflow) = width.multipliedReportingOverflow(by: height)
+            guard !overflow else { return false }
+            let (expected, byteOverflow) = pixels.multipliedReportingOverflow(by: 8)
+            return !byteOverflow && bytes == expected
+        case "jpeg":
+            return kind == .thumbnail && bytes > 0
+        default:
+            return false
         }
     }
 

@@ -1,7 +1,7 @@
 //  Strings.swift — every user-visible string in the main editor, in both
 //  languages, and the one function that looks them up.
 //
-//  `design/LOCALIZATION-zh-Hans.md` is the spec this table implements; read it
+//  `design/UI-SPEC.md` §7 is the spec this table implements; read it
 //  before adding a key. Two of its rules are worth repeating here because they
 //  are the ones a well-meaning edit gets wrong:
 //
@@ -474,7 +474,7 @@ extension S {
         }
     }
 
-    /// 简体中文. Verbatim from `design/LOCALIZATION-zh-Hans.md`; the keys above
+    /// 简体中文. Verbatim from `design/UI-SPEC.md` §7; the keys above
     /// are named after the semantics the spec distinguishes, not after the
     /// English word, so the two `Original`s and the two `Print`s do not collide.
     var simplifiedChinese: String {

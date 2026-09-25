@@ -11,7 +11,9 @@ struct ScanOutputSection: View {
     @Bindable var session: Session
 
     var body: some View {
-        PanelSection(L(.sectionOutput), key: "output", initiallyExpanded: false) {
+        PanelSection(L(.sectionOutput), key: "output", initiallyExpanded: false,
+                     blockTitle: T("Scan Rendering", "扫描呈现"),
+                     menu: { AnyView(resetItem) }) {
             RailRows {
                 ToggleRow(label: L(.filmGlare),
                           isOn: param(\.glareActive),
@@ -27,6 +29,17 @@ struct ScanOutputSection: View {
                           help: L(.highlightExpansionHelp))
             }
         }
+    }
+
+    private var resetItem: some View {
+        Button(T("Reset this section", "重置本节")) { reset() }
+    }
+
+    private func reset() {
+        var p = session.params
+        p.glareActive = true
+        p.extendedDynamicRange = false
+        session.params = p
     }
 
     private func param(_ keyPath: WritableKeyPath<FilmParams, Bool>) -> Binding<Bool> {

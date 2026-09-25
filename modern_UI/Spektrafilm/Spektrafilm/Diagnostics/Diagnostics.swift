@@ -471,6 +471,24 @@ final class Diagnostics {
                 info?["CFBundleVersion"] as? String ?? "unknown")
     }
 
+    /// **When the running binary was written.** The app has no version stamp
+    /// that moves with a source change — `CFBundleVersion` is a release
+    /// number — so "which build am I looking at?" had no answer a person could
+    /// read. It cost an hour of two people comparing screenshots of two
+    /// different builds and concluding the code had not changed.
+    ///
+    /// The executable's own modification date is the honest answer for a
+    /// development build: it changes when the interface code is relinked, and
+    /// it is what the running process actually loaded.
+    nonisolated static var buildStamp: String {
+        guard let url = bundle.executableURL ?? Bundle.main.executableURL,
+              let date = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+                  .contentModificationDate else { return "unknown" }
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return "\(bundleInfo.version) (\(bundleInfo.build)) · \(f.string(from: date))"
+    }
+
     // MARK: - the memory projection (§11.5)
 
     /// How much memory this app has been measured to need per pixel.

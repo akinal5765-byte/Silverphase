@@ -118,6 +118,58 @@ final class ThumbnailCacheTests: XCTestCase {
         XCTAssertLessThan(firstPixel(after).0, 15)
     }
 
+    func testOlderReadbackCannotReplaceNewerEdit() async throws {
+        let old = makeImage(width: 8, height: 8, red: 1, green: 0, blue: 0)
+        let new = makeImage(width: 8, height: 8, red: 0, green: 1, blue: 0)
+        let cache = ThumbnailCache(decoder: { _, _ in old })
+        let url = URL(fileURLWithPath: "/tmp/thumbnail-readback-order.nef")
+        let first = cache.beginRenderedThumbnail(for: url)
+        let second = cache.beginRenderedThumbnail(for: url)
+        cache.store(new, for: url, ticket: second)
+        cache.store(old, for: url, ticket: first)
+        let value = await cache.thumbnail(for: url)
+        XCTAssertGreaterThan(firstPixel(try XCTUnwrap(value)).1, 240)
+    }
+
+    func testDevelopedThumbnailSurvivesNewCacheAndInvalidatesAfterEdit() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "spk-thumbnail-disk-\(UUID().uuidString)")
+        let sidecars = root.appending(path: "sidecars")
+        let store = try DiskCacheStore(root: root.appending(path: "store"))
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        Sidecar.useStore(at: sidecars)
+        defer {
+            Sidecar.useStore(at: nil)
+            try? FileManager.default.removeItem(at: root)
+        }
+        let url = root.appending(path: "frame.png")
+        let original = makeImage(width: 8, height: 8, red: 1, green: 0, blue: 0)
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(
+            url as CFURL, "public.png" as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, original, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+
+        var edit = Sidecar()
+        edit.params.filmStock = "kodak_portra_400"
+        try edit.save(for: url)
+        let developed = makeImage(width: 8, height: 8, red: 0, green: 1, blue: 0)
+        let first = ThumbnailCache(diskCache: store, decoder: { _, _ in original })
+        first.store(developed, for: url, edit: edit)
+        await first.finishPendingDiskWrites()
+
+        let reopened = ThumbnailCache(diskCache: store, decoder: { _, _ in original })
+        let hitValue = await reopened.thumbnail(for: url, maxPixel: 640)
+        let hit = try XCTUnwrap(hitValue)
+        XCTAssertGreaterThan(firstPixel(hit).1, 220, "Disk pixel: \(firstPixel(hit))")
+
+        edit.params.filmStock = "fujifilm_velvia_100"
+        try edit.save(for: url)
+        let changed = ThumbnailCache(diskCache: store, decoder: { _, _ in original })
+        let missValue = await changed.thumbnail(for: url, maxPixel: 640)
+        let miss = try XCTUnwrap(missValue)
+        XCTAssertGreaterThan(firstPixel(miss).0, 240)
+    }
+
     func testClearRejectsLateDetachedResult() async throws {
         let gate = DecodeGate()
         let delayed = makeImage(width: 8, height: 8, red: 1, green: 0, blue: 0)

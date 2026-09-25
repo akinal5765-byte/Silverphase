@@ -73,8 +73,13 @@ struct SettingsWindow: View {
                 bundleSection
                 machineSection
             }
-            .padding(.vertical, Theme.Metric.Settings.verticalInset)
+            .padding(.horizontal, Theme.Metric.modernContentInset)
+            .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
         }
+        // **A floating surface, like the inspector.** The page's
+        // `PanelSection`s draw the same 40 pt header every other panel draws;
+        // before this they drew the retired layout's 30 pt triangle header,
+        // which is what made the page look like a different app.
         .frame(width: Theme.Metric.Settings.width,
                height: snapshotMode ? nil : Theme.Metric.Settings.height)
         .background(Theme.cardFill)
@@ -110,7 +115,7 @@ struct SettingsWindow: View {
         let active = Localization.shared.resolved
         return PanelSection(L(.setLanguage), systemImage: "globe", key: "setLanguage") {
             SettingsRows {
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Metric.space4) {
                     PillMenu(label: L(.setLanguage),
                              options: LanguageSetting.allCases,
                              title: { $0.label(in: active) },
@@ -125,15 +130,11 @@ struct SettingsWindow: View {
     // MARK: - appearance
 
     private var appearanceSection: some View {
-        let active = Localization.shared.resolved
-        return PanelSection(L(.setInterface),
+        PanelSection(L(.setInterface),
                             systemImage: "textformat.size", key: "setAppearance") {
             SettingsRows {
-                VStack(spacing: Theme.Metric.Settings.rowSpacing) {
-                    PillMenu(label: T("Editor layout", "编辑界面"),
-                             options: EditorLayoutStyle.allCases,
-                             title: { $0.label(in: active) },
-                             selection: $session.interfaceLayout)
+                VStack(spacing: Theme.Metric.space8) {
+                    // The layout menu is gone with the layout it chose between.
                     PillMenu(label: L(.setScale),
                              options: InterfaceScale.allCases,
                              title: { $0.label },
@@ -150,7 +151,7 @@ struct SettingsWindow: View {
     private var renderingSection: some View {
         PanelSection(L(.setRendering), systemImage: "slider.horizontal.3", key: "setRendering") {
             SettingsRows {
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Metric.space4) {
                     PillMenu(label: L(.setPreview), options: Session.previewEdgeChoices,
                              title: { "\($0) px" },
                              selection: Binding(get: { session.previewLongEdge },
@@ -173,7 +174,7 @@ struct SettingsWindow: View {
     private var diagnosticsSection: some View {
         PanelSection(L(.setDiagnostics), systemImage: "stethoscope", key: "setDiagnostics") {
             SettingsRows {
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Metric.space4) {
                     PillMenu(label: L(.setLogLevel), options: LogLevelSetting.allCases,
                              title: { L($0.key) },
                              selection: Binding(get: { diagnostics.level },
@@ -202,7 +203,7 @@ struct SettingsWindow: View {
     private var memorySection: some View {
         PanelSection(L(.setMemory), systemImage: "memorychip", key: "setMemory") {
             SettingsRows {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Theme.Metric.space4) {
                     if let m = diagnostics.memory {
                         readout(L(.setFootprint), bytes(m.footprintBytes))
                         readout(L(.setSessionPeak), bytes(m.peakBytes))
@@ -266,7 +267,7 @@ struct SettingsWindow: View {
     private var diskCacheSection: some View {
         PanelSection(L(.setDiskCache), systemImage: "internaldrive", key: "setDiskCache") {
             SettingsRows {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Theme.Metric.space4) {
                     if session.hasDiskCache {
                         readout(L(.setInUse), "\(bytes(session.diskCacheBytes)) of "
                                           + "\(bytes(diagnostics.diskCacheCapBytes))")
@@ -284,11 +285,11 @@ struct SettingsWindow: View {
                             .font(Theme.Font.caption).foregroundStyle(Theme.text)
                             .lineLimit(1).truncationMode(.head)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, Theme.Metric.space8)
                             .frame(height: 16)
                             .pillSurface(base: Theme.field)
                     }
-                    HStack(spacing: 10) {
+                    HStack(spacing: Theme.Metric.space8) {
                         Button(L(.setRevealInFinder)) {
                             NSWorkspace.shared.activateFileViewerSelecting([Session.diskCacheRoot])
                         }
@@ -308,7 +309,7 @@ struct SettingsWindow: View {
                         .help(session.hasDiskCache ? L(.setEmptyCacheHelp) : L(.reasonNoDiskCache))
                         Spacer()
                     }
-                    .padding(.top, 2)
+                    .padding(.top, Theme.Metric.space2)
                 }
             }
         }
@@ -319,7 +320,7 @@ struct SettingsWindow: View {
     private var logsSection: some View {
         PanelSection(L(.setLogs), systemImage: "doc.text", key: "setLogs") {
             SettingsRows {
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Metric.space4) {
                     intRow(L(.setKeepFor), diagnostics.retentionDays, L(.setUnitDays), 1...365) {
                         diagnostics.retentionDays = $0
                     }
@@ -336,7 +337,7 @@ struct SettingsWindow: View {
                             .font(Theme.Font.caption).foregroundStyle(Theme.text)
                             .lineLimit(1).truncationMode(.head)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, Theme.Metric.space8)
                             .frame(height: 16)
                             .pillSurface(base: Theme.field)
                         Button(L(.setChoose)) { chooseLogDirectory() }
@@ -345,7 +346,7 @@ struct SettingsWindow: View {
                     caption(L(.setLogDirectoryNote))
                     if let f = diagnostics.cleanupFailure { warning(f) }
                     if let f = diagnostics.writeFailure { warning(f) }
-                    HStack(spacing: 10) {
+                    HStack(spacing: Theme.Metric.space8) {
                         Button(L(.setRevealInFinder)) { diagnostics.revealLogsInFinder() }
                             .buttonStyle(.surface)
                         Button(L(.setClearLogs)) { diagnostics.clearLogsNow() }
@@ -353,7 +354,7 @@ struct SettingsWindow: View {
                             .help(L(.setClearLogsHelp))
                         Spacer()
                     }
-                    .padding(.top, 2)
+                    .padding(.top, Theme.Metric.space2)
                 }
             }
         }
@@ -364,12 +365,12 @@ struct SettingsWindow: View {
     private var bundleSection: some View {
         PanelSection(L(.setBundle), systemImage: "shippingbox", key: "setBundle") {
             SettingsRows {
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Metric.space4) {
                     ToggleRow(label: L(.setIncludeFileNames),
                               isOn: Binding(get: { diagnostics.includeFileNamesInBundle },
                                             set: { diagnostics.includeFileNamesInBundle = $0 }))
                     caption(L(.setFileNamesNote))
-                    HStack(spacing: 10) {
+                    HStack(spacing: Theme.Metric.space8) {
                         // The section's one primary action (UI-SPEC §3.6):
                         // accent-filled, dark ink, the same pairing the export
                         // page's Export button uses.
@@ -395,8 +396,12 @@ struct SettingsWindow: View {
     private var machineSection: some View {
         PanelSection(L(.setMachine), systemImage: "info.circle", key: "setMachine") {
             SettingsRows {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Theme.Metric.space4) {
                     readout(L(.setApp), Diagnostics.bundleInfo.version)
+                    // The running binary's own timestamp: the one fact that
+                    // settles "is this the build I just made?" without either
+                    // side guessing.
+                    readout(T("Build", "构建"), Diagnostics.buildStamp)
                     readout(L(.setEngine), diagnostics.engineVersion ?? L(.setNotReported))
                     readout(L(.setRenderCore), session.renderCore ?? L(.setNotReported))
                     readout(L(.setLogFile), diagnostics.currentLogFile?.lastPathComponent ?? L(.setNone))
@@ -449,7 +454,7 @@ struct SettingsWindow: View {
     /// range from here.
     private func intRow(_ label: String, _ value: Int, _ unit: String,
                         _ range: ClosedRange<Int>, _ set: @escaping (Int) -> Void) -> some View {
-        HStack(spacing: Theme.Metric.Settings.labelGap) {
+        HStack(spacing: Theme.Metric.space8) {
             Text(label).font(Theme.Font.label).foregroundStyle(Theme.text)
                 .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
             Stepper(value: Binding(get: { value }, set: set), in: range) {
@@ -463,7 +468,7 @@ struct SettingsWindow: View {
     }
 
     private func labelled<C: View>(_ label: String, @ViewBuilder _ content: () -> C) -> some View {
-        HStack(spacing: Theme.Metric.Settings.labelGap) {
+        HStack(spacing: Theme.Metric.space8) {
             Text(label).font(Theme.Font.label).foregroundStyle(Theme.text)
                 .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
             content()
@@ -476,7 +481,7 @@ struct SettingsWindow: View {
             .font(Theme.Font.caption).foregroundStyle(Theme.dim)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 2)
+            .padding(.top, Theme.Metric.space2)
     }
 
     private func warning(_ text: String) -> some View {
@@ -484,7 +489,7 @@ struct SettingsWindow: View {
             .font(Theme.Font.caption).foregroundStyle(Theme.accent)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 2)
+            .padding(.top, Theme.Metric.space2)
     }
 
     /// Bytes as a person reads them. Decimal units, because that is what
@@ -539,13 +544,23 @@ struct SettingsWindow: View {
 /// Settings content sits directly on the rail, like the editor's controls.
 /// Keeping the inset and spacing in `Theme` prevents this window from growing
 /// a parallel preferences-page visual system.
+/// The rows of one Settings section.
+///
+/// **It follows the surface it is on.** The page used to inset its own rows by
+/// the drawing-era 16 and space them by 6 while the `PanelSection` above them
+/// drew a 30 pt Traditional header — so the settings page was the last surface
+/// still on the retired layout's numbers, and it looked it. On a floating
+/// surface the panel already applies `modernContentInset`, so the rows add
+/// nothing horizontally, and their rhythm is the grid's.
 private struct SettingsRows<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
-            .padding(.horizontal, Theme.Metric.rowInset)
-            .padding(.vertical, Theme.Metric.Settings.rowSpacing)
+            // **0 horizontally**, because the page has already applied
+            // `modernContentInset`: a second inset here put every settings row
+            // on a left edge of its own.
+            .padding(.vertical, Theme.Metric.modernRowSpacing)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

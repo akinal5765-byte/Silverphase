@@ -1,22 +1,23 @@
 //  Theme.swift — every visual token in the interface, measured from the
 //  drawing.
 //
-//  Two drawings, one file. The **editor** is
-//  `modern_UI/reference_layout/Main/sample_frontend_v3.ai` (2026-09-18), a
-//  3840×2160 artboard — a 1920×1080 window at 2× — and every editor number
-//  below is that drawing's value divided by two. The **export page** is
+//  One drawing left, two layouts. The **Traditional** editor's numbers are
+//  the 2026-09-18 drawing's (a 3840×2160 artboard — a 1920×1080 window at 2×)
+//  divided by two; the **export page** is
 //  `reference_layout/Export_Page/export_page.svg` and keeps its own nested
-//  `Metric.Export`.
+//  `Metric.Export`. The **Modern** editor is not drawn at all: its tokens are
+//  the product's own, added on 2026-09-26.
 //
-//  The 2026-09-17 drawing this replaced, `sample_frontend.svg`, is **no
-//  longer in the repository**; the prose below that measures it is history,
-//  and `design/TOKENS-main-2026-09-17.md` says which of its numbers v3 left
-//  alone. Where the two disagree, v3 wins.
+//  The drawings that are no longer in the repository are listed in
+//  `design/UI-SPEC.md` §10.4, with the rule that replaced each one. The prose
+//  below that measures them is history, and §10 is where the derivations live
+//  now — the token-translation documents were merged there on 2026-09-26.
 //
-//  `Font.Export` is **no longer its own ramp**: it aliases the editor's, so
-//  the two pages agree about what a label and a list row are. The page's own
-//  *metrics* are still its drawing's — tighter rows and a narrower label
-//  column — which is why `Metric.Export` stays.
+//  The export page **has no type ramp of its own any more** (2026-09-26): its
+//  body reads the editor's roles, so the two agree about what a label, a value
+//  and a list row are. What `Metric.Export` still holds is the geometry a
+//  wider window has room for — its own card widths, its well inset and the
+//  144 pt recipe list — not a second rhythm.
 //
 //  Nothing in a view file may carry a literal colour or size that could have
 //  come from here — that is the rule that keeps the interface matching the
@@ -24,11 +25,10 @@
 //
 //  ## What the v3 drawing changed (2026-09-18)
 //
-//  `design/TOKENS-main-v3-2026-09-18.md` translates
-//  `reference_layout/Main/sample_frontend_v3.ai`, and it is the current
-//  target — read it before the 2026-09-17 derivation below, which it
-//  supersedes where the two disagree. The four changes with structure behind
-//  them:
+//  The 2026-09-18 drawing is the current target for the **Traditional**
+//  layout, and `design/UI-SPEC.md` §10.3 tabulates its geometry — read it
+//  before the 2026-09-17 derivation below, which it supersedes where the two
+//  disagree. The four changes with structure behind them:
 //
 //  - **The tool bar stopped floating.** `barTop`, `barInset` and `barRadius`
 //    are 0 and `topBarHeight` is 38, flush with both rails and the top edge
@@ -45,6 +45,27 @@
 //    the right rail's are 10.5, so `sectionTitle` split into
 //    `leftSectionTitle` / `rightSectionTitle`. Control labels split the same
 //    way: Camera's are 9, Film's are 10.5.
+//
+//  ## The drawing-era tokens are Traditional's now (2026-09-26)
+//
+//  The interface has two layouts and the drawing describes **Traditional**:
+//  flush rails, hairline separators, the drawing's own 16/9 row rhythm, a
+//  38 pt header row with a disclosure triangle. Modern is the floating-glass
+//  editor the product now opens in — a window-wide bar, one inspector over
+//  the canvas, a navigator on the canvas's lower edge — and it had grown its
+//  own numbers in four places at once, which is what the 2026-09-26
+//  calibration fixed.
+//
+//  So the rule for reading this file is:
+//
+//  - **`modern*` tokens and `space*`** — the Modern surfaces. Every inset,
+//    gap, height and radius a Modern view draws is one of them.
+//  - **The drawing-derived tokens** — Traditional's, and `LayoutTests`
+//    measures them. A Modern view must not read them; that is what
+//    `ModernCalibrationTests` checks at the source level.
+//  - `design/UI-SPEC.md` §2.7–§2.7.4 records the calibration, what it
+//    excluded (Traditional, the export page, the mode-independent windows)
+//    and the two rules a new view has to keep.
 //
 //  The palette values below marked "v3 sample" are sampled from
 //  `layout_screenshot.png`, not recovered Illustrator swatches — §4 of the
@@ -65,7 +86,7 @@
 //  ground over the canvas (`barTop`/`barHeight`/`barRadius`).
 //
 //  The derivation of every number, and the drawing coordinate it came from,
-//  is `modern_UI/design/TOKENS-main-2026-09-17.md`.
+//  is `design/UI-SPEC.md` §10.
 
 import Observation
 import SwiftUI
@@ -419,9 +440,159 @@ enum Theme {
         /// compact 38 pt rail headers retained by Traditional.
         static let modernTopBarHeight: CGFloat = 52
         static let modernChromeInset: CGFloat = 12
+        /// Modern inspectors share a fixed width and common label/control
+        /// columns. Traditional alone keeps its adjustable rail width.
+        static let modernPanelWidth: CGFloat = 344
+        static let modernExportPanelWidth: CGFloat = modernPanelWidth
+
+        // MARK: Modern — one spacing scale
+        //
+        // Modern had grown four spacing systems that never met: the floating
+        // chrome's 12/20, the rails' drawing-era 16/9, the bottom chooser's
+        // own 8/7/4, and a run of bare literals in between (2, 3, 4, 5, 6, 7,
+        // 8, 10, 14, 18, 20). The user's read of it was "间距不统一" and
+        // "整体偏松,信息密度低", and both are the same fact: with no scale,
+        // every gap is its own decision and the loose ones never get caught.
+        //
+        // So Modern gets a **4 pt scale** and nothing else. Every inset and
+        // gap in a Modern surface is one of these five values; a view that
+        // needs a sixth is a view that needs one of these instead. They are
+        // *Modern* tokens on purpose — Traditional keeps the drawing's own
+        // numbers, which are what `LayoutTests` measures — so a change here
+        // cannot move the deprecated layout.
+        //
+        //     space2  2   inside one control (a pill's text to its chevron)
+        //     space4  4   between two parts of one row (a label and its box)
+        //     space8  8   between two rows, or two items in a cluster
+        //     space12 12  between a panel's edge and its surface, or groups
+        //     space20 20  the floating panels' own content inset
+        //
+        /// The base scale. Named by value rather than by role so a call site
+        //  reads its own intent (`space4` is a 4, and that is the point).
+        static let space2: CGFloat = 2
+        static let space4: CGFloat = 4
+        static let space8: CGFloat = 8
+        static let space12: CGFloat = 12
+        static let space20: CGFloat = 20
+
+        // MARK: Modern — the grid
+        //
+        // **Every Modern height and gap is a multiple of 4**, and every one of
+        // them is one of these names. That is the whole rule; a literal in a
+        // view is a value that escaped it.
+        //
+        //     unit   4   the grid
+        //     row   22   a control row        (not a multiple, see below)
+        //     ctl   16   the ink inside a row
+        //
+        // Why the row is 22 and not 20 or 24: it holds 10.5 pt type, which
+        // needs ~15 pt of line box, plus 3–4 pt above and below so a column of
+        // them reads as rows rather than as a paragraph. 20 clips the Chinese
+        // descenders at this size and 24 makes eight rows stop fitting the
+        // 982 pt window. 22 is the only value in the grid's neighbourhood that
+        // does both, so the **grid governs the gaps exactly and the row
+        // approximately** — and every gap is exact.
+        //
+        //     gap between two rows         8   2 units
+        //     gap between two row blocks  12   3 units
+        //     gap header → its content     8   2 units
+        //     gap content → next header   20   5 units
+        //     panel's horizontal inset    20   5 units
+        //     panel's vertical inset      16   4 units
+        //     section header height       40  10 units
+        //     the floating bar's height   52  13 units
+        //
+        // Measured on 2026-09-26 before this block existed, one inspector had
+        // **eleven distinct row pitches** (14.5, 16, 16.5, 17.5, 18, 18.5,
+        // 19.5, 20, 21, 21.5, 22) and two section-to-content gaps (26 and 38)
+        // for the same job. Both are the same failure: no unit to be a
+        // multiple of.
+        /// The grid. Every number in this block is this times an integer.
+        static let gridUnit: CGFloat = 4
+        /// A control row's line box — see the note above for why 22 and not 20.
+        static var gridRow: CGFloat { modernRowHeight }
+        /// The ink inside a row: a pill, a field, a checkbox.
+        static let gridControl: CGFloat = 16
+
         /// Content inside floating panels; the bare photo row uses only the
         /// common outer inset so its first image aligns with other surfaces.
-        static let modernContentInset: CGFloat = 20
+        ///
+        /// **This is the one inset of a Modern surface.** The panel's padding,
+        /// a section header's leading edge and a rail row's first glyph all
+        /// read it, so "the panel's edge" and "the content's edge" are one
+        /// number rather than three that happen to agree. It equals `space20`
+        /// and is kept as its own name because a view should say *which* edge
+        /// it is measuring from.
+        static let modernContentInset: CGFloat = space20
+        /// Air above a floating panel's first section and below its last one.
+        ///
+        /// **One step tighter than the horizontal inset**, and that is the
+        /// density fix rather than an inconsistency: a vertical inset is
+        /// repeated twice per screen and buys nothing — the surface's own edge
+        /// already says where the panel starts — while a horizontal one lines
+        /// the section titles up with everything else in the column. 20/20 put
+        /// 40 pt of dead air round a five-row inspector.
+        static let modernPanelVerticalInset: CGFloat = 16
+        /// How far a floating surface keeps off the window and its neighbours
+        /// — the one gutter between the canvas, the bar, the inspector and
+        /// the bottom strip.
+        static let modernSurfaceGutter: CGFloat = modernChromeInset
+        /// A Modern section header's height, and the air under it before its
+        /// first row. 40 + 8 is deliberately **tighter** than the drawing-era
+        /// 30 + 0 at a larger type size: Modern's header is one row of text
+        /// with no disclosure triangle, so its own height is its line box.
+        static let modernHeaderHeight: CGFloat = 40
+        static let modernHeaderToContent: CGFloat = space8
+        // **A Modern header has no disclosure triangle and no collapsed
+        // state.** The rail shows one stage at a time and the tool bar's stage
+        // buttons change it, so there is nothing to fold; the header is a
+        // title and a menu, and `PanelSection` keeps its content on this
+        // surface whatever the stored value says. Adding a triangle here would
+        // also cost the one thing the row is for: the title's left edge is the
+        // same axis as the rows under it (`modernContentInset`), and 12 pt of
+        // disclosure ink plus its air would move it. `ModernCalibrationTests`
+        // pins the absence.
+        /// Air under a section's content, before the hairline that separates
+        /// it from the next header.
+        ///
+        /// **The panel's outer inset is *not* repeated here.** It used to be:
+        /// `RightPanel` padded the whole stack by `modernContentInset` *and*
+        /// every section padded its own bottom by the same 20, which put 40 pt
+        /// under the last section and 20 above the first header's content for
+        /// no reason either end could name (space audit 2026-09-23).
+        static let modernSectionBottom: CGFloat = space20
+        /// Between two row blocks inside one section — the Film format block
+        /// after the film's own sliders, the Print sliders after the paper
+        /// picker. Taller than `modernRowSpacing` because a block boundary is
+        /// a change of subject, not another row.
+        static let modernBlockGap: CGFloat = space12
+        /// Between two control rows. **8, not the drawing-era 9**: the rows
+        /// themselves are 22 pt, so 8 is what makes ten of them read as one
+        /// column instead of a list of cards, and it is one step of the scale.
+        static let modernRowSpacing: CGFloat = space8
+        /// The line box one control sits in — a slider row, a toggle row, a
+        /// menu row. **One height for every row**, which is the other half of
+        /// the density fix: 22 against the toggle row's old 28 meant two
+        /// adjacent rows in one section did not share a rhythm.
+        static let modernRowHeight: CGFloat = 22
+        /// A control's own height — every pill, field and menu.
+        static let modernControlHeight: CGFloat = 16
+        /// The label column. **`sliderLabelWidth` itself, not a second
+        /// number**: the point of the 9 pt `cameraLabel` removal was that a
+        /// rail has one vertical label axis, and a Modern panel is a rail.
+        static var modernLabelWidth: CGFloat { sliderLabelWidth }
+        /// The bottom strip's two states, which the canvas occlusion also
+        /// reserves. They were bare `72`/`92` literals in three files.
+        static let modernStripHeight: CGFloat = 72
+        static let modernFilmChooserHeight: CGFloat = 92
+        /// The chooser's own card, tab and glyph geometry.
+        static let modernChooserCard = CGSize(width: 106, height: 70)
+        static let modernChooserTab = CGSize(width: 52, height: 30)
+        static let modernChooserGlyph: CGFloat = modernChooserCard.height / 2 + 2
+        /// The histogram overlay: its plot and the padding of the glass plate
+        /// around it. `plotInset` is the drawing's rail inset, not this.
+        static let modernPlot = CGSize(width: 196, height: 54)
+        static let modernPlotInset: CGFloat = space12
         /// **Zero.** Kept as tokens rather than deleted because the views read
         /// them and because a later drawing that floats the bar again should
         /// be three numbers rather than a re-plumbing — but a flush bar has
@@ -573,9 +744,15 @@ enum Theme {
         /// The Temperature / Tint text pitch in Camera (≈19.87).
         static let wbAxisPitch: CGFloat = 20
         /// A label-and-checkbox row (Grain / Halation / Glare / Lens
-        /// Correction): the drawing's pitch is 21.25–22.25, and 17 was under
-        /// the bottom of that range rather than in it.
-        static let toggleRowHeight: CGFloat = 28
+        /// Correction).
+        ///
+        /// **22, the same as every other row.** It was 28 — the checkbox's
+        /// 28 pt target, used as the row's height — so a toggle row stood 6 pt
+        /// taller than the slider on either side of it and a section's rows
+        /// did not share a pitch. The two are now one number, and the checkbox
+        /// keeps its 28 pt *target* by overlaying the row rather than by
+        /// growing it (`CheckBox`, `ToggleRow`).
+        static let toggleRowHeight: CGFloat = 22
         /// Corner radius of a control that is **not** a capsule: the value
         /// pills and the Side Length field, drawn `rx 8.5` against the
         /// menus' `rx 13.9` (= half their height, i.e. a capsule).
@@ -699,8 +876,8 @@ enum Theme {
         /// than the visible square so the pointer does not have to find ink.
         static let controlHitTarget: CGFloat = 28
         /// The **rail's** icon target, one step smaller than the bar's:
-        /// TOKENS §6 keeps the toolbar at 28 and a rail action at 26, and the
-        /// audit found the two numbers scattered as raw literals (26 on two
+        /// UI-SPEC §2.7.3 keeps the toolbar at 28 and a rail action at 26, and
+        /// the audit found the two numbers scattered as raw literals (26 on two
         /// rails, 28 on the bar, 18×16 in Crop). A rail row is 22 pt tall, so
         /// a 28 pt square would overlap the row above it; the bar's row is
         /// 38 pt and can afford 28.
@@ -711,6 +888,46 @@ enum Theme {
         /// other, with nothing recording why they differed (space audit
         /// 2026-09-23); 13 is the value both drawings round to.
         static let blockGap: CGFloat = 13
+
+        // MARK: radii
+        //
+        // Modern had eight radii inside one window — 2, 4, 6, 7, 9, 11.5, 14
+        // and the chrome's 16 — and UI-SPEC §2.10 forbids exactly that ("一张
+        // 图里出现两种圆角"). These three are the whole system: a **control**
+        // (a pill, a field, a card-sized tile), a **well** (a list plate), and
+        // a **container** (a floating surface). A value not on this list is a
+        // value that has to justify itself at the call site.
+
+        /// **A control's shape says what it is**, and there are two of them:
+        ///
+        ///     a capsule          you **choose** from a list   (PillMenu,
+        ///                                                      PillField,
+        ///                                                      the unit picker)
+        ///     a rounded rectangle you **type** a value into   (a slider's
+        ///                                                      value box,
+        ///                                                      UnitField's
+        ///                                                      number, the
+        ///                                                      long-edge
+        ///                                                      field)
+        ///
+        /// That is the whole of the taxonomy and it is not a style choice: the
+        /// two shapes were mixed inside one table — a slider's value box was a
+        /// rectangle while the number beside "long edge" was a capsule — and
+        /// the user's read of it was "大大小小". A checkbox and a chip take the
+        /// rectangle's radius because they are square controls, not capsules.
+        ///
+        /// The rectangle's radius, `rx 8.5` halved. `Capsule` is the other one
+        /// and needs no token because it has no number.
+        static let modernControlRadius: CGFloat = fieldRadius
+        /// A card-sized tile — a chooser card, a contact-sheet frame. Smaller
+        /// than the capsule it is not, larger than a field.
+        static let modernCardRadius: CGFloat = 9
+        /// A floating surface (the rails, the bar, the histogram plate, the
+        /// bottom strip). One radius for every piece of chrome that floats
+        /// over the canvas.
+        static let modernContainerRadius: CGFloat = 16
+        /// A list row's mark, and the radius of the plate a list sits on.
+        static let modernSelectionRadius: CGFloat = stockSelectionRadius
 
         // MARK: glyphs
 
@@ -731,6 +948,31 @@ enum Theme {
         static let sidebarIcon: CGFloat = 15
         /// Kept for the export page's section headers, which still draw one.
         static let sectionIcon: CGFloat = 16
+        /// A glyph inside a Modern rail row — the crop orientation arrows, a
+        /// mask's component symbols. 11 was written inline in two Crop rows and
+        /// at three other sizes in Masks; one rail glyph size is the rule.
+        static let modernRowGlyph: CGFloat = 11
+        /// A mask sublayer's own glyph, one step below the row's.
+        static let modernSublayerGlyph: CGFloat = 9
+        /// A glyph inside a **12 pt** control: the collapse tab's chevron, the
+        /// compare handle's pair of arrows. Below the rail's row glyph because
+        /// the shape it sits in is smaller than a row.
+        static let tinyGlyph: CGFloat = 8
+        /// A glyph inside a status line — the boot window's warning triangle.
+        static let statusGlyph: CGFloat = 10
+        /// A disclosure chevron in a list row (the About window's licence
+        /// rows). One size, because it is always the same mark.
+        static let rowChevron: CGFloat = 9
+        /// The pointer target for a **pure icon** action on a Modern rail.
+        /// `controlHitTarget` (28) is the bar's; 28 in a 22 pt rail row would
+        /// overlap the row above it, so the rail takes one step down.
+        static let modernIconTarget: CGFloat = railIconTarget
+        /// How far a mask sublayer's nested controls are indented past its
+        /// label column. It was written as `18` in four places and as
+        /// `sliderLabelWidth - 18` in a fifth, two of which disagreed; it is
+        /// `space20` minus the sublayer's own gutter so the indent is a step
+        /// of the same scale rather than a fourth number.
+        static var maskNestedIndent: CGFloat { space20 - space2 }
 
         // MARK: the filmstrip, and the one tab that survived
         //
@@ -745,13 +987,30 @@ enum Theme {
         static let thumbHeight: CGFloat = 110
         static let filmCover: CGFloat = 18
 
+        /// **The bar has one line box.** Every control on it — a glyph button,
+        /// a pill, the primary action — is `gridControl` tall and sits on the
+        /// same centreline. It had two: the pill was 20.69 (the drawing's own
+        /// value) while the glyphs were 16 in a 28 pt target, so the zoom
+        /// read-out hung further off the bar's centre than everything beside
+        /// it.
+        ///
+        /// The pill's *width* stays the drawing's 41.29, and its height is the
+        /// token above (see `Metric.zoomPill`).
+        static let barDividerHeight: CGFloat = 16
+        /// The width the bar reserves for its one **primary action** (the
+        /// negative's print button) whether or not that action is on screen.
+        /// Sized to the longest label it can carry, so the button never
+        /// truncates and the controls beside it never move.
+        static let primaryActionSlot: CGFloat = 64
         /// The zoom pill on the bar. v3 draws it x 2769.98…2852.56,
         /// y 17.63…59.01 → **41.29 × 20.69**: a third of the width it was,
         /// because v3's pill holds `100 %` and nothing else — the `Fit ·`
         /// prefix the old 105 pt pill carried does not fit and moves into the
         /// menu. It carries **no stroke**; it is a plain `.st13` capsule
         /// like every other pill.
-        static let zoomPill = CGSize(width: 41.29, height: 20.69)
+        static var zoomPill: CGSize {
+            CGSize(width: 41.29, height: gridControl)
+        }
 
         static let minWindow = CGSize(width: 1100, height: 700)
 
@@ -885,6 +1144,12 @@ enum Theme {
             static let labelWidth: CGFloat = 68.5
             static let rowHeight: CGFloat = 14.7
             static let rowSpacing: CGFloat = 16.5
+            /// A control on this page: the pill, the field, the chip. **One
+            /// value**, because `rowHeight` is the drawing's *row pitch* and
+            /// using it as a control's height made the pills 15 pt tall while
+            /// the field beside them was 21. It reads `controlHeight` on the
+            /// rail (`ExportPage.bodyControlHeight`), so the two homes agree.
+            static let controlHeight: CGFloat = 13.9
 
             /// The naming chips and the colour-space pill.
             static let chipHeight: CGFloat = 14.7
@@ -1020,7 +1285,10 @@ enum Theme {
     // lays down thinner stems than the macOS text system at the same nominal
     // weight, so the reference reads ~1 px light no matter what the app does.
     // The honest metric across the two is the **spread**, where that bias
-    // cancels. Measured by `Tools/compare-design.swift`.
+    // cancels. Measured by the tool that compared the two rasterisers
+    // (`Tools/compare-design.swift`, deleted 2026-09-26 with the drawing it
+    // was pointed at — recoverable from git history if the comparison is ever
+    // wanted again).
 
     // ## What v3 changed about the ramp above
     //
@@ -1062,6 +1330,19 @@ enum Theme {
         /// so that anything not yet migrated — the Settings page, the export
         /// page's own `Export.sectionTitle` — keeps a title-sized title.
         static var sectionTitle: SwiftUI.Font { leftSectionTitle }
+        /// A **Modern** surface's section title — the inspector rail and the
+        /// bottom chooser.
+        ///
+        /// Modern had a third answer here: `SectionHeader.modernHeader` set
+        /// the *export page's* frozen title (12.5 semibold), so the editor's
+        /// right rail was 2 pt larger than its own token declared and a full
+        /// point and a half larger than the same-rank title in Traditional,
+        /// for no reason anyone could name. Both the export page and this
+        /// surface read one rank now. Modern's rails are 288/344 pt wide and
+        /// carry the longer Chinese section names, so the size that fits them
+        /// is `rightSectionTitle`'s — the drawing's own right-rail
+        /// measurement.
+        static var modernSectionTitle: SwiftUI.Font { rightSectionTitle }
 
         /// **The workhorse.**
         ///
@@ -1102,6 +1383,24 @@ enum Theme {
         /// 26.22 / 2.
         static var action: SwiftUI.Font { scaled(13.11, .medium) }
 
+        /// The bottom chooser's card name, and the tab above it.
+        ///
+        /// Both were inline `.system(size: 10)` / `(size: 11, .semibold)` in
+        /// `Filmstrip.swift`, which put two sizes between `small` (9) and
+        /// `label` (10.5) that no other surface had. A card name is a list
+        /// item in the smallest sense and takes `small`; a tab is a two-state
+        /// control and takes `label`.
+        static var chooserCard: SwiftUI.Font { small }
+        static var chooserTab: SwiftUI.Font { label }
+
+        /// **Licence and code text.** The one monospaced role in the app, and
+        /// it is not a type-ramp member: it is set in a monospaced face because
+        /// the text is a legal document whose line breaks matter, not because
+        /// it is a rank. The About panel's licence bodies are its only user.
+        static var mono: SwiftUI.Font {
+            .system(size: 10.5 * InterfaceScaleStore.shared.scale.factor, design: .monospaced)
+        }
+
         /// Text that is *about* a control rather than part of it: a caption
         /// under a plot, a disabled reason. `Ink.tertiary` wherever it is
         /// used.
@@ -1115,34 +1414,26 @@ enum Theme {
         /// optical QA rather than asserting it reads.
         static var cine: SwiftUI.Font { scaled(5.71, .medium) }
 
-        /// The export page's ramp is **the same ramp**.
-        ///
-        /// It used to be six roles at `.bold` — every string on the page in
-        /// the heaviest face there is, which is the flattest hierarchy
-        /// available and the reason the page read as a wall. The drawing does
-        /// set `font-weight: 700` on its text classes, but a drawing sets one
-        /// weight because an Illustrator artboard has no semibold; that is a
-        /// fact about the export, not an instruction. The page's sizes were
-        /// also its own (10.5 / 12 / 9 / 8), so the two pages disagreed about
-        /// what a list row is. They agree now.
-        /// **v3 froze this ramp rather than following the editor's.**
-        ///
-        /// It used to alias the editor's roles, which was right while there
-        /// was one ramp. v3 re-sizes the editor's and specifies only the main
-        /// editor (handoff §5 and §9: "Do not globally repoint
-        /// `Font.Export`… Capture current export values before any later
-        /// shared-token migration"). So these are the literal values the
-        /// aliases resolved to at `eda971b` — 12.5 / 11 / 11 / 11 / 11 / 9.5
-        /// — written out, so the export page holds still until its own
-        /// drawing is translated.
-        enum Export {
-            static var sectionTitle: SwiftUI.Font { scaled(12.5, .semibold) }
-            static var label: SwiftUI.Font { scaled(11, .regular) }
-            static var listItem: SwiftUI.Font { scaled(11, .regular) }
-            static var chip: SwiftUI.Font { scaled(11, .medium) }
-            static var value: SwiftUI.Font { scaled(11, .medium).monospacedDigit() }
-            static var pill: SwiftUI.Font { scaled(9.5, .medium) }
-        }
+        // **There is no export-page type ramp any more.**
+        //
+        // It existed for one year and for one reason: the export page had its
+        // own drawing with its own type sizes (12.5 / 11 / 11 / 11 / 11 / 9.5),
+        // and `TOKENS-main-v3` §9 said not to repoint them until that drawing
+        // was translated. The result was the thing a reader notices and no
+        // document admits: the export page drew beside the parameter inspector
+        // in the Modern editor with **a section title two points larger and a
+        // row scale of its own**, so two panels in one window were two
+        // designs.
+        //
+        // The page's body is the editor's now (§2.7), so the ramp is the
+        // editor's — and the enum is deleted rather than aliased, because an
+        // alias is a place a second scale can grow back. What an export-only
+        // role would need, it takes from the four ranks above: a table row is
+        // `label` / `value`, a list is `stockItem`, a chip is `value`.
+        //
+        // A view that reaches for a fifth ramp is the bug this deletion is
+        // meant to make visible; `ModernCalibrationTests` checks the source
+        // for exactly that.
     }
 
     // MARK: ink
@@ -1162,13 +1453,16 @@ enum Theme {
     }
 }
 
-/// Editor chrome only. The photograph remains the content layer; glass is
-/// reserved for floating navigation and inspector surfaces in Modern.
+/// A floating surface: the tile the rails, the bar, the plate and the bottom
+/// strip are drawn on. The photograph remains the content layer; glass is
+/// reserved for the chrome that floats over it.
+///
+/// **There is no non-glass branch any more.** It served the three-region
+/// layout, which is retired; everything that floats now wears this, and the
+/// two flush rails in the export page's own window wear `railCard()` instead.
 struct EditorChromeSurface: ViewModifier {
-    var modern: Bool
     var bare = false
-    var traditionalBar = false
-    var radius: CGFloat = 16
+    var radius: CGFloat = Theme.Metric.modernContainerRadius
     var wash: Double = 0.60
     var flat = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -1176,9 +1470,6 @@ struct EditorChromeSurface: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if bare {
             content
-        } else if !modern {
-            if traditionalBar { content.barCard() }
-            else { content.railCard() }
         } else if flat && reduceTransparency {
             content
                 .background(Theme.card)
@@ -1228,6 +1519,25 @@ struct EditorChromeSurface: ViewModifier {
                         .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
                 }
         }
+    }
+}
+
+extension View {
+    /// A **flush region**: a card-coloured plate with no radius and no gap.
+    ///
+    /// It is what the export page's own window draws its three regions with —
+    /// settings rail, centre, worklist — separated by 1 pt hairlines rather
+    /// than by air. It lived in the retired left rail because that rail and
+    /// this page were the only two things drawn this way; the page still is.
+    func railCard() -> some View {
+        background(Theme.cardFill)
+    }
+
+    /// The export window's own tool bar: a card-coloured row, square, because
+    /// `barRadius` is 0 on every surface now.
+    func barCard() -> some View {
+        background(Theme.cardFill,
+                   in: RoundedRectangle(cornerRadius: Theme.Metric.barRadius, style: .continuous))
     }
 }
 
@@ -1314,7 +1624,7 @@ extension View {
     /// **A pressed control's stroke flips** (dark top, light bottom). That
     /// inversion is the whole of the "pushed in" illusion — a darker fill
     /// alone reads as disabled, which is why both change together.
-    func controlSurface(radius: CGFloat = Theme.Metric.fieldRadius,
+    func controlSurface(radius: CGFloat = Theme.Metric.modernControlRadius,
                         hovered: Bool = false,
                         pressed: Bool = false) -> some View {
         self

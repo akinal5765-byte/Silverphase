@@ -16,9 +16,9 @@
 //
 //  The alternative is to reserve a titlebar strip and start the cards below
 //  it. That fixes the alignment by removing the shared row — and it costs
-//  ~21 pt off the top of all four cards, which is a change to the geometry
-//  `Tools/compare-layout.py` measures against the drawing. The cards stay
-//  where they are drawn; the buttons come to them.
+//  ~21 pt off the top of the Traditional layout's geometry, which is the
+//  drawing's (UI-SPEC §10.3) and is what `LayoutTests` measures. The cards
+//  stay where they are drawn; the buttons come to them.
 //
 //  Which row owns them now (`PRD/new_frontend_top_layout.png`):
 //

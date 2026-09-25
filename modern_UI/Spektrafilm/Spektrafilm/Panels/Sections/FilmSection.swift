@@ -150,21 +150,26 @@ struct FilmSection: View {
 
     /// The film's own parameters, on the right rail.
     private var paramSection: some View {
-        PanelSection(L(.sectionFilm), key: "film", menu: { AnyView(menu) }) {
+        PanelSection(L(.sectionFilm), key: "film",
+                     blockTitle: T("Frame", "画幅"),
+                     menu: { AnyView(formatMenu) }) {
             VStack(alignment: .leading, spacing: 0) {
                 RailRows {
                     // `title: { $0.id }` — a film format is `135`, `120`, `APS`
                     // and so on, which the spec keeps as they are. Only the
                     // row's label is translated.
+                    // **No `fill: false`.** It asked for a 107 pt pill at the
+                    // trailing edge, and Modern ignores it (`FormatPicker`'s
+                    // `fillsControlColumn`): a 344 pt panel's controls share
+                    // one left edge and one right edge, so a row that stopped
+                    // two thirds of the way across read as an unfinished one.
                     PillMenu(label: L(.filmFormat), options: FilmFrame.all, title: { $0.id },
                              selection: Binding(get: { session.filmFrame },
                                                 set: { session.setFilmFrame($0) }),
-                             fill: false,
                              trailingBadge: { $0.isCine })
                     PillMenu(label: L(.filmFormatSide), options: FilmSide.allCases, title: { L($0.key) },
                              selection: Binding(get: { session.filmSide },
-                                                set: { session.setFilmSide($0) }),
-                             fill: false)
+                                                set: { session.setFilmSide($0) }))
                     UnitField(label: L(.filmFormatSideLength),
                               value: Binding(get: { session.params.sideLengthMM },
                                              set: { session.setSideLengthMM($0) }),
@@ -172,44 +177,45 @@ struct FilmSection: View {
                               enabled: isCustom,
                               reason: L(.reasonNonCustomSideLength))
                 }
-                .padding(.top, Theme.Metric.blockGap)
-                RailRows {
-                    ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
-                    ScrubSlider(label: L(.filmGrainSize),
-                                value: Binding(get: { session.params.grainSizeScale },
-                                               set: { var p = session.params; p.grainSizeScale = $0; session.params = p }),
-                                range: 0.5...2, zero: 1, snap: 0.1,
-                                format: { String(format: "%.1f×", $0) },
-                                disabled: !session.params.grainActive)
-                    .help("Changes the modeled particle diameter relative to 1×. Film format still sets its physical scale; this does not alter the stock profile.")
-                    PillMenu(label: L(.filmHalation),
-                             options: HalationChoice.allCases,
-                             title: { $0.title },
-                             selection: Binding(
-                                get: { HalationChoice.of(active: session.params.halationActive,
-                                                         mode: session.params.antihalationMode) },
-                                set: { choice in
-                                    var p = session.params
-                                    // Off writes only the switch; the chosen preset is left
-                                    // alone, so turning it back on returns to where it was.
-                                    if let mode = choice.mode {
-                                        p.halationActive = true
-                                        p.antihalationMode = mode
-                                    } else {
-                                        p.halationActive = false
-                                    }
-                                    session.params = p
-                                }))
-                    .help("How much light the film base reflects back into the emulsion — the source of halation. Default follows the selected film's own data; High, Medium and Low override the simulation only and never rewrite it. Off switches the stage out of the render.")
-                    ScrubSlider(label: L(.filmHalationAmount),
-                                value: Binding(get: { session.params.halationAmount },
-                                               set: { var p = session.params; p.halationAmount = $0; session.params = p }),
-                                range: 1...4, zero: 1, snap: 0.1,
-                                format: { String(format: "%.1f×", $0) },
-                                disabled: !session.params.halationActive)
-                    .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
+                InspectorSubblock(title: T("Grain & Halation", "颗粒与光晕"),
+                                  menu: { AnyView(effectsMenu) }) {
+                    RailRows {
+                        ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
+                        ScrubSlider(label: L(.filmGrainSize),
+                                    value: Binding(get: { session.params.grainSizeScale },
+                                                   set: { var p = session.params; p.grainSizeScale = $0; session.params = p }),
+                                    range: 0.5...2, zero: 1, snap: 0.1,
+                                    format: { String(format: "%.1f×", $0) },
+                                    disabled: !session.params.grainActive)
+                        .help("Changes the modeled particle diameter relative to 1×. Film format still sets its physical scale; this does not alter the stock profile.")
+                        PillMenu(label: L(.filmHalation),
+                                 options: HalationChoice.allCases,
+                                 title: { $0.title },
+                                 selection: Binding(
+                                    get: { HalationChoice.of(active: session.params.halationActive,
+                                                             mode: session.params.antihalationMode) },
+                                    set: { choice in
+                                        var p = session.params
+                                        // Off writes only the switch; the chosen preset is left
+                                        // alone, so turning it back on returns to where it was.
+                                        if let mode = choice.mode {
+                                            p.halationActive = true
+                                            p.antihalationMode = mode
+                                        } else {
+                                            p.halationActive = false
+                                        }
+                                        session.params = p
+                                    }))
+                        .help("How much light the film base reflects back into the emulsion — the source of halation. Default follows the selected film's own data; High, Medium and Low override the simulation only and never rewrite it. Off switches the stage out of the render.")
+                        ScrubSlider(label: L(.filmHalationAmount),
+                                    value: Binding(get: { session.params.halationAmount },
+                                                   set: { var p = session.params; p.halationAmount = $0; session.params = p }),
+                                    range: 1...4, zero: 1, snap: 0.1,
+                                    format: { String(format: "%.1f×", $0) },
+                                    disabled: !session.params.halationActive)
+                        .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
+                    }
                 }
-                .padding(.top, Theme.Metric.blockGap)
             }
         }
     }
@@ -242,16 +248,15 @@ struct FilmSection: View {
                 set: { var p = session.params; p[keyPath: kp] = $0; session.params = p })
     }
 
-    private var menu: some View {
+    private var formatMenu: some View {
+        Button("Reset the film stock to Portra 400") {
+            var p = session.params; p.filmStock = "kodak_portra_400"; session.params = p
+            session.applyFilmStageRule()
+        }
+    }
+
+    private var effectsMenu: some View {
         Group {
-            // The header's arrow is this item; both say the same thing in
-            // words, which is the point of §8.3 — a reset affordance whose
-            // scope is not named is the ellipsis problem again.
-            Button("Reset the film stock to Portra 400") {
-                var p = session.params; p.filmStock = "kodak_portra_400"; session.params = p
-                session.applyFilmStageRule()
-            }
-            Divider()
             Button(L(.helpAllEffectsOn)) {
                 var p = session.params
                 p.grainActive = true; p.halationActive = true

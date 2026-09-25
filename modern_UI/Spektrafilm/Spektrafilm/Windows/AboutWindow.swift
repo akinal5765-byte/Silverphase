@@ -166,7 +166,7 @@ struct AboutWindow: View {
                         Text(licence.title).font(Theme.Font.listItem).foregroundStyle(Theme.text)
                             .lineLimit(1).truncationMode(.tail)
                         Spacer(minLength: 0)
-                        Image(systemName: "chevron.right").font(.system(size: 9))
+                        Image(systemName: "chevron.right").font(.system(size: Theme.Metric.rowChevron))
                             .foregroundStyle(Theme.dim)
                     }
                     .frame(height: 20).contentShape(Rectangle())
@@ -210,7 +210,7 @@ private struct LicenceSheet: View {
             Text(licence.title).font(Theme.Font.of(13, .semibold))
             ScrollView {
                 Text(text)
-                    .font(.system(size: 10.5, design: .monospaced))
+                    .font(Theme.Font.mono)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)

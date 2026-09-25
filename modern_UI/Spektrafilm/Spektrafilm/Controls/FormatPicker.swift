@@ -43,12 +43,17 @@ struct PillMenu<T: Hashable>: View {
 
     @State private var hovered = false
 
+    /// **Always.** A floating panel's controls share one left edge and one
+    /// right edge, so a pill that stopped two thirds of the way across read
+    /// as an unfinished row — which is what the user saw on the Film panel.
+    private var fillsControlColumn: Bool { true }
+
     var body: some View {
         HStack(spacing: 0) {
             Text(label).font(font).foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)
                 .frame(width: labelWidth, alignment: .leading)
-            if !fill { Spacer(minLength: 0) }
+            if !fillsControlColumn { Spacer(minLength: 0) }
             Menu {
                 ForEach(options, id: \.self) { o in
                     Button { selection = o } label: {
@@ -57,28 +62,36 @@ struct PillMenu<T: Hashable>: View {
                 }
             } label: {
                 HStack(spacing: 0) {
+                    // **The pill's own inset scale**, which is not the panel's:
+                    // a capsule 13.9 pt tall holding 10.5 pt text has 1.7 pt of
+                    // real air, so its text sits 10 in and its chevron 9 off
+                    // the trailing edge. The two menu rows and the unit pill
+                    // used to disagree on all four numbers (10/9/5/4 against
+                    // 6/2/5); they are these now, for both shapes.
                     Text(title(selection)).font(font).foregroundStyle(Theme.text).lineLimit(1)
-                        .padding(.leading, 10)
-                    if trailingBadge(selection) { CinePill().padding(.leading, 5) }
-                    Spacer(minLength: 4)
+                        .padding(.leading, PillGeometry.textInset)
+                    if trailingBadge(selection) {
+                        CinePill().padding(.leading, Theme.Metric.space4)
+                    }
+                    Spacer(minLength: Theme.Metric.space2)
                     // The drawing's chevron is the **same hollow triangle**
                     // the section headers disclose with, not SF Symbols'
                     // double chevron. One mark, two places, one meaning:
                     // "there is more under this".
                     Triangle()
                         .stroke(Theme.text, style: StrokeStyle(lineWidth: 1, lineJoin: .round))
-                        .frame(width: 8, height: 5)
-                        .padding(.trailing, 9)
+                        .frame(width: PillGeometry.chevron.width, height: PillGeometry.chevron.height)
+                        .padding(.trailing, PillGeometry.chevronInset)
                 }
-                .frame(height: Theme.Metric.controlHeight)
+                .frame(height: Theme.Metric.gridControl)
                 // `width`, not `maxWidth`. A maximum with `fixedSize` under
                 // it resolves to the *intrinsic* width, so every non-filling
                 // pill came out as wide as its own word — Film Type 42 pt,
                 // Side 44 pt, the unit pill narrower again — and the trailing
                 // column had a different left edge on every row. The drawing
                 // gives them one width and one left edge; this is that.
-                .frame(width: fill ? nil : Theme.Metric.pickerWidth)
-                .frame(maxWidth: fill ? .infinity : nil)
+                .frame(width: fillsControlColumn ? nil : Theme.Metric.pickerWidth)
+                .frame(maxWidth: fillsControlColumn ? .infinity : nil)
                 .pillSurface(base: plate, hovered: hovered && enabled)
                 .contentShape(Capsule())
                 .onHover { hovered = $0 }
@@ -88,9 +101,27 @@ struct PillMenu<T: Hashable>: View {
             .menuIndicator(.hidden)
             .fixedSize(horizontal: false, vertical: false)
         }
-        .frame(height: Theme.Metric.rowHeight)
+        // **Top-aligned in the row box.** Every control row is `gridRow`
+        // tall and its content starts at the box's top (option A, 2026-09-26),
+        // so a section's first row sits at the same height whether that row
+        // is a pill, a slider, a checkbox or a bare number. Centred content
+        // made a pill's first ink land 3 pt below a text row's, which read as
+        // two different header-to-content gaps in the same panel.
+        .frame(height: Theme.Metric.gridRow, alignment: .top)
         .rowEnabled(enabled, because: reason)
     }
+}
+
+/// A menu pill's own geometry: one inset pair and one chevron, shared by both
+/// pill shapes and by `UnitField`, so the two capsules in a row line up.
+///
+/// A file-level namespace rather than `PillMenu`'s own statics: `PillMenu` is
+/// generic, and Swift does not allow a static stored property in a generic
+/// type.
+enum PillGeometry {
+    static let textInset: CGFloat = 10
+    static let chevronInset: CGFloat = 9
+    static let chevron = CGSize(width: 8, height: 5)
 }
 
 /// Side Length: a number field and a unit pill, right-aligned, and greyed
@@ -119,12 +150,20 @@ struct UnitField: View {
             Text(label).font(Theme.Font.label).foregroundStyle(Theme.Ink.secondary)
                 .lineLimit(1)
                 .frame(width: Theme.Metric.sliderLabelWidth, alignment: .leading)
-            Spacer(minLength: 0)
+            // **The field fills the column and the unit keeps its width**, so
+            // this row's right edge is the same edge as the two menu pills
+            // above it.
+            //
+            // It was the opposite — a fixed `fieldWidth` field and a trailing
+            // gap — on the argument that "0.945 stretched across 200 pt is a
+            // text box with three characters in it". That is true of a field
+            // standing alone and false of one in a table: the user's read of
+            // the Film panel was that this row was the only one that did not
+            // line up. A single column has one right edge.
             field
-                .frame(width: Theme.Metric.fieldWidth, height: Theme.Metric.controlHeight)
-                .background(Theme.pill,
-                            in: RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius, style: .continuous))
-            Spacer(minLength: 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: Theme.Metric.gridControl)
+            Spacer().frame(width: Theme.Metric.space4)
             Menu {
                 ForEach(SideUnit.allCases) { u in
                     Button { unit = u } label: {
@@ -137,22 +176,22 @@ struct UnitField: View {
                     // "mm" *and* a chevron, so its padding is tighter than
                     // every other pill's. At the menu pill's 10/9 it had 13 pt
                     // for the word and showed "…".
-                    Text(unit.title).font(Theme.Font.label).foregroundStyle(Theme.Ink.tertiary)
+                    Text(unit.title).font(Theme.Font.value).foregroundStyle(Theme.Ink.tertiary)
                         .fixedSize()
-                        .padding(.leading, 6)
-                    Spacer(minLength: 2)
+                        .padding(.leading, Theme.Metric.space8)
+                    Spacer(minLength: Theme.Metric.space2)
                     Triangle()
                         .stroke(Theme.text, style: StrokeStyle(lineWidth: 1, lineJoin: .round))
                         .frame(width: 7, height: 4.5)
-                        .padding(.trailing, 5)
+                        .padding(.trailing, Theme.Metric.space4)
                 }
-                .frame(width: Theme.Metric.unitWidth, height: Theme.Metric.controlHeight)
+                .frame(width: Theme.Metric.unitWidth, height: Theme.Metric.gridControl)
                 .background(Theme.pill, in: Capsule())
                 .contentShape(Capsule())
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         }
-        .frame(height: Theme.Metric.rowHeight)
+        .frame(height: Theme.Metric.gridRow, alignment: .top)
         // The **unit** stays live when the length does not: a 135 frame is
         // still 0.945 in, and reading it in inches is not editing it. Only
         // the field takes the greying.

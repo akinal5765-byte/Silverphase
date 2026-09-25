@@ -33,6 +33,24 @@ final class DiskCacheStoreTests: XCTestCase {
         XCTAssertEqual(payload.hits, 1)
     }
 
+    func testThumbnailUsesTheSameDiskBudgetAndCanBeCleared() async throws {
+        let store = try DiskCacheStore(root: root(), capBytes: 16)
+        let key = CacheKey(kind: .thumbnail, sourceIdentity: "frame",
+                           configuration: "edit", engineVersion: "thumbnail-v1")
+        let jpeg = Data(repeating: 7, count: 12)
+        try await store.store(key: key, data: jpeg, width: 4, height: 4,
+                              format: "jpeg", costMs: 50)
+        let used = try await store.totalBytes()
+        let loaded = try await store.load(key)
+        XCTAssertEqual(used, 12)
+        XCTAssertEqual(loaded?.data, jpeg)
+        try await store.clearAll()
+        let cleared = try await store.totalBytes()
+        let missing = try await store.load(key)
+        XCTAssertEqual(cleared, 0)
+        XCTAssertNil(missing)
+    }
+
     func testVersionAndConfigurationPerturbationsMiss() async throws {
         let store = try DiskCacheStore(root: root())
         let original = key("one")
