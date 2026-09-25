@@ -55,8 +55,8 @@ requirements on BE rather than as description:
 
 1. **`rgba16` layout.** `width × height × 4 × uint16`, row-major, row 0 is the
    top of the image, values already encoded **in the session's output colour
-   space**. FE applies no transfer curve and never will (`frontend_architecture.md`
-   §4, "Colour, stated once"). A GPU-native BE that lands linear values, or
+   space**. FE applies no transfer curve and never will (`modern_UI/design/UI-SPEC.md`
+   §11.4, "Colour rules"). A GPU-native BE that lands linear values, or
    BGRA, or bottom-up, produces a washed-out or upside-down canvas and no test
    on either side will say so.
 

@@ -252,11 +252,12 @@ Package.resolved
 # failing — see README "Test fixtures" for what to drop there.
 tests/Test_image/
 
-# The Illustrator source of the drawing. The exported PNG that the layout is
-# actually measured against lives at
-# `modern_UI/reference_layout/sample_frontend.png` and is tracked.
-sample_frontend.ai
-sample_frontend.png
+# Illustrator sources are never carried — the two that were are gone, and the
+# rule stays so a new one cannot arrive by accident. What is tracked is what the
+# spec actually points at: `reference_layout/Export_Page/export_page.svg`,
+# `reference_layout/Main/layout_screenshot.png` and
+# `reference_layout/traffic_light_bug.png`.
+*.ai
 
 # Profiling output and Finder noise.
 *.profraw
