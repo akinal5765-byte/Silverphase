@@ -5,8 +5,8 @@
 //  never queue one request per slider tick. The scheduler keeps two values —
 //  what the service *has* (`sent`) and what the user *wants* (`wanted`) — and
 //  a single loop that, whenever they differ, waits a short debounce, sends
-//  one delta for the whole difference, and applies the result only if no
-//  newer frame was opened in the meantime (a generation counter). Shoot-layer
+//  one delta for the whole difference, and applies the result only if its
+//  parameters are still wanted and no newer frame was opened. Shoot-layer
 //  edits, which re-run the film side, get a longer debounce than print-layer
 //  edits, which reprint from the cached negative.
 
@@ -14,7 +14,8 @@ import Foundation
 
 @MainActor
 final class RenderScheduler {
-    private let client: EngineClient
+    typealias Render = @Sendable (Method, RenderRequest) async throws -> RenderOutcome
+    private let render: Render
     /// Where the "a render was superseded" record goes (RFC-016 §3). Injected
     /// rather than reached for through `Log.shared`, so a test reads the log it
     /// configured.
@@ -33,7 +34,13 @@ final class RenderScheduler {
     var onBusy: (@MainActor (Bool) -> Void)?
 
     init(client: EngineClient, log: Log = .shared) {
-        self.client = client
+        self.render = { method, request in try await client.render(method, request) }
+        self.log = log
+    }
+
+    /// A controlled render seam keeps scheduling tests independent of GPU time.
+    init(log: Log = .shared, render: @escaping Render) {
+        self.render = render
         self.log = log
     }
 
@@ -47,6 +54,7 @@ final class RenderScheduler {
     func reset(sessionID: String, params: FilmParams) -> Int {
         loop?.cancel(); loop = nil
         generation += 1
+        onBusy?(false)
         self.sessionID = sessionID
         sent = params
         wanted = params
@@ -56,6 +64,7 @@ final class RenderScheduler {
     func invalidate() {
         loop?.cancel(); loop = nil
         generation += 1
+        onBusy?(false)
         sessionID = nil
     }
 
@@ -66,8 +75,8 @@ final class RenderScheduler {
     }
 
     /// A render the engine ran and the user will never see: a newer generation
-    /// (a frame switch, a white-balance reopen) landed while it was rendering,
-    /// so the result is dropped instead of shown.
+    /// or newer parameters arrived while it was rendering, so the result is
+    /// dropped instead of shown.
     ///
     /// This is the only place that knows. `Session` never hears about the
     /// result, `EngineClient` cannot see the generations, and a record that
@@ -92,7 +101,9 @@ final class RenderScheduler {
 
     private func run() async {
         let gen = generation
-        defer { loop = nil }
+        // An older, uncancellable engine call can finish after reset has
+        // installed a new loop. Only that loop may clear its own handle.
+        defer { if gen == generation { loop = nil } }
         while !Task.isCancelled, gen == generation, let sid = sessionID {
             let (delta, layers) = wanted.delta(from: sent)
             if delta.isEmpty { return }
@@ -121,13 +132,17 @@ final class RenderScheduler {
                 let r: RenderOutcome
                 if l2.contains(.shoot) {
                     req.layer = "shoot"
-                    r = try await client.render(.previewRender, req)
+                    r = try await render(.previewRender, req)
                 } else {
-                    r = try await client.render(.reprint, req)
+                    r = try await render(.reprint, req)
                 }
                 if gen == generation {
                     sent = target
-                    onResult?(r, gen)
+                    if target == wanted {
+                        onResult?(r, gen)
+                    } else {
+                        noteSuperseded(r, issuedGeneration: gen, layers: l2)
+                    }
                 } else {
                     noteSuperseded(r, issuedGeneration: gen, layers: l2)
                 }
@@ -138,7 +153,7 @@ final class RenderScheduler {
                     sent = target
                 }
             }
-            onBusy?(false)
+            if gen == generation { onBusy?(false) }
         }
     }
 }

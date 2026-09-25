@@ -8,6 +8,97 @@
 import Metal
 import XCTest
 
+private actor ControlledSchedulerRender {
+    private var pending: [CheckedContinuation<RenderOutcome, Error>] = []
+
+    var count: Int { pending.count }
+
+    func render(_ method: Method, _ request: RenderRequest) async throws -> RenderOutcome {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RenderOutcome, Error>) in
+            pending.append(continuation)
+        }
+    }
+
+    func finishNext() {
+        let continuation = pending.removeFirst()
+        continuation.resume(returning: RenderOutcome(
+            response: RenderResponse(progressID: "test", tier: "live", elapsedMs: 1,
+                                     reprint: true, negativeWasCached: true,
+                                     previewPath: nil, exportPath: nil, rawPath: nil,
+                                     width: 1, height: 1),
+            texture: nil, progress: nil))
+    }
+}
+
+@MainActor
+final class RenderSchedulerTests: XCTestCase {
+    func testAnOlderParameterResultNeverReachesTheCanvas() async throws {
+        let controlled = ControlledSchedulerRender()
+        let scheduler = RenderScheduler(render: { method, request in
+            try await controlled.render(method, request)
+        })
+        var applied = 0
+        scheduler.onResult = { _, _ in applied += 1 }
+        _ = scheduler.reset(sessionID: "test", params: .default)
+
+        var first = FilmParams.default
+        first.printBrightnessStops = 0.5
+        scheduler.request(first)
+        try await waitFor { await controlled.count == 1 }
+
+        var latest = first
+        latest.printBrightnessStops = 1.0
+        scheduler.request(latest)
+        await controlled.finishNext()
+        try await waitFor { await controlled.count == 1 && scheduler.sent == first }
+        XCTAssertEqual(applied, 0, "the old print must never cover the newer slider value")
+
+        await controlled.finishNext()
+        try await waitFor { applied == 1 && scheduler.sent == latest }
+        XCTAssertFalse(scheduler.pending)
+    }
+
+    func testAnOldLoopCannotClearTheNewSessionsLoop() async throws {
+        let controlled = ControlledSchedulerRender()
+        let scheduler = RenderScheduler(render: { method, request in
+            try await controlled.render(method, request)
+        })
+        var first = FilmParams.default
+        first.printBrightnessStops = 0.5
+        _ = scheduler.reset(sessionID: "first", params: .default)
+        scheduler.request(first)
+        try await waitFor { await controlled.count == 1 }
+
+        var second = FilmParams.default
+        second.printBrightnessStops = 1.0
+        _ = scheduler.reset(sessionID: "second", params: .default)
+        scheduler.request(second)
+        try await waitFor { await controlled.count == 2 }
+        await controlled.finishNext() // the old session finishes after reset
+        try await waitFor { await controlled.count == 1 }
+
+        var latest = second
+        latest.printBrightnessStops = 1.5
+        scheduler.request(latest)
+        try await Task.sleep(for: .milliseconds(100))
+        let active = await controlled.count
+        XCTAssertEqual(active, 1, "a second loop must not start beside the new session's render")
+
+        await controlled.finishNext()
+        try await waitFor { await controlled.count == 1 && scheduler.sent == second }
+        await controlled.finishNext()
+        try await waitFor { scheduler.sent == latest && !scheduler.pending }
+    }
+
+    private func waitFor(_ condition: () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("the controlled render did not reach its expected state")
+    }
+}
+
 @MainActor
 final class FrontendPolicyTests: XCTestCase {
 
