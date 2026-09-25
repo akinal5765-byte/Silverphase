@@ -762,7 +762,8 @@ final class ExportRecipeStore {
             return decoded.isEmpty ? (ExportRecipe.defaults, nil) : (decoded, nil)
         } catch {
             return (ExportRecipe.defaults,
-                    "\(url.lastPathComponent) could not be read (\(error.localizedDescription)). Using the built-in recipes; your file has not been changed.")
+                    T("\(url.lastPathComponent) could not be read (\(error.localizedDescription)). Using the built-in recipes; your file has not been changed.",
+                      "无法读取 \(url.lastPathComponent)（\(error.localizedDescription)）。现使用内置配方；您的文件未被更改。"))
         }
     }
 
@@ -775,12 +776,13 @@ final class ExportRecipeStore {
             try encoder.encode(recipes).write(to: url, options: .atomic)
             problem = nil
         } catch {
-            problem = "Could not save \(url.lastPathComponent): \(error.localizedDescription)"
+            problem = T("Could not save \(url.lastPathComponent): \(error.localizedDescription)",
+                        "无法保存 \(url.lastPathComponent)：\(error.localizedDescription)")
         }
     }
 
     func add() {
-        var r = ExportRecipe(name: "Untitled")
+        var r = ExportRecipe(name: T("Untitled", "未命名"))
         r.id = UUID()
         recipes.append(r)
         selectedID = r.id
@@ -790,7 +792,7 @@ final class ExportRecipeStore {
     func duplicate(_ r: ExportRecipe) {
         var copy = r
         copy.id = UUID()
-        copy.name = r.name + " copy"
+        copy.name = r.name + T(" copy", " 副本")
         recipes.append(copy)
         selectedID = copy.id
         save()

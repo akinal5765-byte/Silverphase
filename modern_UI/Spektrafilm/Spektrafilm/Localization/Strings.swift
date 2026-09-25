@@ -21,10 +21,8 @@
 //  requires every case of `S` to have both languages, so a key added without a
 //  translation is a build error rather than a blank label in the window.
 //
-//  Not everything in the editor is in here. This table covers the two tables in
-//  the spec — the main page and the icon/feedback labels. The Settings page,
-//  the export page and system error text are out of scope for this pass; the
-//  spec's last section says so explicitly.
+//  The table covers the main editor. Export's longer, page-specific copy uses
+//  `T(_:_:)` below so both languages stay beside each sentence.
 
 import Foundation
 
@@ -822,6 +820,14 @@ func L(_ key: S) -> String {
             ?? key.english.nilIfEmpty
             ?? key.rawValue
     }
+}
+
+/// Bilingual copy for page-specific sentences that do not belong to the
+/// editor's terminology table. Reading `resolved` here keeps live language
+/// switching observable in SwiftUI, just like `L(_:)`.
+@MainActor
+func T(_ english: String, _ simplifiedChinese: String) -> String {
+    Localization.shared.resolved == .simplifiedChinese ? simplifiedChinese : english
 }
 
 private extension String {

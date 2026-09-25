@@ -147,7 +147,7 @@ final class ExportRecipeTests: XCTestCase {
     /// RFC-018 §6: "a saturated frame into sRGB is worth a word, a frame that
     /// fits is worth silence" — so the silence is the part to pin. A page that
     /// warns on every export is a page whose warnings are read as noise.
-    func testAFrameThatFitsSaysNothing() {
+    @MainActor func testAFrameThatFitsSaysNothing() {
         let proof = SoftProof(image: blankImage(), target: CGColorSpaceCreateDeviceRGB(),
                               targetName: "sRGB",
                               compressedFraction: 0, clippedFraction: 0, movedFraction: 0, isPlaceholder: false)
@@ -160,7 +160,7 @@ final class ExportRecipeTests: XCTestCase {
         XCTAssertTrue(ProofCaveat.lines(for: quiet).isEmpty)
     }
 
-    func testAPictureThatDoesNotFitSaysSoAndSaysWhatItLost() {
+    @MainActor func testAPictureThatDoesNotFitSaysSoAndSaysWhatItLost() {
         let rolled = SoftProof(image: blankImage(), target: CGColorSpaceCreateDeviceRGB(),
                                targetName: "sRGB",
                                compressedFraction: 0.04, clippedFraction: 0, movedFraction: 0, isPlaceholder: false)
@@ -533,6 +533,6 @@ final class ExportRecipeTests: XCTestCase {
         store.duplicate(original)
         XCTAssertNotEqual(store.selected?.id, original.id)
         XCTAssertEqual(store.selected?.format, original.format)
-        XCTAssertTrue(store.selected?.name.hasSuffix("copy") ?? false)
+        XCTAssertTrue(store.selected?.name.hasSuffix(T(" copy", " 副本")) ?? false)
     }
 }
