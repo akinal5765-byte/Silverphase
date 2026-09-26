@@ -47,6 +47,43 @@ final class SelectionModelTests: XCTestCase {
         return (session, session.frames.map(\.id))
     }
 
+    func testLateEXIFFromPreviousFrameCannotReplaceCurrentFrame() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appending(path: "spk-exif-selection-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let first = dir.appending(path: "frame-00.png")
+        let second = dir.appending(path: "frame-01.png")
+        try Data().write(to: first)
+        try Data().write(to: second)
+
+        let firstStarted = expectation(description: "first EXIF read started")
+        let releaseFirst = DispatchSemaphore(value: 0)
+        defer { releaseFirst.signal() }
+        let session = Session(exifReader: { url in
+            if url.lastPathComponent == first.lastPathComponent {
+                firstStarted.fulfill()
+                releaseFirst.wait()
+                return EXIFReadout(iso: "ISO 100")
+            }
+            return EXIFReadout(iso: "ISO 800")
+        })
+        session.open(urls: [dir])
+        await fulfillment(of: [firstStarted], timeout: 5)
+        let urls = session.frames.map(\.id)
+        XCTAssertEqual(urls.count, 2)
+        session.select(urls[1])
+        XCTAssertNil(session.exif, "the old frame's metadata remained visible after switching")
+        for _ in 0..<100 where session.exif?.iso != "ISO 800" {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(session.exif?.iso, "ISO 800")
+        releaseFirst.signal()
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(session.exif?.iso, "ISO 800",
+                       "a canceled EXIF read replaced the current frame's metadata")
+    }
+
     /// A plain click: exactly one frame, and it opens.
     ///
     /// The collapse is the whole point — a click that merely *added* would

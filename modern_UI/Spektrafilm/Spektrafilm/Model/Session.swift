@@ -310,6 +310,9 @@ final class Session: CanvasHost {
     /// real render long before a 2 MP one does.
     private(set) var sourceLongEdge: CGFloat = 0
     private(set) var exif: EXIFReadout?
+    private var exifTask: Task<Void, Never>?
+    private var exifGeneration = 0
+    private let exifReader: @Sendable (URL) -> EXIFReadout?
 
     // MARK: ui state
     //
@@ -983,7 +986,8 @@ final class Session: CanvasHost {
     nonisolated static var diskCacheRoot: URL { cacheRoot.appending(path: "store") }
 
     init(renderer: Renderer? = nil, diagnostics: Diagnostics = .shared,
-         diskCache: DiskCacheStore? = nil) {
+         diskCache: DiskCacheStore? = nil,
+         exifReader: @escaping @Sendable (URL) -> EXIFReadout? = EXIFReadout.read) {
         guard let renderer = renderer ?? Renderer(arena: diagnostics.arena) else {
             fatalError("Metal is required")
         }
@@ -991,6 +995,7 @@ final class Session: CanvasHost {
                      "Session.renderer and Diagnostics must share one MemoryArena")
         self.renderer = renderer
         self.diagnostics = diagnostics
+        self.exifReader = exifReader
         self.decodeResidency = DecodeResidency(arena: diagnostics.arena)
         let cache = diskCache ?? (try? DiskCacheStore(root: Self.diskCacheRoot,
                                                      capBytes: diagnostics.diskCacheCapBytes))
@@ -1294,6 +1299,8 @@ final class Session: CanvasHost {
     /// open frame is the one dropped.
     private func unloadSelection() {
         restoredPrintTask?.cancel(); restoredPrintTask = nil
+        exifTask?.cancel(); exifTask = nil
+        exifGeneration &+= 1
         if let selection { enqueuePrintWriteback(for: selection) }
         selection = nil
         renderer.store.dropIdleScratch()
@@ -1426,8 +1433,15 @@ final class Session: CanvasHost {
 
     func select(_ url: URL) {
         let selectionTrace = PerformanceTrace.begin("Frame Select UI")
-        defer { PerformanceTrace.end("Frame Select UI", selectionTrace) }
+        let selectionStarted = Date()
+        defer {
+            PerformanceTrace.end("Frame Select UI", selectionTrace)
+            canvasLog("frame select synchronous \(Int(Date().timeIntervalSince(selectionStarted) * 1000)) ms")
+        }
         guard url != selection || decoded == nil else { return }
+        exifTask?.cancel(); exifTask = nil
+        exifGeneration &+= 1
+        let exifToken = exifGeneration
         restoredPrintTask?.cancel(); restoredPrintTask = nil
         flushSave()
         renderer.store.dropIdleScratch()
@@ -1472,9 +1486,21 @@ final class Session: CanvasHost {
         renderer.filmScan = nil
         renderer.develop = 0
         renderer.holdForNegative = false
-        let exifStarted = Date()
-        exif = EXIFReadout.read(url)
-        canvasLog("frame select EXIF \(Int(Date().timeIntervalSince(exifStarted) * 1000)) ms")
+        exif = nil
+        let readEXIF = exifReader
+        exifTask = Task.detached(priority: .utility) { [weak self] in
+            guard !Task.isCancelled else { return }
+            let started = Date()
+            let readout = readEXIF(url)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.exifGeneration == exifToken,
+                      self.selection == url else { return }
+                self.exif = readout
+                self.exifTask = nil
+                canvasLog("frame select EXIF background \(Int(Date().timeIntervalSince(started) * 1000)) ms")
+            }
+        }
         stockWarning = nil
         // Both belong to the frame that is going away (§11.5): a refusal and a
         // memory warning are statements about *that* frame's pixels, and
