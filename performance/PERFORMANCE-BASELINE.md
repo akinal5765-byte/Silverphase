@@ -146,9 +146,38 @@ The 24 MP `Time Profiler` + `Points of Interest` recording was exported with
 `xctrace export --xpath '//table[@schema="os-signpost"]'` and contained paired
 begin/end events for `Image Decode`, `Original Preview` and `Engine Frame`.
 On a cold 60.2 MP TIFF selection, the synchronous sidecar lookup took 3 ms and
-EXIF metadata lookup 2 ms. Neither explains the developed-print wait in that
-sample; the selection interval is now marked for future live frame-switch
-measurements.
+EXIF metadata lookup 2 ms. The same metadata lookup on real Sony RAWs instead
+took 154–155 ms on the main actor. It has since moved to a cancelable utility
+task; a selection generation prevents late metadata from replacing the next
+frame's metadata.
+
+## Real-photo cold-open measurements
+
+These are individual cold runs on copies of the user's photographs in
+`/private/tmp/silverphase-real-perf`; the source photos were not modified. The
+60.2 MP ARW before/after inputs are copies of the same source with fresh file
+identities. The 26 MP ARW is a crop-mode frame from the same camera family,
+and the 31.4 MP JPEG is from the supplied collection. The app's `open path`
+clock begins after synchronous selection; the selection column is separate.
+Each run used the 1600×900 snapshot harness and reached a full native-resolution
+render. Times are single samples, not a latency distribution.
+
+| Input | Synchronous selection | Decode | Original texture | Engine frame | Solve | Reprint | Open path | Full render | Peak RSS |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 26 MP ARW, before EXIF change | ≥155 ms | 259 ms | 497 ms | 461 ms | 461 ms | 205 ms | 1925 ms | 1742 ms | 2.41 GB |
+| 60.2 MP ARW, before | ≥154 ms | 239 ms | 911 ms | 1089 ms | 684 ms | 249 ms | 3251 ms | 4914 ms | 3.68 GB |
+| 60.2 MP ARW, after | **4 ms** | 260 ms | 899 ms | 1015 ms | 733 ms | 251 ms | 3255 ms | 4758 ms | 3.51 GB |
+| 31.4 MP JPEG, after | **4 ms** | 78 ms | 54 ms | 153 ms | 513 ms | 228 ms | 1080 ms | 2252 ms | 3.07 GB |
+
+The before selection number is a lower bound because it only adds the logged
+EXIF stage, not sidecar, state changes, or view invalidation. The after number
+is the complete synchronous `select` interval. EXIF itself still takes 127–166
+ms in the background; the optimization removes the UI stall, not the work.
+The 60.2 MP final-print snapshot's central 800×450 area was pixel-identical
+before and after. The 3251→3255 ms open-path difference is noise and is not
+presented as an image-processing speedup. The RAW engine frame at 60.2 MP
+(about 1 s), original texture (about 0.9 s), and full render (about 4.8–4.9 s)
+are now the measured remaining cold-open costs.
 
 Use a fresh source identity for each cold run, because the disk cache keys on
 file identity. Run with a GUI session; the snapshot harness renders the canvas
@@ -156,12 +185,12 @@ offscreen, so its times do not measure display-link frame presentation.
 
 ```sh
 SPEKTRAFILM_CANVAS_LOG=1 /usr/bin/time -l \
-  modern_UI/Spektrafilm/build/DerivedData/Build/Products/Debug/Silverphase.app/Contents/MacOS/Silverphase \
+  build/DerivedData/Build/Products/Debug/Silverphase.app/Contents/MacOS/Silverphase \
   --snapshot 1600x900 /private/tmp/silverphase-perf/output.png \
   --open /private/tmp/silverphase-perf/source.tif --wait 90
 ```
 
-The reference RAW fixture tree and Python parity oracle are absent from this
-checkout. Do not treat synthetic TIFF numbers as RAW numbers or the missing
-parity checks as a pass. Pixel-parity verification is required before any
-engine arithmetic or format change.
+The repository's reference RAW fixture tree and Python parity oracle are
+absent from this machine; real user RAWs were used for the cold-open measures
+above. Do not treat the missing engine parity checks as a pass. Pixel-parity
+verification is required before any engine arithmetic or format change.
