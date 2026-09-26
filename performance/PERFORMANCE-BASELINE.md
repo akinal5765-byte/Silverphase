@@ -89,6 +89,34 @@ machine load; the stage shift is much larger than the run-to-run variation
 seen in the two LZW baseline runs. Optimize the route to the developed print,
 not a stage timer whose output is hidden during cold open.
 
+## Accepted change: bitmap-backed decode for large opaque 8-bit RGB TIFFs
+
+An independent ImageIO full-frame decode plus bitmap draw of the 60.2 MP LZW
+TIFF took about 0.26 s. Merely wrapping ImageIO's `CGImage` in a `CIImage`
+still spent 14.5 s in the preview render: Core Image re-entered the TIFF strip
+provider. Drawing it once into an independent bitmap broke that link. The
+optimized route is limited to TIFF, at least 20 MP, 8-bit, opaque RGB. RAW,
+high-depth, alpha, CMYK and smaller files retain the prior route.
+
+| Cold input | Open before | Open after | Original preview texture before → after | Full render before → after |
+|---|---:|---:|---:|---:|
+| 24 MP LZW TIFF | 931 ms | 872 ms | 72 → 50 ms | 1477 → 1255 ms |
+| 33.6 MP LZW TIFF | 933 ms | 986 ms | 42 → 58 ms | 2552 → 2188 ms |
+| 60.2 MP LZW TIFF | **15628 ms** | **1312 ms** (11.9× faster) | 14500 → 83 ms | 4864 → 4980 ms |
+
+The 60.2 MP final-print snapshot's central 800×450 area was pixel-identical
+before and after. A focused test also compares tagged Display P3 TIFFs at all
+eight EXIF orientations, both as display textures and linear float engine input.
+Peak RSS in the optimized 60.2 MP run was 3.51 GB, within the 3.44–3.58 GB
+range of the earlier baseline. Each row is a single run under variable system
+load. The 24/33 MP differences are small enough to treat as noise; the large
+LZW decompression difference is the measured benefit.
+
+The original-preview cache readback and disk store were separately measured
+at 7 + 23 ms on 24 MP and 7 + 35 ms on 60.2 MP. They delay cold open but are
+not the dominant 60.2 MP bottleneck, so they were instrumented and left in
+place.
+
 ## Reproduce
 
 Use a fresh source identity for each cold run, because the disk cache keys on
