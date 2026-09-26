@@ -3,6 +3,48 @@ import XCTest
 
 @MainActor
 final class PerformanceStressTests: XCTestCase {
+    func testSingleFullResolutionTIFFExport() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_RAW"] else {
+            throw XCTSkip("Set SILVERPHASE_PERF_RAW to run the export benchmark")
+        }
+        let source = URL(fileURLWithPath: path)
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "silverphase-export-stress-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let session = Session()
+        session.open(urls: [source])
+        let readyStarted = Date()
+        let developedID = await session.currentServiceSession()
+        let sessionID = try XCTUnwrap(developedID)
+        let readyMs = Int(Date().timeIntervalSince(readyStarted) * 1000)
+
+        var recipe = ExportRecipe()
+        recipe.format = .tiff
+        recipe.folder = .fixed(path: folder.path)
+        recipe.subfolder = ""
+        recipe.colorSpace = .displayP3
+        let size = try XCTUnwrap(session.decoded?.pixelSize)
+        let context = NamingRule.Context(
+            originalName: source.deletingPathExtension().lastPathComponent,
+            filmStock: session.params.filmStock, printStock: session.params.printStock,
+            pixelSize: size, counter: 1, date: Date())
+        let exportStarted = Date()
+        let outcome = try await Exporter.export(session: session, recipe: recipe,
+                                                context: context, sessionID: sessionID)
+        let exportMs = Int(Date().timeIntervalSince(exportStarted) * 1000)
+        guard case .wrote(let files, _, _) = outcome, let output = files.first else {
+            return XCTFail("the full-resolution export wrote no file")
+        }
+        let bytes = try output.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        XCTAssertGreaterThan(bytes, 0)
+        let record = "prepare_ms\texport_ms\toutput_bytes\tphys_footprint_bytes\n"
+            + "\(readyMs)\t\(exportMs)\t\(bytes)\t\(MemorySampler.footprintBytes())\n"
+        if let result = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_RESULTS"] {
+            try record.write(toFile: result, atomically: true, encoding: .utf8)
+        }
+    }
+
     /// Run explicitly with SILVERPHASE_PERF_RAW pointing to a readable RAW.
     /// Copies have distinct identities so a cache hit cannot disguise a
     /// frame-lifetime leak. This is an in-process memory benchmark, not a

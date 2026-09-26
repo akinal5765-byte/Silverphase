@@ -69,15 +69,18 @@ Instruments 标记，且在真实窗口轨迹中核对了 drawable 呈现事件�
 ## Export
 
 图像写盘已离开 UI actor，文件格式、EXIF、色彩配置和 DI TIFF 预览页规则
-保持一致。导出目前随引擎单会话逐张处理。单张、10 张与 50 张真实照片的
-GPU/CPU 利用率、吞吐和内存平台期尚未测量，因此没有更改并发数。
+保持一致。导出目前随引擎单会话逐张处理。一张 26 MP 真实 RAW 的 16 位
+Display P3 TIFF 测试中，引擎会话准备 2.60 s，导出调用 3.61 s，输出约
+205 MB，结束时 `phys_footprint` 约 3.51 GB。这是单次样本，不是峰值
+内存或吞吐分布。10 张与 50 张真实照片的 GPU/CPU 利用率、吞吐和内存
+平台期尚未测量，因此没有更改并发数。
 
 ## Verification and remaining bottlenecks
 
 应用 Debug 构建成功，产物在
 `build/DerivedData/Build/Products/Debug/Silverphase.app`。TIFF 色彩/方向测试、
 调度器过期结果测试、后台写入测试、EXIF 过期结果测试、20 张 RAW
-全尺寸切换基准与现有
+全尺寸切换基准、单张真实 RAW TIFF 导出基准与现有
 EXIF/TIFF/DI 写入测试通过。一个既有源码检查测试因测试进程无权读取
 `Filmstrip.swift` 而失败；部分依赖仓库原片的现有测试跳过。用户提供的
 真实 RAW 已用于本轮测量，但文档所指的 Python 参考仓库未找到，因此不能

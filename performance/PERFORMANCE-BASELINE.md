@@ -132,6 +132,15 @@ cases skip in this checkout). This is a main-thread responsiveness fix, not
 a measured export-throughput increase. Batch throughput and live window frame
 pacing still need instrumented end-to-end measurement.
 
+An opt-in real-photo export benchmark now exercises a 26 MP Sony ARW through
+the single-session path, then writes a full-resolution 16-bit Display P3
+TIFF. One run measured 2595 ms to prepare the engine session and 3609 ms for
+`Exporter.export`, producing a 205,095,652-byte TIFF. Process
+`phys_footprint` after the export was 3.51 GB (an end sample, not a peak).
+The test verifies a nonempty file and records a TSV when
+`SILVERPHASE_PERF_RESULTS` is set. It is one sample; the 10/50-image batch
+throughput and concurrent export limits remain unmeasured.
+
 ## Reproduce
 
 The `com.hanze.filmify` / Points of Interest signpost category now marks `Image
