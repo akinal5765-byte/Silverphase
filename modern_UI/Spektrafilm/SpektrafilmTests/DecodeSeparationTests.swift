@@ -11,7 +11,6 @@
 //  set where Apple's default would silently misregister the comparison.
 
 import CoreImage
-import ImageIO
 import Metal
 import XCTest
 
@@ -91,50 +90,6 @@ final class DecodeSeparationTests: XCTestCase {
         var ab = 0.0, aa = 0.0, bb = 0.0
         for (x, y) in zip(a, b) { ab += (x - ma) * (y - mb); aa += (x - ma) * (x - ma); bb += (y - mb) * (y - mb) }
         return ab / max((aa * bb).squareRoot(), 1e-12)
-    }
-
-    /// The large flat-file shortcut changes only the low-resolution original.
-    /// Compare its pixels with the previous Core Image scale path, including
-    /// top/bottom registration, rather than comparing two final engine prints
-    /// that do not exercise this route at all.
-    func testLargeFlatThumbnailKeepsOriginalColourAndOrientation() throws {
-        let gpu = try device()
-        let url = FileManager.default.temporaryDirectory
-            .appending(path: "spk-flat-preview-\(UUID().uuidString).tif")
-        defer { try? FileManager.default.removeItem(at: url) }
-        let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
-        let context = try XCTUnwrap(CGContext(data: nil, width: 128, height: 96,
-                                             bitsPerComponent: 8, bytesPerRow: 0,
-                                             space: space,
-                                             bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
-        context.setFillColor(CGColor(colorSpace: space, components: [0.85, 0.2, 0.1, 1])!)
-        context.fill(CGRect(x: 0, y: 48, width: 128, height: 48))
-        context.setFillColor(CGColor(colorSpace: space, components: [0.1, 0.2, 0.85, 1])!)
-        context.fill(CGRect(x: 0, y: 0, width: 128, height: 48))
-        let image = try XCTUnwrap(context.makeImage())
-        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(url as CFURL, "public.tiff" as CFString, 1, nil))
-        CGImageDestinationAddImage(destination, image, nil)
-        XCTAssertTrue(CGImageDestinationFinalize(destination))
-
-        let decoded = try ImageDecoder.decode(url, settings: DecodeSettings())
-        let fast = try XCTUnwrap(ImageDecoder.makePreviewTexture(decoded, device: gpu, maxEdge: 16))
-        // A missing sourceURL forces the exact Core Image scale used before the
-        // shortcut, while holding the same decoded CIImages and colour space.
-        let previous = DecodedImage(linear: decoded.linear, display: decoded.display,
-                                    pixelSize: decoded.pixelSize, isRAW: false,
-                                    sourceURL: url.deletingLastPathComponent().appending(path: "missing.tif"),
-                                    asShotTemperature: nil, asShotTint: nil)
-        let old = try XCTUnwrap(ImageDecoder.makePreviewTexture(previous, device: gpu, maxEdge: 16))
-        XCTAssertEqual(fast.width, old.width)
-        XCTAssertEqual(fast.height, old.height)
-        let a = try samples(fast, gpu), b = try samples(old, gpu)
-        let meanDifference = zip(a, b).map { abs(Int($0) - Int($1)) }
-            .reduce(0, +) / max(1, a.count)
-        XCTAssertLessThan(meanDifference, 3000, "the original preview changed beyond resampling error")
-        let top = (2 * fast.width + 8) * 4
-        let bottom = ((fast.height - 3) * fast.width + 8) * 4
-        XCTAssertGreaterThan(a[top], a[top + 2], "red stays at the top")
-        XCTAssertGreaterThan(a[bottom + 2], a[bottom], "blue stays at the bottom")
     }
 
     // MARK: - routing

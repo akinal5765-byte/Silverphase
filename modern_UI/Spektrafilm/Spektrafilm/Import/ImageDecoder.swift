@@ -356,18 +356,10 @@ enum ImageDecoder {
     static func makePreviewTexture(_ decoded: DecodedImage, device: MTLDevice, maxEdge: Int,
                                    storageMode: MTLStorageMode = .private,
                                    checkpoint: () throws -> Void = {}) rethrows -> MTLTexture? {
-        try checkpoint()
-        // ImageIO can decode a large flat file directly at the display size.
-        // Routing its full CIImage through a scale first decoded all 60 MP of
-        // an LZW TIFF just to make a 2560 px original preview (14.55 s on the
-        // measured frame). This path changes only the temporary original;
-        // engineFrame still receives decoded.linear at full precision/size.
-        let image = quickFlatPreview(decoded, maxEdge: maxEdge) ?? decoded.display
-        try checkpoint()
-        let extent = image.extent
+        let extent = decoded.display.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
         let scale = min(1.0, Double(maxEdge) / Double(max(extent.width, extent.height)))
-        var scaled = scale < 1 ? image.transformed(by: .init(scaleX: scale, y: scale)) : image
+        var scaled = scale < 1 ? decoded.display.transformed(by: .init(scaleX: scale, y: scale)) : decoded.display
         scaled = scaled.transformed(by: .init(translationX: -scaled.extent.origin.x, y: -scaled.extent.origin.y))
         let target = scaled.extent.integral
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm,
@@ -393,24 +385,6 @@ enum ImageDecoder {
         cb.commit()
         cb.waitUntilCompleted()
         return tex
-    }
-
-    private static func quickFlatPreview(_ decoded: DecodedImage, maxEdge: Int) -> CIImage? {
-        guard !decoded.isRAW, maxEdge > 0,
-              max(decoded.pixelSize.width, decoded.pixelSize.height) > CGFloat(maxEdge * 3),
-              let source = CGImageSourceCreateWithURL(decoded.sourceURL as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let depth = properties[kCGImagePropertyDepth] as? Int, depth <= 8,
-              properties[kCGImagePropertyIsFloat] as? Bool != true else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxEdge,
-            kCGImageSourceShouldCacheImmediately: true,
-        ]
-        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
-              thumbnail.colorSpace != nil else { return nil }
-        return CIImage(cgImage: thumbnail)
     }
 
     /// The checkpoint-free form, for the call sites that predate the frame
