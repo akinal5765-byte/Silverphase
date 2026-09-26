@@ -12,7 +12,7 @@ reported `core=native-metal` in each run.
 File (RAW / TIFF / JPEG / other supported flat format)
   → Core Image / ImageIO decode
   ├─ display CIImage → scaled original preview → rgba16Unorm MTLTexture
-  │                    (before/after and Space comparison)
+  │                    (Original / before-after comparison; not the first print)
   └─ scene-linear ProPhoto CIImage → shared float32 RGBA MTLBuffer
        → spk_open_device → engine source
        → film/camera/negative stages (cached per resolution tier)
@@ -22,6 +22,9 @@ File (RAW / TIFF / JPEG / other supported flat format)
 ```
 
 The live tier renders at the chosen preview long edge (2560 px by default).
+On a cold open, the original preview is made and cached before the engine
+frame, but it is not put on the canvas. The first image the user sees is the
+developed print, after the full engine input has been decoded.
 After an edit settles, a full-resolution render follows. Zoom and pan change
 the canvas sampling transform, not the film pipeline. Export asks the engine
 for a full-tier print, then applies the app's geometry, Layer 2 and output
@@ -65,26 +68,26 @@ version took 212 ms through that API, versus 2896 ms through the old app
 preview path. The 14.5-second wait was caused by full-image decompression in
 the original-preview route, not by a Metal film kernel.
 
-## First measured change: large 8-bit flat-file preview
+## Rejected experiment: large 8-bit flat-file preview
 
-`ImageDecoder.makePreviewTexture` now asks ImageIO for a display-size thumbnail
-when an 8-bit flat image's long edge exceeds three times the requested preview
-edge. RAW and high-bit-depth files keep their existing paths. The engine input,
-film model and full-resolution print are unchanged.
+We tried asking ImageIO for a display-size thumbnail when an 8-bit flat image's
+long edge exceeds three times the requested preview edge. This only sped up
+the Original/compare texture. It caused the later full engine input to decode
+the same TIFF again, so the first *developed print* was slower. The change was
+reverted in `d286600`; the table preserves the evidence for future work.
 
 | 60.2 MP input | Original preview texture before | After | First original preview estimate (decode + texture) | Complete open before → after | Full render before → after |
 |---|---:|---:|---:|---:|---:|
 | LZW TIFF | 14552 ms | **422 ms** (34.5×) | 14.77 s → **0.64 s** | 15.88 s → 16.49 s | 5.33 s → 5.60 s |
 | Uncompressed TIFF | 2896 ms | **249 ms** (11.6×) | 2.97 s → **0.49 s** | 4.05 s → 4.24 s | 5.16 s → 5.26 s |
 
-The expensive full decode now happens during the later engine-frame stage:
-14.84 s on the LZW file and 2.89 s on the uncompressed file. This change
-improves first feedback, not total development throughput. The final print's
-central 800×450 snapshot region was pixel-identical before and after, and a
-focused XCTest checks that the new original preview retains the old route's
-colour and top/bottom orientation within a resampling tolerance. The runs are
-single samples under variable machine load; the stage shift is much larger
-than the run-to-run variation seen in the two LZW baseline runs.
+The expensive full decode moved to the later engine-frame stage: 14.84 s on
+the LZW file and 2.89 s on the uncompressed file. The final print's central
+800×450 snapshot region was pixel-identical before and after, so correctness
+was not the reason for rejection. The runs are single samples under variable
+machine load; the stage shift is much larger than the run-to-run variation
+seen in the two LZW baseline runs. Optimize the route to the developed print,
+not a stage timer whose output is hidden during cold open.
 
 ## Reproduce
 
