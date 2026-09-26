@@ -402,7 +402,7 @@ enum ImageDecoder {
         d.usage = [.shaderRead, .renderTarget, .shaderWrite]   // .shaderWrite is load-bearing
         d.storageMode = storageMode
         guard let tex = device.makeTexture(descriptor: d) else { return nil }
-        guard let queue = device.makeCommandQueue(), let cb = queue.makeCommandBuffer() else { return nil }
+        guard let queue = previewQueue(for: device), let cb = queue.makeCommandBuffer() else { return nil }
         // Core Image's origin is bottom-left; Metal's is top-left. Render with
         // a vertical flip so the texture's row 0 is the image's top row —
         // the canvas shader samples with (0,0) at the top.
@@ -420,6 +420,31 @@ enum ImageDecoder {
         cb.commit()
         cb.waitUntilCompleted()
         return tex
+    }
+
+    /// One command queue per device for `makePreviewTexture`, instead of a new
+    /// one per call. A queue is a long-lived object by Metal's own guidance,
+    /// and this path runs at least twice per opened frame (the preview and
+    /// the native original). Command queues are thread-safe, so the pipeline
+    /// queue and the main thread can share one.
+    private static let previewQueues = PreviewQueues()
+    private static func previewQueue(for device: MTLDevice) -> MTLCommandQueue? {
+        previewQueues.queue(for: device)
+    }
+
+    private final class PreviewQueues: @unchecked Sendable {
+        private let lock = NSLock()
+        private var queues: [ObjectIdentifier: MTLCommandQueue] = [:]
+        func queue(for device: MTLDevice) -> MTLCommandQueue? {
+            lock.withLock {
+                let key = ObjectIdentifier(device)
+                if let queue = queues[key] { return queue }
+                let queue = device.makeCommandQueue()
+                queue?.label = "ImageDecoder.preview"
+                queues[key] = queue
+                return queue
+            }
+        }
     }
 
     /// The checkpoint-free form, for the call sites that predate the frame

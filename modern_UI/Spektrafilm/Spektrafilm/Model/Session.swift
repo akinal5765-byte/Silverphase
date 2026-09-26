@@ -1320,6 +1320,7 @@ final class Session: CanvasHost {
         memoryWarning = nil
         fullPending = false
         fullTask?.cancel(); fullTask = nil
+        client.cancelBackgroundRender()
         fullGeneration += 1
         loadTask?.cancel()
         pipeline.supersede()
@@ -1456,8 +1457,13 @@ final class Session: CanvasHost {
         sourceLongEdge = 0
         // A new frame invalidates the previous frame's native render; the
         // print that lands for *this* one asks for its own.
+        //
+        // Cancelling the task is not enough once the render is in the engine:
+        // it holds the actor until it finishes, and the new frame's open
+        // would queue behind seconds of a picture nobody will see.
         fullPending = false
         fullTask?.cancel(); fullTask = nil
+        client.cancelBackgroundRender()
         fullGeneration += 1
         // A new frame has asked for nothing yet — but **it has a film and a
         // paper**, because the product hands every frame both. So the first
@@ -1678,14 +1684,15 @@ final class Session: CanvasHost {
         // Zoom is already mirrored through viewportChanged; no new canvas
         // plumbing is needed. If that mirror is ever removed, keep this hook
         // as the place to instrument the zoom-past-preview trigger.
-        guard trigger == "comparing" || trigger == "idle_delay" || wantsFullRender else { return }
+        guard trigger == "comparing" || trigger == "original" || trigger == "idle_delay"
+                || wantsFullRender else { return }
         let key = (url, decodedGeneration)
         if let existing = nativeOriginalKey, existing == key {
             // One render per (frame, decode). The idle delay is still
             // interruptible by a person asking for the original now; an
             // in-flight or landed render is not asked for again.
             let preemptsDelay = nativeOriginalPendingDelay
-                && (trigger == "comparing" || trigger == "zoom_past_preview")
+                && (trigger == "comparing" || trigger == "original" || trigger == "zoom_past_preview")
             guard preemptsDelay else { return }
         }
         log.info(.canvas, "native original trigger", [.init("trigger", trigger),
@@ -1709,6 +1716,22 @@ final class Session: CanvasHost {
         scheduleNativeOriginal(d, for: url, settings: sidecar.decode,
                                generation: decodedGeneration,
                                delayMs: trigger == "idle_delay" ? Session.fullRenderDebounceMs : 0)
+    }
+
+    /// How long idle work waits for the canvas to settle before running anyway.
+    nonisolated static let nativeOriginalSettleCapSeconds = 30
+
+    /// Whether nothing the user is waiting on is still owed to `url`: no
+    /// develop, no edit in flight or owed, and the native render either
+    /// landed or not wanted. The gate for work that is only *nice to have*.
+    private func canvasIsSettledForIdleWork(_ url: URL) -> Bool {
+        guard selection == url else { return true }
+        if busy || fullPending || scheduler.pending || developTask != nil { return false }
+        guard serviceSessionID != nil else {
+            // Not developed: settled only if nothing has asked for a print.
+            return !wantsDevelop
+        }
+        return !wantsFullRender || renderer.showsFullRender
     }
 
     /// Bytes for the native original after applying the same max-edge clamp
@@ -1764,6 +1787,21 @@ final class Session: CanvasHost {
             }
             if delayMs > 0 {
                 try? await Task.sleep(for: .milliseconds(delayMs))
+                // The idle trigger is *idle*: a native-size Core Image render
+                // (0.5–0.9 s of GPU and ~0.5 GB at 26–60 MP) that nobody has
+                // asked to see yet. Fired on a fixed delay it landed in the
+                // middle of the develop, on the same serial pipeline and the
+                // same GPU, and pushed the first print and the full render
+                // back. It now waits for the canvas to settle — capped, so a
+                // full render that never comes cannot starve it — and stays
+                // preemptible throughout: `nativeOriginalPendingDelay` is
+                // still true, so Compare or a zoom past the preview schedules
+                // it at once, exactly as it did during the delay.
+                let deadline = ContinuousClock.now + .seconds(Session.nativeOriginalSettleCapSeconds)
+                while let self, !Task.isCancelled, self.nativeOriginalToken == token,
+                      !self.canvasIsSettledForIdleWork(url), ContinuousClock.now < deadline {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
                 if let self, self.nativeOriginalToken == token {
                     self.nativeOriginalPendingDelay = false
                 }
@@ -2048,6 +2086,38 @@ final class Session: CanvasHost {
             noteOpen(clock, url: url, mode: "superseded", pixels: nil)
             return
         }
+        if sidecar.decode.whiteBalance == .asShot, let t = d.asShotTemperature,
+           let tn = d.asShotTint,
+           (sidecar.decode.temperature != t || sidecar.decode.tint != tn) {
+            sidecar.decode.temperature = t
+            sidecar.decode.tint = tn
+        }
+        let key = DecodeKey(url: url, settings: sidecar.decode)
+        decodeResidency.adopt(d, for: key)
+        decodedGeneration = generation
+        decodeIsStale = false
+        sourceLongEdge = max(d.pixelSize.width, d.pixelSize.height)
+        displaySourceSize = d.pixelSize
+        // The physical frame's long edge is half the user's description and
+        // half this photograph's shape (`physicalAspect`), so it cannot be
+        // settled until a decode has landed — a sidecar restored on launch
+        // carries the description and a `film_format_mm` computed against
+        // whatever the *last* frame's aspect was.
+        recomputeFilmFormat(beforeOpen: true)
+        sampleMemory("decode")
+        // **The develop starts here, beside the preview texture rather than
+        // after it.** The texture below is the decode at preview size: what
+        // Original shows and what the display cache stores, and never what
+        // the canvas shows first — that is the print. Built first, it put
+        // 0.5 s (26 MP) to 0.9 s (60 MP) of Core Image in front of every
+        // cold develop. The develop needs only the adopted decode, which is
+        // in hand, and its slow half (`engineFrame`) runs off the pipeline
+        // queue, so the two overlap. `ensureDeveloped` cannot wait on this
+        // load: the decode it checks for is already resident. The tail below
+        // comes back through it and joins this same `developTask`.
+        if wantsDevelop, serviceSessionID == nil, developTask == nil {
+            Task { [weak self] in _ = await self?.ensureDeveloped(clock: clock) }
+        }
         let lease = DecodeLease(d)
         let preview: TextureBox
         if FeatureFlags.framePipeline {
@@ -2073,25 +2143,6 @@ final class Session: CanvasHost {
             noteOpen(clock, url: url, mode: "superseded", pixels: nil)
             return
         }
-        if sidecar.decode.whiteBalance == .asShot, let t = d.asShotTemperature,
-           let tn = d.asShotTint,
-           (sidecar.decode.temperature != t || sidecar.decode.tint != tn) {
-            sidecar.decode.temperature = t
-            sidecar.decode.tint = tn
-        }
-        let key = DecodeKey(url: url, settings: sidecar.decode)
-        decodeResidency.adopt(d, for: key)
-        decodedGeneration = generation
-        decodeIsStale = false
-        sourceLongEdge = max(d.pixelSize.width, d.pixelSize.height)
-        displaySourceSize = d.pixelSize
-        // The physical frame's long edge is half the user's description and
-        // half this photograph's shape (`physicalAspect`), so it cannot be
-        // settled until a decode has landed — a sidecar restored on launch
-        // carries the description and a `film_format_mm` computed against
-        // whatever the *last* frame's aspect was.
-        recomputeFilmFormat(beforeOpen: true)
-        sampleMemory("decode")
         var diskWrite: (key: CacheKey, data: Data, width: Int, height: Int,
                         sourceWidth: Int, sourceHeight: Int, costMs: Double)?
         if let tex = preview.texture, !Task.isCancelled, selection == url {
@@ -2099,8 +2150,10 @@ final class Session: CanvasHost {
             renderer.original = tex
             // Not onto the canvas: the decode is what Original shows and what
             // the full render is measured against, and the canvas waits for a
-            // print. See `select`.
-            previewSoft = true
+            // print. See `select`. The develop now runs beside this, so the
+            // print may already be up — `applyRender` has settled
+            // `previewSoft` for it then, and this must not undo that.
+            if renderer.store.print(for: url) == nil { previewSoft = true }
             if diskCache != nil {
                 let readbackStarted = Date()
                 let cacheKey = Self.displayCacheKey(
@@ -2250,7 +2303,14 @@ final class Session: CanvasHost {
     /// here — a parameter edit, an undo, a paste, an export, a capture.
     func requestPrint() {
         wantsDevelop = true
-        guard serviceSessionID == nil else { scheduler.request(params); return }
+        guard serviceSessionID == nil else {
+            // A native render in flight is made from the parameters this edit
+            // has just replaced, and the edit's own render would wait behind
+            // it. Stop it; the print this edit lands asks for a new one.
+            if fullPending { client.cancelBackgroundRender() }
+            scheduler.request(params)
+            return
+        }
         Task { await ensureDeveloped() }
     }
 
@@ -2536,17 +2596,32 @@ final class Session: CanvasHost {
         let edit = sidecar
         let ticket = ThumbnailCache.shared.beginRenderedThumbnail(for: url)
         let long = max(tex.width, tex.height)
-        let source: MTLTexture
-        if long > maxEdge {
-            let scale = Double(maxEdge) / Double(long)
-            let w = max(1, Int((Double(tex.width) * scale).rounded()))
-            let h = max(1, Int((Double(tex.height) * scale).rounded()))
-            guard let small = renderer.applyResize(tex, width: w, height: h) else { return }
-            source = small
-        } else {
-            source = tex
+        let renderer = self.renderer
+        let input = TextureBox(tex)
+        // The resize is awaited rather than waited on: it used to hold the
+        // main thread in `waitUntilCompleted` on every landed print, which is
+        // every slider release. Same kernel, same size, same pixels.
+        Task { @MainActor in
+            guard let tex = input.texture else { return }
+            let source: MTLTexture
+            if long > maxEdge {
+                let scale = Double(maxEdge) / Double(long)
+                let w = max(1, Int((Double(tex.width) * scale).rounded()))
+                let h = max(1, Int((Double(tex.height) * scale).rounded()))
+                guard let small = await renderer.applyResizeAsync(tex, width: w, height: h) else { return }
+                source = small
+            } else {
+                source = tex
+            }
+            Session.encodeThumbnail(TextureBox(source), maxEdge: maxEdge, url: url,
+                                    edit: edit, ticket: ticket)
         }
-        let box = TextureBox(source)
+    }
+
+    /// The CPU half of `updateThumbnail`: readback, scale, store, announce.
+    private nonisolated static func encodeThumbnail(_ box: TextureBox, maxEdge: Int, url: URL,
+                                                    edit: Sidecar,
+                                                    ticket: Int) {
         Task.detached(priority: .utility) {
             guard let cg = box.texture?.makeCGImage() else { return }
             let s = Double(maxEdge) / Double(max(cg.width, cg.height))
@@ -2649,6 +2724,7 @@ final class Session: CanvasHost {
             // it were current, which puts the old colour on screen.
             fullPending = false
             fullTask?.cancel(); fullTask = nil
+            client.cancelBackgroundRender()
             fullGeneration += 1
             renderer.dropFullRender()
             renderer.store.dropFullRender()
@@ -3126,6 +3202,10 @@ final class Session: CanvasHost {
     func stepFrame(_ delta: Int) { selectRelative(delta) }
     func toggledOriginal(_ on: Bool) {
         if on { leaveCropTool() }
+        // A person asking for the original now, like Compare: an idle native
+        // original still waiting for the canvas to settle is run at once.
+        // Only then — this never starts a decode or a render of its own.
+        if on, nativeOriginalPendingDelay { requestNativeOriginal(trigger: "original") }
         renderer.showOriginal = on
         showingOriginal = on
     }
@@ -3393,7 +3473,7 @@ final class Session: CanvasHost {
         defer { fullPending = false }
         do {
             let outcome = try await client.render(.reprint,
-                RenderRequest(sessionID: sid, tier: "full"))
+                RenderRequest(sessionID: sid, tier: "full"), cancellable: true)
             let r = outcome.response
             // A render already committed to the engine outlives a cancelled
             // `fullTask`, and a reopen (a white-balance change) moves neither
@@ -3424,6 +3504,14 @@ final class Session: CanvasHost {
             sampleMemory("full_render")
             if let base = statusBase { status = base }
             schedulePrintWriteback()
+        } catch EngineClient.ClientError.cancelled {
+            // Asked for, not a failure: an edit, a frame change or a reopen
+            // stopped it. The first two land a print that asks again; this
+            // covers the edit that turned out to change nothing (a drag back
+            // to where it started), which lands no print and would otherwise
+            // leave the canvas at preview resolution.
+            canvasLog("full render cancelled for \(url.lastPathComponent)")
+            if selection == url, serviceSessionID == sid { scheduleFullRender() }
         } catch {
             noteFailure(error, operation: "full_render", frame: url.lastPathComponent)
         }

@@ -748,6 +748,36 @@ final class Renderer: NSObject {
                      into destination: MTLTexture? = nil) -> MTLTexture? {
         guard width > 0, height > 0 else { return nil }
         guard width != src.width || height != src.height else { return src }
+        guard case let (cb, dst)? = encodeResize(src, width: width, height: height,
+                                                 into: destination) else { return nil }
+        cb.commit()
+        cb.waitUntilCompleted()
+        return dst
+    }
+
+    /// `applyResize` without blocking the thread that asked. The same kernel
+    /// and the same pixels; the caller suspends instead of the main thread
+    /// sitting in `waitUntilCompleted` while the GPU works — which, for the
+    /// thumbnail every landed print makes, was a main-thread stall on each
+    /// slider release, queued behind whatever else the canvas queue held.
+    func applyResizeAsync(_ src: MTLTexture, width: Int, height: Int) async -> MTLTexture? {
+        guard width > 0, height > 0 else { return nil }
+        guard width != src.width || height != src.height else { return src }
+        guard case let (cb, dst)? = encodeResize(src, width: width, height: height,
+                                                 into: nil) else { return nil }
+        let out = TextureBox(dst)
+        let landed = await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
+            // Explicitly `@Sendable`: Metal calls this on its own thread, and
+            // a closure formed here must not be inferred main-actor isolated.
+            cb.addCompletedHandler { @Sendable cb in done.resume(returning: cb.status == .completed) }
+            cb.commit()
+        }
+        return landed ? out.texture : nil
+    }
+
+    /// The resize, encoded and not committed.
+    private func encodeResize(_ src: MTLTexture, width: Int, height: Int,
+                              into destination: MTLTexture?) -> (MTLCommandBuffer, MTLTexture)? {
         guard let dst = destination ?? store.makeWritable(width: width, height: height),
               dst.width == width, dst.height == height,
               let cb = queue.makeCommandBuffer(), let enc = cb.makeComputeCommandEncoder() else { return nil }
@@ -760,9 +790,7 @@ final class Renderer: NSObject {
         enc.dispatchThreadgroups(MTLSize(width: (width + 15) / 16, height: (height + 15) / 16, depth: 1),
                                  threadsPerThreadgroup: tg)
         enc.endEncoding()
-        cb.commit()
-        cb.waitUntilCompleted()
-        return dst
+        return (cb, dst)
     }
 
     private func encodeHistogram(_ cb: MTLCommandBuffer, src: MTLTexture) {

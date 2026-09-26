@@ -176,6 +176,47 @@ actor EngineClient {
         }
     }
 
+    /// The one door into this actor that does not queue behind it.
+    ///
+    /// Every render runs synchronously on the actor, so a `.cancel` sent
+    /// through `call(_:_:)` waits for the render it meant to stop — at 60 MP
+    /// the full tier is ~4.8 s of the user's next click spent waiting for a
+    /// picture nobody will see. The engine already supports the fix
+    /// (`spk_cancel` is safe from another thread and takes no lock); what was
+    /// missing was a way to reach it that is not itself serialised.
+    ///
+    /// Armed only around a render its caller *asked* to be cancellable, and
+    /// only for the length of the `spk_*` call. The session pointer is read
+    /// and cancelled under the same lock that disarms it, and the actor only
+    /// releases a session between renders, so a cancel can never land on a
+    /// session that is being freed — and never on an export or an interactive
+    /// render, which are not armed.
+    private final class CancelGate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var session: OpaquePointer?
+
+        func arm(_ session: OpaquePointer) { lock.withLock { self.session = session } }
+        func disarm() { lock.withLock { session = nil } }
+        /// True when a render was in flight and has been asked to stop.
+        @discardableResult
+        func cancel() -> Bool {
+            lock.withLock {
+                guard let session else { return false }
+                spk_cancel(session, nil)
+                return true
+            }
+        }
+    }
+    private let cancelGate = CancelGate()
+
+    /// Stop the cancellable render in flight, if there is one; from anywhere,
+    /// without waiting for the actor. The render unwinds at its next node
+    /// boundary and throws `ClientError.cancelled`; the engine caches a
+    /// negative only on success, so nothing half-made is left behind.
+    nonisolated func cancelBackgroundRender() {
+        cancelGate.cancel()
+    }
+
     /// Touched only under this actor's isolation, and by `Handles.deinit` once
     /// the last reference to the client is gone.
     private let handles = Handles()
@@ -298,8 +339,12 @@ actor EngineClient {
     enum ClientError: Error, CustomStringConvertible {
         case noResources(String), notRunning, engine(String), rpc(ServiceError)
         case badResponse(String), needsRenderPath(Method), needsFrame
+        /// `SPK_ERR_CANCELLED`: a render stopped by `cancelBackgroundRender()`.
+        /// Not a failure — the caller asked for it.
+        case cancelled
         var description: String {
             switch self {
+            case .cancelled: "render cancelled"
             case .noResources(let p): "the engine's resources are missing at \(p)"
             case .notRunning: "the render engine is not running"
             case .engine(let m): m
@@ -422,9 +467,15 @@ actor EngineClient {
     /// `RenderEngine.export` reuses the working-resolution negative when one
     /// is warm and renders the film side when it is not, which is exactly
     /// `spk_reprint`'s own contract.
-    func render(_ method: Method, _ request: RenderRequest) async throws -> RenderOutcome {
+    ///
+    /// `cancellable` arms `cancelBackgroundRender()` for this render only. The
+    /// full-tier canvas render is the one caller: it is seconds long, runs
+    /// when the user is not waiting on it, and is exactly what their next
+    /// click must not queue behind.
+    func render(_ method: Method, _ request: RenderRequest,
+                cancellable: Bool = false) async throws -> RenderOutcome {
         if state != .running { try start() }
-        return try renderTexture(method, request)
+        return try renderTexture(method, request, cancellable: cancellable)
     }
 
     // MARK: - the baked print LUTs
@@ -625,7 +676,8 @@ actor EngineClient {
         return decoded
     }
 
-    private func renderTexture(_ method: Method, _ request: RenderRequest) throws -> RenderOutcome {
+    private func renderTexture(_ method: Method, _ request: RenderRequest,
+                               cancellable: Bool = false) throws -> RenderOutcome {
         guard let session else { throw ClientError.notRunning }
         // A `params_delta` on a render is applied first, which is what the
         // wire's `reprint(params_delta:)` meant.
@@ -644,10 +696,16 @@ actor EngineClient {
         // `preview_render` forces the film side to run; `reprint` reuses the
         // cached negative. That is the same distinction the two engine
         // entry points make.
+        if cancellable { cancelGate.arm(session) }
         let status = request.tier.withCString { tier in
             method == .previewRender
                 ? spk_render(session, tier, &result)
                 : spk_reprint(session, tier, &result)
+        }
+        if cancellable { cancelGate.disarm() }
+        if status == SPK_ERR_CANCELLED {
+            log.debug(.render, "render_cancelled", [.init("tier", request.tier)])
+            throw ClientError.cancelled
         }
         guard status == SPK_OK else { throw ClientError.engine(lastError()) }
 

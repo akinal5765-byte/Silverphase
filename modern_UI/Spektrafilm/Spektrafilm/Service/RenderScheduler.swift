@@ -9,6 +9,14 @@
 //  parameters are still wanted and no newer frame was opened. Shoot-layer
 //  edits, which re-run the film side, get a longer debounce than print-layer
 //  edits, which reprint from the cached negative.
+//
+//  The debounce is measured from the *last* edit, not from the start of the
+//  loop's turn. A fixed sleep charged the full window again after every
+//  render, including the one the user let go during: a shoot-layer drag
+//  released mid-render waited out that render and then 220 ms more before
+//  the frame they stopped on was even sent. Sleeping only the remainder is
+//  never longer than the fixed sleep, is the same while the hand is still
+//  moving (the last edit is always recent), and is zero once it has stopped.
 
 import Foundation
 
@@ -25,6 +33,11 @@ final class RenderScheduler {
     private var loop: Task<Void, Never>?
     private var generation = 0
     private var sessionID: String?
+    /// When `request(_:)` last ran: the start of the debounce window.
+    private var lastRequestAt = ContinuousClock.now
+    /// The debounce windows. The same numbers the fixed sleep used, so a
+    /// single click lands exactly as soon as it did.
+    private let debounce: (print: Duration, shoot: Duration)
     var onResult: (@MainActor (RenderOutcome, Int) -> Void)?
     /// The error itself, not a string. It used to hand over `"\(error)"`,
     /// which meant the only place that could rewrite the engine's
@@ -36,13 +49,21 @@ final class RenderScheduler {
     init(client: EngineClient, log: Log = .shared) {
         self.render = { method, request in try await client.render(method, request) }
         self.log = log
+        self.debounce = RenderScheduler.defaultDebounce
     }
 
     /// A controlled render seam keeps scheduling tests independent of GPU time.
-    init(log: Log = .shared, render: @escaping Render) {
+    /// `debounce` is here so a test can widen the window past timer jitter.
+    init(log: Log = .shared,
+         debounce: (print: Duration, shoot: Duration) = RenderScheduler.defaultDebounce,
+         render: @escaping Render) {
         self.render = render
         self.log = log
+        self.debounce = debounce
     }
+
+    nonisolated static let defaultDebounce: (print: Duration, shoot: Duration) =
+        (.milliseconds(40), .milliseconds(220))
 
     /// True while an edit has been requested but not yet accepted by the
     /// service. The detail renderer checks this before spending the transport
@@ -70,6 +91,7 @@ final class RenderScheduler {
 
     func request(_ params: FilmParams) {
         wanted = params
+        lastRequestAt = .now
         guard sessionID != nil else { return }
         if loop == nil { loop = Task { await run() } }
     }
@@ -108,7 +130,12 @@ final class RenderScheduler {
             let (delta, layers) = wanted.delta(from: sent)
             if delta.isEmpty { return }
             let shoot = layers.contains(.shoot)
-            try? await Task.sleep(for: .milliseconds(shoot ? 220 : 40))
+            let window = shoot ? debounce.shoot : debounce.print
+            // Only what is left of the window since the last edit: a lone
+            // edit waits exactly the window, as it always did, and an edit
+            // that was made while the previous render ran is sent at once.
+            let still = ContinuousClock.now - lastRequestAt
+            if still < window { try? await Task.sleep(for: window - still) }
             if Task.isCancelled || gen != generation {
                 // A render that was never issued: the edit it was for has been
                 // superseded before the engine saw anything. Recorded at

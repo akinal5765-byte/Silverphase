@@ -90,6 +90,43 @@ final class RenderSchedulerTests: XCTestCase {
         try await waitFor { scheduler.sent == latest && !scheduler.pending }
     }
 
+    /// The debounce is counted from the last edit, not charged again after
+    /// every render: an edit that has already sat out its window while the
+    /// previous render ran is sent the moment that render returns. A lone
+    /// edit still waits the whole window.
+    ///
+    /// The window is widened to 300 ms so neither half depends on timer
+    /// jitter: the old fixed sleep would leave the second render unsent at
+    /// the 120 ms check, and the new one has nothing left to wait.
+    func testAnEditMadeDuringARenderIsNotDebouncedAgain() async throws {
+        let controlled = ControlledSchedulerRender()
+        let scheduler = RenderScheduler(debounce: (.milliseconds(300), .milliseconds(300)),
+                                        render: { method, request in
+            try await controlled.render(method, request)
+        })
+        _ = scheduler.reset(sessionID: "test", params: .default)
+
+        var first = FilmParams.default
+        first.printBrightnessStops = 0.5
+        scheduler.request(first)
+        try await Task.sleep(for: .milliseconds(120))
+        let early = await controlled.count
+        XCTAssertEqual(early, 0, "a lone edit still waits out its debounce")
+        try await waitFor { await controlled.count == 1 }
+
+        var latest = first
+        latest.printBrightnessStops = 1.0
+        scheduler.request(latest)
+        try await Task.sleep(for: .milliseconds(400))
+        await controlled.finishNext()
+        try await Task.sleep(for: .milliseconds(120))
+        let active = await controlled.count
+        XCTAssertEqual(active, 1, "the edit already waited while the render ran")
+
+        await controlled.finishNext()
+        try await waitFor { scheduler.sent == latest && !scheduler.pending }
+    }
+
     private func waitFor(_ condition: () async -> Bool) async throws {
         for _ in 0..<200 {
             if await condition() { return }
