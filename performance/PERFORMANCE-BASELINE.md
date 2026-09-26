@@ -117,6 +117,21 @@ at 7 + 23 ms on 24 MP and 7 + 35 ms on 60.2 MP. They delay cold open but are
 not the dominant 60.2 MP bottleneck, so they were instrumented and left in
 place.
 
+## Export UI isolation
+
+The export writer was `@MainActor` from full-resolution texture readback
+through ImageIO finalization, preview-page creation and `.cube` formatting.
+An isolated ImageIO measurement of a 24 MP 16-bit P3 TIFF put
+`CGImageDestinationFinalize` alone at 516 ms. That synchronous call is now
+made from a user-initiated detached task for both finished and DI exports;
+the finished print's pooled texture lease remains held until the background
+writer completes. The output format, colour transform, EXIF and TIFF preview
+rules are unchanged. The focused writer test checks TIFF bit depth, profile
+and EXIF; existing TIFF/DI writer tests pass (two fixture-dependent package
+cases skip in this checkout). This is a main-thread responsiveness fix, not
+a measured export-throughput increase. Batch throughput and live window frame
+pacing still need instrumented end-to-end measurement.
+
 ## Reproduce
 
 Use a fresh source identity for each cold run, because the disk cache keys on
