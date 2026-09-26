@@ -2068,6 +2068,7 @@ final class Session: CanvasHost {
             // print. See `select`.
             previewSoft = true
             if diskCache != nil {
+                let readbackStarted = Date()
                 let cacheKey = Self.displayCacheKey(
                     url: url,
                     settings: sidecar.decode,
@@ -2077,6 +2078,7 @@ final class Session: CanvasHost {
                 diskWrite = (cacheKey, tex.rgba16Bytes(), tex.width, tex.height,
                              Int(d.pixelSize.width.rounded()),
                              Int(d.pixelSize.height.rounded()), clock.totalMs())
+                canvasLog("display-cache readback \(Int(Date().timeIntervalSince(readbackStarted) * 1000)) ms")
             }
         }
         // Native original is deferred until evidence says it is useful: this
@@ -2084,6 +2086,7 @@ final class Session: CanvasHost {
         // are measured. The texture and clamp remain exactly the old path.
         requestNativeOriginal(trigger: "idle_delay")
         if let diskCache, let diskWrite {
+            let storeStarted = Date()
             try? await diskCache.store(
                 key: diskWrite.key,
                 data: diskWrite.data,
@@ -2094,6 +2097,7 @@ final class Session: CanvasHost {
                 format: "rgba16Unorm",
                 costMs: diskWrite.costMs
             )
+            canvasLog("display-cache store \(Int(Date().timeIntervalSince(storeStarted) * 1000)) ms")
         }
         guard wantsDevelop else {
             clock.lap("decode-only")

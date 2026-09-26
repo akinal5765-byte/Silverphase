@@ -258,7 +258,7 @@ enum ImageDecoder {
     private static func decodeFlat(_ url: URL, sourceEXIF: [CFString: Any]?,
                                    checkpoint: () throws -> Void) throws -> DecodedImage {
         try checkpoint()
-        guard let ci = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
+        guard let ci = eagerLargeTIFF(url) ?? CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
             throw Failure.unsupported(url)
         }
         // Untagged files: Core Image assumes sRGB for 8-bit, which matches
@@ -277,6 +277,35 @@ enum ImageDecoder {
         return DecodedImage(linear: image, display: image, pixelSize: image.extent.size,
                             isRAW: false, sourceURL: url, sourceEXIF: sourceEXIF,
                             asShotTemperature: nil, asShotTint: nil)
+    }
+
+    /// Core Image's lazy TIFF reader spent 14.5 s asking ImageIO for strips of
+    /// a 61 MP LZW frame. ImageIO decoded the same full RGB image in 0.26 s
+    /// when asked once up front. Keep the CI path for high-depth and unusual
+    /// TIFFs until their colour and precision can be compared separately.
+    static func eagerLargeTIFF(_ url: URL, minimumPixels: Int = 20_000_000) -> CIImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              CGImageSourceGetType(source) as String? == "public.tiff",
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0, width <= Int.max / height,
+              width * height >= minimumPixels,
+              let depth = properties[kCGImagePropertyDepth] as? Int, depth <= 8,
+              properties[kCGImagePropertyIsFloat] as? Bool != true,
+              let image = CGImageSourceCreateImageAtIndex(source, 0,
+                  [kCGImageSourceShouldCacheImmediately: true] as CFDictionary),
+              let colorSpace = image.colorSpace, colorSpace.model == .rgb,
+              [.none, .noneSkipFirst, .noneSkipLast].contains(image.alphaInfo),
+              let bitmap = CGContext(data: nil, width: image.width, height: image.height,
+                                     bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace,
+                                     bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        // CIImage(cgImage:) retains ImageIO's provider, which still re-enters
+        // the slow strip decoder. A bitmap-backed CGImage breaks that link.
+        bitmap.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let pixels = bitmap.makeImage() else { return nil }
+        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
+        return CIImage(cgImage: pixels).oriented(forExifOrientation: Int32(orientation))
     }
 
     // MARK: the engine's frame

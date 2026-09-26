@@ -11,6 +11,7 @@
 //  set where Apple's default would silently misregister the comparison.
 
 import CoreImage
+import ImageIO
 import Metal
 import XCTest
 
@@ -90,6 +91,60 @@ final class DecodeSeparationTests: XCTestCase {
         var ab = 0.0, aa = 0.0, bb = 0.0
         for (x, y) in zip(a, b) { ab += (x - ma) * (y - mb); aa += (x - ma) * (x - ma); bb += (y - mb) * (y - mb) }
         return ab / max((aa * bb).squareRoot(), 1e-12)
+    }
+
+    func testEagerTIFFKeepsTaggedColourAndEXIFOrientation() throws {
+        let gpu = try device()
+        let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.displayP3))
+        let context = try XCTUnwrap(CGContext(data: nil, width: 128, height: 96,
+                                             bitsPerComponent: 8, bytesPerRow: 0,
+                                             space: space,
+                                             bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(colorSpace: space, components: [0.9, 0.1, 0.2, 1])!)
+        context.fill(CGRect(x: 0, y: 48, width: 128, height: 48))
+        context.setFillColor(CGColor(colorSpace: space, components: [0.1, 0.3, 0.9, 1])!)
+        context.fill(CGRect(x: 0, y: 0, width: 128, height: 48))
+        let image = try XCTUnwrap(context.makeImage())
+
+        for orientation in 1...8 {
+            let url = FileManager.default.temporaryDirectory
+                .appending(path: "spk-eager-tiff-\(UUID().uuidString).tif")
+            defer { try? FileManager.default.removeItem(at: url) }
+            let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(
+                url as CFURL, "public.tiff" as CFString, 1, nil))
+            CGImageDestinationAddImage(destination, image,
+                [kCGImagePropertyOrientation: orientation] as CFDictionary)
+            XCTAssertTrue(CGImageDestinationFinalize(destination))
+
+            let previous = try XCTUnwrap(CIImage(contentsOf: url,
+                options: [.applyOrientationProperty: true]))
+            let eager = try XCTUnwrap(ImageDecoder.eagerLargeTIFF(url, minimumPixels: 0))
+            XCTAssertEqual(eager.extent.size, previous.extent.size)
+            let old = DecodedImage(linear: previous, display: previous,
+                                   pixelSize: previous.extent.size, isRAW: false, sourceURL: url,
+                                   asShotTemperature: nil, asShotTint: nil)
+            let new = DecodedImage(linear: eager, display: eager,
+                                   pixelSize: eager.extent.size, isRAW: false, sourceURL: url,
+                                   asShotTemperature: nil, asShotTint: nil)
+            let oldTexture = try XCTUnwrap(ImageDecoder.makePreviewTexture(old, device: gpu, maxEdge: 128))
+            let newTexture = try XCTUnwrap(ImageDecoder.makePreviewTexture(new, device: gpu, maxEdge: 128))
+            XCTAssertEqual(newTexture.width, oldTexture.width)
+            XCTAssertEqual(newTexture.height, oldTexture.height)
+            let a = try samples(oldTexture, gpu), b = try samples(newTexture, gpu)
+            let worst = zip(a, b).map { abs(Int($0) - Int($1)) }.max() ?? 0
+            XCTAssertLessThanOrEqual(worst, 512, "tagged colour or EXIF orientation changed")
+
+            let oldFrame = try ImageDecoder.engineFrame(from: old, device: gpu)
+            let newFrame = try ImageDecoder.engineFrame(from: new, device: gpu)
+            XCTAssertEqual(newFrame.width, oldFrame.width)
+            XCTAssertEqual(newFrame.height, oldFrame.height)
+            let count = oldFrame.width * oldFrame.height * 4
+            let oldPixels = oldFrame.buffer.contents().assumingMemoryBound(to: Float.self)
+            let newPixels = newFrame.buffer.contents().assumingMemoryBound(to: Float.self)
+            let worstLinear = (0..<count).map { abs(oldPixels[$0] - newPixels[$0]) }.max() ?? 0
+            XCTAssertLessThanOrEqual(worstLinear, 0.005,
+                                     "the linear engine input changed beyond 8-bit quantization")
+        }
     }
 
     // MARK: - routing
