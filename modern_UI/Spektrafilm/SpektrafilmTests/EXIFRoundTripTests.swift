@@ -1,5 +1,6 @@
 import CoreGraphics
 import ImageIO
+import Metal
 import XCTest
 import UniformTypeIdentifiers
 
@@ -58,5 +59,37 @@ final class EXIFRoundTripTests: XCTestCase {
             as? [CFString: Any])
         XCTAssertTrue((exported as NSDictionary).isEqual(to: sourceReadback),
                       "the export modified or dropped source EXIF")
+    }
+
+    func testBackgroundTextureWriteKeepsPixelsProfileAndEXIF() async throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba16Unorm, width: 4, height: 4, mipmapped: false)
+        descriptor.storageMode = .shared
+        let texture = try XCTUnwrap(device.makeTexture(descriptor: descriptor))
+        var pixels = [UInt16](repeating: 65535, count: 4 * 4 * 4)
+        for i in 0..<16 { pixels[i * 4] = 16000; pixels[i * 4 + 1] = 30000 }
+        pixels.withUnsafeBytes {
+            texture.replace(region: MTLRegionMake2D(0, 0, 4, 4), mipmapLevel: 0,
+                            withBytes: $0.baseAddress!, bytesPerRow: 4 * 8)
+        }
+        let url = FileManager.default.temporaryDirectory
+            .appending(path: "spk-background-export-\(UUID().uuidString).tif")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let profile = try XCTUnwrap(CGColorSpace(name: CGColorSpace.displayP3))
+        let exif: [CFString: Any] = [kCGImagePropertyExifISOSpeedRatings: [400]]
+        try await Exporter.writeFinishedTexture(texture, space: profile, to: url,
+                                                format: .tiff, sourceEXIF: exif)
+
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        XCTAssertEqual(image.bitsPerComponent, 16)
+        XCTAssertEqual(image.width, 4)
+        XCTAssertNotNil(image.colorSpace)
+        let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+            as? [CFString: Any])
+        let storedEXIF = try XCTUnwrap(properties[kCGImagePropertyExifDictionary]
+            as? [CFString: Any])
+        XCTAssertEqual(storedEXIF[kCGImagePropertyExifISOSpeedRatings] as? [Int], [400])
     }
 }

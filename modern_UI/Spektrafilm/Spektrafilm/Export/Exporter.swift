@@ -436,16 +436,62 @@ enum Exporter {
         let scratch: TextureStore.Scratch?
     }
 
+    /// Immutable handoff for ImageIO. The texture and scratch lease stay
+    /// together until the background readback and file write have finished.
+    private struct PrintWrite: @unchecked Sendable {
+        let texture: MTLTexture
+        let scratch: TextureStore.Scratch?
+        let target: CGColorSpace
+        let out: URL
+        let format: ExportFormat
+        let quality: Double
+        let embedsPreview: Bool
+        let sourceEXIF: [CFString: Any]?
+    }
+
+    private struct DIWrite: @unchecked Sendable {
+        let density: MTLTexture
+        let preview: MTLTexture?
+        let table: [Float]
+        let tableSize: Int
+        let tiff: URL
+        let cube: URL
+        let title: String
+    }
+
     private static func exportPrint(session: Session, to out: URL, format: ExportFormat,
                                     quality: Double, recipe: ExportRecipe,
                                     sessionID: String,
                                     sourceEXIF: [CFString: Any]?) async throws -> Result {
         let r = try await filePixels(session: session, recipe: recipe, sessionID: sessionID)
-        guard let image = r.texture.makeCGImage(space: r.target) else { throw ExportError.noPixels }
-        let preview = writesPreviewPage(recipe) ? preview(of: image) : nil
-        try write(image, to: out, format: format, quality: quality, preview: preview,
-                  sourceEXIF: sourceEXIF)
+        try await writeFinishedTexture(r.texture, scratch: r.scratch, space: r.target,
+                                       to: out, format: format, quality: quality,
+                                       embedsPreview: writesPreviewPage(recipe),
+                                       sourceEXIF: sourceEXIF)
         return Result(urls: [out], note: nil, appliedEV: r.appliedEV, pixels: r.pixels)
+    }
+
+    /// The only full-size readback and ImageIO encode of a finished print.
+    /// Kept as a testable boundary because crossing the actor here is the
+    /// difference between a responsive window and a >500 ms TIFF stall.
+    static func writeFinishedTexture(_ texture: MTLTexture,
+                                     scratch: TextureStore.Scratch? = nil,
+                                     space: CGColorSpace, to out: URL,
+                                     format: ExportFormat, quality: Double = 0.95,
+                                     embedsPreview: Bool = false,
+                                     sourceEXIF: [CFString: Any]? = nil) async throws {
+        let work = PrintWrite(texture: texture, scratch: scratch, target: space,
+                              out: out, format: format, quality: quality,
+                              embedsPreview: embedsPreview, sourceEXIF: sourceEXIF)
+        try await Task.detached(priority: .userInitiated) {
+            defer { work.scratch?.giveBack() }
+            guard let image = work.texture.makeCGImage(space: work.target) else {
+                throw ExportError.noPixels
+            }
+            let preview = work.embedsPreview ? preview(of: image) : nil
+            try write(image, to: work.out, format: work.format, quality: work.quality,
+                      preview: preview, sourceEXIF: work.sourceEXIF)
+        }.value
     }
 
     // MARK: - the DI package
@@ -481,9 +527,6 @@ enum Exporter {
         // rendering space invites whatever opens it to convert the values and
         // silently move the cube's domain out from under it, so this asks
         // ImageIO for the most nearly untagged thing it will write.
-        guard let cg = texture.makeCGImage(space: CGColorSpaceCreateDeviceRGB())
-            else { throw ExportError.noPixels }
-
         // The same table applied to the same negative, which is what
         // `preview_stock_lut` is. At the **live** tier, not the full one: a
         // preview's job is to be small, and a full-tier one would add a second
@@ -491,16 +534,23 @@ enum Exporter {
         // the two things that carry the grade are the density TIFF and the
         // cube — so a missing preview is a preview-less package and not a
         // failed one.
-        let preview = (try? await session.client.previewStockLUT(di.meta.printStock, tier: "live"))
-            .flatMap { $0.texture?.makeCGImage() }
-
-        try write(cg, to: out, format: .tiff, preview: preview)
+        let previewTexture = (try? await session.client.previewStockLUT(di.meta.printStock, tier: "live"))?.texture
 
         let stem = out.deletingPathExtension().lastPathComponent
         let cube = out.deletingLastPathComponent().appending(path: "\(stem)_\(di.meta.printStock).cube")
         let table = try await session.client.printLUTTable(di.meta.printStock)
-        try writeCube(table.table, size: table.size, to: cube,
-                      title: "spektrafilm \(di.meta.printStock) print (from \(di.meta.pairedFilm))")
+        let work = DIWrite(density: texture, preview: previewTexture,
+                           table: table.table, tableSize: table.size,
+                           tiff: out, cube: cube,
+                           title: "spektrafilm \(di.meta.printStock) print (from \(di.meta.pairedFilm))")
+        try await Task.detached(priority: .userInitiated) {
+            guard let cg = work.density.makeCGImage(space: CGColorSpaceCreateDeviceRGB()) else {
+                throw ExportError.noPixels
+            }
+            try write(cg, to: work.tiff, format: .tiff,
+                      preview: work.preview?.makeCGImage())
+            try writeCube(work.table, size: work.tableSize, to: work.cube, title: work.title)
+        }.value
 
         return Result(urls: [out, cube], note: di.meta.warning,
                       appliedEV: di.progress?.autoExposureEV,
@@ -514,7 +564,7 @@ enum Exporter {
     /// ordering. The domain is 0..1 because the DI file beside it was
     /// normalised by the same axes, which is what lets this carry no
     /// `DOMAIN_MIN`/`DOMAIN_MAX` for a host to misread.
-    static func writeCube(_ table: [Float], size n: Int, to url: URL, title: String) throws {
+    nonisolated static func writeCube(_ table: [Float], size n: Int, to url: URL, title: String) throws {
         guard table.count == n * n * n * 3 else { throw ExportError.noPixels }
         var text = """
         TITLE "\(title)"
@@ -563,7 +613,7 @@ enum Exporter {
     /// worth 16 bits) and keeps its own profile, which is what lets IFD0 stay
     /// untagged.
     @discardableResult
-    static func write(_ image: CGImage, to url: URL, format: ExportFormat,
+    nonisolated static func write(_ image: CGImage, to url: URL, format: ExportFormat,
                       quality: Double = 0.95, preview: CGImage? = nil,
                       sourceEXIF: [CFString: Any]? = nil) throws -> URL {
         var cg = image
@@ -605,7 +655,7 @@ enum Exporter {
     ///
     /// `size` is the context's, so a caller can ask for a *resample* rather
     /// than a copy — the preview page is the only one that does.
-    private static func redraw(_ cg: CGImage, in space: CGColorSpace, bitsPerComponent: Int,
+    nonisolated private static func redraw(_ cg: CGImage, in space: CGColorSpace, bitsPerComponent: Int,
                                size: CGSize? = nil) -> CGImage? {
         let w = Int(size?.width ?? CGFloat(cg.width))
         let h = Int(size?.height ?? CGFloat(cg.height))
@@ -631,7 +681,7 @@ enum Exporter {
     /// of the file, which is the figure the user was given when they chose
     /// this as a per-recipe option. Move it if the page wants a different
     /// picture on screen — nothing else depends on it.
-    static let previewLongEdge = 2048
+    nonisolated static let previewLongEdge = 2048
 
     /// Whether this recipe's file carries a preview page: the rule the writer
     /// follows and the job log records, in one place so they cannot disagree.
@@ -663,7 +713,7 @@ enum Exporter {
     /// "the flag is on *and* the file is big enough", and a page that quietly
     /// falls back to the render is indistinguishable from one that never
     /// asked. `nil` is reserved for an image with no pixels at all.
-    static func preview(of image: CGImage, longEdge: Int = previewLongEdge) -> CGImage? {
+    nonisolated static func preview(of image: CGImage, longEdge: Int = previewLongEdge) -> CGImage? {
         let w = CGFloat(image.width), h = CGFloat(image.height)
         guard w > 0, h > 0 else { return nil }
         let scale = min(1, CGFloat(longEdge) / max(w, h))
