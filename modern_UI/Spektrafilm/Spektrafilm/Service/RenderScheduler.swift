@@ -128,6 +128,8 @@ final class RenderScheduler {
             if d2.isEmpty { continue }
             onBusy?(true)
             do {
+                let trace = PerformanceTrace.begin("Interactive Render")
+                defer { PerformanceTrace.end("Interactive Render", trace) }
                 var req = RenderRequest(sessionID: sid, paramsDelta: d2)
                 let r: RenderOutcome
                 if l2.contains(.shoot) {

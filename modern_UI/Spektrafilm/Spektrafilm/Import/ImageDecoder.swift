@@ -175,6 +175,8 @@ enum ImageDecoder {
 
     static func decode(_ url: URL, settings: DecodeSettings,
                        checkpoint: () throws -> Void = {}) throws -> DecodedImage {
+        let trace = PerformanceTrace.begin("Image Decode")
+        defer { PerformanceTrace.end("Image Decode", trace) }
         let sourceEXIF = sourceEXIF(from: url)
         return rawExtensions.contains(url.pathExtension.lowercased())
             ? try decodeRAW(url, settings: settings, sourceEXIF: sourceEXIF, checkpoint: checkpoint)
@@ -347,6 +349,8 @@ enum ImageDecoder {
     }
 
     static func engineFrame(from image: CIImage, device: MTLDevice) throws -> EngineFrame {
+        let trace = PerformanceTrace.begin("Engine Frame")
+        defer { PerformanceTrace.end("Engine Frame", trace) }
         guard let space = linearProPhoto else { throw Failure.noColorSpace }
         // Checked before the `Int` conversion, which traps on infinity.
         guard !image.extent.isInfinite, !image.extent.isEmpty else { throw Failure.emptyFrame }
@@ -385,6 +389,8 @@ enum ImageDecoder {
     static func makePreviewTexture(_ decoded: DecodedImage, device: MTLDevice, maxEdge: Int,
                                    storageMode: MTLStorageMode = .private,
                                    checkpoint: () throws -> Void = {}) rethrows -> MTLTexture? {
+        let trace = PerformanceTrace.begin("Original Preview")
+        defer { PerformanceTrace.end("Original Preview", trace) }
         let extent = decoded.display.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
         let scale = min(1.0, Double(maxEdge) / Double(max(extent.width, extent.height)))

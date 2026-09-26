@@ -134,6 +134,18 @@ pacing still need instrumented end-to-end measurement.
 
 ## Reproduce
 
+The `com.hanze.filmify` / Points of Interest signpost category now marks `Image
+Decode`, `Original Preview`, `Engine Frame`, `Interactive Render`, `Export`,
+and `Export File Write`. Each interval has its own signpost ID, so overlapping
+image loads and exports can be distinguished in Instruments. The existing
+canvas log gives named open-stage milliseconds and superseded-render records.
+These intervals currently stop at the render or file boundary; they do not
+claim a drawable presentation timestamp. Real-window display-link latency
+still needs a separate capture.
+The 24 MP `Time Profiler` + `Points of Interest` recording was exported with
+`xctrace export --xpath '//table[@schema="os-signpost"]'` and contained paired
+begin/end events for `Image Decode`, `Original Preview` and `Engine Frame`.
+
 Use a fresh source identity for each cold run, because the disk cache keys on
 file identity. Run with a GUI session; the snapshot harness renders the canvas
 offscreen, so its times do not measure display-link frame presentation.

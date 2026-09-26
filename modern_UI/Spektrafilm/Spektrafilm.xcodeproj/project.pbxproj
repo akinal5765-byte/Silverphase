@@ -64,6 +64,7 @@
 		560647851490C28386050AC5 /* LogFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LogFile.swift"; sourceTree = "<group>"; };
 		069D4AF71BED2CF673779A30 /* MemoryArena.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MemoryArena.swift"; sourceTree = "<group>"; };
 		76C83AD6875D028F8F91F77A /* MemorySampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MemorySampler.swift"; sourceTree = "<group>"; };
+		CA34856B13C988526B4D649F /* PerformanceTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PerformanceTrace.swift"; sourceTree = "<group>"; };
 		38005174C2E4036BCF6B3AEA /* PrintWriteback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintWriteback.swift"; sourceTree = "<group>"; };
 		9833FF0C88B97DC106143F45 /* Diagnostics */ = {
 			isa = PBXGroup;
@@ -76,6 +77,7 @@
 				560647851490C28386050AC5 /* LogFile.swift */,
 				069D4AF71BED2CF673779A30 /* MemoryArena.swift */,
 				76C83AD6875D028F8F91F77A /* MemorySampler.swift */,
+				CA34856B13C988526B4D649F /* PerformanceTrace.swift */,
 				38005174C2E4036BCF6B3AEA /* PrintWriteback.swift */
 			);
 			path = "Diagnostics";
@@ -479,6 +481,7 @@
 		BAB5A3F232626564C5257023 /* LogFile.swift */ = {isa = PBXBuildFile; fileRef = 560647851490C28386050AC5; };
 		55EC60FF00F15893DC6539E2 /* MemoryArena.swift */ = {isa = PBXBuildFile; fileRef = 069D4AF71BED2CF673779A30; };
 		B6399CA112D24AA65ACF8E8A /* MemorySampler.swift */ = {isa = PBXBuildFile; fileRef = 76C83AD6875D028F8F91F77A; };
+		EA3383F4E14886DE576EA305 /* PerformanceTrace.swift */ = {isa = PBXBuildFile; fileRef = CA34856B13C988526B4D649F; };
 		CFE162F65F592F0A71B6242B /* PrintWriteback.swift */ = {isa = PBXBuildFile; fileRef = 38005174C2E4036BCF6B3AEA; };
 		EC5950216C6C0C0B1362801D /* Exporter.swift */ = {isa = PBXBuildFile; fileRef = 6266D964C7958FF3E91F147A; };
 		0216C357191760579EB98D0D /* ExportPage.swift */ = {isa = PBXBuildFile; fileRef = FB90D54AFE9C997E868AC5B3; };
@@ -574,6 +577,7 @@
 				BAB5A3F232626564C5257023 /* LogFile.swift */,
 				55EC60FF00F15893DC6539E2 /* MemoryArena.swift */,
 				B6399CA112D24AA65ACF8E8A /* MemorySampler.swift */,
+				EA3383F4E14886DE576EA305 /* PerformanceTrace.swift */,
 				CFE162F65F592F0A71B6242B /* PrintWriteback.swift */,
 				EC5950216C6C0C0B1362801D /* Exporter.swift */,
 				0216C357191760579EB98D0D /* ExportPage.swift */,
@@ -732,6 +736,7 @@
 		B03E0B4F18E7F353378C937A /* LogFile.swift */ = {isa = PBXBuildFile; fileRef = 560647851490C28386050AC5; };
 		DD73463E02577C8489B1312F /* MemoryArena.swift */ = {isa = PBXBuildFile; fileRef = 069D4AF71BED2CF673779A30; };
 		775A58E889EE69114D32893D /* MemorySampler.swift */ = {isa = PBXBuildFile; fileRef = 76C83AD6875D028F8F91F77A; };
+		E99B78B6377EF3C2393AC01D /* PerformanceTrace.swift */ = {isa = PBXBuildFile; fileRef = CA34856B13C988526B4D649F; };
 		EF3A9714E6F9EA93ABE41D9A /* PrintWriteback.swift */ = {isa = PBXBuildFile; fileRef = 38005174C2E4036BCF6B3AEA; };
 		3503F8B0C24CB9DAC6603A2D /* Exporter.swift */ = {isa = PBXBuildFile; fileRef = 6266D964C7958FF3E91F147A; };
 		FED88698534B4BBDE58D1D4B /* ExportPage.swift */ = {isa = PBXBuildFile; fileRef = FB90D54AFE9C997E868AC5B3; };
@@ -869,6 +874,7 @@
 				B03E0B4F18E7F353378C937A /* LogFile.swift */,
 				DD73463E02577C8489B1312F /* MemoryArena.swift */,
 				775A58E889EE69114D32893D /* MemorySampler.swift */,
+				E99B78B6377EF3C2393AC01D /* PerformanceTrace.swift */,
 				EF3A9714E6F9EA93ABE41D9A /* PrintWriteback.swift */,
 				3503F8B0C24CB9DAC6603A2D /* Exporter.swift */,
 				FED88698534B4BBDE58D1D4B /* ExportPage.swift */,

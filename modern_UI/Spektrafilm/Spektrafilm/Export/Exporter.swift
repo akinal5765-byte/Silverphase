@@ -110,6 +110,8 @@ enum Exporter {
     /// explanation rather than leaving a missing file and a shrug.
     static func export(session: Session, recipe: ExportRecipe,
                        context: NamingRule.Context, sessionID: String) async throws -> Outcome {
+        let trace = PerformanceTrace.begin("Export")
+        defer { PerformanceTrace.end("Export", trace) }
         guard let source = session.selection else { throw ExportError.nothingOpen }
         let format = recipe.format
         // The directory is created here rather than while *describing* a
@@ -484,6 +486,8 @@ enum Exporter {
                               out: out, format: format, quality: quality,
                               embedsPreview: embedsPreview, sourceEXIF: sourceEXIF)
         try await Task.detached(priority: .userInitiated) {
+            let trace = PerformanceTrace.begin("Export File Write")
+            defer { PerformanceTrace.end("Export File Write", trace) }
             defer { work.scratch?.giveBack() }
             guard let image = work.texture.makeCGImage(space: work.target) else {
                 throw ExportError.noPixels
@@ -544,6 +548,8 @@ enum Exporter {
                            tiff: out, cube: cube,
                            title: "spektrafilm \(di.meta.printStock) print (from \(di.meta.pairedFilm))")
         try await Task.detached(priority: .userInitiated) {
+            let trace = PerformanceTrace.begin("Export File Write")
+            defer { PerformanceTrace.end("Export File Write", trace) }
             guard let cg = work.density.makeCGImage(space: CGColorSpaceCreateDeviceRGB()) else {
                 throw ExportError.noPixels
             }
