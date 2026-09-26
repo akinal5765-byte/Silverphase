@@ -140,12 +140,15 @@ Decode`, `Original Preview`, `Engine Frame`, `Interactive Render`, `Export`,
 and output adjustment changes are signpost events. `Frame Present` ends from
 Metal's drawable-presented callback, giving a screen-visible boundary rather
 than treating command-buffer completion as display. The callback requires a
-real window; the snapshot harness cannot validate present timestamps.
+real window; the snapshot harness cannot validate present timestamps. A
+12-second `Time Profiler` + `Points of Interest` recording launched the Debug
+app with a real 31.4 MP JPEG and contained paired `Frame Present` begin/end
+events on the app and Metal callback threads. This verifies instrumentation,
+not continuous interaction latency.
 Each interval has its own signpost ID, so overlapping
 image loads and exports can be distinguished in Instruments. The existing
 canvas log gives named open-stage milliseconds and superseded-render records.
-Real-window display-link latency still needs a separate capture; no
-parameter-event-to-present latency distribution has been reported yet.
+No parameter-event-to-present latency distribution has been reported yet.
 The 24 MP `Time Profiler` + `Points of Interest` recording was exported with
 `xctrace export --xpath '//table[@schema="os-signpost"]'` and contained paired
 begin/end events for `Image Decode`, `Original Preview` and `Engine Frame`.
@@ -182,6 +185,25 @@ before and after. The 3251→3255 ms open-path difference is noise and is not
 presented as an image-processing speedup. The RAW engine frame at 60.2 MP
 (about 1 s), original texture (about 0.9 s), and full render (about 4.8–4.9 s)
 are now the measured remaining cold-open costs.
+
+## Same-process frame-switch memory stress
+
+`PerformanceStressTests.testTwentyFullResolutionFrameSwitches` is an opt-in
+XCTest benchmark. It makes 20 distinct temporary copies of a supplied 26 MP
+Sony ARW, opens them in one `Session`, waits for each full-resolution print,
+and samples the app's `phys_footprint` after each one. The run passed all 20
+frames in 84.7 s; median switch-to-full-render time was 4203 ms, with a
+3983–4647 ms range. Footprint rose from 3.31 GB after frame 1 to 4.26 GB
+after frame 9, then to 4.27 GB after frame 20: 14.6 MB over the last 11
+switches. This is consistent with bounded cache fill followed by a plateau,
+not linear growth across the run. It is one source cloned under different
+identities, with no display link in the test process; mixed camera files,
+100-frame longevity and visible switch latency remain unmeasured.
+
+The test skips in a normal suite. To run it, set `SILVERPHASE_PERF_RAW` and
+`SILVERPHASE_PERF_RESULTS` in the Xcode test process environment (the latter
+writes a TSV of per-frame milliseconds and bytes) and run only
+`PerformanceStressTests.testTwentyFullResolutionFrameSwitches`.
 
 Use a fresh source identity for each cold run, because the disk cache keys on
 file identity. Run with a GUI session; the snapshot harness renders the canvas
