@@ -25,7 +25,7 @@ Layer 2、几何与输出变换；缩放和平移改变采样视口，不要求�
 | 连续滑杆渲染 | 旧结果可能覆盖新状态；旧循环结束可能清除新循环句柄 | 调度器只交付最新参数结果，并按 generation 清理自己的句柄 | 定向并发测试先红后绿；真实可见帧延迟未测 |
 | 真实 RAW 切图 | 26/60 MP Sony ARW 的 EXIF 同步读取占主线程 155/154 ms | EXIF 转到可取消的后台任务，按选图代数交付 | 60 MP 同步 `select` 降至 4 ms；冲印打开 3251→3255 ms，保持原有速度 |
 | 导出时 UI 主线程 | 完成图写盘原先位于 `@MainActor`；独立测得 24 MP 16 位 TIFF 的 ImageIO finalize 为 516 ms | 完成图和 DI 的纹理读回、编码及 `.cube` 写入转到后台，持有 scratch 租约直至结束 | 阻塞段不再运行于 MainActor；吞吐尚未实测 |
-| 性能定位 | 原有 open 日志有阶段时间，但无法在 Instruments 一条轨迹上看解码、调度和写盘 | 加入 Points of Interest 区间，保留原有文本日志 | 24 MP xctrace 实际收到了成对的解码、原图纹理、引擎输入事件 |
+| 性能定位 | 原有 open 日志有阶段时间，但无法在 Instruments 一条轨迹上看解码、调度和写盘 | 加入 Points of Interest 区间及参数变化、drawable 呈现标记，保留原有文本日志 | 24 MP xctrace 实际收到了成对的解码、原图纹理、引擎输入事件；呈现标记仍需真实窗口轨迹核对 |
 
 一个先试后撤的方案也记录在基线中：只加速原图对比纹理，虽然把该阶段从
 14.55 s 降到 0.42 s，却使全尺寸 TIFF 被再次解码，首张**冲印**反而更晚。
@@ -52,7 +52,8 @@ RSS 为 3.51 GB。各是单次样本，不能据此宣称全尺寸渲染或内�
 
 ## Interaction latency and UI
 
-当前尚没有从 `parameter changed` 到 `CAMetalDrawable` 实际 present 的测量。
+已加入从 `parameter changed` 到 `CAMetalDrawable` 实际 present 所需的
+Instruments 标记，但尚未从真实窗口录得延迟分布。
 调度器在 shoot 修改后等待 220 ms，在 print 修改后等待 40 ms，并保持单飞、
 最新状态获胜。这个策略避免积压；它本身不能证明连续拖动达到 60 fps 或
 首帧 50 ms。60.2 MP TIFF 的 EXIF 只用 2 ms，但真实 Sony ARW 是 154 ms，

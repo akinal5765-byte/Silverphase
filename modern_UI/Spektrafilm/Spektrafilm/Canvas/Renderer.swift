@@ -948,6 +948,13 @@ final class Renderer: NSObject {
             enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
         }
         enc.endEncoding()
+        // The drawable's handler fires when WindowServer actually presents it.
+        // A command-buffer completion would only say the GPU finished encoding,
+        // which can precede the frame becoming visible by a refresh interval.
+        let presentTrace = PerformanceTrace.begin("Frame Present")
+        drawable.addPresentedHandler { _ in
+            PerformanceTrace.end("Frame Present", presentTrace)
+        }
         cb.present(drawable)
         cb.commit()
         // **The animation asks for its own next frame.** The canvas has no

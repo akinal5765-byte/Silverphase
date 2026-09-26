@@ -111,12 +111,14 @@ final class Session: CanvasHost {
     var params: FilmParams {
         get { sidecar.params }
         set { guard newValue != sidecar.params else { return }
+              PerformanceTrace.event("Physical Parameter Changed")
               pushUndo()
               sidecar.params = newValue; requestPrint(); markStale(); scheduleSave() }
     }
     var adjustments: Adjustments {
         get { sidecar.adjustments }
         set { guard newValue != sidecar.adjustments else { return }
+              PerformanceTrace.event("Output Adjustment Changed")
               pushUndo()
               let curvesChanged = newValue.curves != sidecar.adjustments.curves
               sidecar.adjustments = newValue

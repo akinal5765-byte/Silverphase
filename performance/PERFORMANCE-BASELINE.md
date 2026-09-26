@@ -136,12 +136,16 @@ pacing still need instrumented end-to-end measurement.
 
 The `com.hanze.filmify` / Points of Interest signpost category now marks `Image
 Decode`, `Original Preview`, `Engine Frame`, `Interactive Render`, `Export`,
-`Export File Write`, and `Frame Select UI`. Each interval has its own signpost ID, so overlapping
+`Export File Write`, `Frame Select UI`, and `Frame Present`. Physical parameter
+and output adjustment changes are signpost events. `Frame Present` ends from
+Metal's drawable-presented callback, giving a screen-visible boundary rather
+than treating command-buffer completion as display. The callback requires a
+real window; the snapshot harness cannot validate present timestamps.
+Each interval has its own signpost ID, so overlapping
 image loads and exports can be distinguished in Instruments. The existing
 canvas log gives named open-stage milliseconds and superseded-render records.
-These intervals currently stop at the render or file boundary; they do not
-claim a drawable presentation timestamp. Real-window display-link latency
-still needs a separate capture.
+Real-window display-link latency still needs a separate capture; no
+parameter-event-to-present latency distribution has been reported yet.
 The 24 MP `Time Profiler` + `Points of Interest` recording was exported with
 `xctrace export --xpath '//table[@schema="os-signpost"]'` and contained paired
 begin/end events for `Image Decode`, `Original Preview` and `Engine Frame`.
