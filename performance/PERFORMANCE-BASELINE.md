@@ -136,7 +136,7 @@ pacing still need instrumented end-to-end measurement.
 
 The `com.hanze.filmify` / Points of Interest signpost category now marks `Image
 Decode`, `Original Preview`, `Engine Frame`, `Interactive Render`, `Export`,
-and `Export File Write`. Each interval has its own signpost ID, so overlapping
+`Export File Write`, and `Frame Select UI`. Each interval has its own signpost ID, so overlapping
 image loads and exports can be distinguished in Instruments. The existing
 canvas log gives named open-stage milliseconds and superseded-render records.
 These intervals currently stop at the render or file boundary; they do not
@@ -145,6 +145,10 @@ still needs a separate capture.
 The 24 MP `Time Profiler` + `Points of Interest` recording was exported with
 `xctrace export --xpath '//table[@schema="os-signpost"]'` and contained paired
 begin/end events for `Image Decode`, `Original Preview` and `Engine Frame`.
+On a cold 60.2 MP TIFF selection, the synchronous sidecar lookup took 3 ms and
+EXIF metadata lookup 2 ms. Neither explains the developed-print wait in that
+sample; the selection interval is now marked for future live frame-switch
+measurements.
 
 Use a fresh source identity for each cold run, because the disk cache keys on
 file identity. Run with a GUI session; the snapshot harness renders the canvas

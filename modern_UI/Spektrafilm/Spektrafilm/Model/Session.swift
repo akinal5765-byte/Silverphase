@@ -1425,6 +1425,8 @@ final class Session: CanvasHost {
     func open(_ url: URL) { guard picked.contains(url) else { return }; select(url) }
 
     func select(_ url: URL) {
+        let selectionTrace = PerformanceTrace.begin("Frame Select UI")
+        defer { PerformanceTrace.end("Frame Select UI", selectionTrace) }
         guard url != selection || decoded == nil else { return }
         restoredPrintTask?.cancel(); restoredPrintTask = nil
         flushSave()
@@ -1448,7 +1450,9 @@ final class Session: CanvasHost {
         wantsDevelop = true
         developTask?.cancel(); developTask = nil
         renderer.dropFullRender()
+        let sidecarStarted = Date()
         sidecar = Sidecar.load(for: url) ?? Sidecar()
+        canvasLog("frame select sidecar \(Int(Date().timeIntervalSince(sidecarStarted) * 1000)) ms")
         renderer.layer2 = sidecar.adjustments.uniforms
         renderer.legacyGradeActive = usesLegacyGrade
         renderer.setCurves(sidecar.adjustments.curves)
@@ -1468,7 +1472,9 @@ final class Session: CanvasHost {
         renderer.filmScan = nil
         renderer.develop = 0
         renderer.holdForNegative = false
+        let exifStarted = Date()
         exif = EXIFReadout.read(url)
+        canvasLog("frame select EXIF \(Int(Date().timeIntervalSince(exifStarted) * 1000)) ms")
         stockWarning = nil
         // Both belong to the frame that is going away (§11.5): a refusal and a
         // memory warning are statements about *that* frame's pixels, and
