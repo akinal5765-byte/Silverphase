@@ -181,103 +181,86 @@ final class RendererTests: XCTestCase {
                                                      backingScale: 1))
     }
 
-    /// **The light passes, the paper is left white, and the print comes up
-    /// behind it — later than the light.**
-    ///
-    /// The brief is one sentence — 光带一边扫过,被扫过的地方同时显影 — and it is
-    /// a claim about four regions of one frame at once, so all four are
-    /// asserted here: ahead of the band the film is untouched, at the band
-    /// there is light, *behind* the light there is plain white paper, and
-    /// further back the sheet has become a print that is still coming up. The
-    /// third one is the difference between the two events being synchronised
-    /// and not: without a stretch of white behind the band, the density and the
-    /// light arrive together and the whole thing is an uncover again.
-    func testTheLightPassesAndThePrintDevelopsInItsWake() throws {
-        // A third of the way in, the band is at 0.56 of the frame.
-        let out = try developing(print: 32768, at: 0.35)
-
-        XCTAssertEqual(pixel(out, 38, 20)[0], 0, accuracy: 0.02,
-                       "the film ahead of the band has been printed already")
-        // The lamp, as the brightest pixel near the band rather than at one
-        // guessed coordinate: the front lands between pixels, and which side of
-        // it a given pixel falls on is not what this assertion is about. It
-        // also has to be *near* the band — that is the difference between a
-        // lamp crossing and the whole frame being blown out.
-        let lamp = (19...24).map { pixel(out, $0, 20)[0] }.max() ?? 0
-        XCTAssertGreaterThan(lamp, 0.95,
-                             "there is no light at the band — this is an edge, not a lamp")
-
-        // The sheet: white paper, with the lamp already behind it — bright, and
-        // not the lamp's own brightness.
-        let sheet = pixel(out, 18, 20)[0]
-        XCTAssertGreaterThan(sheet, 0.88, "the light left something other than paper behind it")
-        XCTAssertLessThan(sheet, 0.96, "that is still the lamp, not paper")
-        // And further back the paper has started to become a print — which is
-        // the same claim as a *relationship*, so it cannot be satisfied by
-        // tuning the paper's colour.
-        let wake = pixel(out, 15, 20)[0]
-        XCTAssertGreaterThan(sheet, wake,
-                             "the sheet developed the moment the light passed it — the two are synchronised")
-        XCTAssertLessThan(wake, 0.88, "the print arrived all at once behind the light")
-        XCTAssertGreaterThan(wake, 0.6, "the wake is paper for ever")
-        XCTAssertEqual(pixel(out, 2, 20)[0], 0.5, accuracy: 0.05,
-                       "the wake has to finish developing somewhere")
+    func testDevelopmentEmergesAcrossTheWholeSheetWithoutAWipe() throws {
+        let out = try developing(print: 32768, at: 0.45)
+        let left = pixel(out, 2, 20)
+        let right = pixel(out, 38, 20)
+        for channel in 0..<3 {
+            XCTAssertEqual(left[channel], right[channel], accuracy: 0.001)
+        }
+        XCTAssertGreaterThan(left[0], 0.5, "density is still coming up")
+        XCTAssertLessThan(left[0], 0.98, "the sheet must have started developing")
     }
 
-    /// **The dark parts of the print come up first, and soonest.**
-    ///
-    /// The ordering is what makes the wake read as developing rather than as
-    /// fading, and it is a property of the *pixel*, which is why no edge
-    /// geometry could express it: the same probe, at the same distance behind
-    /// the same band, is asked of two prints of different density.
-    func testTheDarkPartsOfThePrintComeUpFirst() throws {
-        // A quarter of the way in: the band is at x = 15 of 40, so x = 4 is
-        // 0.27 of a frame behind it — past the white stretch, for both prints.
-        let dark = pixel(try developing(print: 4000, at: 0.25), 4, 20)[0]
-        let bright = pixel(try developing(print: 60000, at: 0.25), 4, 20)[0]
-
-        XCTAssertEqual(dark, 4000.0 / 65535.0, accuracy: 0.05,
-                       "the dense part of the print has not come up yet")
-        XCTAssertGreaterThan(bright, 0.8,
-                             "the highlight developed as fast as the shadow — that is a fade")
-        XCTAssertGreaterThan(bright - dark, 0.5,
-                             "the wake is not driven by the print's own exposure")
-
-        // And the highlight is late, not lost: by the end it is its own value.
-        let finished = pixel(try developing(print: 60000, at: 1), 20, 20)[0]
-        XCTAssertEqual(finished, 60000.0 / 65535.0, accuracy: 0.02,
-                       "the highlight never finished coming up")
+    func testDevelopmentEndpointsMatchTheUnmodifiedTextures() throws {
+        let held = try developing(print: 32768, at: 0)
+        XCTAssertEqual(pixel(held, 20, 20)[0], 0, accuracy: 0.001)
+        let completed = try developing(print: 32768, at: 1)
+        let animated = pixel(completed, 20, 20)
+        renderer.cancelFilmDevelopment()
+        let plain = try XCTUnwrap(renderer.renderOffscreen(size: CGSize(width: 40, height: 40), backingScale: 1))
+        XCTAssertEqual(animated, pixel(plain, 20, 20))
     }
 
-    /// The develop's curve — the one the live animation and the `--print`
-    /// capture harness both go through, which is the point of it being a method
-    /// rather than a line inside the draw loop. 0 is the film, 1 is the print,
-    /// and the brief asks for it to be clearly slow to set off.
-    func testTheDevelopCurveIsNonLinear() {
-        renderer.applyDevelop(elapsed: 0)
-        XCTAssertEqual(renderer.develop, 0, accuracy: 0.001, "the develop starts at the film")
+    func testDevelopmentColorsArriveAtDifferentTimes() throws {
+        let intermediate = pixel(try developing(print: 32768, at: 0.3), 20, 20)
+        XCTAssertGreaterThan(abs(intermediate[0] - intermediate[2]), 0.01,
+                             "the temporary color layers should settle at different times")
+        let final = pixel(try developing(print: 32768, at: 1), 20, 20)
+        XCTAssertEqual(final[0], final[2], accuracy: 0.001)
+    }
 
-        // A tenth of the time in, a septic ease has moved a third of a percent.
-        renderer.applyDevelop(elapsed: Renderer.printDevelopSeconds * 0.1)
-        XCTAssertLessThan(renderer.develop, 0.01,
-                          "the band sets off at a constant speed — the brief was 非线性")
-        XCTAssertGreaterThan(renderer.develop, 0.001, "…but it has to have set off at all")
+    func testScanRevealDoesNotIntroducePaperOrTemporaryColor() throws {
+        renderer.developmentStyle = .scan
+        let midpoint = pixel(try developing(print: 32768, at: 0.5), 20, 20)
+        XCTAssertEqual(midpoint[0], 0.25, accuracy: 0.002)
+        XCTAssertEqual(midpoint[0], midpoint[2], accuracy: 0.001)
+    }
 
-        // A quarter of the time in: linear would be 0.25 here, smoothstep 0.156,
-        // smootherstep 0.104 — and this is 0.07.
+    func testCompareUsesTheDecodeDuringDevelopment() throws {
+        _ = try developing(print: 32768, at: 0.45)
+        renderer.original = solid(50000)
+        renderer.compareSplit = true
+        renderer.comparePosition = 0.5
+        let out = try XCTUnwrap(renderer.renderOffscreen(size: CGSize(width: 40, height: 40), backingScale: 1))
+        XCTAssertEqual(pixel(out, 2, 20)[0], 50000.0 / 65535.0, accuracy: 0.001)
+        XCTAssertEqual(pixel(out, 38, 20)[0], 32768.0 / 65535.0, accuracy: 0.001)
+        renderer.showOriginal = true
+        let original = try XCTUnwrap(renderer.renderOffscreen(size: CGSize(width: 40, height: 40), backingScale: 1))
+        XCTAssertEqual(pixel(original, 20, 20)[0], 50000.0 / 65535.0, accuracy: 0.001)
+    }
+
+    func testClearingFilmCancelsTheOldAnimationClock() throws {
+        _ = try developing(print: 32768, at: 0)
+        renderer.printTheNegative()
+        renderer.filmScan = nil
+        XCTAssertFalse(renderer.stepFilmDevelopment())
+        renderer.filmScan = solid(0)
+        renderer.develop = 0
+        XCTAssertFalse(renderer.stepFilmDevelopment(), "a new negative must not inherit the previous timer")
+    }
+
+    func testReduceMotionFinishesWithoutAnAnimation() throws {
+        _ = try developing(print: 32768, at: 0)
+        renderer.reduceMotion = { true }
+        renderer.printTheNegative()
+        XCTAssertNil(renderer.filmScan)
+        XCTAssertFalse(renderer.stepFilmDevelopment())
+        renderer.reduceMotion = { false }
+        _ = try developing(print: 32768, at: 0)
+        renderer.printTheNegative()
+        renderer.reduceMotion = { true }
+        XCTAssertFalse(renderer.stepFilmDevelopment())
+        XCTAssertNil(renderer.filmScan)
+    }
+
+    func testDevelopmentClockIsClampedAndLayerEasingIsNotAppliedTwice() {
+        renderer.applyDevelop(elapsed: -1)
+        XCTAssertEqual(renderer.develop, 0)
         renderer.applyDevelop(elapsed: Renderer.printDevelopSeconds * 0.25)
-        XCTAssertLessThan(renderer.develop, 0.09, "the ease is too close to linear")
-
-        renderer.applyDevelop(elapsed: Renderer.printDevelopSeconds * 0.5)
-        XCTAssertEqual(renderer.develop, 0.5, accuracy: 0.01,
-                       "the develop is not symmetric about the middle")
-
-        renderer.applyDevelop(elapsed: Renderer.printDevelopSeconds)
-        XCTAssertEqual(renderer.develop, 1, accuracy: 0.001,
-                       "it must arrive at the print exactly, or the handoff to the plain path jumps")
-        // Past the end it stays put rather than running away.
+        XCTAssertEqual(renderer.develop, 0.25, accuracy: 0.001)
         renderer.applyDevelop(elapsed: Renderer.printDevelopSeconds * 3)
-        XCTAssertEqual(renderer.develop, 1, accuracy: 0.001)
+        XCTAssertEqual(renderer.develop, 1)
     }
 
     func testOffscreenRenderShowsGroundOutsideImage() {
@@ -286,19 +269,19 @@ final class RendererTests: XCTestCase {
         renderer.viewport.backingScale = 1
         renderer.viewport.resize(viewport: CGSize(width: 40, height: 40), image: CGSize(width: 4, height: 2))
         let out = renderer.renderOffscreen(size: CGSize(width: 40, height: 40), backingScale: 1)!
-        // The ground is the drawing's `0x5F/255` — an **sRGB-encoded** grey —
+        // The ground is the shared neutral sRGB token — an **sRGB-encoded** grey —
         // written into a texture that is in the working space now, so what
         // lands here is that colour's ROMM γ1.8 encoding, not the literal.
         // Asserted as the *relationship* rather than as the number: the value
         // has to be the sRGB literal re-encoded, or the interface has shifted
         // around the picture (`CanvasGround` carries the derivation).
-        let srgb = 0x5F / 255.0
+        let srgb = Theme.canvasSurroundSRGB
         let linear = pow((srgb + 0.055) / 1.055, 2.4)
         let ground = pow(linear, 1.0 / 1.8)
         XCTAssertEqual(pixel(out, 20, 2)[0], ground, accuracy: 0.01,
                        "letterbox above the image is the ground, in the working space")
         XCTAssertNotEqual(ground, srgb, accuracy: 0.01,
-                          "the ground was left as its sRGB literal — it would be 1.478× the light")
+                          "the ground was left as its sRGB literal — it would change the displayed surround")
         XCTAssertEqual(pixel(out, 5, 15), [1, 0, 0], "image is vertically centred")
     }
 

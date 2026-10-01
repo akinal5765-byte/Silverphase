@@ -35,6 +35,7 @@ import Foundation
 /// `action*` `help*` `status*` `reason*`, plus this pass's own `setLanguage*`
 /// for the Settings section it adds.
 enum S: String, CaseIterable, Sendable {
+    case actionOriginal, actionSolve
     // MARK: rails
     case railPresets, railDevelop, railEdit
 
@@ -72,6 +73,8 @@ enum S: String, CaseIterable, Sendable {
     // MARK: Print
     case printGroupStill, printGroupCine, printNone, printEDR
     case printExposure, printContrast, printYellow, printMagenta, printPreflash
+    case filmEffectStrength, filmGrainLayers, filmScatter, filmCouplers
+    case printGroupDigital, printDigitalIntermediate, printDigitalIntermediateHelp
 
     // MARK: Curve
     case curveLuma, curveRed, curveGreen, curveBlue, curveInput, curveOutput
@@ -104,11 +107,12 @@ enum S: String, CaseIterable, Sendable {
     case helpResetFilmStock, helpResetDevelopment
     case reasonNoFrames
     case helpAllEffectsOn, helpAllEffectsOff, helpFastFlip
+    case helpResetEffectStrengths
 
     // MARK: status and disabled reasons
     case statusFull, statusFullPending, statusDecodeOnly, statusEmptyFilmstrip
     case statusEDRScope, statusRightRailWBScope
-    case reasonDecodeWBDisabled, reasonNonCustomSideLength
+    case reasonDecodeWBDisabled, reasonNonCustomSideLength, reasonEffectOff
     case reasonPositiveFilmDisablesPaper, reasonEDRDisabledInScanFilm
     case reasonPaperGlareDisabledInScanFilm
 
@@ -121,6 +125,18 @@ enum S: String, CaseIterable, Sendable {
     // MARK: the Settings page and the About panel
     case setInterface, setScale, setScaleCaption, setRendering, setPreview, setPreviewCaption, setFastStockPreview, setFastStockPreviewCaption, setCropRemaps, setCropRemapsCaption, setDiagnostics, setLogLevel, setLevelNormal, setLevelNormalDetail, setLevelDetailed, setLevelDetailedDetail, setLevelVerbose, setLevelVerboseDetail, setPerNodeTimings, setPerNodeTimingsNote, setMemory, setFootprint, setSessionPeak, setFree, setNotSampled, setReserve, setReserveNote, setWorkingSetCap, setUnlimited, setCapNote, setHeldByApp, setEvictable, setAllowOverReserve, setAllowOverReserveCaption, setDiskCache, setInUse, setCacheUnavailable, setLimit, setCacheNote, setLocation, setRevealInFinder, setEmptyCache, setEmptyCacheHelp, reasonNoDiskCache, setLogs, setKeepFor, setKeepAtMost, setUnitDays, setUnitFiles, setRetentionCaption, setDestination, setChoose, setChooseLogMessage, setLogDirectoryNote, setClearLogs, setClearLogsHelp, setBundle, setIncludeFileNames, setFileNamesNote, setPlaceholderNames, setSaving, setSaveBundle, setBundleCaption, setWroteBundle, setBundleFailed, setMachine, setApp, setEngine, setRenderCore, setLogFile, setNotReported, setNone, setLastSession, setEndedCleanly, setEndedUnclean, setNoEarlierLog, setUncleanCaption, setLastError, setNoCacheAllocations
     case aboutTagline, aboutEngine, aboutCreditsProfiles, aboutCreditsApp, aboutLicenceBody, aboutLutBody, aboutLicences, aboutShowLicenceFiles, aboutNoLicences, aboutShowInFinder, aboutDone
+    case reasonDisabledInDigitalIntermediate, reasonPlacementInDigitalIntermediate
+    case latitudeUnmeasurable, latitudeNoLight, filmFormatSize, railFilmAndPrint, railParameters, tabPreDev, tabPostDev, sectionEnlarger, sectionLatitude, sectionScenePlacement, sectionToneMask, printEffects, filmGrainStrength, filmHalationStrength, filmScatterStrength, filmCouplersStrength, filmGlareStrength, latitudeBelow, latitudeWithin, latitudeAbove, latitudeHeld, latitudeFullSeparation, latitudeEmpty, placementHighlight, placementShadow, maskEnable, maskHighlights, maskShadows, maskCore, maskRadius, maskCurveCaption, enlargerPreflash, helpResetFilmFormat, helpResetPlacement, helpResetToneMask, helpResetEnlarger, helpSubLayerGrain, reasonPrintEffectsOff, reasonNotDeveloped, setResetLayout, setResetLayoutCaption
+    case sectionClipboard, clipCopy, clipPaste, clipPasteTo, clipHolds, clipEmpty
+    case clipFilmAndPaper, clipExposure, clipWhiteBalance, clipFilmEffects, clipPrintEffects, clipScenePlacement, clipMasks
+    case clipFilmAndPaperHelp, clipExposureHelp, clipWhiteBalanceHelp, clipFilmEffectsHelp, clipPrintEffectsHelp, clipScenePlacementHelp, clipMasksHelp
+    case clipCopyHelp, clipPasteHelp
+    case setTabGeneral, setTabRendering, setTabMemory, setTabDiagnostics, setTabAgents
+    case setAgentsAccess, setAgentsToggle, setAgentsToggleCaption
+    case setAgentsCommandLine, setAgentsInstall, setAgentsReinstall, setAgentsUninstall
+    case setAgentsInstalled, setAgentsNotInstalled, setAgentsInstalledOther, setAgentsInstallCaption
+    case setAgentsMCP, setAgentsClaudeCode, setAgentsClaudeDesktop, setAgentsMCPCaption
+    case setAgentsCopy, setAgentsCopied, setAgentsTools
 }
 
 // MARK: - the table
@@ -138,6 +154,96 @@ extension S {
         case .railDevelop: "Film Process"
         case .railEdit: "Parameters"
         case .sectionCamera: "Input / Capture"
+        case .latitudeUnmeasurable: "This film and paper do not print a rising tone scale, so there is no latitude to measure. A slide printed onto print film comes out as a negative."
+        case .latitudeNoLight: "The frame has no light in it to measure."
+        case .filmFormatSize: "Size"
+        case .railFilmAndPrint: "Film and Print"
+        case .railParameters: "Parameters"
+        case .tabPreDev: "Pre-Dev"
+        case .tabPostDev: "Post-Dev"
+        case .sectionNavigator: "Navigator"
+        case .sectionEnlarger: "Enlarger"
+        case .sectionLatitude: "Latitude"
+        case .sectionScenePlacement: "Scene Placement"
+        case .sectionToneMask: "Tone Mask"
+        case .printEffects: "Print Effects"
+        case .filmGrainStrength: "Grain Strength"
+        case .filmHalationStrength: "Halation Strength"
+        case .filmScatterStrength: "Scatter Strength"
+        case .filmCouplersStrength: "Couplers Strength"
+        case .filmGlareStrength: "Glare Strength"
+        case .latitudeBelow: "Below"
+        case .latitudeWithin: "Within"
+        case .latitudeAbove: "Above"
+        case .latitudeHeld: "stops held"
+        case .latitudeFullSeparation: "full separation"
+        case .latitudeEmpty: "Develop the frame to measure it against this film and paper."
+        case .placementHighlight: "Highlight"
+        case .placementShadow: "Shadow"
+        case .maskEnable: "Enable"
+        case .maskHighlights: "Highlights"
+        case .maskShadows: "Shadows"
+        case .maskCore: "Core"
+        case .maskRadius: "Radius"
+        case .maskCurveCaption: "Change in paper exposure against the blurred negative, stops"
+        case .enlargerPreflash: "Pre-flash"
+        case .helpResetFilmFormat: "Reset the film format and its effects"
+        case .helpResetPlacement: "Turn Scene Placement off"
+        case .helpResetToneMask: "Reset the Tone Mask"
+        case .helpResetEnlarger: "Reset the enlarger to the solved pack"
+        case .helpSubLayerGrain: "Sub-layer grain model"
+        case .reasonPrintEffectsOff: "Print Effects is off in the Print section."
+        case .reasonNotDeveloped: "Develop the frame first."
+        case .setResetLayout: "Reset All Layout"
+        case .setResetLayoutCaption: "Panel widths, section heights and which sections are open, back to the drawing."
+        case .sectionClipboard: "Settings Clipboard"
+        case .clipCopy: "Copy"
+        case .clipPaste: "Paste"
+        case .clipPasteTo: "Paste to %d"
+        case .clipHolds: "Holds: %@ · %d of 7"
+        case .clipEmpty: "The clipboard is empty."
+        case .clipFilmAndPaper: "Film & Paper"
+        case .clipExposure: "Exposure"
+        case .clipWhiteBalance: "White Balance"
+        case .clipFilmEffects: "Film Effects"
+        case .clipPrintEffects: "Print Effects"
+        case .clipScenePlacement: "Scene Placement"
+        case .clipMasks: "Masks"
+        case .clipFilmAndPaperHelp: "Film, paper, No Print Profile and EDR."
+        case .clipExposureHelp: "Metering method, film exposure and enlarger brightness. Each frame meters itself."
+        case .clipWhiteBalanceHelp: "Camera white balance and the enlarger's yellow and magenta filters. As Shot stays each frame's own camera value."
+        case .clipFilmEffectsHelp: "Film format, grain, halation, glare, scatter and couplers."
+        case .clipPrintEffectsHelp: "The Print Effects switch and pre-flash."
+        case .clipScenePlacementHelp: "Highlight and shadow pull-back. The curve is fitted again on each frame."
+        case .clipMasksHelp: "The Tone Mask and the local masks."
+        case .clipCopyHelp: "Copy the ticked groups from the frame on the canvas (⇧⌘C)."
+        case .clipPasteHelp: "Paste what the clipboard holds onto every picked frame (⇧⌘V)."
+        case .setTabGeneral: "General"
+        case .setTabRendering: "Rendering"
+        case .setTabMemory: "Memory"
+        case .setTabDiagnostics: "Diagnostics"
+        case .setTabAgents: "Agents"
+        case .setInterface: "Interface"
+        case .setScale: "Scale"
+        case .setScaleCaption: "Scales type across the editor, Settings and Export. Changes apply immediately."
+        case .setAgentsAccess: "Access"
+        case .setAgentsToggle: "Allow command line and agent access"
+        case .setAgentsToggleCaption: "Lets the spektralab command and MCP agents (Claude Code, Claude Desktop, any MCP client) open, edit, process and export photographs on this Mac — the same edits this window makes, saved where it reads them. Off, every call is refused, including one from an agent already connected. Local only: nothing listens on the network, and originals are never written."
+        case .setAgentsCommandLine: "Command line"
+        case .setAgentsInstall: "Install spektralab"
+        case .setAgentsReinstall: "Reinstall"
+        case .setAgentsUninstall: "Remove"
+        case .setAgentsInstalled: "Installed"
+        case .setAgentsNotInstalled: "Not installed"
+        case .setAgentsInstalledOther: "Installed for another copy of the app"
+        case .setAgentsInstallCaption: "Writes a two-line script to ~/.local/bin/spektralab that runs this app without a window. Try `spektralab help`; every command prints JSON."
+        case .setAgentsMCP: "MCP server"
+        case .setAgentsClaudeCode: "Claude Code"
+        case .setAgentsClaudeDesktop: "Claude Desktop"
+        case .setAgentsMCPCaption: "Add SpektraLab to an agent with one of these. The agent starts the server itself over stdio when it needs it; nothing runs in the background."
+        case .setAgentsCopy: "Copy"
+        case .setAgentsCopied: "Copied"
+        case .setAgentsTools: "Tools"
         case .sectionFilm: "Film"
         case .sectionDevelopment: "Development"
         case .sectionPrint: "Color Enlargement"
@@ -167,12 +273,12 @@ extension S {
         case .cameraLensCorrection: "Lens Correction"
 
         // metering
-        case .meteringCustom: "Custom"
+        case .meteringCustom: "Auto exposure off (RAW baseline)"
         case .meteringBalanced: "Balanced"
         case .meteringCenter: "Center"
         case .meteringProtectHighlights: "Protect highlights"
         case .meteringProtectShadows: "Protect shadows"
-        case .meteringCenterWeightedLegacy: "center-weighted (legacy)"
+        case .meteringCenterWeightedLegacy: "Center weighted (original default)"
 
         // Film
         case .filmGroupPositive: "Positive"
@@ -218,6 +324,10 @@ extension S {
         // Development
         case .developmentContrast: "Development Contrast"
         case .developmentColorSeparation: "DIR Effect"
+        case .filmEffectStrength: "Strength"
+        case .filmGrainLayers: "Sub-layers"
+        case .filmScatter: "Scatter"
+        case .filmCouplers: "DIR Couplers"
 
         // Print
         case .printGroupStill: "Still"
@@ -229,6 +339,12 @@ extension S {
         case .printYellow: "Yellow Filtration (Y)"
         case .printMagenta: "Magenta Filtration (M)"
         case .printPreflash: "Paper Preflash"
+        case .printGroupDigital: "Digital"
+        case .printDigitalIntermediate: "Digital Intermediate"
+        case .printDigitalIntermediateHelp:
+            "The negative with its orange mask removed and reversed on the film's own neutral curve, "
+            + "kept as Cineon log for grading elsewhere. Grain, halation and the film's colour stay; "
+            + "the paper does not."
 
         // Curve
         case .curveLuma: "Luma"
@@ -258,6 +374,8 @@ extension S {
 
         // actions
         case .actionDeveloped: "Developed"
+        case .actionOriginal: "Original"
+        case .actionSolve: "Process"
         // The spec's row gives both English forms — "Process / Process
         // this frame" — and this key is the ••• item, not a button. The
         // longer one is chosen because §8.1 of the layout handoff turns on
@@ -315,6 +433,7 @@ extension S {
         case .helpUseFilmPaper: "Use the film's declared paper"
         case .helpAllEffectsOn: "All effects on"
         case .helpAllEffectsOff: "All effects off"
+        case .helpResetEffectStrengths: "Reset effect strengths to the film's own"
         case .helpFastFlip: "Fast flip (baked LUT, no glare, ignores your print grade)"
 
         // status and reasons
@@ -327,6 +446,7 @@ extension S {
         case .reasonDecodeWBDisabled: "Decode white balance applies to RAW input only."
         case .reasonNonCustomSideLength:
             "Side Length is the film type's own measurement. Choose Custom to type one."
+        case .reasonEffectOff: "Turn the effect on to set its strength."
         case .reasonPositiveFilmDisablesPaper:
             "A slide film is already a positive — there is nothing for a paper to interpret. "
             + "Choose a negative film to print onto paper."
@@ -334,6 +454,10 @@ extension S {
             "Highlight detail applies only when printing on paper."
         case .reasonPaperGlareDisabledInScanFilm:
             "Paper glare applies only when printing on paper."
+        case .reasonDisabledInDigitalIntermediate:
+            "The Digital Intermediate has no paper, so print effects, the Tone Mask and EDR do not apply."
+        case .reasonPlacementInDigitalIntermediate:
+            "Scene Placement fits a scene into a paper's range. The Digital Intermediate keeps the film's whole range."
 
         // Settings ▸ Language
         case .setLanguage: "Language"
@@ -354,7 +478,7 @@ extension S {
         case .menuOpen: "Open…"
         case .menuExport: "Export…"
         case .menuUndo: "Undo"
-        case .menuCopySettings: "Copy Settings"
+        case .menuCopySettings: "Copy Settings…"
         case .menuPasteSettings: "Paste Settings"
         case .menuView: "View"
         case .menuZoomIn: "Zoom In"
@@ -479,11 +603,103 @@ extension S {
     /// English word, so the two `Original`s and the two `Print`s do not collide.
     var simplifiedChinese: String {
         switch self {
+        case .actionOriginal: "原图"
+        case .actionSolve: "处理"
         // rails and sections
         case .railPresets: "胶片与相纸"
         case .railDevelop: "胶片工艺"
         case .railEdit: "参数"
         case .sectionCamera: "输入 / 拍摄"
+        case .latitudeUnmeasurable: "当前胶片与相纸的输出不随曝光递增，无法测量宽容度。反转片印到电影正片上会得到负像。"
+        case .latitudeNoLight: "画面中没有可测量的光。"
+        case .filmFormatSize: "尺寸"
+        case .railFilmAndPrint: "胶片与相纸"
+        case .railParameters: "参数"
+        case .tabPreDev: "显影前"
+        case .tabPostDev: "显影后"
+        case .sectionNavigator: "导航"
+        case .sectionEnlarger: "放大机"
+        case .sectionLatitude: "宽容度"
+        case .sectionScenePlacement: "场景置位"
+        case .sectionToneMask: "影调蒙版"
+        case .printEffects: "相纸效果"
+        case .filmGrainStrength: "颗粒强度"
+        case .filmHalationStrength: "光晕强度"
+        case .filmScatterStrength: "散射强度"
+        case .filmCouplersStrength: "成色剂强度"
+        case .filmGlareStrength: "耀光强度"
+        case .latitudeBelow: "低于"
+        case .latitudeWithin: "范围内"
+        case .latitudeAbove: "高于"
+        case .latitudeHeld: "档保留"
+        case .latitudeFullSeparation: "完整层次"
+        case .latitudeEmpty: "显影后即可按当前胶片与相纸测量。"
+        case .placementHighlight: "高光"
+        case .placementShadow: "阴影"
+        case .maskEnable: "启用"
+        case .maskHighlights: "高光"
+        case .maskShadows: "阴影"
+        case .maskCore: "核心"
+        case .maskRadius: "半径"
+        case .maskCurveCaption: "按模糊后负片的曝光量计算的相纸曝光变化（档）"
+        case .enlargerPreflash: "预曝光"
+        case .helpResetFilmFormat: "重置胶片画幅与效果"
+        case .helpResetPlacement: "关闭场景置位"
+        case .helpResetToneMask: "重置影调蒙版"
+        case .helpResetEnlarger: "将放大机恢复为配光结果"
+        case .helpSubLayerGrain: "分层颗粒模型"
+        case .reasonPrintEffectsOff: "“相纸效果”已在相纸部分关闭。"
+        case .reasonNotDeveloped: "请先显影。"
+        case .setResetLayout: "重置全部布局"
+        case .setResetLayoutCaption: "将面板宽度、各部分高度与展开状态恢复为默认。"
+        case .sectionClipboard: "设置剪贴板"
+        case .clipCopy: "复制"
+        case .clipPaste: "粘贴"
+        case .clipPasteTo: "粘贴到 %d 张"
+        case .clipHolds: "剪贴板：%@ · %d/7 项"
+        case .clipEmpty: "剪贴板为空。"
+        case .clipFilmAndPaper: "胶片&相纸"
+        case .clipExposure: "曝光"
+        case .clipWhiteBalance: "白平衡"
+        case .clipFilmEffects: "胶片效果"
+        case .clipPrintEffects: "相纸效果"
+        case .clipScenePlacement: "场景置位"
+        case .clipMasks: "遮罩"
+        case .clipFilmAndPaperHelp: "胶片、相纸、不使用相纸配置与 EDR。"
+        case .clipExposureHelp: "测光方式、胶片曝光与放大机亮度。每张照片各自测光。"
+        case .clipWhiteBalanceHelp: "相机白平衡与放大机的黄、品滤色。“拍摄时设置”保持每张照片自己的相机值。"
+        case .clipFilmEffectsHelp: "胶片画幅、颗粒、光晕、耀光、散射与耦合剂。"
+        case .clipPrintEffectsHelp: "相纸效果开关与预闪。"
+        case .clipScenePlacementHelp: "高光与阴影的回拉量。曲线在每张照片上重新拟合。"
+        case .clipMasksHelp: "影调蒙版与局部蒙版。"
+        case .clipCopyHelp: "从画布上的照片复制勾选的项目（⇧⌘C）。"
+        case .clipPasteHelp: "把剪贴板里的内容粘贴到所有选中的照片（⇧⌘V）。"
+        case .setTabGeneral: "常规"
+        case .setTabRendering: "渲染"
+        case .setTabMemory: "内存"
+        case .setTabDiagnostics: "诊断"
+        case .setTabAgents: "智能体"
+        case .setInterface: "界面"
+        case .setScale: "缩放"
+        case .setScaleCaption: "同步调整主界面、设置与导出页的字体大小；更改立即生效。"
+        case .setAgentsAccess: "访问"
+        case .setAgentsToggle: "允许命令行与智能体访问"
+        case .setAgentsToggleCaption: "允许 spektralab 命令与 MCP 智能体（Claude Code、Claude Desktop 或任何 MCP 客户端）在本机打开、编辑、冲印与导出照片——与本窗口的编辑完全相同，并保存在本窗口读取的位置。关闭时所有调用都会被拒绝，包括已连接的智能体。仅限本机：不监听网络，也从不改写原片。"
+        case .setAgentsCommandLine: "命令行"
+        case .setAgentsInstall: "安装 spektralab"
+        case .setAgentsReinstall: "重新安装"
+        case .setAgentsUninstall: "移除"
+        case .setAgentsInstalled: "已安装"
+        case .setAgentsNotInstalled: "未安装"
+        case .setAgentsInstalledOther: "已为另一份应用安装"
+        case .setAgentsInstallCaption: "在 ~/.local/bin/spektralab 写入一个两行脚本，以无窗口方式运行本应用。可先试 `spektralab help`；每条命令都输出 JSON。"
+        case .setAgentsMCP: "MCP 服务"
+        case .setAgentsClaudeCode: "Claude Code"
+        case .setAgentsClaudeDesktop: "Claude Desktop"
+        case .setAgentsMCPCaption: "用以下任一方式把 SpektraLab 添加给智能体。服务由智能体在需要时通过 stdio 自行启动，不在后台常驻。"
+        case .setAgentsCopy: "复制"
+        case .setAgentsCopied: "已复制"
+        case .setAgentsTools: "工具"
         case .sectionFilm: "胶片"
         case .sectionDevelopment: "显影"
         case .sectionPrint: "彩色放大"
@@ -508,12 +724,12 @@ extension S {
         case .cameraLensCorrection: "镜头校正"
 
         // metering
-        case .meteringCustom: "自定义"
+        case .meteringCustom: "关闭自动曝光（RAW 基准）"
         case .meteringBalanced: "均衡"
         case .meteringCenter: "中央主体"
         case .meteringProtectHighlights: "保护高光"
         case .meteringProtectShadows: "保护阴影"
-        case .meteringCenterWeightedLegacy: "中央重点（旧版）"
+        case .meteringCenterWeightedLegacy: "中央加权（原默认）"
 
         // Film
         case .filmGroupPositive: "正片"
@@ -558,6 +774,10 @@ extension S {
         // Development
         case .developmentContrast: "显影反差"
         case .developmentColorSeparation: "DIR 效应"
+        case .filmEffectStrength: "强度"
+        case .filmGrainLayers: "分层颗粒"
+        case .filmScatter: "散射"
+        case .filmCouplers: "DIR 成色剂"
 
         // Print
         case .printGroupStill: "静态摄影"
@@ -569,6 +789,11 @@ extension S {
         case .printYellow: "黄滤色（Y）"
         case .printMagenta: "品红滤色（M）"
         case .printPreflash: "相纸预闪"
+        case .printGroupDigital: "数字"
+        case .printDigitalIntermediate: "数字中间片"
+        case .printDigitalIntermediateHelp:
+            "去除橙色色罩、按胶片自身的中性曲线反转后的负片，以 Cineon 对数保存，供其他软件调色。"
+            + "保留颗粒、光晕与胶片的色彩，不含相纸。"
 
         // Curve
         case .curveLuma: "明度"
@@ -640,6 +865,7 @@ extension S {
         case .helpAllEffectsOn: "开启所有效果"
         case .helpAllEffectsOff: "关闭所有效果"
         case .helpFastFlip: "快速切换（使用预烘焙 LUT，不含眩光，忽略彩色放大调整）"
+        case .helpResetEffectStrengths: "将效果强度恢复为胶片默认值"
 
         // status and reasons
         case .statusDecodeOnly: "显影中…"
@@ -653,6 +879,9 @@ extension S {
         case .reasonPositiveFilmDisablesPaper: "正片无需经彩色放大曝光到相纸。选择负片后可使用相纸配置。"
         case .reasonEDRDisabledInScanFilm: "高光层次展开仅适用于相纸输出。"
         case .reasonPaperGlareDisabledInScanFilm: "相纸眩光仅适用于相纸输出。"
+        case .reasonEffectOff: "开启该效果后可调节强度。"
+        case .reasonDisabledInDigitalIntermediate: "数字中间片没有相纸，印相效果、影调蒙版与扩展动态范围不适用。"
+        case .reasonPlacementInDigitalIntermediate: "场景置位是把场景放进相纸的宽容度里。数字中间片保留胶片的全部宽容度。"
 
         // Settings ▸ Language
         case .setLanguage: "语言"
@@ -672,7 +901,7 @@ extension S {
         case .menuOpen: "打开…"
         case .menuExport: "导出…"
         case .menuUndo: "撤销"
-        case .menuCopySettings: "拷贝设置"
+        case .menuCopySettings: "复制设置…"
         case .menuPasteSettings: "粘贴设置"
         case .menuView: "显示"
         case .menuZoomIn: "放大"
@@ -810,6 +1039,21 @@ extension S {
 /// a build error and the only way to reach the fallback is an entry that was
 /// deliberately or accidentally left blank — which is what the emptiness check
 /// below is for. It never returns an empty string.
+/// A string kept at its point of use, in both languages (2026-09-28).
+///
+/// The table above is for strings used in more than one place. Settings holds
+/// some eighty that each appear once — captions, readouts, button titles —
+/// and a pair written where the string is shown keeps the English and the
+/// Chinese side by side for review, which the table cannot. An empty Chinese
+/// string falls back to the English, as the table does.
+@MainActor
+func L(_ english: String, zh chinese: String) -> String {
+    switch Localization.shared.resolved {
+    case .english: english
+    case .simplifiedChinese: chinese.isEmpty ? english : chinese
+    }
+}
+
 @MainActor
 func L(_ key: S) -> String {
     switch Localization.shared.resolved {

@@ -55,7 +55,10 @@ protocol CanvasHost: AnyObject {
     func contextMenu() -> NSMenu?
     func hovered(normalised: CGPoint?)
     func stepFrame(_ delta: Int)
+    func rateFrame(_ rating: Int)
 }
+
+extension CanvasHost { func rateFrame(_ rating: Int) {} }
 
 /// The view is its own `MTKViewDelegate`. A separate coordinator object has
 /// to be owned by something — `MTKView.delegate` is weak — and getting that
@@ -94,6 +97,7 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
     private var cropDrag: CropDrag?
 
     private var trackingArea: NSTrackingArea?
+    private var ratingKeyMonitor: Any?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -102,6 +106,17 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        if let ratingKeyMonitor { NSEvent.removeMonitor(ratingKeyMonitor); self.ratingKeyMonitor = nil }
+        if window != nil {
+            ratingKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, let window = self.window, event.window === window,
+                      let rating = Self.photoRatingShortcut(event, firstResponder: window.firstResponder,
+                                                          hasSheet: window.attachedSheet != nil),
+                      let host = self.host else { return event }
+                host.rateFrame(rating)
+                return nil
+            }
+        }
         syncViewport()
         // ←/→ step frames, and they only reach `keyDown` when the canvas is
         // first responder. Claim it on entering a window, unless something is
@@ -663,6 +678,12 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
 
     // MARK: keys
 
+    static func photoRatingShortcut(_ event: NSEvent, firstResponder: NSResponder?, hasSheet: Bool) -> Int? {
+        guard !hasSheet, !(firstResponder is NSTextView), !(firstResponder is NSTextField),
+              event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return nil }
+        return FrameMarks.ratingShortcut(event.charactersIgnoringModifiers)
+    }
+
     override func keyDown(with e: NSEvent) {
         guard let renderer, let host else { return }
         switch e.keyCode {
@@ -721,14 +742,7 @@ extension CanvasNSView {
         // leaves is black on the right and bottom — see `sizeDrawable`, which
         // is what sizes it instead, and which runs from `layout`.
         view.autoResizeDrawable = false
-        // The ground, in the **working space's** encoding: the drawing's grey
-        // re-encoded, because a literal 0x5F read as ROMM γ1.8 is 1.478× the
-        // light and would have shifted the whole interface around the picture
-        // (`Renderer.ground` carries the derivation).
-        //
-        // Three things paint this ground and all three have to agree — the
-        // shader's letterbox, this clear colour, and the layer's own
-        // background behind the drawable.
+        // Drawable clear and shader surround share working-space encoding.
         let g = CGFloat(CanvasGround.value)
         view.clearColor = MTLClearColor(red: Double(g), green: Double(g), blue: Double(g), alpha: 1)
         if let layer = view.layer as? CAMetalLayer {
@@ -744,12 +758,9 @@ extension CanvasNSView {
             // why a wider space does not turn it on.
             layer.wantsExtendedDynamicRangeContent = false
         }
-        // Tagged sRGB on purpose, and it is already the same colour as the two
-        // above: `Theme.ground` is the drawing's sRGB 0x5F, AppKit composites
-        // this one and colour-manages it itself, and CoreAnimation converts an
-        // sRGB-tagged background into the layer's space. Only the two values
-        // the GPU writes needed re-encoding.
-        view.layer?.backgroundColor = CGColor(srgbRed: 0x5F / 255.0, green: 0x5F / 255.0, blue: 0x5F / 255.0, alpha: 1)
+        // The backing layer is tagged sRGB; use the same neutral colour before conversion.
+        let surround = CGFloat(Theme.canvasSurroundSRGB)
+        view.layer?.backgroundColor = CGColor(srgbRed: surround, green: surround, blue: surround, alpha: 1)
         let renderer = host.renderer
         renderer.needsDraw = { [weak view] in view?.scheduleDraw() }
         return view

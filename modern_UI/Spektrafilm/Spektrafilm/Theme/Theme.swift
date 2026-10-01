@@ -132,6 +132,11 @@ final class InterfaceScaleStore: @unchecked Sendable {
 }
 
 enum Theme {
+    enum Motion {
+        /// UI-SPEC hover feedback: brief ease-out, without spring overshoot.
+        static let hover = Animation.easeOut(duration: 0.1)
+    }
+
 
     /// The identity the app's windows are keyed on.
     ///
@@ -141,6 +146,15 @@ enum Theme {
         InterfaceScaleStore.shared.scale.rawValue
     }
 
+    /// Shadow geometry for custom borderless window cards. Reserve three
+    /// blur radii plus offset inside the transparent native window bounds.
+    enum WindowShadow {
+        static let color = Color.black.opacity(0.55)
+        static let radius: CGFloat = 18
+        static let offsetY: CGFloat = 8
+        static var inset: CGFloat { ceil(radius * 3 + abs(offsetY)) }
+    }
+
     // MARK: colours
     //
     // The palette got *smaller*. The drawing draws pills, wells, slider
@@ -148,10 +162,11 @@ enum Theme {
     // the filmstrip in another (`.st15`), and separates functions with a
     // hairline instead of with a gap.
 
-    /// `.st13` — the canvas surround, and also every well, pill and slider
-    /// track. One grey, four jobs: the drawing uses *elevation* (a lighter
-    /// shape on a darker rail) rather than a palette to say "this is a
-    /// control".
+    /// Historical content-well colour. Canvas and controls have dedicated tokens.
+    /// Temporary material artwork; independent of the editor's dark surfaces.
+    static let materialPlaceholder = Color.white
+    static let materialPlaceholderInk = Color.black.opacity(0.25)
+    static let materialPlaceholderControlInk = Color.black.opacity(0.65)
     static let ground = Color(hex: 0x5F5F5F)   // v3 sample: unchanged
     /// `.st15` — the two rails, the tool bar and the filmstrip.
     ///
@@ -160,12 +175,19 @@ enum Theme {
     /// bar meeting at a hairline is the one place a one-point difference
     /// would have shown as a seam.
     static let card = Color(hex: 0x2D2D2C)
+    /// Opaque fallback for system chrome, matching native window/sheet semantics.
+    static let windowSurface = Color(nsColor: .windowBackgroundColor)
+    /// The single custom edge shared by flat and rounded glass chrome.
+    static let chromeEdge = Color.white.opacity(0.12)
+    /// One readability backing for every glass bar and tool panel. Keep the
+    /// previously used dark plate; individual surfaces cannot tune it separately.
+    static let chromeBacking = Color.black.opacity(0.60)
     /// A well inside a rail: the same value as the ground, on purpose.
     static let well = ground
     /// A pill or field sitting **on a rail** — the AE Method menu, a value
     /// field, the zoom pill. Ground-coloured, because that is what the
     /// drawing fills them with now that they no longer sit inside a well.
-    static let pill = ground
+    static let pill = controlFill
     /// A pill sitting **inside a well**, where the well is already
     /// ground-coloured and a control on it has to be darker to be seen at
     /// all. Do not use it on a rail.
@@ -184,13 +206,17 @@ enum Theme {
     static let rule = Color(hex: 0xB5B6B6)   // v3 sample
     /// `.st12` — primary text and glyphs.
     static let text = Color(hex: 0xF9F7F3)   // v3 sample
-    /// `.st6` — dim captions and anything the interface is not asking you to
-    /// read.
-    static let dim = Color(hex: 0x898989)
+    /// Readable metadata on the shared dark chrome. The old #898989 made
+    /// small captions and axis values disappear over bright photographs.
+    static let dim = Color(hex: 0xB5B5B5)
     /// Secondary text on a rail: the "As Shot" caption under a slider.
     static let secondaryText = Color(hex: 0xDAD8D4)
     /// Plot grounds (histogram / curve) are one step darker than the rail.
     static let plot = Color(hex: 0x1E1F1E)
+    static let latitudeInside = Color(hex: 0x9C9C9A)
+    static let latitudeInsideEdge = Color(hex: 0xD6D5D2)
+    static let latitudeBeyond = Color(hex: 0x565654)
+    static let plotMidGrey = Color(hex: 0x4A4B49)
     static let plotGrid = Color(hex: 0x3A3B39)
     /// `.st17` / `.st3` fill, `.st2` stroke — the one accent in the
     /// interface.
@@ -209,8 +235,7 @@ enum Theme {
     /// read against them (the ink on an accent plate is `card`, and a brighter
     /// orange is what makes that pairing work).
     ///
-    /// **And it is flat.** The accent plate takes no top light — see
-    /// `pillSurface(wash:)` — which is the second half of the same note.
+    /// Accent and neutral controls use flat fills with a shared fine edge.
     static let accent = Color(hex: 0xFF9F0A)
     /// `.st16` — a **chosen** row in the film or print list. The drawing's
     /// own words for what changed: "selected entries has shallow, instead of
@@ -262,46 +287,21 @@ enum Theme {
     static let selectionFrame = Color(hex: 0xFAF8F4)
     /// `.st18` — the slider knob, a hair warmer than `text` in the drawing.
     static let knob = Color(hex: 0xFBF8F3)
-    static let canvasSurround = ground
+    /// Fixed neutral sRGB surround; independent of controls and wallpaper tint.
+    static let canvasSurroundSRGB: Double = 0x30 / 255.0
+    static let canvasSurround = Color(.sRGB, red: canvasSurroundSRGB,
+                                      green: canvasSurroundSRGB, blue: canvasSurroundSRGB, opacity: 1)
 
-    // MARK: surface — UI-SPEC §2.2
-    //
-    // Depth in this interface is **one 1px inner stroke, read top-to-bottom**:
-    // light on the top edge, dark underneath, plus at most a 2 % vertical
-    // gradient in the fill. There is no shadow below L4 and no second border
-    // colour. That single stroke is the difference between a control that
-    // looks like a surface and a rectangle of paint, which is what the
-    // interface was before this block existed.
+    // MARK: flat control surfaces — UI-SPEC §2.2 / §2.3
 
-    /// The top of a control's fill. `ground` is the bottom of it.
-    static let controlTop = Color(hex: 0x6A6A6A)
-    static let controlTopHover = Color(hex: 0x767676)
-    static let controlFillHover = Color(hex: 0x696969)
-    /// Held down: the fill goes *darker* and the stroke flips. The flip is
-    /// what reads as "pressed" — a darker fill alone reads as "disabled".
-    static let controlTopPressed = Color(hex: 0x545454)
-    static let controlFillPressed = Color(hex: 0x5E5E5E)
+    static let controlFill = Color(hex: 0x505050)
+    static let controlFillHover = Color(hex: 0x5B5B5B)
+    static let controlFillPressed = Color(hex: 0x444444)
+    static let controlStroke = Color.white.opacity(0.16)
+    static let controlStrokePressed = Color.white.opacity(0.24)
+    static let checkboxFill = Color.black.opacity(0.16)
 
-    /// Light-top / dark-bottom, for every control sitting on a rail.
-    static var controlFill: LinearGradient {
-        LinearGradient(colors: [controlTop, ground], startPoint: .top, endPoint: .bottom)
-    }
-    static var controlFillHoverGradient: LinearGradient {
-        LinearGradient(colors: [controlTopHover, controlFillHover], startPoint: .top, endPoint: .bottom)
-    }
-    static var controlFillPressedGradient: LinearGradient {
-        LinearGradient(colors: [controlTopPressed, controlFillPressed], startPoint: .top, endPoint: .bottom)
-    }
-    static var controlStroke: LinearGradient {
-        LinearGradient(colors: [Color.white.opacity(0.14), Color.black.opacity(0.30)],
-                       startPoint: .top, endPoint: .bottom)
-    }
-    static var controlStrokePressed: LinearGradient {
-        LinearGradient(colors: [Color.black.opacity(0.30), Color.white.opacity(0.14)],
-                       startPoint: .top, endPoint: .bottom)
-    }
-
-    /// L1 — a rail, the bar, the filmstrip: `card` with the top ~2 % lighter.
+    /// Legacy/content card fill; native windows and floating chrome do not use it.
     /// A 254 pt column of one flat grey reads as a hole; the wash is small
     /// enough that a 100 % capture shows no band, which is the point.
     static let cardTop = Color(hex: 0x353534)
@@ -351,6 +351,11 @@ enum Theme {
     // MARK: metrics (SVG ÷ 2)
 
     enum Metric {
+        static let latitudePlotHeight: CGFloat = 60
+        static let latitudeBandGap: CGFloat = 5
+        static let latitudeBandHeight: CGFloat = 6
+        static let latitudeAxisHeight: CGFloat = 14
+
 
         // MARK: the window's three regions
         //
@@ -442,6 +447,10 @@ enum Theme {
         static let modernChromeInset: CGFloat = 12
         /// Modern inspectors share a fixed width and common label/control
         /// columns. Traditional alone keeps its adjustable rail width.
+        /// Selective-copy sheet: labels and controls share the editor's type and surfaces.
+        static let bootTaglineEnglishTracking: CGFloat = 2.6
+        static let bootTaglineChineseTracking: CGFloat = 0.6
+        static let copySettingsDialogWidth: CGFloat = modernPanelWidth
         static let modernPanelWidth: CGFloat = 344
         static let modernExportPanelWidth: CGFloat = modernPanelWidth
 
@@ -581,10 +590,42 @@ enum Theme {
         /// number**: the point of the 9 pt `cameraLabel` removal was that a
         /// rail has one vertical label axis, and a Modern panel is a rail.
         static var modernLabelWidth: CGFloat { sliderLabelWidth }
-        /// The bottom strip's two states, which the canvas occlusion also
-        /// reserves. They were bare `72`/`92` literals in three files.
-        static let modernStripHeight: CGFloat = 72
-        static let modernFilmChooserHeight: CGFloat = 92
+        /// Material browser glass and bare photo thumbnails share a visible height.
+        static let modernBottomStripHeight: CGFloat = 160
+        static var modernStripHeight: CGFloat { modernBottomStripHeight }
+        static var modernFilmChooserHeight: CGFloat { modernBottomStripHeight }
+        static let browserToolbarHeight: CGFloat = 28
+        static let bottomStripToolbarGroupGap: CGFloat = space12
+        static let bottomStripToolbarItemGap: CGFloat = space2
+        static let bottomStripToolbarLabelGap: CGFloat = space4
+        static let bottomStripToolbarTextInset: CGFloat = space8
+        static let bottomStripToolbarGlyphSize: CGFloat = 14
+        static let browserInset: CGFloat = space8
+        static var browserContentHeight: CGFloat { modernBottomStripHeight - browserToolbarHeight - space8 - browserInset * 2 }
+        static let browserCardWidth: CGFloat = 128
+        static let browserArtworkDecodeSize: Int = 448
+        static let browserCardInset: CGFloat = space8
+        static let browserTextInset: CGFloat = space8
+        /// Artwork is a separate content surface, not an inset border of the card.
+        static var browserCoverRadius: CGFloat { modernControlRadius }
+        static let photoRatingGlyphSize: CGFloat = 11
+        static let photoRatingTargetWidth: CGFloat = 12
+        static let photoRatingDotSize: CGFloat = 3
+        static let photoRatingDotSpacing: CGFloat = space2
+        static let modernSelectionStrokeWidth: CGFloat = 1.5
+        static var photoSelectionStrokeWidth: CGFloat { modernSelectionStrokeWidth }
+        static let photoPickedStrokeWidth: CGFloat = rule
+        /// Reserve the strongest inset selection stroke in both states so
+        /// selecting a photo never shifts its resting rating indicator.
+        static var photoRatingDotLeadingInset: CGFloat { photoRatingDotBottomInset }
+        static var photoRatingDotBottomInset: CGFloat { space4 + photoSelectionStrokeWidth }
+        static let browserFavoriteGlyphSize: CGFloat = 14
+        static let browserFavoriteInset: CGFloat = space2
+        static let browserCoverAspectRatio: CGFloat = 16.0 / 9.0
+        static var browserCoverHeight: CGFloat { (browserCardWidth - browserCardInset * 2) / browserCoverAspectRatio }
+        static let browserToolbarCompactWidth: CGFloat = 600
+        static let browserListWidth: CGFloat = 224
+        static let browserListRowHeight: CGFloat = 44
         /// The chooser's own card, tab and glyph geometry.
         static let modernChooserCard = CGSize(width: 106, height: 70)
         static let modernChooserTab = CGSize(width: 52, height: 30)
@@ -872,9 +913,16 @@ enum Theme {
         /// The checkbox's visible square. The drawing's 5 pt mark proved too
         /// small in real use, so the product token is intentionally larger.
         static let checkbox: CGFloat = 10
+        static let checkboxRadius: CGFloat = 2
+        static let checkboxMark: CGFloat = 7
         /// The shared pointer target for compact controls. It stays larger
         /// than the visible square so the pointer does not have to find ink.
         static let controlHitTarget: CGFloat = 28
+        /// Place the visible square on the same trailing edge as fields/menus.
+        /// Pointer target geometry must never determine layout compensation.
+        static var checkboxTrailingInset: CGFloat { -(gridControl - checkbox) / 2 }
+        /// Expand the actual layout container to the shared pointer target.
+        static var checkboxHitOutset: CGFloat { (controlHitTarget - gridControl) / 2 }
         /// The **rail's** icon target, one step smaller than the bar's:
         /// UI-SPEC §2.7.3 keeps the toolbar at 28 and a rail action at 26, and
         /// the audit found the two numbers scattered as raw literals (26 on two
@@ -922,6 +970,10 @@ enum Theme {
         /// A card-sized tile — a chooser card, a contact-sheet frame. Smaller
         /// than the capsule it is not, larger than a field.
         static let modernCardRadius: CGFloat = 9
+        /// Insets of one surface share concentric corners, not a new radius tier.
+        static func nestedRadius(_ outerRadius: CGFloat, inset: CGFloat) -> CGFloat {
+            max(0, outerRadius - inset)
+        }
         /// A floating surface (the rails, the bar, the histogram plate, the
         /// bottom strip). One radius for every piece of chrome that floats
         /// over the canvas.
@@ -942,6 +994,8 @@ enum Theme {
         /// The reset arrow v3 adds to the Camera header: 8–9 pt of ink inside
         /// a 26 pt rail-action hit region.
         static let resetIcon: CGFloat = 9
+        /// Paired chevrons inside the export recipe menu.
+        static let recipeMenuGlyph: CGFloat = 9
         /// `sidebar.left` / `sidebar.right`, the two buttons that fold a rail
         /// and that the PRD requires to be on screen at every moment
         /// (41.8 × 32.7 → 20.9 × 16.35).
@@ -1307,6 +1361,10 @@ enum Theme {
     // override it.
 
     enum Font {
+        static var bootWordmark: SwiftUI.Font { scaled(28, .semibold) }
+        static var bootTaglineEnglish: SwiftUI.Font { scaled(9.5, .medium) }
+        static var bootTaglineChinese: SwiftUI.Font { scaled(11, .medium) }
+
         private static func scaled(_ size: CGFloat,
                                    _ weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
             .system(size: size * InterfaceScaleStore.shared.scale.factor, weight: weight)
@@ -1383,15 +1441,12 @@ enum Theme {
         /// 26.22 / 2.
         static var action: SwiftUI.Font { scaled(13.11, .medium) }
 
-        /// The bottom chooser's card name, and the tab above it.
-        ///
-        /// Both were inline `.system(size: 10)` / `(size: 11, .semibold)` in
-        /// `Filmstrip.swift`, which put two sizes between `small` (9) and
-        /// `label` (10.5) that no other surface had. A card name is a list
-        /// item in the smallest sense and takes `small`; a tab is a two-state
-        /// control and takes `label`.
-        static var chooserCard: SwiftUI.Font { small }
+        /// Material card title is a primary item label; metadata uses caption.
+        /// Reuse the global label size and weight, never scale type with covers.
+        static var chooserCard: SwiftUI.Font { label.weight(.medium) }
         static var chooserTab: SwiftUI.Font { label }
+        /// One control typography for photo and material strip tools.
+        static var bottomStripToolbar: SwiftUI.Font { label }
 
         /// **Licence and code text.** The one monospaced role in the app, and
         /// it is not a type-ramp member: it is set in a monospaced face because
@@ -1457,68 +1512,69 @@ enum Theme {
 /// strip are drawn on. The photograph remains the content layer; glass is
 /// reserved for the chrome that floats over it.
 ///
-/// **There is no non-glass branch any more.** It served the three-region
-/// layout, which is retired; everything that floats now wears this, and the
-/// two flush rails in the export page's own window wear `railCard()` instead.
+/// Flat bars and rounded tool panels share one regular system material,
+/// with one shared dark readability backing. Native windows and modal
+/// sheets keep their system backgrounds; content wells use `railCard()`.
+/// Availability and Reduce Transparency only change the material branch.
 struct EditorChromeSurface: ViewModifier {
     var bare = false
     var radius: CGFloat = Theme.Metric.modernContainerRadius
-    var wash: Double = 0.60
     var flat = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var cornerRadius: CGFloat { flat ? 0 : radius }
 
     @ViewBuilder func body(content: Content) -> some View {
         if bare {
             content
-        } else if flat && reduceTransparency {
-            content
-                .background(Theme.card)
-                .overlay(alignment: .bottom) {
-                    Color.white.opacity(0.12).frame(height: 1)
-                }
-        } else if flat {
-            if #available(macOS 26.0, *) {
-                content
-                    .background(Color.black.opacity(wash))
-                    .glassEffect(.regular, in: .rect(cornerRadius: 0))
-                    .overlay(alignment: .bottom) {
-                        Color.white.opacity(0.12).frame(height: 1)
-                    }
-            } else {
-                content
-                    .background(Color.black.opacity(wash))
-                    .background(.regularMaterial)
-                    .overlay(alignment: .bottom) {
-                        Color.white.opacity(0.12).frame(height: 1)
-                    }
-            }
-        } else if reduceTransparency {
-            content
-                .background(Theme.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                }
-        } else if #available(macOS 26.0, *) {
-            content
-                .background(Color.black.opacity(wash),
-                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .glassEffect(.regular, in: .rect(cornerRadius: radius))
-                .overlay {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                }
         } else {
-            content
-                .background(Color.black.opacity(wash),
-                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .background(.regularMaterial,
-                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            material(content)
                 .overlay {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    if flat {
+                        VStack(spacing: 0) {
+                            Spacer()
+                            Theme.chromeEdge.frame(height: Theme.Metric.rule)
+                        }
+                    } else {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(Theme.chromeEdge, lineWidth: Theme.Metric.rule)
+                    }
                 }
         }
+    }
+
+    @ViewBuilder private func material(_ content: Content) -> some View {
+        if reduceTransparency {
+            content.background(Theme.windowSurface,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else if #available(macOS 26.0, *) {
+            content
+                .background(Theme.chromeBacking,
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+                .background(Theme.chromeBacking,
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .background(.regularMaterial,
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+    }
+}
+
+/// Standalone windows use the same opaque background as settings and sheets.
+struct StandaloneWindowSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(Theme.windowSurface,
+                in: RoundedRectangle(cornerRadius: Theme.Metric.modernContainerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Metric.modernContainerRadius, style: .continuous)
+                    .strokeBorder(Theme.chromeEdge, lineWidth: Theme.Metric.rule)
+            }
+            .compositingGroup()
+            .shadow(color: Theme.WindowShadow.color, radius: Theme.WindowShadow.radius,
+                    y: Theme.WindowShadow.offsetY)
     }
 }
 
@@ -1612,71 +1668,38 @@ extension View {
             .modifier(DisabledReason(show: !enabled && !reason.isEmpty, reason: reason))
     }
 
-    /// The L3 control surface of UI-SPEC §2.2: fill, plus a 1 px inner stroke
-    /// read top-to-bottom, plus nothing else.
-    ///
-    /// Every pill, field, button and value box wears this, which is what
-    /// makes them one material. `hovered` / `pressed` are passed in by the
-    /// control because only it knows what its pointer is doing; there is no
-    /// hover state living in the modifier, so a control that cannot be
-    /// hovered (a static pill) simply never passes `true`.
-    ///
-    /// **A pressed control's stroke flips** (dark top, light bottom). That
-    /// inversion is the whole of the "pushed in" illusion — a darker fill
-    /// alone reads as disabled, which is why both change together.
+    /// Shared flat field/menu surface. Geometry and interaction stay with the control.
     func controlSurface(radius: CGFloat = Theme.Metric.modernControlRadius,
+                        base: Color = Theme.controlFill,
                         hovered: Bool = false,
                         pressed: Bool = false) -> some View {
         self
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(pressed ? Theme.controlFillPressedGradient
-                                  : (hovered ? Theme.controlFillHoverGradient : Theme.controlFill))
+                    .fill(pressed ? Theme.controlFillPressed : (hovered ? Theme.controlFillHover : base))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(pressed ? Theme.controlStrokePressed : Theme.controlStroke,
-                                  lineWidth: 1)
+                                  lineWidth: Theme.Metric.rule)
             }
     }
 
-    /// The same material in the pill shape. `base` is the pill's own plate —
-    /// `Theme.ground` on a rail, `Theme.field` inside a well — and the depth
-    /// is layered on top of it, so the export page keeps its darker pills and
-    /// still gets the surface.
-    ///
-    /// Two overlays rather than one gradient because the base is the caller's
-    /// colour: a white-to-clear wash on top gives every plate the same top
-    /// light without knowing what the plate is.
-    ///
-    /// **`wash: false` leaves the plate flat**, and the accent plate is the
-    /// one that wants it. The user's note: "橙色不需要渐变了,这样显得更专业".
-    /// A top light exists to say "this is a raised grey surface"; on the single
-    /// colour whose job is to be a *signal* it reads as a glossy button, and
-    /// the signal is the whole point. The 1 px stroke stays — that is the
-    /// material's edge and it is not orange.
-    func pillSurface(base: Color = Theme.ground,
+    /// Action capsules share the flat surface; the primary action keeps its accent.
+    func pillSurface(base: Color = Theme.controlFill,
                      hovered: Bool = false,
-                     pressed: Bool = false,
-                     wash: Bool = true) -> some View {
+                     pressed: Bool = false) -> some View {
         self
             .background {
-                Capsule()
-                    .fill(base)
+                Capsule().fill(base)
                     .overlay {
-                        Capsule().fill(LinearGradient(
-                            colors: [Color.white.opacity(pressed || !wash ? 0 : 0.05), .clear],
-                            startPoint: .top, endPoint: .bottom))
-                    }
-                    .overlay {
-                        Capsule().fill(LinearGradient(
-                            colors: [Color.white.opacity(hovered && wash ? 0.07 : 0), .clear],
-                            startPoint: .top, endPoint: .bottom))
+                        Capsule().fill(pressed ? Color.black.opacity(0.12)
+                                       : Color.white.opacity(hovered ? 0.06 : 0))
                     }
             }
             .overlay {
                 Capsule().strokeBorder(pressed ? Theme.controlStrokePressed : Theme.controlStroke,
-                                       lineWidth: 1)
+                                       lineWidth: Theme.Metric.rule)
             }
     }
 }
@@ -1727,9 +1750,8 @@ private struct SurfaceButton<Label: View>: View {
             .lineLimit(1)
             .padding(.horizontal, 10)
             .frame(height: Theme.Metric.rowHeight)
-            .pillSurface(base: primary ? Theme.accent : Theme.ground,
-                         hovered: hovered && enabled, pressed: pressed,
-                         wash: !primary)
+            .pillSurface(base: primary ? Theme.accent : Theme.controlFill,
+                         hovered: hovered && enabled, pressed: pressed)
             .opacity(enabled ? 1 : Theme.disabledOpacity)
             .contentShape(Capsule())
             .onHover { hovered = $0 }
@@ -1743,5 +1765,129 @@ struct DisabledReason: ViewModifier {
     let reason: String
     func body(content: Content) -> some View {
         if show { content.help(reason) } else { content }
+    }
+}
+
+
+/// Both bottom strips share control typography, group rhythm and row height.
+struct BottomStripToolbar<Content: View>: View {
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    var body: some View {
+        HStack(spacing: Theme.Metric.bottomStripToolbarGroupGap) { content }
+            .font(Theme.Font.bottomStripToolbar)
+            .frame(height: Theme.Metric.browserToolbarHeight)
+    }
+}
+struct BottomStripToolbarGroup<Content: View>: View {
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    var body: some View {
+        HStack(spacing: Theme.Metric.bottomStripToolbarItemGap) { content }
+    }
+}
+private struct BottomStripToolbarControl: ViewModifier {
+    var iconOnly: Bool
+    func body(content: Content) -> some View {
+        content.font(Theme.Font.bottomStripToolbar)
+            .padding(.horizontal, iconOnly ? 0 : Theme.Metric.bottomStripToolbarTextInset)
+            .frame(width: iconOnly ? Theme.Metric.browserToolbarHeight : nil,
+                   height: Theme.Metric.browserToolbarHeight)
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
+    }
+}
+extension View {
+    func bottomStripToolbarControl(iconOnly: Bool = false) -> some View {
+        modifier(BottomStripToolbarControl(iconOnly: iconOnly))
+    }
+}
+struct BottomStripToolbarMenu<Content: View, Label: View>: View {
+    let selected: Bool
+    let content: Content
+    let label: Label
+    init(selected: Bool = false, @ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label) {
+        self.selected = selected; self.content = content(); self.label = label()
+    }
+    var body: some View {
+        Menu { content } label: {
+            HStack(spacing: Theme.Metric.bottomStripToolbarLabelGap) {
+                label
+                Image(systemName: "chevron.down").font(Theme.Font.caption)
+            }
+            .bottomStripToolbarControl()
+            .foregroundStyle(selected ? Theme.accent : Theme.Ink.secondary)
+        }
+        // The button menu style preserves the SwiftUI label. AppKit's
+        // borderless style reconstructs it, dropping custom stars and moving
+        // the chevron ahead of the text with native typography.
+        .menuStyle(.button).menuIndicator(.hidden)
+        .buttonStyle(.toolbarSelection(selected: selected))
+        .fixedSize()
+    }
+}
+
+/// Selected filter options use native menu checkmarks, separate from the
+/// accent state of the closed toolbar control.
+struct BottomStripFilterOption: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            if selected { Label(title, systemImage: "checkmark") }
+            else { Text(title) }
+        }
+    }
+}
+
+/// Navigation choices use the same accent ink as the top bar, with shared hover feedback.
+struct ToolbarSelectionButtonStyle: ButtonStyle {
+    let selected: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        ToolbarSelectionSurface(label: configuration.label, selected: selected,
+                                pressed: configuration.isPressed)
+    }
+}
+private struct ToolbarSelectionSurface<Label: View>: View {
+    let label: Label
+    let selected: Bool
+    let pressed: Bool
+    @State private var hovered = false
+    var body: some View {
+        label
+            .foregroundStyle(selected ? Theme.accent : Theme.Ink.secondary)
+            .background(pressed ? Theme.controlFillPressed : (hovered ? Theme.buttonHoverWash : .clear),
+                        in: RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
+            .onHover { hovered = $0 }
+    }
+}
+extension ButtonStyle where Self == ToolbarSelectionButtonStyle {
+    static func toolbarSelection(selected: Bool) -> Self { Self(selected: selected) }
+}
+
+/// Shared favorite mark with rounded tips and valleys, independent of font size.
+struct RoundedFavoriteStar: Shape {
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let vertices = (0..<10).map { index -> CGPoint in
+            let angle = CGFloat(index) * .pi / 5 - .pi / 2
+            let radius = side * (index.isMultiple(of: 2) ? 0.5 : 0.23)
+            return CGPoint(x: rect.midX + cos(angle) * radius,
+                           y: rect.midY + sin(angle) * radius)
+        }
+        func inset(_ vertex: CGPoint, toward neighbor: CGPoint) -> CGPoint {
+            CGPoint(x: vertex.x + (neighbor.x - vertex.x) * 0.18,
+                    y: vertex.y + (neighbor.y - vertex.y) * 0.18)
+        }
+        var path = Path()
+        path.move(to: inset(vertices[0], toward: vertices[9]))
+        for index in vertices.indices {
+            let vertex = vertices[index]
+            path.addLine(to: inset(vertex, toward: vertices[(index + 9) % 10]))
+            path.addQuadCurve(to: inset(vertex, toward: vertices[(index + 1) % 10]), control: vertex)
+        }
+        path.closeSubpath()
+        return path
     }
 }

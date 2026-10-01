@@ -92,8 +92,8 @@ struct PillMenu<T: Hashable>: View {
                 // gives them one width and one left edge; this is that.
                 .frame(width: fillsControlColumn ? nil : Theme.Metric.pickerWidth)
                 .frame(maxWidth: fillsControlColumn ? .infinity : nil)
-                .pillSurface(base: plate, hovered: hovered && enabled)
-                .contentShape(Capsule())
+                .controlSurface(base: plate, hovered: hovered && enabled)
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
                 .onHover { hovered = $0 }
             }
             .menuStyle(.button)
@@ -163,6 +163,7 @@ struct UnitField: View {
             field
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: Theme.Metric.gridControl)
+                .controlSurface()
             Spacer().frame(width: Theme.Metric.space4)
             Menu {
                 ForEach(SideUnit.allCases) { u in
@@ -186,8 +187,8 @@ struct UnitField: View {
                         .padding(.trailing, Theme.Metric.space4)
                 }
                 .frame(width: Theme.Metric.unitWidth, height: Theme.Metric.gridControl)
-                .background(Theme.pill, in: Capsule())
-                .contentShape(Capsule())
+                .controlSurface()
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         }

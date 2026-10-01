@@ -47,6 +47,19 @@ enum FeatureFlags {
     /// thing UI-SPEC §1.3 forbids outright: a control exists in one place, and
     /// a hidden copy is worse than a visible one because the copy is the one
     /// that goes stale.
+    /// RFC-024's **Tone Mask** (the virtual contrast mask on the Pre-Dev rail).
+    ///
+    /// Off for the next version by the user's decision of 2026-09-29: "there
+    /// is still some issue behind that". The engine node, the section
+    /// (`ToneMaskSection`), the model and the tests all stay. Off, the section
+    /// is not listed, the wire carries `contrast_mask_active = false` whatever
+    /// a sidecar holds (so no saved mask silently shapes a print), and the
+    /// clipboard's 遮罩 box is not offered while local masks are off too. The
+    /// settings round-trip untouched. `nonisolated` because the wire reads it.
+    nonisolated static let toneMask = false
+
+    /// The **Enlarger** section on the darkroom rail: Print Exposure and the
+    /// Yellow / Magenta filter axes.
     ///
     /// Nothing was lost with it. The controls it held are in Print, and the
     /// only thing it had to itself — the lamp (`enlarger.illuminant`) and the

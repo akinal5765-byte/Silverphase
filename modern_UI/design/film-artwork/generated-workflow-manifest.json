@@ -1,0 +1,16 @@
+{
+  "generator": "built-in imagegen",
+  "referenceImages": false,
+  "items": [
+    {
+      "id": "digital_intermediate",
+      "prompt": "Use case: product-mockup\nAsset type: a virtual workflow card label for a film simulator, stylistically compatible with flat photographic film packaging illustrations.\nCreate one original clean technical label for DIGITAL INTERMEDIATE. This represents a software workflow, not a commercially sold film or paper. Use a disciplined printed-label graphic with product-like typography and clear color blocks, subtle printed paper texture, no illustration scene.\nExact text: \"DIGITAL INTERMEDIATE\" as main name, \"DI\" as dominant identifying mark, \"DIGITAL WORKFLOW\" as a small secondary line. No other text. Palette: cool muted steel-blue and charcoal with off-white lettering, understated silver technical label.\n16:9 landscape, front-facing orthographic flat artwork filling the entire image edge to edge. Clear typography readable at thumbnail size. A small upper-right area should have simple quiet color, with no important text, for an app favorite icon.\nSquare outer edges; the application applies rounded cropping. No outer margins, perspective, package side, shadow, card frame, UI controls, star, watermark, brand logo, ISO, exposure rating, paper size, invented manufacturer or certification. Do not use any input reference images. One image.",
+      "file": "workflow_digital_intermediate-v1.png"
+    },
+    {
+      "id": "film_scan",
+      "prompt": "Use case: product-mockup\nAsset type: a virtual workflow card label for a film simulator, stylistically compatible with flat photographic film packaging illustrations.\nCreate one original clean technical label for FILM SCAN. This represents a software workflow, not a commercially sold film or paper. Use a disciplined printed-label graphic with product-like typography and clear color blocks, subtle printed paper texture, no illustration scene.\nExact text: \"FILM SCAN\" as main name, \"SCAN\" as dominant identifying mark, \"NO PAPER PRINT\" as a small secondary line. No other text. Palette: warm ivory and charcoal with a restrained amber identification stripe, understated photographic archive label.\n16:9 landscape, front-facing orthographic flat artwork filling the entire image edge to edge. Clear typography readable at thumbnail size. A small upper-right area should have simple quiet color, with no important text, for an app favorite icon.\nSquare outer edges; the application applies rounded cropping. No outer margins, perspective, package side, shadow, card frame, UI controls, star, watermark, brand logo, ISO, exposure rating, paper size, invented manufacturer or certification. Do not use any input reference images. One image.",
+      "file": "workflow_film_scan-v1.png"
+    }
+  ]
+}

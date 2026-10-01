@@ -17,13 +17,19 @@ struct ScanOutputSection: View {
             RailRows {
                 ToggleRow(label: L(.filmGlare),
                           isOn: param(\.glareActive),
-                          enabled: !session.params.scanFilm,
+                          enabled: !session.params.scanFilm && !session.digitalIntermediateActive,
                           reason: L(.reasonPaperGlareDisabledInScanFilm),
                           help: L(.paperGlareHelp))
+                ScrubSlider(label: L(.filmGlareStrength),
+                            value: Binding(get: { session.params.effects.glare },
+                                           set: { var p = session.params; p.effects.glare = $0; session.params = p }),
+                            range: EffectStrengths.glareRange, zero: 1, snap: 0.1,
+                            format: { String(format: "%.1f×", $0) },
+                            disabled: !session.params.glareActive || session.params.scanFilm || session.digitalIntermediateActive)
                 ToggleRow(label: L(.printEDR),
                           isOn: param(\.extendedDynamicRange),
                           labelFont: Theme.Font.edrLabel,
-                          enabled: !session.params.scanFilm,
+                          enabled: !session.params.scanFilm && !session.digitalIntermediateActive,
                           reason: L(.reasonEDRDisabledInScanFilm),
                           sublabel: L(.statusEDRScope),
                           help: L(.highlightExpansionHelp))
@@ -38,6 +44,7 @@ struct ScanOutputSection: View {
     private func reset() {
         var p = session.params
         p.glareActive = true
+        p.effects.glare = 1
         p.extendedDynamicRange = false
         session.params = p
     }

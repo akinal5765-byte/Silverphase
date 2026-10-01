@@ -33,7 +33,12 @@ struct Layer2Uniforms {           // must match Adjustments.swift
     // literal 0.5, which is a pivot on mid-grey only in a space whose curve
     // happens to put it there. See `tonePosition`.
     float midGrey;
-    uint curvesActive; uint enabled; uint _pad;
+    uint curvesActive; uint enabled;
+    // RFC-028: the frame is a Digital Intermediate, whose pixels are Cineon
+    // codes. They are read through `inputLUT` — the DI view, the shipped
+    // Cineon → ProPhoto .cube (CineonLUT.swift) — before anything else, so
+    // the canvas, Post-Dev and every export work in ProPhoto as for a print.
+    uint inputDecode;
 };
 
 struct GeometryUniform {           // must match Geometry.Uniform in Geometry.swift
@@ -60,7 +65,8 @@ struct CanvasUniforms {           // must match Renderer.swift
     uint compare;                 // 0 off, 1 split, 2 before-only
     float compareSplit;           // split position, 0…1 across the *output*
     float2 pivot;                 // crop tool's edit-space pivot, source-normalised
-    float develop;                // print coming up in the paper, < 0 = no film
+    float develop;                // 0…1; negative means no animation
+    uint developmentStyle;        // 0 paper density, 1 scan crossfade
 };
 
 //  Output uv → source uv. A transliteration of
@@ -312,6 +318,7 @@ kernel void layer2(texture2d<float, access::read> src [[texture(0)]],
                    texture2d<float, access::write> dst [[texture(1)]],
                    texture2d<float> curves [[texture(2)]],
                    texture2d_array<float> maskRasters [[texture(3)]],
+                   texture3d<float> inputLUT [[texture(4)]],
                    constant Layer2Uniforms &u [[buffer(0)]],
                    constant MaskUniform *masks [[buffer(1)]],
                    constant uint &maskCount [[buffer(2)]],
@@ -320,6 +327,12 @@ kernel void layer2(texture2d<float, access::read> src [[texture(0)]],
 {
     if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
     float3 c = src.read(gid).rgb;
+    if (u.inputDecode != 0) {
+        // Trilinear between the grid's texel centres, as any .cube host does.
+        constexpr sampler lutSampler(filter::linear, address::clamp_to_edge, coord::normalized);
+        float n = float(inputLUT.get_width());
+        c = inputLUT.sample(lutSampler, (clamp(c, 0.0, 1.0) * (n - 1.0) + 0.5) / n).rgb;
+    }
     if (u.enabled == 0 && maskCount == 0) { dst.write(float4(c, 1), gid); return; }
 
     constexpr sampler lin(filter::linear, address::clamp_to_edge);
@@ -419,6 +432,75 @@ vertex QuadOut canvasVertex(uint vid [[vertex_id]]) {
     return o;
 }
 
+// Adapted from Andrea Volpato's spektrafilm polaroid_animation.py,
+// commit 3bb2c2d2801ff68b92019cf1dbcbb133d60832bc (GPL-3.0-or-later).
+// Presentation only: these are reconstructed visual density layers, not
+// measured emulsion layers or time-dependent development chemistry.
+static inline float cctf_decode_mode(float v, uint mode);
+static inline float cctf_encode_mode(float v, uint mode);
+
+float developmentSigmoid(float t, float center, float slope) {
+    float start = 1.0 / (1.0 + exp(center * slope));
+    float end = 1.0 / (1.0 + exp(-(1.0 - center) * slope));
+    float value = 1.0 / (1.0 + exp(-(t - center) * slope));
+    return saturate((value - start) / (end - start));
+}
+float developmentRise(float t, float center, float slope, float tail) {
+    float rise = developmentSigmoid(t, center, slope);
+    return rise + (1.0 - rise) * pow(t, tail);
+}
+float developmentPulse(float t, float on, float onSlope, float off,
+                       float offSlope, float decay) {
+    return developmentSigmoid(t, on, onSlope)
+        * (1.0 - developmentSigmoid(t, off, offSlope)) * pow(1.0 - t, decay);
+}
+float3 developPaper(float3 printed, float t) {
+    // ROMM's piecewise transfer curve, not the upstream display-RGB gamma.
+    float3 linear = float3(cctf_decode_mode(printed.r, 1u),
+                           cctf_decode_mode(printed.g, 1u),
+                           cctf_decode_mode(printed.b, 1u));
+    float3 density = clamp(-log(max(linear, float3(0.0001))), 0.0, 9.21034);
+    float neutral = min(density.r, min(density.g, density.b));
+    float3 chroma = density - neutral;
+    // Fixed normalization replaces upstream full-image maxima. This needs no
+    // nine-layer texture stack, readback or per-frame engine work.
+    float3 latent = saturate(density / 6.0);
+    float3 chromaLatent = saturate(chroma / 6.0);
+    float shadow = saturate(dot(density, float3(0.34, 0.39, 0.27)) / 1.75);
+    float highlight = 1.0 - shadow;
+    float strength = max(chromaLatent.r, max(chromaLatent.g, chromaLatent.b));
+    float warmth = saturate((chroma.g + 1.25 * chroma.b - 0.85 * chroma.r)
+                            / (chroma.r + chroma.g + chroma.b + 0.0001));
+    float body = developmentRise(t, 0.19, 7.4, 3.8);
+    float3 result = neutral * body * developmentRise(t, 0.12, 8.0, 2.8);
+    result += chroma * body * float3(developmentRise(t, 0.52, 9.4, 5.4),
+                                     developmentRise(t, 0.31, 10.2, 3.4),
+                                     developmentRise(t, 0.22, 11.0, 3.0));
+    float3 receiver = (0.30 + 0.70 * highlight) * float3(0.04, 0.08, 0.15);
+    float silverMap = saturate(0.24 + 0.46 * shadow + 0.30 * saturate(neutral / 6.0));
+    float3 silver = clamp(silverMap * float3(0.18, 0.19, 0.20)
+                       + chromaLatent.gbr * float3(0.03, 0.02, 0.04), 0.0, 0.28);
+    float3 anti = (highlight * float3(0.10, 0.06, 0.02)
+                + (1.0 - latent.brg) * float3(0.13, 0.07, 0.18)
+                + chromaLatent.gbr * float3(0.04, 0.02, 0.06))
+                * (0.40 + 0.60 * highlight);
+    float3 warm = (0.24 + 0.42 * highlight + 0.34 * max(warmth, strength))
+                 * float3(0.02, 0.08, 0.19);
+    result += receiver * 1.08 * pow(1.0 - t, 0.46);
+    result += silver * developmentPulse(t, 0.05, 32.0, 0.44, 8.0, 0.24);
+    result += anti * 1.22 * developmentPulse(t, 0.10, 54.0, 0.28, 28.0, 0.18);
+    result += warm * 0.96 * developmentPulse(t, 0.12, 20.0, 0.80, 6.5, 0.34);
+    result += highlight * float3(0.03, 0.06, 0.11) * 0.68
+            * developmentPulse(t, 0.03, 24.0, 0.98, 4.0, 0.08);
+    float3 developed = exp(-result);
+    float3 encoded = float3(cctf_encode_mode(developed.r, 1u),
+                            cctf_encode_mode(developed.g, 1u),
+                            cctf_encode_mode(developed.b, 1u));
+    // Restore clipped/HDR/negative original values smoothly before handing
+    // back the untouched texture at t=1. These animation limits never export.
+    return mix(encoded, printed, smoothstep(0.84, 1.0, t));
+}
+
 fragment float4 canvasFragment(QuadOut in [[stage_in]],
                                texture2d<float> image [[texture(0)]],
                                texture2d<float> before [[texture(1)]],
@@ -478,60 +560,21 @@ fragment float4 canvasFragment(QuadOut in [[stage_in]],
     } else {
         c = (u.magnification >= 1.0) ? image.sample(near, suv).rgb : image.sample(lin, suv).rgb;
     }
-    // **The light passes, and the print comes up in its wake.**
-    //
-    // 光带一边扫过,被扫过的地方同时显影 — that is the brief, and it needs
-    // three things to be true of the pixels at once:
-    //
-    //   - **Ahead of the band**: the film, untouched.
-    //   - **At the band**: light, warm, because the lamp is. Two widths,
-    //     because one Gaussian reads as a blur rather than as a lamp.
-    //   - **Behind it**: paper, with the image arriving *into* it — and not at
-    //     once. That was the bug in the version before this one: its wake was
-    //     two percent of the frame wide for a shadow, so the print was simply
-    //     *there* the moment the light had passed and the whole thing read as
-    //     another picture being slid across. `reach` is per pixel and in tens
-    //     of percent now, so what the light leaves behind it is visibly still
-    //     coming up.
-    //
-    // `u.develop` is negative when there is no film on the canvas, so a
-    // ceremony at 0 and no ceremony at all stay different pictures.
-    if (u.develop >= 0.0) {
+    // A held negative is exact at zero; at one the original print is exact.
+    // Compare/Space takes precedence over the presentation animation.
+    if (u.develop >= 0.0 && u.compare == 0u) {
         float3 film = (u.magnification >= 1.0) ? before.sample(near, suv).rgb
                                                : before.sample(lin, suv).rgb;
-        float3 printed = (u.magnification >= 1.0) ? image.sample(near, suv).rgb
-                                                  : image.sample(lin, suv).rgb;
-        float3 paper = float3(0.93, 0.91, 0.87);
-        // Where the band is, in output widths. It starts just off the left edge
-        // and finishes past the right one, because the last strip the light
-        // crosses still has to develop — that happens with the band already
-        // gone, which is also why the movement ends before the animation does.
-        float position = mix(-0.06, 1.70, u.develop);
-        float d = position - ouv.x;              // positive: behind the band
-        // The sheet: the film is replaced where the light has already passed.
-        float sheet = smoothstep(-0.004, 0.004, d);
-        // **The two events are deliberately not synchronised.** The light
-        // leaves *paper* behind it and nothing else: `onset` is the stretch of
-        // frame still white after the band has gone over it, and the image only
-        // begins arriving in the sheet beyond that. Without the gap the density
-        // and the light arrive together, and then the wake is the picture by
-        // the time the band has passed it — which is an uncover, however wide
-        // the wake is. This is the difference the brief asks for: 扫过去一点
-        // 以后白色才开始显影.
-        float onset = 0.08;
-        // The image arriving in that sheet, densest first: the parts of the
-        // print that were given the most light reach density soonest, and the
-        // highlights are still paper when everything else has settled. This
-        // ordering is a property of the pixel — which is why no edge geometry
-        // could ever express it.
-        float luma = dot(printed, float3(0.2126, 0.7152, 0.0722));
-        float reach = mix(0.16, 0.50, saturate(luma));
-        float developed = smoothstep(onset, onset + reach, d);
-        c = mix(film, mix(paper, printed, developed), sheet);
-        // The light itself.
-        float core = exp(-(d * d) * 9000.0);
-        float spill = exp(-(d * d) * 700.0);
-        c += float3(1.0, 0.87, 0.64) * (core * 0.80 + spill * 0.18);
+        float3 printed = c;
+        if (u.develop <= 0.0) { c = film; }
+        else if (u.develop >= 1.0) { c = printed; }
+        else if (u.developmentStyle == 1u) {
+            c = mix(film, printed, smoothstep(0.0, 1.0, u.develop));
+        } else {
+            float paperTime = saturate((u.develop - 0.10) / 0.90);
+            float3 paper = developPaper(printed, paperTime);
+            c = mix(film, paper, smoothstep(0.0, 0.10, u.develop));
+        }
     }
     if (u.editingCrop != 0 && u.geometry.active != 0 && !insideCrop(suv, u.geometry)) {
         c = mix(c, ground, 0.6);
@@ -541,14 +584,18 @@ fragment float4 canvasFragment(QuadOut in [[stage_in]],
 
 // 4 rows × 256 bins: R, G, B, luma. Sampled on a stride so a 2 MP frame costs
 // ~130k reads; plenty for a 256-bin plot.
-kernel void histogram(texture2d<float, access::read> src [[texture(0)]],
+kernel void histogram(texture2d<float, access::sample> src [[texture(0)]],
                       device atomic_uint *bins [[buffer(0)]],
                       constant uint &stride [[buffer(1)]],
+                      constant GeometryUniform &geometry [[buffer(2)]],
+                      constant uint2 &outputSize [[buffer(3)]],
                       uint2 gid [[thread_position_in_grid]])
 {
     uint2 p = gid * stride;
-    if (p.x >= src.get_width() || p.y >= src.get_height()) return;
-    float3 c = saturate(src.read(p).rgb);
+    if (any(p >= outputSize)) return;
+    constexpr sampler lin(coord::normalized, address::clamp_to_edge, filter::linear);
+    float2 uv = (float2(p) + 0.5) / float2(outputSize);
+    float3 c = saturate(src.sample(lin, geometryMap(uv, geometry)).rgb);
     uint r = uint(c.r * 255.0 + 0.5), g = uint(c.g * 255.0 + 0.5), b = uint(c.b * 255.0 + 0.5);
     uint y = uint(saturate(luma(c)) * 255.0 + 0.5);
     atomic_fetch_add_explicit(&bins[r], 1u, memory_order_relaxed);

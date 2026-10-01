@@ -53,13 +53,12 @@ final class ModernCalibrationTests: XCTestCase {
     /// Every `.swift` under a directory, relative to the app source root.
     private func swiftFiles(under relativePath: String) -> [String] {
         let root = Self.sourceRoot.appendingPathComponent(relativePath)
-        guard let walker = FileManager.default.enumerator(at: root,
-                                                          includingPropertiesForKeys: nil) else {
-            return []
-        }
-        return walker.compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "swift" }
-            .map { $0.path.replacingOccurrences(of: Self.sourceRoot.path + "/", with: "") }
+        // atPath returns relative names. Absolute enumeration canonicalises
+        // /tmp to /private/tmp, which a prefix replacement cannot strip.
+        guard let walker = FileManager.default.enumerator(atPath: root.path) else { return [] }
+        return walker.compactMap { $0 as? String }
+            .filter { URL(fileURLWithPath: $0).pathExtension == "swift" }
+            .map { relativePath + "/" + $0 }
             .sorted()
     }
 

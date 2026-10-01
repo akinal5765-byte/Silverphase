@@ -31,6 +31,7 @@
 
 import SwiftUI
 import XCTest
+import ImageIO
 
 @MainActor
 final class StockListTests: XCTestCase {
@@ -151,4 +152,107 @@ final class StockListTests: XCTestCase {
         XCTAssertEqual(Theme.well, Theme.ground,
                        "the export page's well is unchanged")
     }
+    func testMaterialBrowserFiltersIntersectSearchWithoutLosingCatalog() throws {
+        let catalog = StockCatalog.shared
+        try XCTSkipIf(catalog.films.isEmpty, "catalog unavailable")
+        let all = MaterialBrowserChoice.choices(catalog: catalog, tab: .film, filter: .all,
+                                               query: "", favorites: [], recent: [])
+        XCTAssertEqual(Set(all.map(\.id)), Set(catalog.films.map(\.id)))
+        let filtered = MaterialBrowserChoice.choices(catalog: catalog, tab: .film, filter: .negative,
+                                                    query: "portra", favorites: [], recent: [])
+        XCTAssertFalse(filtered.isEmpty)
+        XCTAssertTrue(filtered.allSatisfy { $0.stock?.isPositive == false && $0.title.localizedStandardContains("portra") })
+        let favorite = MaterialBrowserChoice.choices(catalog: catalog, tab: .film, filter: .favorites,
+                                                    query: "velvia", favorites: ["kodak_portra_400"], recent: [])
+        XCTAssertTrue(favorite.isEmpty, "search and favourite filter must intersect")
+        let recent = MaterialBrowserChoice.choices(catalog: catalog, tab: .film, filter: .recent,
+                                                  query: "", favorites: [], recent: ["missing", "kodak_portra_400", "fujifilm_velvia_100", MaterialBrowserChoice.diID])
+        XCTAssertEqual(recent.map(\.id), ["kodak_portra_400", "fujifilm_velvia_100"])
+        let paper = MaterialBrowserChoice.choices(catalog: catalog, tab: .paper, filter: .all,
+                                                 query: "", favorites: [], recent: [])
+        XCTAssertEqual(paper.count, catalog.papers.count + 2)
+        XCTAssertEqual(Array(paper.prefix(2).map(\.id)), [MaterialBrowserChoice.scanID, MaterialBrowserChoice.diID])
+    }
+
+    func testMaterialPreferencesPersistIDsAndDeduplicateRecentUse() {
+        let suite = "material-browser-test-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let library = MaterialBrowserLibrary(defaults: defaults)
+        library.toggleFavorite("a")
+        library.toggleFavorite("b")
+        library.toggleFavorite("b")
+        for i in 0..<25 { library.recordUse("s\(i)") }
+        library.recordUse("s20")
+        let restored = MaterialBrowserLibrary(defaults: defaults)
+        XCTAssertEqual(restored.favorites, ["a"])
+        XCTAssertEqual(restored.recent.count, 20)
+        XCTAssertEqual(restored.recent.first, "s20")
+        XCTAssertEqual(restored.recent.filter { $0 == "s20" }.count, 1)
+        XCTAssertFalse(restored.recent.contains("s0"))
+    }
+
+    func testCatalogCarriesNominalSpeedsOnlyForCameraFilms() throws {
+        let url = try XCTUnwrap(StockCatalog.bundle.url(forResource: "StockCatalog", withExtension: "json", subdirectory: "Resources"))
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let stocks = try XCTUnwrap(root["stocks"] as? [[String: Any]])
+        for stock in stocks {
+            if stock["stage"] as? String == "filming" {
+                XCTAssertGreaterThan(stock["nominalSpeed"] as? Int ?? 0, 0, "\(stock["id"] ?? "") needs nominal speed")
+            } else {
+                XCTAssertNil(stock["nominalSpeed"] as? Int, "printing stocks must not inherit camera ISO")
+            }
+        }
+        let push = try XCTUnwrap(stocks.first { $0["id"] as? String == "kodak_portra_800_push2" })
+        XCTAssertEqual(push["nominalSpeed"] as? Int, 800, "push processing does not rename nominal film speed")
+    }
+
+    func testEmptyLibraryDoesNotShowOrReserveBottomChrome() {
+        let session = Session()
+        XCTAssertTrue(session.frames.isEmpty)
+        XCTAssertFalse(session.showsBottomStrip)
+        XCTAssertEqual(session.bottomChromeOcclusion, 0,
+                       "empty canvas must not reserve an invisible navigation bar")
+    }
+
+    func testMaterialCardShortNamesPreserveProcessingAndStockIdentity() throws {
+        let catalog = StockCatalog.shared
+        let kodachrome = try XCTUnwrap(catalog.stock("kodak_kodachrome_64"))
+        let choice = MaterialBrowserChoice(id: kodachrome.id, stock: kodachrome)
+        XCTAssertEqual(choice.cardTitle, "Kodachrome 64")
+        XCTAssertEqual(choice.stock?.name, "Kodak Kodachrome 64")
+        let pushed = try XCTUnwrap(catalog.stock("kodak_portra_800_push2"))
+        let pushChoice = MaterialBrowserChoice(id: pushed.id, stock: pushed)
+        XCTAssertEqual(pushChoice.cardTitle, "Portra 800 (Push 2)")
+        XCTAssertEqual(pushChoice.id, "kodak_portra_800_push2")
+        let scan = MaterialBrowserChoice(id: MaterialBrowserChoice.scanID, stock: nil)
+        XCTAssertEqual(scan.cardTitle, scan.title)
+    }
+
+    func testAllMaterialPackagingArtworkDecodesFromBundle() throws {
+        let catalog = StockCatalog.shared
+        XCTAssertEqual(catalog.stocks.count, 28)
+        for stock in catalog.stocks {
+            let url = try XCTUnwrap(stock.packagingArtworkURL, stock.id)
+            let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil), stock.id)
+            let image = try XCTUnwrap(CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 224,
+            ] as CFDictionary), stock.id)
+            XCTAssertEqual(Double(image.width) / Double(image.height), 16.0 / 9.0, accuracy: 0.02, stock.id)
+        }
+        for id in [MaterialBrowserChoice.scanID, MaterialBrowserChoice.diID] {
+            let choice = MaterialBrowserChoice(id: id, stock: nil)
+            let url = try XCTUnwrap(choice.artworkURL, id)
+            let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil), id)
+            XCTAssertNotNil(CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 224,
+            ] as CFDictionary), id)
+        }
+        let portra = try XCTUnwrap(catalog.stock("kodak_portra_800"))
+        XCTAssertEqual(catalog.stock("kodak_portra_800_push1")?.packagingArtworkURL, portra.packagingArtworkURL)
+        XCTAssertEqual(catalog.stock("kodak_portra_800_push2")?.packagingArtworkURL, portra.packagingArtworkURL)
+    }
+
 }

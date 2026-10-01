@@ -98,7 +98,13 @@ struct CropSection: View {
     /// reshapes the crop about its centre, preserves its area and refits it.
     /// Going through one function is what keeps the orientation button and
     /// the picker from drifting into two different behaviours.
+    ///
+    /// **Choosing a ratio enters the crop tool** — the user's decision. Out of
+    /// the tool an aspect change used to crop the canvas silently, with no
+    /// frame and no handles to say what had been cut. The tool goes up
+    /// *first*, so the geometry Esc returns to is the one before the ratio.
     private func setAspect(_ a: CropAspect) {
+        if session.tool != .crop { session.tool = .crop }
         var next = g
         next.aspect = a
         session.geometry = next.constrained(in: size)
@@ -145,7 +151,7 @@ struct CropSection: View {
         let out = g.outputSize(for: size)
         let w = Int((out.width * scale).rounded()), h = Int((out.height * scale).rounded())
         let mp = Double(w * h) / 1_000_000
-        return g.isIdentity ? "\(w) × \(h)  ·  full frame"
+        return g.isIdentity ? "\(w) × \(h)  ·  " + L("full frame", zh: "未裁剪")
                             : String(format: "%d × %d  ·  %.1f MP", w, h, mp)
     }
 

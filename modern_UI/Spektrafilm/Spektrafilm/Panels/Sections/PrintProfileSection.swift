@@ -49,6 +49,7 @@ struct PrintProfileSection: View {
     /// for why that separation is load-bearing — and this is the id the list
     /// uses to spell it without either side inventing a stock name.
     private static let positiveID = "__scan_film__"
+    private static let diID = "__digital_intermediate__"
 
     /// Whether the chosen film is a slide film, in which case no paper on the
     /// list may be chosen.
@@ -84,6 +85,9 @@ struct PrintProfileSection: View {
         out.append(StockList.Row(id: "__group_Positive", name: "Positive", isHeader: true))
         out.append(StockList.Row(id: Self.positiveID, name: L(.printNone),
                                  help: "Scan the developed film instead of printing it — a slide film reads as a positive, a negative film as the negative it is."))
+        out.append(StockList.Row(id: Self.diID, name: L(.printDigitalIntermediate),
+                                 help: L(.printDigitalIntermediateHelp), enabled: !filmIsPositive,
+                                 disabledReason: filmIsPositive ? Self.positiveOnlyReason : ""))
         return out
     }
 
@@ -107,11 +111,13 @@ struct PrintProfileSection: View {
     private var listSection: some View {
         PanelSection(L(.sectionPaper), key: "printList") {
             StockList(rows: rows,
-                      selected: session.params.scanFilm || filmIsPositive
-                                ? Self.positiveID : session.params.printStock,
+                      selected: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive
+                                ? (session.digitalIntermediateActive ? Self.diID : Self.positiveID) : session.params.printStock,
                       visibleRows: Self.wellRows) { id in
-                if id == Self.positiveID {
-                    var p = session.params; p.scanFilm = true; session.params = p
+                if id == Self.diID {
+                    session.selectDigitalIntermediate()
+                } else if id == Self.positiveID {
+                    session.selectScanFilm()
                 } else {
                     // `rowEnabled` already withholds the click; this is the
                     // second door, because the row's own gesture is not the
@@ -135,26 +141,26 @@ struct PrintProfileSection: View {
                                                set: { var p = session.params; p.printBrightnessStops = $0; session.params = p }),
                                 range: -3...3, snap: 0.25,
                                 format: { String(format: "%+.2f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                     ScrubSlider(label: L(.printContrast),
                                 value: Binding(get: { session.params.printContrast },
                                                set: { var p = session.params; p.printContrast = $0; session.params = p }),
                                 range: 0.7...1.3, zero: 1, snap: 0.05,
                                 format: { String(format: "%.2f×", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                     .help("Reshapes the selected paper's density response, separate from film development contrast. 1× preserves the original paper profile.")
                     ScrubSlider(label: L(.printYellow), sublabel: "Kodak CC",
                                 value: Binding(get: { session.params.yFilterShift },
                                                set: { var p = session.params; p.yFilterShift = $0; session.params = p }),
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                     ScrubSlider(label: L(.printMagenta), sublabel: "Kodak CC",
                                 value: Binding(get: { session.params.mFilterShift },
                                                set: { var p = session.params; p.mFilterShift = $0; session.params = p }),
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                     ScrubSlider(label: L(.printPreflash),
                                 value: Binding(get: { session.params.preflashExposure },
                                                set: { var p = session.params; p.preflashExposure = $0; session.params = p }),
@@ -162,7 +168,7 @@ struct PrintProfileSection: View {
                                 // Only dragging is limited to the useful span.
                                 range: 0...0.05, entryRange: 0...1, snap: 0.005,
                                 format: { String(format: "%.3f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                 }
                 InspectorSubblock(title: T("Optical Diffusion", "光学柔化")) {
                     RailRows {
@@ -171,21 +177,21 @@ struct PrintProfileSection: View {
                                  selection: Binding(
                                     get: { DiffusionChoice(rawValue: session.params.enlargerDiffusion) ?? .off },
                                     set: { var p = session.params; p.enlargerDiffusion = $0.rawValue; session.params = p }))
-                        .disabled(session.params.scanFilm || filmIsPositive)
+                        .disabled(session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                         .help(L(.enlargerSoftnessHelp))
                         ScrubSlider(label: L(.enlargerSoftnessStrength),
                                     value: Binding(get: { session.params.enlargerDiffusionStrength },
                                                    set: { var p = session.params; p.enlargerDiffusionStrength = $0; session.params = p }),
                                     range: 0.125...2, zero: 0.5, snap: 0.125,
                                     format: { String(format: "%.3g", $0) },
-                                    disabled: session.params.scanFilm || filmIsPositive ||
+                                    disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive ||
                                               session.params.enlargerDiffusion == "off")
                         ScrubSlider(label: L(.enlargerSoftnessRange),
                                     value: Binding(get: { session.params.enlargerDiffusionRange },
                                                    set: { var p = session.params; p.enlargerDiffusionRange = $0; session.params = p }),
                                     range: 0.5...2, zero: 1, snap: 0.1,
                                     format: { String(format: "%.1f×", $0) },
-                                    disabled: session.params.scanFilm || filmIsPositive ||
+                                    disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive ||
                                               session.params.enlargerDiffusion == "off")
                         .help(L(.enlargerSoftnessRangeHelp))
                     }

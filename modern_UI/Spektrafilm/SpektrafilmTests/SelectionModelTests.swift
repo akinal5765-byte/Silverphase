@@ -324,4 +324,89 @@ final class SelectionModelTests: XCTestCase {
             .appending(path: "Spektrafilm/\(relative)")
         return try String(contentsOf: root, encoding: .utf8)
     }
+    func testPhotoMarksRoundTripWithoutWritingSourceOrRenderSettings() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let photo = root.appending(path: "photo.tif")
+        let source = Data("original photo".utf8)
+        try source.write(to: photo)
+        let store = root.appending(path: "store")
+        try FrameMarks(rating: 4, flag: .pick).save(for: photo, directory: store)
+        XCTAssertEqual(FrameMarks.load(for: photo, directory: store), FrameMarks(rating: 4, flag: .pick))
+        XCTAssertEqual(try Data(contentsOf: photo), source)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.appending(path: Sidecar.key(for: photo)).path))
+        try FrameMarks(rating: 99, flag: .reject).save(for: photo, directory: store)
+        XCTAssertEqual(FrameMarks.load(for: photo, directory: store), FrameMarks(rating: 5, flag: .reject))
+        XCTAssertEqual(FrameMarks.load(for: root.appending(path: "other.tif"), directory: store), FrameMarks())
+        try FrameMarks().save(for: photo, directory: store)
+        XCTAssertEqual(FrameMarks.load(for: photo, directory: store), FrameMarks())
+    }
+
+    func testNavigatorEXIFSummaryPreservesSharedAndMixedFields() {
+        let a = EXIFReadout(iso: "ISO 400", shutter: "1/250 s", aperture: "f/2.8")
+        XCTAssertEqual(EXIFReadout.summary([a]), "f/2.8 · 1/250 s · ISO 400")
+        XCTAssertEqual(EXIFReadout.summary([a, a]), EXIFReadout.summary([a]))
+        let b = EXIFReadout(iso: "ISO 800", shutter: "1/250 s", aperture: nil)
+        let mixed = EXIFReadout.summary([a, b])
+        XCTAssertTrue(mixed.contains("1/250 s"))
+        XCTAssertFalse(mixed.contains("ISO 400"))
+        XCTAssertFalse(mixed.contains("f/2.8"))
+        XCTAssertEqual(EXIFReadout.summary([nil]), "")
+    }
+
+    func testSharedPhotoMarksAndCombinedFilters() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let photo = root.appending(path: "rated.png")
+        let library = PhotoMarkLibrary(directory: root.appending(path: "marks"))
+        try library.set(FrameMarks(rating: 4, flag: .pick), for: photo)
+        await library.preload([photo])
+        XCTAssertEqual(library.marks(for: photo), FrameMarks(rating: 4, flag: .pick))
+        let filter = PhotoMarkFilter(minimumRating: 3, flag: .pick)
+        XCTAssertTrue(filter.includes(library.marks(for: photo)))
+        XCTAssertFalse(filter.includes(FrameMarks(rating: 2, flag: .pick)))
+        XCTAssertFalse(filter.includes(FrameMarks(rating: 5, flag: .reject)))
+        XCTAssertTrue(PhotoMarkFilter(unratedOnly: true).includes(FrameMarks()))
+        XCTAssertFalse(PhotoMarkFilter(unratedOnly: true).includes(library.marks(for: photo)))
+        XCTAssertTrue(PhotoMarkFilter(flag: FrameMarks.Flag.none).includes(FrameMarks()))
+        XCTAssertFalse(PhotoMarkFilter(flag: FrameMarks.Flag.none).includes(library.marks(for: photo)))
+        try library.set(FrameMarks(rating: 1, flag: .pick), for: photo)
+        XCTAssertFalse(filter.includes(library.marks(for: photo)))
+        XCTAssertEqual(FrameMarks.load(for: photo, directory: root.appending(path: "marks")).rating, 1)
+    }
+
+    func testRatingShortcutAppliesToSelectedSetAndPreservesFlags() throws {
+        let (session, urls) = try openedSession()
+        session.click(urls[0])
+        session.click(urls[2], command: true)
+        try session.photoMarks.set(FrameMarks(flag: .pick), for: urls[0])
+        let selection = session.selectedFrames
+        session.rateFrame(5)
+        XCTAssertEqual(session.photoMarks.marks(for: urls[0]), FrameMarks(rating: 5, flag: .pick))
+        XCTAssertEqual(session.photoMarks.marks(for: urls[2]).rating, 5)
+        XCTAssertEqual(session.photoMarks.marks(for: urls[1]).rating, 0)
+        XCTAssertEqual(session.selectedFrames, selection)
+        session.rateFrame(0)
+        XCTAssertEqual(session.photoMarks.marks(for: urls[0]), FrameMarks(flag: .pick))
+    }
+
+    func testRatingKeysDoNotInterceptParameterEditingOrSheets() throws {
+        func key(_ text: String, modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                timestamp: 0, windowNumber: 0, context: nil, characters: text,
+                charactersIgnoringModifiers: text, isARepeat: false, keyCode: 18))
+        }
+        for digit in 0...5 {
+            XCTAssertEqual(CanvasNSView.photoRatingShortcut(try key("\(digit)"), firstResponder: nil, hasSheet: false), digit)
+        }
+        for digit in ["6", "9", "a", "12"] { XCTAssertNil(FrameMarks.ratingShortcut(digit)) }
+        XCTAssertNil(CanvasNSView.photoRatingShortcut(try key("3"), firstResponder: NSTextView(), hasSheet: false))
+        XCTAssertNil(CanvasNSView.photoRatingShortcut(try key("3"), firstResponder: NSTextField(), hasSheet: false))
+        XCTAssertNil(CanvasNSView.photoRatingShortcut(try key("3"), firstResponder: nil, hasSheet: true))
+        for modifier: NSEvent.ModifierFlags in [.command, .control, .option, .shift] {
+            XCTAssertNil(CanvasNSView.photoRatingShortcut(try key("3", modifiers: modifier), firstResponder: nil, hasSheet: false))
+        }
+    }
+
 }

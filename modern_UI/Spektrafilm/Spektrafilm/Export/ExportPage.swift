@@ -585,8 +585,8 @@ struct ExportPage: View {
                 .font(bodyValue)
                 .foregroundStyle(Theme.text)
                 .frame(width: M.pillWidth, height: M.pillHeight)
-                .pillSurface(base: Theme.well)
-                .contentShape(Capsule())
+                .controlSurface()
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
     }
@@ -681,7 +681,7 @@ struct ExportPage: View {
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: Theme.Metric.recipeMenuGlyph, weight: .semibold))
                 }
                 .font(bodyLabel)
                 .foregroundStyle(Theme.text)
@@ -972,7 +972,7 @@ struct ExportPage: View {
             // two-tone ones: orange means "in the name", grey means "not".
             // Both get the same surface, so the pair reads as one switch
             // rather than as a button and a label. UI-SPEC §2.2.
-            .pillSurface(base: on ? Theme.exportAccent : Theme.exportChip, wash: !on)
+            .pillSurface(base: on ? Theme.exportAccent : Theme.exportChip)
             .contentShape(Capsule())
             .onTapGesture {
                 var n = recipe.wrappedValue.naming
@@ -1102,6 +1102,7 @@ struct ExportPage: View {
     private var previewRow: some View {
         row(T("Preview", "预览图")) {
             CheckBox(isOn: recipe.embedsPreview)
+                .padding(.trailing, Theme.Metric.checkboxTrailingInset)
                 .help(T("Writes a preview image into the TIFF, about a tenth larger. Off unless a recipe asks for it.",
                         "将预览图写入 TIFF，文件约增大一成；仅在配方启用时写入。"))
         }
@@ -1384,7 +1385,7 @@ struct ExportPage: View {
                 .foregroundStyle(enabled ? Theme.card : Theme.text.opacity(Theme.disabledOpacity))
                 .padding(.horizontal, 12)
                 .frame(height: bodyRowHeight)
-                .pillSurface(base: enabled ? Theme.accent : Theme.pill, wash: !enabled)
+                .pillSurface(base: enabled ? Theme.accent : Theme.pill)
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -1421,7 +1422,7 @@ struct ExportPage: View {
     private var centre: some View {
         viewerPane
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.ground)
+            .background(Theme.canvasSurround)
     }
 
     /// The bar's reserved strip: ground, with the pill floating on it.
@@ -1435,7 +1436,7 @@ struct ExportPage: View {
             .padding(.top, Theme.Metric.barTop)
             .padding(.bottom, Theme.Metric.barTop)
             .frame(maxWidth: .infinity)
-            .background(Theme.ground)
+            .background(Theme.canvasSurround)
     }
 
     /// Viewer's middle column: the bar's strip, then the proof.
@@ -1660,7 +1661,7 @@ struct ExportPage: View {
                             ExportGridCell(frame: frame,
                                            chosen: frame.id == session.selection,
                                            state: session.frameStates[frame.id] ?? .unprocessed,
-                                           width: cell)
+                                           width: cell, cropGeometry: session.thumbnailGeometry(for: frame.id))
                                 .onTapGesture { tap(frame) }
                                 .contextMenu {
                                     Button(T("Reveal in Finder", "在访达中显示")) {
@@ -1694,7 +1695,8 @@ struct ExportPage: View {
                     ForEach(worklist) { frame in
                         ExportStripCell(frame: frame,
                                         chosen: frame.id == session.selection,
-                                        state: session.frameStates[frame.id] ?? .unprocessed)
+                                        state: session.frameStates[frame.id] ?? .unprocessed,
+                                        cropGeometry: session.thumbnailGeometry(for: frame.id))
                             .onTapGesture { tap(frame) }
                     }
                 }
@@ -1863,12 +1865,18 @@ struct ExportPage: View {
     private func run() {
         guard let r = store.selected, !batch.isEmpty, !running else { return }
         running = true
+        session.batchExporting = true
         note = nil
         // The file on the pane is about to be replaced by one that does not
         // exist yet; until it does, the render stands.
         filePreview = nil
         Task {
-            defer { running = false }
+            if r.format != .di { session.beginBatchExport() }
+            defer {
+                if r.format != .di { session.endBatchExport() }
+                running = false
+                session.batchExporting = false
+            }
             let home = session.selection
             let urls = batch
             var written: [URL] = []
@@ -1885,6 +1893,7 @@ struct ExportPage: View {
             var problems: [String] = []
             var fellBack = false
             for (i, url) in urls.enumerated() {
+                if Task.isCancelled { break }
                 session.exportProgress = Double(i) / Double(urls.count)
                 // `select`, not `click`: the run has to put each frame on the
                 // canvas — the exporter reads the open frame — and a click
@@ -1896,6 +1905,7 @@ struct ExportPage: View {
                                       "\(url.lastPathComponent) 仍在冲洗处理中。"))
                     continue
                 }
+                guard session.selection == url else { continue }
                 do {
                     let out = try await Exporter.export(session: session, recipe: r,
                                                         context: nameContext, sessionID: sid)
@@ -1993,7 +2003,10 @@ private struct ExportStripCell: View {
     let chosen: Bool
     /// Unread by this cell; kept as the guard test's construction seam.
     let state: FrameState
-    @State private var image: CGImage?
+    var cropGeometry = Geometry()
+    @State private var rawImage: CGImage?
+    @State private var shownImage: CGImage?
+    private var image: CGImage? { shownImage ?? rawImage }
 
     /// Keep the frame on the fitted image, not on the strip's fixed-height
     /// layout box.  The latter is what made a portrait thumbnail look as if
@@ -2037,12 +2050,15 @@ private struct ExportStripCell: View {
                 .lineLimit(1).truncationMode(.middle)
         }
         .help(frame.name)
+        .task(id: CropMask.Key(image: rawImage.map(ObjectIdentifier.init), geometry: cropGeometry)) {
+            shownImage = rawImage.map { CropMask.masked($0, by: cropGeometry) }
+        }
         .task(id: frame.id) {
-            image = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024)
+            rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024)
         }
         .onReceive(NotificationCenter.default.publisher(for: .thumbnailUpdated)) { n in
             guard (n.object as? URL) == frame.id else { return }
-            Task { image = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024) }
+            Task { rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024) }
         }
     }
 }
@@ -2071,7 +2087,10 @@ private struct ExportGridCell: View {
     let state: FrameState
     /// The column's thumbnail width, from the card's width and the slider.
     let width: CGFloat
-    @State private var image: CGImage?
+    var cropGeometry = Geometry()
+    @State private var rawImage: CGImage?
+    @State private var shownImage: CGImage?
+    private var image: CGImage? { shownImage ?? rawImage }
 
     /// The box a picture is fitted into, and the cell's own width. Nearly
     /// square, and slightly taller — the drawing's two example frames are a
@@ -2121,12 +2140,15 @@ private struct ExportGridCell: View {
                 .frame(width: box.width)
         }
         .help(frame.name)
+        .task(id: CropMask.Key(image: rawImage.map(ObjectIdentifier.init), geometry: cropGeometry)) {
+            shownImage = rawImage.map { CropMask.masked($0, by: cropGeometry) }
+        }
         .task(id: frame.id) {
-            image = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024)
+            rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024)
         }
         .onReceive(NotificationCenter.default.publisher(for: .thumbnailUpdated)) { n in
             guard (n.object as? URL) == frame.id else { return }
-            Task { image = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024) }
+            Task { rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 1024) }
         }
     }
 }
@@ -2202,8 +2224,8 @@ private struct PillField<MenuContent: View>: View {
             }
             .frame(height: Theme.Metric.gridControl)
             .frame(maxWidth: .infinity)
-            .pillSurface(base: Theme.pill)
-            .contentShape(Capsule())
+            .controlSurface()
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
         .rowEnabled(!dimmed, because: dimmed ? (help ?? "") : "")

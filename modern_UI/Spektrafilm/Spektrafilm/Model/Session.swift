@@ -113,6 +113,11 @@ final class Session: CanvasHost {
         set { guard newValue != sidecar.params else { return }
               PerformanceTrace.event("Physical Parameter Changed")
               pushUndo()
+              if renderer.holdForNegative || renderer.showingFilmScan {
+                  negativePending = false
+                  ceremonyArmed = false
+                  renderer.cancelFilmDevelopment()
+              }
               sidecar.params = newValue; requestPrint(); markStale(); scheduleSave() }
     }
     var adjustments: Adjustments {
@@ -345,6 +350,11 @@ final class Session: CanvasHost {
     var inspectorStage: InspectorStage = .camera
     /// The right-hand Film stage is the material-selection mode: the bottom
     /// slot becomes the film and paper chooser instead of the navigator.
+    var showsBottomStrip: Bool { !frames.isEmpty }
+    var bottomChromeOcclusion: CGFloat {
+        showsBottomStrip ? Theme.Metric.modernBottomStripHeight + Theme.Metric.modernSurfaceGutter : 0
+    }
+
     var modernFilmChooserActive: Bool {
         !modernBatchGridActive && !showExport
             && !rightCollapsed && inspectorStage == .film
@@ -436,6 +446,9 @@ final class Session: CanvasHost {
     /// draw handles in view coordinates. The renderer is not `@Observable`
     /// and should not become so — it is touched per draw.
     private(set) var viewportSnapshot = ViewportState()
+    /// The Latitude section's measurement and Scene Placement's refusals
+    /// (`Model/Latitude.swift`).
+    let latitude = LatitudeModel()
     /// The crop tool's pivot, mirrored from the renderer for the same reason
     /// and the same audience: the overlay draws in edit space, which is a
     /// rotation about this point. The renderer owns it — it feeds the uniform
@@ -477,10 +490,9 @@ final class Session: CanvasHost {
 
     /// Print the negative: bring the print up in the paper.
     ///
-    /// Not a wipe, and not a dissolve either: the film is replaced by the
-    /// sheet, and the picture then arrives *in* the sheet, densest parts first.
-    /// One second and a bit: long enough to read as a process, short enough not
-    /// to be a wait. The canvas owns the duration
+    /// The film gives way to paper, then neutral and color densities emerge
+    /// across the whole sheet. DI uses a short scan crossfade instead.
+    /// The canvas owns the duration
     /// (`Renderer.printDevelopSeconds`) because it owns the clock.
     func printNegative() {
         guard negativePending, renderer.filmScan != nil else { return }
@@ -498,10 +510,14 @@ final class Session: CanvasHost {
     /// session is untouched: `scan_film` is the paper list's "No Print
     /// Profile" and setting it on the wire would move the interface.
     private func requestFilmScan(for url: URL) {
+        let generation = serviceGeneration
+        let recipe = params
         Task { [weak self, client] in
             let texture = (try? await client.previewScan(tier: "live"))?.texture
             await MainActor.run {
-                self?.finishFilmScan(texture, for: url)
+                guard let self, self.serviceGeneration == generation,
+                      self.params == recipe else { return }
+                self.finishFilmScan(texture, for: url)
             }
         }
     }
@@ -516,6 +532,12 @@ final class Session: CanvasHost {
             renderer.holdForNegative = false
             return
         }
+        guard !renderer.reduceMotion(), !params.scanFilm else {
+            renderer.cancelFilmDevelopment()
+            negativePending = false
+            return
+        }
+        renderer.developmentStyle = digitalIntermediateActive ? .scan : .paper
         renderer.filmScan = texture
         renderer.develop = 0
         renderer.holdForNegative = false
@@ -651,6 +673,29 @@ final class Session: CanvasHost {
     var serviceReady = false
     var lastError: String?
     var exportProgress: Double?
+    /// A batch export is walking the picked set (`ExportPage.run`).
+    ///
+    /// The exporter writes **whatever frame is open**, and the run opens each
+    /// frame in turn with `select`. While this is set, every *person's* way of
+    /// changing the open frame or the set — `click`, `open(_:)`, `togglePick`,
+    /// `open(urls:)`, the arrow keys through `click` — is a no-op, so a click
+    /// mid-batch cannot put a different frame under the file being written.
+    /// `select` itself is not gated: it is the run's own door.
+    var batchExporting = false
+
+    /// Every library frame's geometry as last saved, for the thumbnails that
+    /// mask each frame's crop (`CropMaskedThumbnail`). Read from the sidecars
+    /// `open(urls:)` already loads, and kept by `flushSave` and
+    /// `refreshState`. The open frame is not read from here — see
+    /// `thumbnailGeometry(for:)`.
+    private(set) var savedGeometry: [URL: Geometry] = [:]
+
+    /// The geometry a frame's thumbnail is drawn with: the live one for the
+    /// frame on the canvas, so a crop drag shows in the strip as it happens,
+    /// and the saved one for every other.
+    func thumbnailGeometry(for url: URL) -> Geometry {
+        url == selection ? geometry : (savedGeometry[url] ?? .default)
+    }
     var lastRenderMs: Double = 0
     private var statusBase: String?
     var stockWarning: String?
@@ -828,12 +873,26 @@ final class Session: CanvasHost {
     private var fullTask: Task<Void, Never>?
     private var fullGeneration = 0
 
-    /// Clipboard for ⌘C/⌘V. Film, print and Layer 2 settings only: the decode
-    /// block is per-frame (a lens filter) and the crop is framing. Every field
-    /// is an offset, so pasting means "same recipe, each frame solves its own
-    /// exposure" (frontend SPEC §5.5).
-    struct SettingsClip: Sendable { var params: FilmParams }
-    private var clipboard: SettingsClip?
+    /// The settings clipboard (RFC-027): what ⇧⌘C took, with the groups it was
+    /// taken with. In memory; a relaunch starts empty.
+    private(set) var clipboard: SettingsClip?
+    var copySettingsRequest: SettingsCopyRequest?
+
+    /// The last confirmed copy dialog selection, remembered for the next copy.
+    var clipboardGroups: Set<ClipboardGroup> = Session.storedClipboardGroups() {
+        didSet {
+            UserDefaults.standard.set(clipboardGroups.map(\.rawValue).sorted(),
+                                      forKey: Self.clipboardGroupsKey)
+        }
+    }
+
+    nonisolated static let clipboardGroupsKey = uiKey + "clipboard.groups"
+
+    private static func storedClipboardGroups() -> Set<ClipboardGroup> {
+        guard let raw = UserDefaults.standard.stringArray(forKey: clipboardGroupsKey)
+        else { return Set(ClipboardGroup.allCases) }
+        return Set(raw.compactMap(ClipboardGroup.init(rawValue:)))
+    }
 
     // MARK: undo and the work clock
 
@@ -875,6 +934,8 @@ final class Session: CanvasHost {
     /// reason: a test that injects a `Diagnostics` gets its records too.
     var log: Log { diagnostics.log }
     let catalog = StockCatalog.shared
+    let materialLibrary = MaterialBrowserLibrary()
+    let photoMarks = PhotoMarkLibrary()
     private var serviceSessionID: String?
     private var engineArenaHandle: MemoryArena.Handle?
     /// Approximate engine session footprint for a 45 MP frame (PRD/IMPL-RFC-019-memory.md §3.2);
@@ -897,6 +958,10 @@ final class Session: CanvasHost {
 
     /// Whether this frame's develop has been asked for.
     private var wantsDevelop = false
+    /// Tests only: called after the develop's `open` delta is built and before
+    /// it is sent, which is the one point where an edit lands on a session the
+    /// engine is being handed without it (RFC-027 §5.1).
+    @ObservationIgnored var afterOpenDeltaForTesting: (() -> Void)?
     /// What each of RFC-015 §2.3's four intents would choose for the frame on
     /// screen, as the last develop's `solve` reported them.
     ///
@@ -1024,6 +1089,11 @@ final class Session: CanvasHost {
         }
         renderer.onHistogram = { [weak self] h in self?.histogram = h }
         renderer.onViewportChanged = { [weak self] in self?.viewportChanged() }
+        // RFC-028: a Digital Intermediate's pixels are Cineon codes. The
+        // canvas, Post-Dev and every rendered export read them through the DI
+        // view (`CineonLUT`); only the Digital Intermediate export writes the
+        // codes themselves.
+        renderer.layer2DecodesCineon = { [weak self] in self?.digitalIntermediateActive ?? false }
         renderer.layer2 = sidecar.adjustments.uniforms
         renderer.legacyGradeActive = usesLegacyGrade
         Session.removeLegacyLinearCache()
@@ -1256,6 +1326,7 @@ final class Session: CanvasHost {
     // MARK: - library
 
     func open(urls: [URL]) {
+        guard !batchExporting else { status = "An export is running."; return }
         let new = Library.frames(from: urls)
         guard !new.isEmpty else { status = "Nothing openable in the selection."; return }
         if let selection, !new.contains(where: { $0.id == selection }) {
@@ -1263,7 +1334,10 @@ final class Session: CanvasHost {
         }
         ThumbnailCache.shared.clear()
         frames = new
-        frameStates = Dictionary(uniqueKeysWithValues: new.map { ($0.id, Sidecar.load(for: $0.id)?.state ?? .unprocessed) })
+        // One read per frame, for both things the library shows of it.
+        let saved = new.map { ($0.id, Sidecar.load(for: $0.id)) }
+        frameStates = Dictionary(uniqueKeysWithValues: saved.map { ($0.0, $0.1?.state ?? .unprocessed) })
+        savedGeometry = Dictionary(uniqueKeysWithValues: saved.map { ($0.0, $0.1?.geometry ?? .default) })
         libraryTitle = urls.count == 1 ? urls[0].lastPathComponent : "\(new.count) files"
         renderer.store.removeAll()
         // A new folder is a new set: whatever was picked belongs to the
@@ -1339,7 +1413,9 @@ final class Session: CanvasHost {
 
     /// Re-read a frame's sidecar state — used after a reset from the grid.
     func refreshState(for url: URL) {
-        frameStates[url] = Sidecar.load(for: url)?.state ?? .unprocessed
+        let saved = Sidecar.load(for: url)
+        frameStates[url] = saved?.state ?? .unprocessed
+        savedGeometry[url] = saved?.geometry ?? .default
         if url == selection { sidecar = Sidecar.load(for: url) ?? Sidecar() }
     }
 
@@ -1387,6 +1463,7 @@ final class Session: CanvasHost {
     /// what a ⌘-click does is testable without synthesising one — the reading
     /// itself stays in the gesture, once, at each call site.
     func click(_ url: URL, command: Bool = false, shift: Bool = false) {
+        guard !batchExporting else { return }
         guard frames.contains(where: { $0.id == url }) else { return }
         if shift {
             let anchor = pickAnchor ?? selection ?? url
@@ -1420,6 +1497,7 @@ final class Session: CanvasHost {
     /// no-op rather than an unselect, and the way to drop it is to open
     /// another frame.
     func togglePick(_ url: URL) {
+        guard !batchExporting else { return }
         guard picked.contains(url) else { picked.insert(url); return }
         guard url != selection else { return }
         picked.remove(url)
@@ -1432,7 +1510,10 @@ final class Session: CanvasHost {
     /// where the set *is* the page's content. Not `select` either: `select` is
     /// the internal load, and the export run calls it deliberately for that
     /// reason. This is the person's gesture on a page whose list is the batch.
-    func open(_ url: URL) { guard picked.contains(url) else { return }; select(url) }
+    func open(_ url: URL) {
+        guard !batchExporting, picked.contains(url) else { return }
+        select(url)
+    }
 
     func select(_ url: URL) {
         let selectionTrace = PerformanceTrace.begin("Frame Select UI")
@@ -1453,6 +1534,7 @@ final class Session: CanvasHost {
         }
         loadTask?.cancel()
         selection = url
+        latitude.clear()
         previewSoft = false
         sourceLongEdge = 0
         // A new frame invalidates the previous frame's native render; the
@@ -1475,6 +1557,11 @@ final class Session: CanvasHost {
         let sidecarStarted = Date()
         sidecar = Sidecar.load(for: url) ?? Sidecar()
         canvasLog("frame select sidecar \(Int(Date().timeIntervalSince(sidecarStarted) * 1000)) ms")
+        // Except a frame with an edit the engine has not rendered — a paste
+        // made while another frame was on the canvas (RFC-027 §4). That edit
+        // asked for a develop as surely as a slider does, and without one the
+        // frame would open onto its bare decode. Nothing else saves `.stale`.
+        if sidecar.state == .stale { wantsDevelop = true }
         renderer.layer2 = sidecar.adjustments.uniforms
         renderer.legacyGradeActive = usesLegacyGrade
         renderer.setCurves(sidecar.adjustments.curves)
@@ -1491,9 +1578,7 @@ final class Session: CanvasHost {
         // coming back to that frame auto-develops it (`ceremonyArmed` is
         // already spent).
         negativePending = false
-        renderer.filmScan = nil
-        renderer.develop = 0
-        renderer.holdForNegative = false
+        renderer.cancelFilmDevelopment()
         exif = nil
         let readEXIF = exifReader
         exifTask = Task.detached(priority: .utility) { [weak self] in
@@ -2022,7 +2107,7 @@ final class Session: CanvasHost {
         // first-ever import pays for the same frame; every other frame in the
         // open — and every later open of a frame that has been through the
         // ceremony — still comes from the cache.
-        if !requiresDecode, !ceremonyArmed, let picture = await cachedPrint(for: url) {
+        if !requiresDecode, !ceremonyArmed, !wantsDevelop, let picture = await cachedPrint(for: url) {
             guard !Task.isCancelled, selection == url else { return }
             sourceLongEdge = max(picture.sourceSize.width, picture.sourceSize.height)
             displaySourceSize = picture.sourceSize
@@ -2039,7 +2124,7 @@ final class Session: CanvasHost {
             status = "\(url.lastPathComponent)  ·  restored print"
             return
         }
-        if !requiresDecode, let picture = await displayPicture(for: url, settings: settings) {
+        if !requiresDecode, !wantsDevelop, let picture = await displayPicture(for: url, settings: settings) {
             guard !Task.isCancelled, selection == url else { return }
             displayCacheHitCount += 1
             sourceLongEdge = max(picture.sourceSize.width, picture.sourceSize.height)
@@ -2222,7 +2307,7 @@ final class Session: CanvasHost {
     /// first operation that needs scene-linear pixels — develop, white-balance
     /// sampling, neutral picking, export — comes through here and turns the
     /// preview-only landing into a real decode.
-    private func ensureDecoded() async -> DecodedImage? {
+    func ensureDecoded() async -> DecodedImage? {
         guard let url = selection else { return nil }
 
         while true {
@@ -2356,6 +2441,12 @@ final class Session: CanvasHost {
         defer { busy = wasBusy }
         do {
             let r: OpenResponse
+            // What the open actually carries. The scheduler is reset to *this*,
+            // not to the sidecar after the await: an edit made while the engine
+            // was being handed the frame is not on the engine, and recording it
+            // as sent is how a paste showed the new film over the old print
+            // (RFC-027 §5.1). The `request` at the end of the develop sends it.
+            var opened = sidecar.params
             do {
                 // Its own scope, so the 727 MB buffer is gone before the solve
                 // and the first render run — at -Onone too, where a value is
@@ -2367,9 +2458,10 @@ final class Session: CanvasHost {
                 }.value
                 clock.lap("frame")
                 guard selection == url, !Task.isCancelled else { return nil }
-                r = try await client.open(
-                    frame,
-                    paramsDelta: Self.openDelta(sidecar: sidecar, previewLongEdge: previewLongEdge))
+                opened = sidecar.params
+                let delta = Self.openDelta(sidecar: sidecar, previewLongEdge: previewLongEdge)
+                afterOpenDeltaForTesting?()
+                r = try await client.open(frame, paramsDelta: delta)
             }
             // The client holds one session; open replaces it. The handle follows
             // the session, not the develop, so an open only ever replaces this
@@ -2395,7 +2487,7 @@ final class Session: CanvasHost {
             // app can find out which one it got.
             noteWorkingSpace(r.params["output_color_space"]?.stringValue
                              ?? Self.defaultWorkingSpace)
-            serviceGeneration = scheduler.reset(sessionID: r.sessionID, params: sidecar.params)
+            serviceGeneration = scheduler.reset(sessionID: r.sessionID, params: opened)
             // What the engine's own auto-exposure chose for this frame. The
             // Exp. Comp. slider is an offset from it, so the UI has to know
             // the baseline to show it (HANDOFF §4). `solve(target:"exposure")`
@@ -2518,20 +2610,24 @@ final class Session: CanvasHost {
         lastRenderMs = r.elapsedMs
         if let base = statusBase { status = "\(base)  ·  \(r.reprint ? "reprint" : "render") \(Int(r.elapsedMs)) ms" }
         // The ceremony, if this is the open's first print: the frame comes
-        // back as the film that was just developed, and Print wipes it.
+        // back as the film that was just developed, and Print reveals it.
         if ceremonyArmed {
             ceremonyArmed = false
             // **Hold the canvas.** The print is in hand — `setLive` above put
             // it there — but this frame is about to arrive as its *film*, and
             // drawing the print for the second or so the scan takes would
             // spoil the moment it exists for. Blank until the film lands.
-            renderer.holdForNegative = true
-            requestFilmScan(for: url)
+            if !params.scanFilm && !renderer.reduceMotion() {
+                renderer.holdForNegative = true
+                requestFilmScan(for: url)
+            }
         }
         frameStates[url] = .processed
         sidecar.state = .processed
         scheduleSave()
         updateThumbnail(url, from: tex)
+        scheduleLatitudeRefresh()
+        resolvePendingPlacement()
         if firstPrint { sampleMemory("first_print") }
         // The native render is the next step. A resident one made from
         // *different* parameters is no longer the print on screen, and showing
@@ -2603,7 +2699,7 @@ final class Session: CanvasHost {
         // every slider release. Same kernel, same size, same pixels.
         Task { @MainActor in
             guard let tex = input.texture else { return }
-            let source: MTLTexture
+            var source: MTLTexture
             if long > maxEdge {
                 let scale = Double(maxEdge) / Double(long)
                 let w = max(1, Int((Double(tex.width) * scale).rounded()))
@@ -2613,6 +2709,8 @@ final class Session: CanvasHost {
             } else {
                 source = tex
             }
+            if edit.params.digitalIntermediateActive(filmIsPositive: self.catalog.stock(edit.params.filmStock)?.isPositive ?? false),
+               let view = renderer.applyCineonView(to: source) { source = view }
             Session.encodeThumbnail(TextureBox(source), maxEdge: maxEdge, url: url,
                                     edit: edit, ticket: ticket)
         }
@@ -2758,6 +2856,7 @@ final class Session: CanvasHost {
         saveTask?.cancel()
         guard let url = selection else { return }
         try? sidecar.save(for: url)
+        savedGeometry[url] = sidecar.geometry
     }
 
     // MARK: - white balance
@@ -2887,6 +2986,7 @@ final class Session: CanvasHost {
     /// declared paper pairing and slide-film rule in exactly the same way.
     func selectFilmStock(_ stock: String) {
         guard catalog.stock(stock)?.isFilm == true else { return }
+        materialLibrary.recordUse(stock)
         let returningFromPositive = filmIsPositive && catalog.stock(stock)?.isPositive == false
         var p = params
         p.filmStock = stock
@@ -2900,18 +3000,74 @@ final class Session: CanvasHost {
         applyFilmStageRule()
     }
 
+    /// RFC-028: whether this frame renders as a Digital Intermediate.
+    var digitalIntermediateActive: Bool {
+        params.digitalIntermediateActive(filmIsPositive: filmIsPositive)
+    }
+
+    /// Choose the Digital Intermediate in the print list. Like "No Print
+    /// Profile" it leaves the paper where it was, so choosing a paper again
+    /// comes back to it.
+    func selectDigitalIntermediate() {
+        guard !filmIsPositive else { return }
+        materialLibrary.recordUse(MaterialBrowserChoice.diID)
+        var p = params
+        p.digitalIntermediate = true
+        p.scanFilm = false
+        params = p
+    }
+
+    /// Settings ▸ Rendering: the DI's optional blue-sector compensation. An
+    /// app setting (`FilmParams.diBlueCompensation`), so the open frame is
+    /// pushed and reprinted here; every other frame reads it at open.
+    var diBlueCompensation: Bool {
+        get { FilmParams.diBlueCompensation }
+        set {
+            guard newValue != FilmParams.diBlueCompensation else { return }
+            UserDefaults.standard.set(newValue, forKey: FilmParams.diBlueCompensationKey)
+            diBlueCompensationRevision += 1
+            guard digitalIntermediateActive, let sid = serviceSessionID, selection != nil else { return }
+            Task { [weak self] in
+                guard let self else { return }
+                _ = try? await self.client.call(.setParams,
+                    SetParamsRequest(sessionID: sid,
+                                     paramsDelta: ["digital_intermediate_blue_compensation": .bool(newValue)]),
+                    as: SetParamsResponse.self)
+                guard self.serviceSessionID == sid, self.selection != nil else { return }
+                if let rr = try? await self.client.render(.reprint, RenderRequest(sessionID: sid)) {
+                    self.applyRender(rr, generation: self.serviceGeneration)
+                }
+            }
+        }
+    }
+    /// Observation hook for the Settings toggle; the value lives in defaults.
+    private(set) var diBlueCompensationRevision = 0
+
+    func selectScanFilm() {
+        materialLibrary.recordUse(MaterialBrowserChoice.scanID)
+        var p = params
+        p.scanFilm = true
+        p.digitalIntermediate = false
+        params = p
+    }
+
     func selectPrintStock(_ stock: String) {
         // The one gate. `PrintProfileSection` greys the rows so the interface
         // says why, but the rule lives here so that a menu item, a sidecar or
         // a future caller cannot route around it.
         guard !filmIsPositive else { return }
+        materialLibrary.recordUse(stock)
         if fastStockPreview, printLUTStocks[stock] != nil { startStockPreview(stock) }
         var p = params
         p.printStock = stock
         p.scanFilm = false
+        p.digitalIntermediate = false
         params = p
     }
 
+    /// Choosing a film also follows its **declared** paper, unless the user
+    /// has already made a pairing of their own. The film list's rule, here so
+    /// the agent layer (RFC-026) chooses a film exactly as a click does.
     /// Choosing a film decides whether there is a print stage at all.
     ///
     /// Called by the film list. A positive is scanned, and `printStock` is
@@ -3029,8 +3185,7 @@ final class Session: CanvasHost {
             p.sideLengthMM = Self.customSideLength(p.sideLengthMM, side: filmSide,
                                                    aspect: physicalAspect)
         }
-        p.filmFormatMM = Self.filmFormatMM(side: filmSide, sideLengthMM: p.sideLengthMM,
-                                           aspect: physicalAspect)
+        p.filmFormatMM = derivedFilmFormatMM(side: filmSide, sideLengthMM: p.sideLengthMM)
         params = p
     }
 
@@ -3043,8 +3198,7 @@ final class Session: CanvasHost {
             p.sideLengthMM = Self.customSideLength(p.sideLengthMM, side: side,
                                                    aspect: physicalAspect)
         }
-        p.filmFormatMM = Self.filmFormatMM(side: side, sideLengthMM: p.sideLengthMM,
-                                           aspect: physicalAspect)
+        p.filmFormatMM = derivedFilmFormatMM(side: side, sideLengthMM: p.sideLengthMM)
         params = p
     }
 
@@ -3077,7 +3231,7 @@ final class Session: CanvasHost {
             ? Self.customSideLength(params.sideLengthMM, side: filmSide, aspect: physicalAspect)
             : params.sideLengthMM
         let mm = Self.filmFormatMM(side: filmSide, sideLengthMM: sideLength,
-                                   aspect: physicalAspect)
+                                   aspect: physicalAspect, cropScale: cropScale)
         guard abs(mm - params.filmFormatMM) > 0.001
                 || sideLength != params.sideLengthMM else { return }
         if beforeOpen {
@@ -3116,28 +3270,65 @@ final class Session: CanvasHost {
     /// statement — that the cropped rectangle *is* the frame, re-mapped — and
     /// it is what someone shooting a 6×17 out of a 3:2 file wants.
     var physicalAspect: Double {
-        guard let size = decoded?.pixelSize, size.width > 0, size.height > 0 else { return 3.0 / 2.0 }
+        let (w, h) = physicalFrame
+        guard w > 0, h > 0 else { return 3.0 / 2.0 }
+        return max(w, h) / min(w, h)
+    }
+
+    /// How many times the frame's long edge the crop's long edge is, when the
+    /// crop is the frame; 1 when it is not.
+    ///
+    /// The engine never sees the crop — it develops the whole source and the
+    /// crop is cut afterwards — and it derives the pixel pitch from the
+    /// **source's** long edge (`pipeline.cpp`, `preprocess.crop_rescale`).
+    /// So "the crop is a 36 mm frame" has to be said as "the source is
+    /// 36 mm × this": the crop's own pixels at the crop's own pitch. Without
+    /// it only the crop's *shape* reached the engine, so a crop to half the
+    /// frame at the same ratio changed nothing at all, and a full-height 1:1
+    /// out of a 3:2 135 frame — a 24 × 24 mm square of the same negative,
+    /// whose grain should not change — came out 1.5× coarser.
+    var cropScale: Double {
+        guard Session.recalculateEffectsAfterCrop,
+              let size = decoded?.pixelSize, size.width > 0, size.height > 0 else { return 1 }
+        let (w, h) = physicalFrame
+        guard w > 0, h > 0 else { return 1 }
+        return max(Double(size.width), Double(size.height)) / max(w, h)
+    }
+
+    /// The frame the physical scale is measured on, in pixels: the source,
+    /// or the crop when the setting says the crop is the frame. The crop's
+    /// size in pixels is the same at any straighten angle.
+    private var physicalFrame: (Double, Double) {
+        guard let size = decoded?.pixelSize, size.width > 0, size.height > 0 else { return (0, 0) }
         var w = Double(size.width), h = Double(size.height)
         if Session.recalculateEffectsAfterCrop {
             let c = sidecar.geometry.crop
             w *= c.width; h *= c.height
         }
-        guard w > 0, h > 0 else { return 3.0 / 2.0 }
-        return max(w, h) / min(w, h)
+        return (w, h)
+    }
+
+    /// `film_format_mm` for this frame, from the user's side and length.
+    func derivedFilmFormatMM(side: FilmSide, sideLengthMM: Double) -> Double {
+        Self.filmFormatMM(side: side, sideLengthMM: sideLengthMM,
+                          aspect: physicalAspect, cropScale: cropScale)
     }
 
     /// The engine's number, from the user's. It wants the frame's **long
     /// edge**; Side = Short means the length describes the other one, so the
-    /// aspect is what closes the gap.
+    /// aspect is what closes the gap. `cropScale` carries a crop's physical
+    /// frame out to the source's long edge (see `cropScale`).
     ///
     /// Clamped to the service's own 4…200: an extreme aspect with a 56 mm
     /// short side is arithmetic the engine would refuse, and a refused
     /// `set_params` is a render that does not happen rather than a frame that
-    /// looks wrong.
+    /// looks wrong. It is also where the crop-is-the-frame mode stops: a crop
+    /// under about a fifth of a 135 frame's long edge asks for more than
+    /// 200 mm, and its grain stops growing there.
     nonisolated static func filmFormatMM(side: FilmSide, sideLengthMM: Double,
-                                         aspect: Double) -> Double {
+                                         aspect: Double, cropScale: Double = 1) -> Double {
         let long = side == .long ? sideLengthMM : sideLengthMM * max(aspect, 1)
-        return long.clamped(to: 4...200)
+        return (long * max(cropScale, 1)).clamped(to: 4...200)
     }
 
     /// "Recalculate film effects after a crop" — `physicalAspect`'s switch,
@@ -3148,6 +3339,13 @@ final class Session: CanvasHost {
         get { UserDefaults.standard.bool(forKey: cropRecalcKey) }
         set { UserDefaults.standard.set(newValue, forKey: cropRecalcKey) }
     }
+
+    /// RFC-025's *Decouple effects*: whether the Film section shows a strength
+    /// for each effect beside its switch. A view preference, not an edit --
+    /// `FilmParams.effects` is on the wire either way, so turning this off
+    /// hides the sliders and never changes a picture. Read with `@AppStorage`
+    /// under this key where a view has to follow it.
+    nonisolated static let decoupleEffectsKey = Session.uiKey + "decoupleEffects"
 
     func setAutoExposureMethod(_ method: String?) {
         guard method != params.autoExposureMethod else { return }
@@ -3183,7 +3381,8 @@ final class Session: CanvasHost {
                   let texture = outcome.texture else { return }
             await MainActor.run {
                 guard let self, self.selection == url, self.rendersLanded == landed,
-                      self.params.printStock == stock, !self.params.scanFilm else { return }
+                      self.params.printStock == stock, !self.params.scanFilm,
+                      !self.params.digitalIntermediate else { return }
                 // Not `store.setPrint`: this is not the print, and caching it
                 // as one would hand it back on the next frame switch as
                 // though the pipeline had produced it. It goes on the canvas
@@ -3200,6 +3399,19 @@ final class Session: CanvasHost {
     func geometryChanged(_ g: Geometry) { geometry = g }
     func straightenPreview(_ line: StraightenLine?) { straightenPreview = line }
     func stepFrame(_ delta: Int) { selectRelative(delta) }
+    func rateFrame(_ rating: Int) {
+        let targets = selectedFrames.isEmpty ? selection.map { [$0] } ?? [] : selectedFrames
+        do {
+            for image in targets {
+                var marks = photoMarks.marks(for: image)
+                marks.rating = rating
+                try photoMarks.set(marks, for: image)
+            }
+        } catch {
+            refusal = Refusal(badge: T("Photo marks", "照片标记"),
+                              message: error.localizedDescription, kind: .unknown)
+        }
+    }
     func toggledOriginal(_ on: Bool) {
         if on { leaveCropTool() }
         // A person asking for the original now, like Compare: an idle native
@@ -3256,7 +3468,7 @@ final class Session: CanvasHost {
         hundred.target = self; hundred.isEnabled = !zoomLocked
         m.addItem(.separator())
         let copy = m.addItem(withTitle: L(.menuCopySettings), action: #selector(copyMenu), keyEquivalent: "")
-        copy.target = self; copy.isEnabled = selection != nil
+        copy.target = self; copy.isEnabled = canRequestCopySettings
         let paste = m.addItem(withTitle: L(.menuPasteSettings), action: #selector(pasteMenu), keyEquivalent: "")
         paste.target = self; paste.isEnabled = canPasteSettings
         m.addItem(.separator())
@@ -3266,7 +3478,7 @@ final class Session: CanvasHost {
     }
     @objc private func zoomFit() { zoomToFit() }
     @objc private func zoomHundred() { zoomTo(fraction: 1) }
-    @objc private func copyMenu() { copySettings() }
+    @objc private func copyMenu() { requestCopySettings() }
     @objc private func pasteMenu() { pasteSettings() }
     @objc private func resetCrop() { geometry = .default }
     @objc private func exportMenu() { showExport = true }
@@ -3283,6 +3495,20 @@ final class Session: CanvasHost {
     func zoomToFit() {
         guard !zoomLocked else { return }
         renderer.viewport.fit(); viewportChanged(); renderer.needsDraw?()
+    }
+    /// The navigator's click and drag: put the frame's normalised point `n` at
+    /// the centre of the canvas, at the current zoom. The one clamp still
+    /// applies, so near an edge the view stops at the edge rather than showing
+    /// the surround. Nothing to do at fit, where there is nowhere to go.
+    func centreView(onNormalised n: CGPoint) {
+        guard !zoomLocked else { return }
+        var v = renderer.viewport
+        guard !v.isFit else { return }
+        v.offset = CGPoint(x: v.viewport.width / 2 - n.x * v.image.width * v.scale,
+                           y: v.viewport.height / 2 - n.y * v.image.height * v.scale)
+        v.clamp()
+        renderer.viewport = v
+        viewportChanged(); renderer.needsDraw?()
     }
     func zoomTo(fraction: CGFloat) {
         guard !zoomLocked else { return }
@@ -3388,6 +3614,7 @@ final class Session: CanvasHost {
         fullTask?.cancel()
         fullTask = nil
         fullPending = false
+        guard !batchExportActive else { return }
         guard wantsFullRender, let url = selection, let sid = serviceSessionID else { return }
         fullGeneration += 1
         let gen = fullGeneration
@@ -3396,6 +3623,49 @@ final class Session: CanvasHost {
             guard let self, !Task.isCancelled, gen == self.fullGeneration else { return }
             await self.renderFullRender(for: url, sessionID: sid, generation: gen)
         }
+    }
+
+    /// A batch already requests a native-size print for each file. Keep the
+    /// canvas's independent native render from competing with that request.
+    private var batchExportActive = false
+
+    func beginBatchExport() {
+        batchExportActive = true
+        fullTask?.cancel()
+        fullTask = nil
+        if fullPending { client.cancelBackgroundRender() }
+        fullPending = false
+        fullGeneration += 1
+    }
+
+    func endBatchExport() {
+        batchExportActive = false
+        if wantsFullRender && !renderer.showsFullRender { scheduleFullRender() }
+    }
+
+    /// The export's engine result is the same full-tier working-space print
+    /// that the canvas would request. Retain it before Layer 2, geometry and
+    /// output colour conversion so the canvas keeps its native-resolution
+    /// behaviour without asking the engine to produce it twice.
+    func adoptBatchExportRender(_ outcome: RenderOutcome, sessionID sid: String) {
+        guard batchExportActive, serviceSessionID == sid, !scheduler.pending,
+              let url = selection, let tex = outcome.texture else { return }
+        let sourceSize = decoded?.pixelSize
+        let key = Self.printCacheKey(
+            url: url, params: scheduler.sent, decode: sidecar.decode, tier: .full,
+            previewLongEdge: previewLongEdge,
+            engineVersion: diagnostics.engineVersion ?? "unknown"
+        )
+        renderer.store.setFullRender(
+            tex, stamp: printStamp,
+            costMs: outcome.response.elapsedMs + (openClock?.setupMs ?? 0),
+            cacheKey: key,
+            sourceWidth: sourceSize.map { Int($0.width.rounded()) },
+            sourceHeight: sourceSize.map { Int($0.height.rounded()) },
+            for: url
+        )
+        renderer.setFullRender(tex)
+        previewSoft = false
     }
 
     /// Hand a frame's finished print textures to the bounded disk writer.
@@ -3451,9 +3721,9 @@ final class Session: CanvasHost {
         // next slider release. The rule is the one the ladder used: never
         // start one while an edit is owed a render — wait for the scheduler to
         // go idle and ask again, rather than dropping it.
-        guard !busy, !scheduler.pending, selection == url, serviceSessionID == sid,
+        guard !batchExportActive, !busy, !scheduler.pending, selection == url, serviceSessionID == sid,
               gen == fullGeneration, wantsFullRender else {
-            if selection == url, serviceSessionID == sid { scheduleFullRender() }
+            if !batchExportActive, selection == url, serviceSessionID == sid { scheduleFullRender() }
             return
         }
         fullPending = true
@@ -3535,7 +3805,7 @@ final class Session: CanvasHost {
     /// the service never needs to know, and grain is baked into its cached
     /// negative so a reprint is stable (HANDOFF §5).
     func undo() {
-        guard selection != nil, let previous = undoStack.popLast() else { return }
+        guard !batchExporting, selection != nil, let previous = undoStack.popLast() else { return }
         let current = sidecar
         sidecar = previous
         renderer.layer2 = previous.adjustments.uniforms
@@ -3556,27 +3826,122 @@ final class Session: CanvasHost {
         status = "Undo — \(undoStack.count) step\(undoStack.count == 1 ? "" : "s") left."
     }
 
-    var canPasteSettings: Bool { clipboard != nil && selection != nil }
+    var canRequestCopySettings: Bool { selection != nil && selectedFrames.count <= 1 && !batchExporting && copySettingsRequest == nil }
+    var canCopySettings: Bool { selection != nil && selectedFrames.count <= 1 && !clipboardGroups.isEmpty && !batchExporting }
 
-    func copySettings() {
-        guard selection != nil else { return }
-        clipboard = SettingsClip(params: sidecar.params)
-        status = "Copied film and print settings."
+    func requestCopySettings() {
+        guard canRequestCopySettings, let url = selection else { return }
+        copySettingsRequest = SettingsCopyRequest(settings: sidecar, sourceName: url.lastPathComponent,
+            groups: clipboardGroups.intersection(ClipboardGroup.offered))
     }
 
-    /// Offsets only (frontend SPEC §5.5): the decode block is per-frame and
-    /// the crop is framing, so neither is copied.
+    func confirmCopySettings(requestID: UUID, groups: Set<ClipboardGroup>) {
+        guard !batchExporting, let request = copySettingsRequest, request.id == requestID else { return }
+        let selected = groups.intersection(ClipboardGroup.offered)
+        guard !selected.isEmpty else { return }
+        clipboardGroups = selected
+        clipboard = SettingsClip(groups: selected, settings: request.settings, sourceName: request.sourceName)
+        status = "Copied \(selected.count) groups from \(request.sourceName)."
+        copySettingsRequest = nil
+    }
+
+    var canPasteSettings: Bool { clipboard != nil && !pasteTargets.isEmpty && !batchExporting && copySettingsRequest == nil }
+
+    /// Where a paste goes: every picked frame, which always includes the one
+    /// on the canvas (`togglePick`), or that frame alone.
+    var pasteTargets: [URL] {
+        let picked = selectedFrames
+        if !picked.isEmpty { return picked }
+        return selection.map { [$0] } ?? []
+    }
+
+    /// Take the ticked groups from the frame on the canvas (RFC-027 §3).
+    func copySettings() {
+        guard canCopySettings, let url = selection else { return }
+        clipboard = SettingsClip(groups: clipboardGroups, settings: sidecar,
+                                 sourceName: url.lastPathComponent)
+        status = "Copied \(clipboardGroups.count) of \(ClipboardGroup.allCases.count) groups from \(url.lastPathComponent)."
+    }
+
+    /// Write what the clipboard holds onto every paste target (RFC-027 §4).
+    /// The frame on the canvas takes it live and undoably; the others take it
+    /// on disk and develop with it when they are opened.
     func pasteSettings() {
-        guard let clip = clipboard, selection != nil else { return }
+        guard canPasteSettings, let clip = clipboard else { return }
+        let open = selection
+        let targets = pasteTargets
+        var written = 0
+        for url in targets where url != open {
+            if pasteOffline(clip, to: url) { written += 1 }
+        }
+        if let open, targets.contains(open), pasteLive(clip) { written += 1 }
+        status = written == 0
+            ? "Nothing to paste — the frames already have these settings."
+            : "Pasted \(clip.groups.count) group\(clip.groups.count == 1 ? "" : "s") onto \(written) frame\(written == 1 ? "" : "s")."
+    }
+
+    /// The paste on the frame on the canvas: one undo step, then each side
+    /// effect the individual setters would have had.
+    @discardableResult
+    private func pasteLive(_ clip: SettingsClip) -> Bool {
+        let next = clip.applied(to: sidecar)
+        guard next != sidecar else { return false }
         pushUndo()
-        sidecar.params = clip.params
-        // The clip carries a Tone, so the label has to follow the paste the
-        // same way it follows the pill (see `retargetSolvedEV`).
-        retargetSolvedEV()
+        let decodeChanged = next.decode != sidecar.decode
+        sidecar = next
+        if clip.groups.contains(.filmEffects) { recomputeFilmFormat(beforeOpen: true) }
+        // The clip carries a Tone, so the label follows the paste the same way
+        // it follows the pill.
+        if clip.groups.contains(.exposure) { retargetSolvedEV() }
+        if clip.groups.contains(.masks) {
+            selectedMaskID = sidecar.masks.first?.id
+            syncMasks()
+        }
+        if decodeChanged {
+            previewSoft = true
+            scheduleReopen()
+        } else {
+            requestPrint()
+        }
+        markStale()
+        scheduleSave()
+        // A developed frame can fit at once; one that is not yet will when its
+        // first render lands (`applyRender`).
+        resolvePendingPlacement()
+        return true
+    }
+
+    /// The Fit that completes a pasted Scene Placement (`resolvePendingPlacement`).
+    ///
+    /// Written straight to the sidecar with **no undo step**: it is the second
+    /// half of the paste, not an edit of its own. The undo snapshot the paste
+    /// pushed has the flag clear, so ⌘Z goes back past both halves at once and
+    /// can never land on a state that fits again.
+    func finishPastedPlacement(_ placement: SceneLatitudeSettings) {
+        sidecar.params.sceneLatitude = placement
+        sidecar.placementNeedsFit = false
         requestPrint()
         markStale()
         scheduleSave()
-        status = "Pasted settings — each frame keeps its own exposure solve."
+    }
+
+    /// The paste on a frame that is not on the canvas: written to its sidecar
+    /// now, rendered when it is next opened. Its resident print is the old
+    /// look and `select` would show it first, so it goes (PRD R2).
+    private func pasteOffline(_ clip: SettingsClip, to url: URL) -> Bool {
+        let current = Sidecar.load(for: url) ?? Sidecar()
+        var next = clip.applied(to: current)
+        guard next != current else { return false }
+        next.state = .stale
+        do {
+            try next.save(for: url)
+        } catch {
+            noteFailure(error, operation: "paste", frame: url.lastPathComponent)
+            return false
+        }
+        renderer.store.setPrint(nil, for: url)
+        frameStates[url] = .stale
+        return true
     }
 
     // MARK: - solve, and looking at the original
@@ -3872,14 +4237,27 @@ extension EngineClient {
 /// ISO / shutter / aperture for the histogram caption, via ImageIO.
 struct EXIFReadout: Sendable {
     var iso: String?, shutter: String?, aperture: String?
+    @MainActor static func summary(_ readouts: [EXIFReadout?]) -> String {
+        guard !readouts.isEmpty else { return "" }
+        let fields: [(String, KeyPath<EXIFReadout, String?>)] = [
+            (T("Aperture", "光圈"), \.aperture),
+            (T("Shutter", "快门"), \.shutter),
+            ("ISO", \.iso),
+        ]
+        return fields.compactMap { label, key in
+            let values = readouts.map { $0?[keyPath: key] }
+            guard values.contains(where: { $0 != nil }) else { return nil }
+            return Set(values).count == 1 ? values[0] : label + " " + T("Mixed", "多种")
+        }.joined(separator: " · ")
+    }
     static func read(_ url: URL) -> EXIFReadout? {
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
               let exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any] else { return nil }
         var r = EXIFReadout()
         if let iso = (exif[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first { r.iso = "ISO \(iso)" }
-        if let t = exif[kCGImagePropertyExifExposureTime] as? Double {
-            r.shutter = t >= 1 ? String(format: "%.0f s", t) : "1/\(Int((1 / t).rounded())) s"
+        if let t = exif[kCGImagePropertyExifExposureTime] as? Double, t.isFinite, t > 0 {
+            r.shutter = t >= 1 ? String(format: "%g s", t) : "1/\(Int(min(1 / t, Double(Int.max / 2)).rounded())) s"
         }
         if let f = exif[kCGImagePropertyExifFNumber] as? Double { r.aperture = String(format: "f/%g", f) }
         return r

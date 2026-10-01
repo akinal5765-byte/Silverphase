@@ -52,3 +52,8 @@ if [ -n "$licences" ]; then
   echo "error:  LUTs derived from them, Apache-2.0 for the vendored metal-cpp)" >&2
   exit 1
 fi
+
+# The DI canvas and export use the same shipped viewing tables.
+for f in "SpektraLab DI view, Cineon to ProPhoto RGB.cube" "SpektraLab DI view, Cineon to Rec709.cube"; do
+  [ -s "$res/DI/$f" ] || { echo "error: missing Digital Intermediate viewing LUT: $f" >&2; exit 1; }
+done

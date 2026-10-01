@@ -405,24 +405,11 @@ final class PrintLUTTests: XCTestCase {
                        "_DSC2439_kodak_portra_400_kodak_portra_endura.tif")
         XCTAssertEqual(tiff.deletingLastPathComponent().lastPathComponent, "_prints")
         let di = Exporter.destination(for: source, params: params, format: .di)
-        // The DI TIFF and the finished TIFF are the **same filename** — same
-        // stem, same `.tif` — and used to be written into the same folder,
-        // where they collided. The package's own folder is what makes that
-        // impossible: the file keeps its name, and the directory is the
-        // export's.
-        XCTAssertEqual(di.lastPathComponent, tiff.lastPathComponent)
+        // Cineon masters share the recipe folder with finished prints, with
+        // a distinct suffix; the shared view LUTs are copied once per folder.
+        XCTAssertEqual(di.lastPathComponent, "_DSC2439_kodak_portra_400_kodak_portra_endura_DI.tif")
         XCTAssertNotEqual(di, tiff)
-        XCTAssertEqual(di.deletingLastPathComponent().lastPathComponent,
-                       tiff.deletingPathExtension().lastPathComponent,
-                       "the DI package is not in a folder named for the export")
-        XCTAssertEqual(di.deletingLastPathComponent().deletingLastPathComponent(),
-                       tiff.deletingLastPathComponent(),
-                       "the package folder is not inside the recipe's own subfolder")
-        // And `-1` moves the folder with the file, so a second export of the
-        // same frame is one move and not two. Through a *recipe*, not through
-        // `Exporter.destination`: that helper pins `.overwrite` so it stays a
-        // pure function of its arguments, which is exactly the policy that
-        // never consults the disk.
+        XCTAssertEqual(di.deletingLastPathComponent(), tiff.deletingLastPathComponent())
         let dir = tiff.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: di.deletingLastPathComponent(),
                                                  withIntermediateDirectories: true)
@@ -434,10 +421,9 @@ final class PrintLUTTests: XCTestCase {
         var recipe = ExportRecipe(name: "DI", format: .di)
         recipe.existing = .addSuffix
         let second = try XCTUnwrap(recipe.destination(for: source, context: context))
-        XCTAssertEqual(second.deletingLastPathComponent().lastPathComponent,
-                       "\(tiff.deletingPathExtension().lastPathComponent)-1")
+        XCTAssertEqual(second.deletingLastPathComponent(), dir)
         XCTAssertEqual(second.lastPathComponent,
-                       "\(tiff.deletingPathExtension().lastPathComponent)-1.tif")
+                       "\(tiff.deletingPathExtension().lastPathComponent)-1_DI.tif")
         try? FileManager.default.removeItem(at: dir)
     }
 
@@ -453,7 +439,7 @@ final class PrintLUTTests: XCTestCase {
     ///
     /// Skips without the A7 III RAW, like the rest of the real-frame tests.
     @MainActor
-    func testTheDIPackageIsOneFolderWithTwoFiles() async throws {
+    func testTheCineonMasterCarriesTwoSharedViewLUTs() async throws {
         let copy = try diFrame()
         let out = copy.deletingLastPathComponent().appending(path: "out")
         try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
@@ -472,23 +458,16 @@ final class PrintLUTTests: XCTestCase {
         // The names are `testTheExportFilenames`' business; what this checks is
         // the shape around them, so it reads the stem off the result rather
         // than re-deriving the naming rule here.
-        XCTAssertEqual(result.urls.count, 2, "the package is not two files")
+        XCTAssertEqual(result.urls.count, 3, "the master and two view LUTs must be written")
         let tiff = try XCTUnwrap(result.urls.first { $0.pathExtension == "tif" })
-        let cube = try XCTUnwrap(result.urls.first { $0.pathExtension == "cube" })
         let package = tiff.deletingLastPathComponent()
         let listing = try FileManager.default.contentsOfDirectory(atPath: package.path).sorted()
-        XCTAssertEqual(listing.count, 2, "the package folder holds \(listing)")
-        XCTAssertEqual(Set(result.urls.map(\.lastPathComponent)), Set(listing),
-                       "a file was written outside the package folder")
-        XCTAssertEqual(package.deletingLastPathComponent().lastPathComponent, "packages",
-                       "the package is not inside the recipe's own subfolder")
-        let stem = tiff.deletingPathExtension().lastPathComponent
-        XCTAssertEqual(package.lastPathComponent, stem,
-                       "the package folder is not named for the export")
-        XCTAssertEqual(cube.deletingPathExtension().lastPathComponent,
-                       "\(stem)_\(session.params.printStock)",
-                       "the cube is not named for the same export")
-
+        XCTAssertEqual(listing.count, 3, "the export folder holds \(listing)")
+        XCTAssertEqual(Set(result.urls.map(\.lastPathComponent)), Set(listing))
+        XCTAssertEqual(package.lastPathComponent, "packages")
+        XCTAssertTrue(tiff.lastPathComponent.hasSuffix("_DI.tif"))
+        XCTAssertEqual(Set(result.urls.filter { $0.pathExtension == "cube" }.map(\.lastPathComponent)),
+                       Set(CineonLUT.Target.allCases.map(\.fileName)))
         // The preview is in the TIFF, not beside it.
         let src = try XCTUnwrap(CGImageSourceCreateWithURL(tiff as CFURL, nil))
         XCTAssertEqual(CGImageSourceGetCount(src), 2,

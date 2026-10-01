@@ -130,7 +130,9 @@ enum FilmSide: String, CaseIterable, Identifiable, Sendable {
 enum SideUnit: String, CaseIterable, Identifiable, Sendable {
     case mm, cm, inch
     var id: String { rawValue }
-    var title: String { self == .inch ? "in" : rawValue }
+    /// "inch" in full since 2026-09-28; millimetres and centimetres keep
+    /// their SI symbols, which are units, not abbreviations of a word.
+    var title: String { self == .inch ? "inch" : rawValue }
     /// Millimetres per unit.
     var perMM: Double {
         switch self {
@@ -205,7 +207,7 @@ enum AEMethod: Hashable, Identifiable, Sendable {
     case custom
     case metered(ExposureMethod)
     /// A sidecar written before the field existed: the engine's own
-    /// `center_weighted`, which is not a thing the menu offers.
+    /// `center_weighted`, also available as an explicit menu choice.
     case legacy
 
     var id: String {
@@ -218,15 +220,14 @@ enum AEMethod: Hashable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .custom: "Custom"
+        case .custom: "Auto exposure off (RAW baseline)"
         case .metered(let m): m.title.capitalizedFirst
-        case .legacy: "center-weighted (legacy)"
+        case .legacy: "Center weighted (original default)"
         }
     }
 
-    /// What the menu lists. `legacy` is not in it, because choosing it is not
-    /// a thing a user can do.
-    static var offered: [AEMethod] { [.custom] + ExposureMethod.allCases.map(AEMethod.metered) }
+    /// Every offered intent, including the original linear-light meter.
+    static var offered: [AEMethod] { [.custom] + ExposureMethod.allCases.map(AEMethod.metered) + [.legacy] }
 
     /// Read the pair of fields a frame actually carries.
     static func of(_ p: FilmParams) -> AEMethod {
@@ -247,7 +248,8 @@ enum AEMethod: Hashable, Identifiable, Sendable {
             p.autoExposureMethod = m.rawValue
         case .legacy:
             p.autoExposure = true
-            p.autoExposureMethod = nil
+            // Explicitly switch an already-open session; nil omits the wire field.
+            p.autoExposureMethod = "center_weighted"
         }
     }
 }
@@ -256,6 +258,166 @@ extension String {
     /// "protect highlights" → "Protect highlights". The drawing capitalises
     /// the pill's value ("Custom"), where the previous one lower-cased it.
     var capitalizedFirst: String { isEmpty ? self : prefix(1).uppercased() + dropFirst() }
+}
+
+/// RFC-024's virtual contrast mask: a regional gain on the enlarger's image
+/// exposure, before pre-flash and paper (API-SPEC §11). Print layer, so an edit
+/// reprints the cached negative. Every value is the user's; the defaults are
+/// the engine's placeholders and do nothing while `active` is false or both
+/// amounts are 0 (RFC-024 §12.5).
+struct ContrastMaskSettings: Codable, Equatable, Sendable {
+    var active = false
+    /// Stops by which the print's highlights (low paper exposure) are raised.
+    var highlights = 0.0           // 0…3
+    /// Stops by which the print's shadows (high paper exposure) are lowered.
+    var shadows = 0.0              // 0…3
+    /// Half-width of the untouched core about the negative's mid-grey, stops.
+    var core = 1.0                 // 0…3
+    /// The blur's sigma as a fraction of the frame's long edge.
+    var scale = 0.03               // 0.002…0.12
+    /// The base extractor by name; `gaussian` is the only product scheme.
+    var scheme = "gaussian"
+
+    static let scaleRange = 0.002...0.12
+
+    init() {}
+
+    /// Every key optional, so a sidecar from before a field existed decodes.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = ContrastMaskSettings()
+        active = try c.decodeIfPresent(Bool.self, forKey: .active) ?? d.active
+        highlights = try c.decodeIfPresent(Double.self, forKey: .highlights) ?? d.highlights
+        shadows = try c.decodeIfPresent(Double.self, forKey: .shadows) ?? d.shadows
+        core = try c.decodeIfPresent(Double.self, forKey: .core) ?? d.core
+        scale = try c.decodeIfPresent(Double.self, forKey: .scale) ?? d.scale
+        scheme = try c.decodeIfPresent(String.self, forKey: .scheme) ?? d.scheme
+    }
+}
+
+/// RFC-023's Scene Latitude (API-SPEC §12). Two halves, and keeping them apart
+/// is the RFC's §8.3:
+///
+/// - the **pull-backs** are UI state -- what the user dragged -- and never
+///   reach the wire;
+/// - the **resolved curve** (knees, rooms) is what `spk_scene_latitude` solved
+///   from them and is the only thing the engine renders. A paper change must
+///   not re-render an old edit, so nothing here is re-derived implicitly: the
+///   resolved values change only when a fit is applied.
+///
+/// Shoot layer: the curve sits before the film, so an edit re-develops.
+struct SceneLatitudeSettings: Codable, Equatable, Sendable {
+    // --- UI state, not on the wire ---
+    /// Stops the scene's top is pulled back; 0 = the highlight side is off.
+    var highlightPullBack = 0.0
+    /// Stops the scene's bottom is pulled up (the bounded landing); 0 = off.
+    var shadowPullBack = 0.0
+    /// Which robust extreme each side is fitted to: 0.1 or 1, 99.9 or 99.
+    var shadowPercentile = 0.1
+    var highlightPercentile = 99.9
+    // --- the resolved curve, on the wire ---
+    var active = false
+    var norm = "power"
+    var highlightKnee = 2.0
+    var highlightRoom = 0.0
+    var shadowKnee = -2.0
+    var shadowRoom = 0.0
+    var rolloff = 2.0              // 1…4
+    var maxLift = 4.0              // 0.25…12
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = SceneLatitudeSettings()
+        highlightPullBack = try c.decodeIfPresent(Double.self, forKey: .highlightPullBack) ?? d.highlightPullBack
+        shadowPullBack = try c.decodeIfPresent(Double.self, forKey: .shadowPullBack) ?? d.shadowPullBack
+        shadowPercentile = try c.decodeIfPresent(Double.self, forKey: .shadowPercentile) ?? d.shadowPercentile
+        highlightPercentile = try c.decodeIfPresent(Double.self, forKey: .highlightPercentile) ?? d.highlightPercentile
+        active = try c.decodeIfPresent(Bool.self, forKey: .active) ?? d.active
+        norm = try c.decodeIfPresent(String.self, forKey: .norm) ?? d.norm
+        highlightKnee = try c.decodeIfPresent(Double.self, forKey: .highlightKnee) ?? d.highlightKnee
+        highlightRoom = try c.decodeIfPresent(Double.self, forKey: .highlightRoom) ?? d.highlightRoom
+        shadowKnee = try c.decodeIfPresent(Double.self, forKey: .shadowKnee) ?? d.shadowKnee
+        shadowRoom = try c.decodeIfPresent(Double.self, forKey: .shadowRoom) ?? d.shadowRoom
+        rolloff = try c.decodeIfPresent(Double.self, forKey: .rolloff) ?? d.rolloff
+        maxLift = try c.decodeIfPresent(Double.self, forKey: .maxLift) ?? d.maxLift
+    }
+
+    /// The request that re-solves these pull-backs against the session's
+    /// current medium and scene.
+    var request: SceneLatitudeRequest {
+        SceneLatitudeRequest(highlightPullBack: highlightPullBack, shadowPullBack: shadowPullBack,
+                             rolloff: rolloff, maxLift: maxLift, norm: norm,
+                             shadowPercentile: shadowPercentile,
+                             highlightPercentile: highlightPercentile)
+    }
+
+    /// Take a fit: the pull-backs it was solved for become the UI state and
+    /// its resolved curve becomes the render state. Returns false -- and
+    /// changes nothing -- for a fit the engine refused, which carries no
+    /// `params_delta`, so a refused fit cannot be committed by accident.
+    @discardableResult
+    mutating func apply(_ fit: SceneLatitudeResponse.Fit) -> Bool {
+        guard fit.valid, let d = fit.paramsDelta else { return false }
+        highlightPullBack = fit.highlight.pullBack
+        shadowPullBack = fit.shadow.pullBack
+        active = d.active
+        norm = d.norm
+        highlightKnee = d.highlightKnee
+        highlightRoom = d.highlightRoom
+        shadowKnee = d.shadowKnee
+        shadowRoom = d.shadowRoom
+        rolloff = d.rolloff
+        maxLift = d.maxLift
+        return true
+    }
+}
+
+/// RFC-025: each film effect's strength, apart from the film that sets it.
+///
+/// The stock decides *how much* halation, grain and coupler cross-talk a
+/// negative has -- its antihalation tag, its grain model, its DIR matrix -- and
+/// until now the only thing the user could do about any of it was switch it
+/// off. These are multipliers on the stock's own value, so 1 is always "this
+/// film, as modelled", whichever film that is, and every default is the
+/// engine's, so a frame that has never seen them renders as it did.
+///
+/// Local halation reflection and DIR amount remain in their established
+/// physical controls; these fields supply the missing strengths and switches.
+struct EffectStrengths: Codable, Equatable, Sendable {
+    /// `grain_amount`: the grained density mixed over the clean one.
+    var grain = 1.0                // 0…2
+    /// `grain_sublayers_active`, which the Grain switch used to set too: the
+    /// three-sub-layer model against the single-layer one.
+    var grainLayered = true
+    /// `halation_scatter_amount`: the in-emulsion scatter, a mix weight.
+    var scatter = 1.0              // 0…1
+    /// `dir_couplers_active` / `dir_couplers_amount`: the inter-layer
+    /// inhibition that gives a stock its colour separation.
+    var couplersActive = true
+    /// `glare_amount`: the print's veil.
+    var glare = 1.0                // 0…4
+
+    static let grainRange = 0.0...2.0
+    static let scatterRange = 0.0...1.0
+    static let glareRange = 0.0...4.0
+
+    static let `default` = EffectStrengths()
+    var isDefault: Bool { self == .default }
+
+    init() {}
+
+    /// Every key optional, so a sidecar from before a field existed decodes.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = EffectStrengths()
+        grain = try c.decodeIfPresent(Double.self, forKey: .grain) ?? d.grain
+        grainLayered = try c.decodeIfPresent(Bool.self, forKey: .grainLayered) ?? d.grainLayered
+        scatter = try c.decodeIfPresent(Double.self, forKey: .scatter) ?? d.scatter
+        couplersActive = try c.decodeIfPresent(Bool.self, forKey: .couplersActive) ?? d.couplersActive
+        glare = try c.decodeIfPresent(Double.self, forKey: .glare) ?? d.glare
+    }
 }
 
 struct FilmParams: Codable, Equatable, Sendable {
@@ -267,6 +429,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         case halationAmount, antihalationMode, developmentContrast, colorSeparation
         case printBrightnessStops, printContrast, yFilterShift, mFilterShift, preflashExposure, glareActive, scanFilm
         case extendedDynamicRange
+        case contrastMask, sceneLatitude, effects, printEffects, digitalIntermediate
     }
 
     // --- stock (shoot for film, print for paper) ---
@@ -355,6 +518,28 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// into one field. Keeping them apart is also what lets the user's paper
     /// choice survive toggling the Positive row on and off.
     var scanFilm: Bool = false
+    /// RFC-028's **Digital Intermediate** (数字中间片): the negative read in
+    /// printing density with its orange mask removed per wavelength, reversed
+    /// on the film's own neutral curve, and written as Cineon-style log. It
+    /// takes the paper's place the way `scanFilm` does, and like it is a
+    /// switch beside `printStock` rather than a paper id, so the paper choice
+    /// survives turning it on and off. `scanFilm` wins if both are set, and a
+    /// slide film ignores it (it has no mask and no paper). Print layer.
+    var digitalIntermediate: Bool = false
+    /// True when the DI is what the engine renders: the switch, on a negative,
+    /// with no film scan in front of it. The film's polarity lives in the
+    /// catalogue, so the caller supplies it.
+    func digitalIntermediateActive(filmIsPositive: Bool) -> Bool {
+        digitalIntermediate && !scanFilm && !filmIsPositive
+    }
+    /// RFC-028 §10: the optional blue-sector correction of the DI's colour
+    /// step. An app setting (Settings ▸ Rendering), off by default by the
+    /// user's decision of 2026-09-29 -- read here so the wire, the print cache
+    /// stamp and every export carry it without a second path.
+    nonisolated static let diBlueCompensationKey = "ui2.diBlueCompensation"
+    nonisolated static var diBlueCompensation: Bool {
+        UserDefaults.standard.bool(forKey: diBlueCompensationKey)
+    }
     /// Preserve the extended range while rendering a selected print profile.
     /// This is a print-layer choice, so it reprints the cached negative. The
     /// preference is retained when `scanFilm` is selected, but is made
@@ -365,7 +550,25 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// user's preference in the sidecar while making the wire value false for
     /// the Positive / No Print Profile path, so a persisted preference cannot
     /// change direct film scanning.
-    var effectiveExtendedDynamicRange: Bool { extendedDynamicRange && !scanFilm }
+    var effectiveExtendedDynamicRange: Bool { extendedDynamicRange && !scanFilm && !digitalIntermediate }
+
+    /// The enlarger's pre-flash: a uniform paper exposure of this many times
+    /// the light through the film's clear base, added before development
+    /// (`printing.cpp`). **Not in EV** -- measured on `_DSC2663`, 0.01 is ~9 %
+    /// of the mid-grey exposure and the useful range is 0…0.03 of the wire's
+    /// 0…1 (`output/preflash_DSC2663/report.md`). Print layer, live.
+    /// RFC-024. Print layer.
+    var contrastMask = ContrastMaskSettings()
+    /// RFC-023. Shoot layer.
+    var sceneLatitude = SceneLatitudeSettings()
+    /// RFC-025. Shoot layer except glare, which is the print's.
+    var effects = EffectStrengths()
+    /// The Print section's **Print Effects** switch: off leaves the paper's
+    /// colour transformation and nothing else -- no glare, no pre-flash, no
+    /// Tone Mask -- without forgetting any of their settings. A gate on the
+    /// wire, like `effectiveExtendedDynamicRange`, so turning it back on
+    /// restores exactly what was there.
+    var printEffects = true
 
     init() {
         filmStock = "kodak_portra_400"
@@ -398,6 +601,11 @@ struct FilmParams: Codable, Equatable, Sendable {
         glareActive = true
         scanFilm = false
         extendedDynamicRange = true
+        digitalIntermediate = false
+        contrastMask = ContrastMaskSettings()
+        sceneLatitude = SceneLatitudeSettings()
+        effects = EffectStrengths()
+        printEffects = true
     }
 
     /// Keep sidecars written before EDR readable. Stored properties with
@@ -434,12 +642,19 @@ struct FilmParams: Codable, Equatable, Sendable {
         printContrast = try c.decodeIfPresent(Double.self, forKey: .printContrast) ?? 1
         yFilterShift = try c.decode(Double.self, forKey: .yFilterShift)
         mFilterShift = try c.decode(Double.self, forKey: .mFilterShift)
-        preflashExposure = try c.decodeIfPresent(Double.self, forKey: .preflashExposure) ?? 0
         glareActive = try c.decode(Bool.self, forKey: .glareActive)
         scanFilm = try c.decode(Bool.self, forKey: .scanFilm)
         // An older sidecar without this key keeps the rendering it had when
         // it was saved; the new default applies only to new/reset photos.
+        digitalIntermediate = try c.decodeIfPresent(Bool.self, forKey: .digitalIntermediate) ?? false
         extendedDynamicRange = try c.decodeIfPresent(Bool.self, forKey: .extendedDynamicRange) ?? false
+        preflashExposure = try c.decodeIfPresent(Double.self, forKey: .preflashExposure) ?? 0
+        contrastMask = try c.decodeIfPresent(ContrastMaskSettings.self, forKey: .contrastMask)
+            ?? ContrastMaskSettings()
+        sceneLatitude = try c.decodeIfPresent(SceneLatitudeSettings.self, forKey: .sceneLatitude)
+            ?? SceneLatitudeSettings()
+        effects = try c.decodeIfPresent(EffectStrengths.self, forKey: .effects) ?? EffectStrengths()
+        printEffects = try c.decodeIfPresent(Bool.self, forKey: .printEffects) ?? true
     }
 
     static let `default` = FilmParams()
@@ -463,7 +678,7 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("auto_exposure", .bool(autoExposure), .shoot),
             ("film_format_mm", .double(filmFormatMM), .shoot),
             ("grain_active", .bool(grainActive), .shoot),
-            ("grain_sublayers_active", .bool(grainActive), .shoot),
+            ("grain_sublayers_active", .bool(grainActive && effects.grainLayered), .shoot),
             ("grain_size_scale", .double(grainSizeScale), .shoot),
             ("camera_diffusion_active", .bool(cameraDiffusion != "off"), .shoot),
             ("camera_diffusion_family", .string(DiffusionChoice(rawValue: cameraDiffusion)?.engineFamily ?? "black_pro_mist"), .shoot),
@@ -482,10 +697,45 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("enlarger_diffusion_range", .double(enlargerDiffusionRange), .print),
             ("y_filter_shift", .double(yFilterShift), .print),
             ("m_filter_shift", .double(mFilterShift), .print),
-            ("preflash_exposure", .double(preflashExposure), .print),
-            ("glare_active", .bool(glareActive), .print),
+            ("glare_active", .bool(glareActive && printEffects), .print),
             ("scan_film", .bool(scanFilm), .print),
             ("extended_dynamic_range", .bool(effectiveExtendedDynamicRange), .print),
+            ("preflash_exposure", .double(printEffects ? preflashExposure : 0), .print),
+            // RFC-024 (API-SPEC §11). Sent always: the defaults are the
+            // engine's, and off is a structural bypass, so a legacy frame
+            // renders byte for byte as before.
+            ("contrast_mask_active", .bool(contrastMask.active && printEffects && FeatureFlags.toneMask), .print),
+            ("contrast_mask_highlights", .double(contrastMask.highlights), .print),
+            ("contrast_mask_shadows", .double(contrastMask.shadows), .print),
+            ("contrast_mask_core", .double(contrastMask.core), .print),
+            ("contrast_mask_scale", .double(contrastMask.scale.clamped(to: ContrastMaskSettings.scaleRange)), .print),
+            ("contrast_mask_scheme", .string(contrastMask.scheme), .print),
+            // RFC-023 (API-SPEC §12): the resolved curve only; the pull-backs
+            // are UI state and stay in the sidecar.
+            // Off under the Digital Intermediate (RFC-028): placement fits a
+            // scene into a paper's range, and the DI keeps the film's whole
+            // one. The pull-backs stay in the sidecar for when a paper returns.
+            ("scene_latitude_active", .bool(sceneLatitude.active && !(digitalIntermediate && !scanFilm)), .shoot),
+            ("scene_latitude_norm", .string(sceneLatitude.norm), .shoot),
+            ("scene_latitude_highlight_knee", .double(sceneLatitude.highlightKnee), .shoot),
+            ("scene_latitude_highlight_room", .double(sceneLatitude.highlightRoom), .shoot),
+            ("scene_latitude_shadow_knee", .double(sceneLatitude.shadowKnee), .shoot),
+            ("scene_latitude_shadow_room", .double(sceneLatitude.shadowRoom), .shoot),
+            ("scene_latitude_rolloff", .double(sceneLatitude.rolloff), .shoot),
+            ("scene_latitude_max_lift", .double(sceneLatitude.maxLift), .shoot),
+            // RFC-025. Sent always, like RFC-024's: every default is the
+            // engine's and 1 is a bypass, so the picture of a legacy frame is
+            // unchanged (its stamp is not -- new fields miss the cache once).
+            ("halation_scatter_amount", .double(effects.scatter.clamped(to: EffectStrengths.scatterRange)), .shoot),
+            ("grain_amount", .double(effects.grain.clamped(to: EffectStrengths.grainRange)), .shoot),
+            ("dir_couplers_active", .bool(effects.couplersActive), .shoot),
+            ("glare_amount", .double(effects.glare.clamped(to: EffectStrengths.glareRange)), .print),
+            // RFC-028. The DI is sent always, like the rest (off is the
+            // paper, exactly). The blue compensation only while the DI is on,
+            // so the Settings switch cannot move any other frame's stamp.
+            ("digital_intermediate", .bool(digitalIntermediate), .print),
+            ("digital_intermediate_blue_compensation",
+             .bool(digitalIntermediate && FilmParams.diBlueCompensation), .print),
         ]
         return fields
     }

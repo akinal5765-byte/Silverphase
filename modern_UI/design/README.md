@@ -13,6 +13,28 @@
 | **The frame** | `_DSC0897.NEF` — see below |
 | **Date** | 2026-09-26 |
 
+## Current material policy
+
+`UI-SPEC.md` §2.2.1 defines native Liquid Glass for the top bar, floating tools
+and inspector chrome, with `EditorChromeSurface` as the shared implementation.
+Modal tasks such as Copy Settings use the native SwiftUI sheet and system
+background; do not substitute a transparent panel merely to make it show through.
+Settings also keeps its native window background. Floating chrome uses regular
+glass with one shared readability backing and foreground hierarchy; the top bar
+and rounded panels differ only in shape and edge placement. Neither surface
+chooses its own transparency or a separate material. Canvas surround uses a fixed neutral sRGB #303030, re-encoded for the Metal
+drawable. Menus and numeric fields share flat rounded surfaces; action buttons
+keep capsules, and selected checkboxes show a checkmark. Alignment and hit
+regions follow the shared tokens in §2.16d. The material browser uses one shared glass shell around controls and compact
+cards. The photo navigator shares the toolbar/content shell, with capture EXIF above and rating/flag overlays on thumbnails; both are visually 160pt
+high. Empty libraries hide bottom chrome and reserve no canvas space. §2.2.3
+defines shared accent-ink selection, filters, favorites, recent use and card/list
+browsing. Search, size adjustment and paging buttons are omitted. Content surfaces stay solid. macOS availability and
+Reduce Transparency for
+custom floating tools are handled by `EditorChromeSurface`; do not hide their
+glass behind an opaque card or nest glass inside glass. Older screenshots record
+their capture date, not the current material rule.
+
 ## The frame the captures use
 
 Every committed capture is of **`_DSC0897.NEF`** (the Nikon Z7ii folder in the

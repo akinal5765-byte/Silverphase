@@ -37,7 +37,7 @@ struct EditorWindow: View {
         // and the filmstrip is the only list. Opening a folder still develops
         // nothing until a frame is picked — see `Session.unloadSelection()`.
         printLayout
-        .background(Theme.ground)
+        .background(Theme.canvasSurround)
         // Above the browse/print switch, so the buttons are re-placed in
         // either state and the observer outlives every card that can fold.
         // See `TrafficLightAlignment` for why that matters.
@@ -48,6 +48,9 @@ struct EditorWindow: View {
         )
         .ignoresSafeArea()
         .preferredColorScheme(.dark)
+        .sheet(item: $session.copySettingsRequest) { request in
+            CopySettingsDialog(session: session, request: request)
+        }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             Task { @MainActor in
                 var urls: [URL] = []
@@ -119,6 +122,7 @@ struct EditorWindow: View {
         .onChange(of: session.rightCollapsed) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.showExport) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.inspectorStage) { _, _ in updateCanvasOcclusion() }
+        .onChange(of: session.showsBottomStrip) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.filmstripCollapsed) { _, _ in updateCanvasOcclusion() }
         .onChange(of: session.snapshotPanelWidths) { _, _ in updateCanvasOcclusion() }
         .onChange(of: rightWidth.width) { _, _ in updateCanvasOcclusion() }
@@ -133,12 +137,10 @@ struct EditorWindow: View {
     }
 
     private func updateCanvasOcclusion() {
-        let stripHeight: CGFloat = session.modernFilmChooserActive
-            ? Theme.Metric.modernFilmChooserHeight : Theme.Metric.modernStripHeight
         session.setCanvasOcclusion(
             left: 0, right: canvasRightOcclusion,
             top: Theme.Metric.modernTopBarHeight + Theme.Metric.modernSurfaceGutter,
-            bottom: stripHeight + Theme.Metric.modernSurfaceGutter)
+            bottom: session.bottomChromeOcclusion)
     }
 
     /// The panels are overlays: only the photograph's fitted placement reacts
@@ -195,15 +197,15 @@ struct EditorWindow: View {
                    onHideOutputProof: { modernProofRecipe = nil })
             .overlay(alignment: .bottom) {
                         Group {
-                            if session.modernFilmChooserActive {
+                            if !session.showsBottomStrip {
+                                EmptyView()
+                            } else if session.modernFilmChooserActive {
                                 FilmChoiceStrip(session: session)
                             } else {
                                 Filmstrip(session: session, compact: true)
                             }
                         }
-                        .frame(height: session.modernFilmChooserActive
-                               ? Theme.Metric.modernFilmChooserHeight
-                               : Theme.Metric.modernStripHeight)
+                        .frame(height: session.showsBottomStrip ? Theme.Metric.modernBottomStripHeight : 0)
                         // **One gutter at the canvas's leading edge, and one
                         // at the inspector's.** The strip used to be padded
                         // clear of the whole panel on the right and carry its
@@ -255,7 +257,7 @@ struct CanvasArea: View {
                         .position(x: chromeInset + width / 2,
                                   y: topInset + height / 2)
                 }
-                .background(Theme.ground)
+                .background(Theme.canvasSurround)
             }
             if outputProofRequested, let outputProof {
                 GeometryReader { geometry in
@@ -265,7 +267,7 @@ struct CanvasArea: View {
                     let usableWidth = max(geometry.size.width - obscuredRight - chromeInset * 2, 1)
                     let usableHeight = max(geometry.size.height - topInset - bottomInset, 1)
                     ZStack(alignment: .topLeading) {
-                        Theme.ground
+                        Theme.canvasSurround
                         Image(decorative: outputProof.displayImage, scale: 1)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -483,7 +485,7 @@ struct SnapshotCanvas: View {
     var body: some View {
         GeometryReader { geo in
             Group {
-                if let image { Image(decorative: image, scale: 2).resizable() } else { Theme.ground }
+                if let image { Image(decorative: image, scale: 2).resizable() } else { Theme.canvasSurround }
             }
             .onAppear { session.renderer.needsDraw = { revision &+= 1 } }
             .onChange(of: geo.size, initial: true) { _, size in render(size) }

@@ -181,6 +181,12 @@ struct FilmSection: View {
                                   menu: { AnyView(effectsMenu) }) {
                     RailRows {
                         ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
+                        ScrubSlider(label: L(.filmGrainStrength),
+                                    value: effect(\.grain), range: EffectStrengths.grainRange,
+                                    zero: 1, snap: 0.1, format: { String(format: "%.1f×", $0) },
+                                    disabled: !session.params.grainActive)
+                        ToggleRow(label: L(.filmGrainLayers), isOn: effect(\.grainLayered),
+                                  enabled: session.params.grainActive)
                         ScrubSlider(label: L(.filmGrainSize),
                                     value: Binding(get: { session.params.grainSizeScale },
                                                    set: { var p = session.params; p.grainSizeScale = $0; session.params = p }),
@@ -210,14 +216,23 @@ struct FilmSection: View {
                         ScrubSlider(label: L(.filmHalationAmount),
                                     value: Binding(get: { session.params.halationAmount },
                                                    set: { var p = session.params; p.halationAmount = $0; session.params = p }),
-                                    range: 1...4, zero: 1, snap: 0.1,
+                                    range: 0...4, zero: 1, snap: 0.1,
                                     format: { String(format: "%.1f×", $0) },
                                     disabled: !session.params.halationActive)
                         .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
+                        ScrubSlider(label: L(.filmScatterStrength),
+                                    value: effect(\.scatter), range: EffectStrengths.scatterRange,
+                                    zero: 1, snap: 0.1, format: { String(format: "%.1f×", $0) },
+                                    disabled: !session.params.halationActive)
                     }
                 }
             }
         }
+    }
+
+    private func effect<V>(_ kp: WritableKeyPath<EffectStrengths, V>) -> Binding<V> {
+        Binding(get: { session.params.effects[keyPath: kp] },
+                set: { var p = session.params; p.effects[keyPath: kp] = $0; session.params = p })
     }
 
     /// Positive and Negative, as two visible groups — v3's own division, and

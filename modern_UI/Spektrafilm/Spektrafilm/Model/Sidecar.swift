@@ -3,6 +3,7 @@
 
 import CryptoKit
 import Foundation
+import Observation
 
 struct DecodeSettings: Codable, Equatable, Hashable, Sendable {
     enum WhiteBalance: String, Codable, CaseIterable, Sendable {
@@ -126,13 +127,18 @@ struct Sidecar: Codable, Equatable, Sendable {
     /// The solve the service returned for this frame (EV, filter neutrals),
     /// kept so the UI can show the sliders as offsets from it.
     var solvedEV: Double?
+    /// A pasted Scene Placement whose curve has not been fitted on *this*
+    /// frame yet (RFC-027 §2.3). Frame state, like `solvedEV`, not an edit:
+    /// the first render with the pasted fields on the engine runs the Fit and
+    /// clears it.
+    var placementNeedsFit = false
     var state: FrameState = .unprocessed
     /// Which file this belongs to, and enough about it to find it again after
     /// it is moved or renamed. Nil in a sidecar written before the store.
     var source: Source?
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, decoder, decode, params, adjustments, geometry, masks, solvedEV, state
+        case schemaVersion, decoder, decode, params, adjustments, geometry, masks, solvedEV, placementNeedsFit, state
         /// Which file these settings belong to (`Source`). Written from the
         /// store's first version; absent in every sidecar that predates it.
         case source
@@ -154,6 +160,7 @@ struct Sidecar: Codable, Equatable, Sendable {
         params = try c.decodeIfPresent(FilmParams.self, forKey: .params) ?? .default
         adjustments = try c.decodeIfPresent(Adjustments.self, forKey: .adjustments) ?? .default
         solvedEV = try c.decodeIfPresent(Double.self, forKey: .solvedEV)
+        placementNeedsFit = try c.decodeIfPresent(Bool.self, forKey: .placementNeedsFit) ?? false
         state = try c.decodeIfPresent(FrameState.self, forKey: .state) ?? .unprocessed
         masks = try c.decodeIfPresent([EditMask].self, forKey: .masks) ?? []
         source = try c.decodeIfPresent(Source.self, forKey: .source)
@@ -180,6 +187,7 @@ struct Sidecar: Codable, Equatable, Sendable {
         if !masks.isEmpty { try c.encode(masks, forKey: .masks) }
         try c.encodeIfPresent(source, forKey: .source)
         try c.encodeIfPresent(solvedEV, forKey: .solvedEV)
+        if placementNeedsFit { try c.encode(placementNeedsFit, forKey: .placementNeedsFit) }
         try c.encode(state, forKey: .state)
     }
 
@@ -488,5 +496,76 @@ struct Sidecar: Codable, Equatable, Sendable {
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         try enc.encode(out).write(to: destination, options: .atomic)
         Sidecar.noteWrite(out.source ?? Sidecar.identity(of: image), at: destination)
+    }
+}
+
+/// Library decisions are independent of render settings and reset/copy/paste.
+struct FrameMarks: Codable, Equatable, Sendable {
+    enum Flag: String, Codable, CaseIterable, Sendable { case none, pick, reject }
+    var rating: Int = 0
+    var flag: Flag = .none
+
+    static func load(for image: URL, directory: URL = Sidecar.storeDirectory) -> FrameMarks {
+        guard let data = try? Data(contentsOf: url(for: image, directory: directory)),
+              var marks = try? JSONDecoder().decode(Self.self, from: data) else { return Self() }
+        marks.rating = min(5, max(0, marks.rating))
+        return marks
+    }
+    func save(for image: URL, directory: URL = Sidecar.storeDirectory) throws {
+        let destination = Self.url(for: image, directory: directory)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var normalized = self
+        normalized.rating = min(5, max(0, rating))
+        try JSONEncoder().encode(normalized).write(to: destination, options: .atomic)
+    }
+    private static func url(for image: URL, directory: URL) -> URL {
+        directory.appending(path: "LibraryMarks").appending(path: Sidecar.key(for: image))
+    }
+}
+
+/// One observable store feeds thumbnails, keyboard edits and navigator filters.
+@MainActor @Observable
+final class PhotoMarkLibrary {
+    private var entries: [URL: FrameMarks] = [:]
+    private let directory: URL
+    init(directory: URL = Sidecar.storeDirectory) { self.directory = directory }
+
+    func marks(for image: URL) -> FrameMarks { entries[image] ?? FrameMarks.load(for: image, directory: directory) }
+
+    func set(_ marks: FrameMarks, for image: URL) throws {
+        var normalized = marks
+        normalized.rating = min(5, max(0, marks.rating))
+        try normalized.save(for: image, directory: directory)
+        entries[image] = normalized
+    }
+
+    func preload(_ images: [URL]) async {
+        let directory = directory
+        let loaded = await Task.detached(priority: .utility) {
+            images.map { ($0, FrameMarks.load(for: $0, directory: directory)) }
+        }.value
+        guard !Task.isCancelled else { return }
+        // A rating changed while disk reads were in flight wins over the old file.
+        for (image, marks) in loaded where entries[image] == nil { entries[image] = marks }
+    }
+}
+
+struct PhotoMarkFilter: Equatable {
+    var minimumRating = 0
+    var unratedOnly = false
+    var flag: FrameMarks.Flag? = nil
+    var isActive: Bool { minimumRating > 0 || unratedOnly || flag != nil }
+    func includes(_ marks: FrameMarks) -> Bool {
+        (!unratedOnly || marks.rating == 0) && marks.rating >= minimumRating
+            && (flag == nil || marks.flag == flag)
+    }
+}
+
+extension FrameMarks {
+    /// Unmodified digits only; the caller owns responder and modifier checks.
+    static func ratingShortcut(_ characters: String?) -> Int? {
+        guard let characters, characters.count == 1,
+              let digit = Int(characters), (0...5).contains(digit) else { return nil }
+        return digit
     }
 }

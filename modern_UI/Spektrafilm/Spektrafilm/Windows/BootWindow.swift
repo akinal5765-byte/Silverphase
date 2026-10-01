@@ -45,83 +45,41 @@ struct BootWindow: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-
-            // The wordmark, and under it the line that says what it is for.
-            // **No icon.** It was the first thing drawn here and the user cut
-            // it: "不用出现图标了…加上图标感觉整个版面太大了". The Dock has
-            // already shown the icon — this window's job is the name, the bar
-            // and the engine, and the icon made all three smaller to fit.
-            // The tagline is tracked out rather than set in a second size: a
-            // 9.5 pt line at 2.6 pt of tracking reads as a label under a name,
-            // where 12 pt text reads as a second sentence competing with it.
-            Text("Silverphase")
-                .font(Theme.Font.of(28, .semibold))
-                .foregroundStyle(Theme.text)
-                .padding(.top, 20)
-            // Tracked out **in English only**. Letterspacing a Latin wordmark is
-            // a house style; the same tracking on Chinese characters is a gap
-            // between every syllable, which reads as a spacing bug rather than
-            // as a label (the localization spec's own rule: an English
-            // typographic idiom is not a translation).
-            let english = Localization.shared.resolved == .english
-            Text(english ? L(.bootTagline).uppercased() : L(.bootTagline))
-                .font(Theme.Font.of(english ? 9.5 : 11, .medium))
-                .tracking(english ? 2.6 : 0.6)
-                .foregroundStyle(Theme.dim)
-                .padding(.top, 7)
-
-            Spacer(minLength: 0)
-
-            ProgressBar(value: progress)
-                .frame(height: 4)
-                .padding(.horizontal, 34)
-
-            HStack(spacing: 7) {
-                if case .failed = phase ?? session.bootPhase {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: Theme.Metric.statusGlyph)).foregroundStyle(Theme.accent)
-                }
-                // **The engine badge is gone** (the user: "拿掉右侧文字", and
-                // the line on the left made longer to carry the row alone).
-                // `NATIVE-METAL` is developer jargon for a value that Settings
-                // ▸ This session and every log record already report, and the
-                // splash is the brand moment, not the diagnostics panel. It was
-                // worth having while an earlier session could run the wrong
-                // core without noticing; there is one core now.
-                Text(message)
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(Theme.secondaryText)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: Theme.Metric.space20) {
+            VStack(alignment: .leading, spacing: Theme.Metric.space8) {
+                Text("Silverphase")
+                    .font(Theme.Font.bootWordmark)
+                    .foregroundStyle(Theme.Ink.primary)
+                // Tracking remains a language-specific brand treatment.
+                let english = Localization.shared.resolved == .english
+                Text(english ? L(.bootTagline).uppercased() : L(.bootTagline))
+                    .font(english ? Theme.Font.bootTaglineEnglish : Theme.Font.bootTaglineChinese)
+                    .tracking(english ? Theme.Metric.bootTaglineEnglishTracking : Theme.Metric.bootTaglineChineseTracking)
+                    .foregroundStyle(Theme.Ink.tertiary)
             }
-            .padding(.horizontal, 34)
-            .padding(.top, 12)
-            .padding(.bottom, 22)
-        }
-        .frame(width: BootWindowController.card.width, height: BootWindowController.card.height)
-        .background {
-            // **The card, drawn by us.** The window is borderless now (see the
-            // controller), so this rounded rect *is* the window's shape, and it
-            // wears the L1 material like every other card: fill, one inner
-            // stroke read top-to-bottom, and nothing else. The shadow lives in
-            // the transparent margin the window keeps around it.
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Theme.cardFill)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Theme.controlStroke, lineWidth: 1)
+            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: Theme.Metric.space12) {
+                ProgressBar(value: progress)
+                    .frame(height: Theme.Metric.space4)
+                HStack(spacing: Theme.Metric.space8) {
+                    if case .failed = phase ?? session.bootPhase {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(Theme.Font.of(Theme.Metric.statusGlyph))
+                            .foregroundStyle(Theme.accent)
+                    }
+                    Text(message)
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(Theme.Ink.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 0)
                 }
-                .overlay(alignment: .top) {
-                    LinearGradient(colors: [Color.white.opacity(0.05), .clear],
-                                   startPoint: .top, endPoint: .bottom)
-                        .frame(height: 80)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .shadow(color: .black.opacity(0.55), radius: 18, y: 8)
+            }
         }
+        .padding(Theme.Metric.space20)
+        .frame(width: BootWindowController.card.width, height: BootWindowController.card.height,
+               alignment: .leading)
+        .modifier(StandaloneWindowSurface())
         .frame(width: BootWindowController.size.width, height: BootWindowController.size.height)
         .preferredColorScheme(.dark)
     }
@@ -181,7 +139,10 @@ final class BootWindowController {
     /// The **window**, which is the card plus a transparent margin for its
     /// shadow. A SwiftUI shadow is clipped by the window it is drawn in, so the
     /// window has to be bigger than the thing casting it.
-    static let size = CGSize(width: card.width + 28, height: card.height + 28)
+    static var size: CGSize {
+        CGSize(width: card.width + Theme.WindowShadow.inset * 2,
+               height: card.height + Theme.WindowShadow.inset * 2)
+    }
 
     /// The floor, and the whole of the deliberate slowness: 2.6 s on screen
     /// however fast the engine was. Measured on this machine, a warm start

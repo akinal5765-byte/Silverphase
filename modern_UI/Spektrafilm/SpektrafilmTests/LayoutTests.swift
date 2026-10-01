@@ -294,26 +294,57 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(m.modernBlockGap, m.space12)
     }
 
-    /// The canvas reserves exactly the two strip heights the bottom slot
-    /// draws, and it reserves them from one token each.
-    ///
-    /// They were bare `72`/`92` literals in three files — the strip's frame,
-    /// the chooser's scroll view, and the canvas occlusion arithmetic — so a
-    /// strip that grew by two points would have had its last row hidden behind
-    /// the window's edge with nothing to point at.
+    /// Switching material/photo browsing must preserve the canvas reservation.
     func testTheCanvasReservesTheStripItDraws() {
         let m = Theme.Metric.self
-        XCTAssertEqual(m.modernStripHeight, 72)
-        XCTAssertEqual(m.modernFilmChooserHeight, 92)
-        XCTAssertGreaterThan(m.modernFilmChooserHeight, m.modernStripHeight)
-        // The strip is taller than a section header and shorter than the
-        // drawing's filmstrip — it is a navigator over the photograph, not a
-        // second rail.
+        XCTAssertEqual(m.modernFilmChooserHeight, m.modernStripHeight,
+                       "material/photo switching must not resize the fitted photograph")
         XCTAssertGreaterThan(m.modernStripHeight, m.modernHeaderHeight)
-        XCTAssertLessThan(m.modernStripHeight, m.filmstripHeight)
-        // The occlusion the canvas is told about is the strip plus one
-        // gutter, which is the same gutter the panel keeps.
-        XCTAssertEqual(m.modernStripHeight + m.modernSurfaceGutter, 84)
+        XCTAssertEqual(m.modernFilmChooserHeight,
+                       m.browserContentHeight + m.browserToolbarHeight + m.space8 + m.browserInset * 2)
+        XCTAssertGreaterThan(m.browserContentHeight, m.browserCoverHeight)
+    }
+
+    func testBootWindowReservesFullShadowFootprint() {
+        let card = BootWindowController.card
+        let window = BootWindowController.size
+        let horizontalMargin = (window.width - card.width) / 2
+        let verticalMargin = (window.height - card.height) / 2
+        XCTAssertGreaterThanOrEqual(horizontalMargin, Theme.WindowShadow.radius * 3)
+        XCTAssertGreaterThanOrEqual(verticalMargin,
+                                   Theme.WindowShadow.radius * 3 + abs(Theme.WindowShadow.offsetY))
+        XCTAssertEqual(horizontalMargin, Theme.WindowShadow.inset)
+        XCTAssertEqual(verticalMargin, Theme.WindowShadow.inset)
+    }
+
+    func testVerticalWheelScrollsHorizontalStripAndClampsAtEdges() throws {
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
+        scroll.documentView = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 100))
+        scroll.layoutSubtreeIfNeeded()
+        let delta = HorizontalStripWheel.delta(x: 0, y: -2, precise: false, lineHeight: 10)
+        XCTAssertEqual(delta, -20)
+        HorizontalStripWheel.scroll(scroll, delta: delta ?? 0)
+        XCTAssertEqual(scroll.contentView.bounds.minX, 20)
+        HorizontalStripWheel.scroll(scroll, delta: -1000)
+        XCTAssertEqual(scroll.contentView.bounds.minX, 600 - scroll.contentView.bounds.width)
+        HorizontalStripWheel.scroll(scroll, delta: 1000)
+        XCTAssertEqual(scroll.contentView.bounds.minX, 0)
+        XCTAssertEqual(HorizontalStripWheel.delta(x: 0, y: -2, precise: true, lineHeight: 10), -2)
+        XCTAssertNil(HorizontalStripWheel.delta(x: -12, y: -2, precise: true, lineHeight: 10))
+        XCTAssertNil(HorizontalStripWheel.delta(x: 0, y: 0, precise: false, lineHeight: 10))
+
+        // Exercise the actual SwiftUI/AppKit attachment, not just delta math.
+        let host = NSHostingView(rootView: ScrollView(.horizontal) {
+            Color.clear.frame(width: 600, height: 100).background(HorizontalStripWheelBridge())
+        })
+        host.frame = NSRect(x: 0, y: 0, width: 200, height: 100)
+        host.layoutSubtreeIfNeeded()
+        func probe(in view: NSView) -> HorizontalStripWheelProbe? {
+            if let found = view as? HorizontalStripWheelProbe { return found }
+            return view.subviews.lazy.compactMap { probe(in: $0) }.first
+        }
+        let mounted = try XCTUnwrap(probe(in: host))
+        XCTAssertNotNil(mounted.enclosingScrollView, "the wheel bridge is outside the real SwiftUI scroll view")
     }
 
     /// Modern has **three** corner radii, and every tile-shaped control is one

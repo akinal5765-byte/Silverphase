@@ -75,10 +75,17 @@ struct ScanOutcome: @unchecked Sendable {
     let elapsedMs: Double
 }
 
-/// `export_di`'s picture half. The `.cube` is fetched separately, through
-/// `printLUTTable(_:)`, because it is a table rather than an image.
-struct DIOutcome: @unchecked Sendable {
+/// `spk_render_digital_intermediate`'s picture: the frame's DI as Cineon codes.
+struct LegacyDIOutcome: @unchecked Sendable {
     let meta: ExportDIResponse
+    let texture: MTLTexture?
+    let width: Int
+    let height: Int
+    var progress: ProgressResponse?
+}
+
+struct DIOutcome: @unchecked Sendable {
+    let meta: DigitalIntermediateResponse
     let texture: MTLTexture?
     let width: Int
     let height: Int
@@ -442,12 +449,12 @@ actor EngineClient {
             if let session { spk_cancel(session, nil) }
             return try decodeOwned("{}", as: R.self)
 
-        case .reprint, .previewRender, .export, .exportDI, .previewStockLUT:
+        case .reprint, .previewRender, .export, .digitalIntermediate, .previewStockLUT:
             // Every one of these produces an `MTLTexture`, and a texture
             // cannot travel through a `Decodable`. Rather than invent a JSON
             // shape that omits the only thing the caller wanted, they are
             // reached through `render(_:_:)`, `previewStockLUT(_:tier:)` and
-            // `exportDI(printStock:)`, and this path refuses by name.
+            // `renderDigitalIntermediate()`, and this path refuses by name.
             //
             // The last three used to be refused as *unimplemented*
             // (ARCHITECTURE §8.8). They are implemented now; what is left is
@@ -605,10 +612,62 @@ actor EngineClient {
                            elapsedMs: result.elapsed_ms)
     }
 
-    /// The DI package's picture: the full-tier negative normalised to [0, 1]
-    /// by the print LUT's own density axes. Layer 2 does not apply to it and
-    /// must not be baked in — it is pre-print by definition.
-    func exportDI(printStock: String? = nil) async throws -> DIOutcome {
+    /// RFC-028: the frame's Digital Intermediate, full tier, whatever paper
+    /// the session shows — Kodak Cineon log in the working primaries. The
+    /// session's own pipeline and cached prints are not touched.
+    func renderDigitalIntermediate() async throws -> DIOutcome {
+        if state != .running { try start() }
+        guard let session else { throw ClientError.notRunning }
+        var result = spk_result()
+        var reply: UnsafeMutablePointer<CChar>?
+        guard spk_render_digital_intermediate(session, &result, &reply) == SPK_OK else {
+            throw ClientError.engine(lastError())
+        }
+        let texture = result.texture.map { Unmanaged<MTLTexture>.fromOpaque($0).takeRetainedValue() }
+        let meta: DigitalIntermediateResponse = try decode(reply, as: DigitalIntermediateResponse.self)
+        return DIOutcome(meta: meta, texture: texture,
+                         width: Int(result.width), height: Int(result.height),
+                         progress: progressLocked())
+    }
+
+    // MARK: - RFC-023 / RFC-024 measurements
+
+    /// RFC-023's Fit (API-SPEC §12): the medium, the scene, a suggestion and
+    /// the solve for `request`'s pull-backs. Writes no parameter -- commit a
+    /// valid fit's `paramsDelta` through `setParams` (or
+    /// `SceneLatitudeSettings.apply`) like any other edit.
+    func sceneLatitude(_ request: SceneLatitudeRequest) async throws -> SceneLatitudeResponse {
+        if state != .running { try start() }
+        guard let session else { throw ClientError.notRunning }
+        let json = try encode(request)
+        var out: UnsafeMutablePointer<CChar>?
+        guard json.withCString({ spk_scene_latitude(session, $0, &out) }) == SPK_OK else {
+            throw ClientError.engine(lastError())
+        }
+        return try decode(out, as: SceneLatitudeResponse.self)
+    }
+
+    /// RFC-024's mask as a picture, for the canvas overlay (API-SPEC §11).
+    /// The tier must have been rendered: the field is analysed on its cached
+    /// negative. Copied out, because the engine's buffer is only valid until
+    /// the next call on the session.
+    func contrastMaskField(tier: String = "live") async throws -> ContrastMaskField {
+        if state != .running { try start() }
+        guard let session else { throw ClientError.notRunning }
+        var pointer: UnsafePointer<Float>?
+        var width: UInt32 = 0, height: UInt32 = 0
+        guard tier.withCString({ spk_contrast_mask_field(session, $0, &pointer, &width, &height) }) == SPK_OK
+        else { throw ClientError.engine(lastError()) }
+        guard let pointer, width > 0, height > 0 else {
+            return ContrastMaskField(width: 0, height: 0, delta: [])
+        }
+        let count = Int(width) * Int(height)
+        return ContrastMaskField(width: Int(width), height: Int(height),
+                                 delta: Array(UnsafeBufferPointer(start: pointer, count: count)))
+    }
+
+    /// Legacy density-normalised API retained for print-LUT parity.
+    func exportDI(printStock: String? = nil) async throws -> LegacyDIOutcome {
         if state != .running { try start() }
         guard let session else { throw ClientError.notRunning }
         var result = spk_result()
@@ -622,7 +681,7 @@ actor EngineClient {
         guard status == SPK_OK else { throw ClientError.engine(lastError()) }
         let texture = result.texture.map { Unmanaged<MTLTexture>.fromOpaque($0).takeRetainedValue() }
         let meta: ExportDIResponse = try decode(reply, as: ExportDIResponse.self)
-        return DIOutcome(meta: meta, texture: texture,
+        return LegacyDIOutcome(meta: meta, texture: texture,
                          width: Int(result.width), height: Int(result.height),
                          progress: progressLocked())
     }

@@ -41,6 +41,27 @@ COVERS = {
 }
 
 
+# Manufacturer nominal speeds are display metadata, not measured sensitometry.
+# Push profiles retain the underlying stock's nominal ISO; processing is in name.
+# Camera motion-picture stocks are rated by EI, not relabelled as ISO.
+KODAK_STILL_SPEED_SOURCE = "https://www.kodakprofessional.com/en-gb/node/133"
+FUJI_SPEED_SOURCE = "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
+KODAK_CINE_SPEED_SOURCE = "https://www.kodak.com/en/motion/products/camera-films/"
+NOMINAL_SPEEDS = {
+    "fujifilm_c200": 200, "fujifilm_pro_400h": 400,
+    "fujifilm_provia_100f": 100, "fujifilm_velvia_100": 100,
+    "fujifilm_xtra_400": 400,
+    "kodak_ektachrome_100": 100, "kodak_ektar_100": 100,
+    "kodak_gold_200": 200, "kodak_kodachrome_64": 64,
+    "kodak_portra_160": 160, "kodak_portra_400": 400,
+    "kodak_portra_800": 800, "kodak_portra_800_push1": 800,
+    "kodak_portra_800_push2": 800, "kodak_ultramax_400": 400,
+    "kodak_verita_200d": 200, "kodak_vision3_200t": 200,
+    "kodak_vision3_250d": 250, "kodak_vision3_500t": 500,
+    "kodak_vision3_50d": 50,
+}
+
+
 def main() -> None:
     (OUT / "FilmCovers").mkdir(parents=True, exist_ok=True)
     luts = json.loads(PRINT_LUTS.read_text())
@@ -67,6 +88,11 @@ def main() -> None:
             "hasPreviewLUT": sid in luts,
             "pairedFilm": luts[sid]["paired_film"] if sid in luts else None,
             "cover": cover,
+            "nominalSpeed": NOMINAL_SPEEDS.get(sid) if info.get("stage") == "filming" else None,
+            "speedUnit": ("EI" if info.get("use") == "cine" else "ISO") if sid in NOMINAL_SPEEDS else None,
+            "speedSource": (FUJI_SPEED_SOURCE if sid.startswith("fujifilm_") else
+                            KODAK_CINE_SPEED_SOURCE if info.get("use") == "cine" else
+                            KODAK_STILL_SPEED_SOURCE) if sid in NOMINAL_SPEEDS else None,
         })
     (OUT / "StockCatalog.json").write_text(json.dumps({"stocks": stocks}, indent=1))
     print(f"wrote {len(stocks)} stocks")

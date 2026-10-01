@@ -11,6 +11,17 @@ import SwiftUI
 /// editor's rails, which is what every caller but the export page wants; the
 /// export page's drawing has a narrower label column, a thinner track and a
 /// shorter row. The knob is not here because both drawings agree on it.
+private struct RailSliderMetricsKey: EnvironmentKey { static let defaultValue = SliderMetrics() }
+
+extension EnvironmentValues {
+    /// The slider grid of the rail a slider sits on. The Parameters rail sets
+    /// `.parameters`; everything else keeps the default.
+    var railSliderMetrics: SliderMetrics {
+        get { self[RailSliderMetricsKey.self] }
+        set { self[RailSliderMetricsKey.self] = newValue }
+    }
+}
+
 struct SliderMetrics {
     /// The rails' default: an 84 pt label column at 10.5 pt. **Every rail
     /// uses it, Camera included.** v3 drew Camera a second way — 9 pt labels
@@ -50,10 +61,18 @@ struct ScrubSlider: View {
     var format: (Double) -> String = { String(format: "%.1f", $0) }
     var parse: (String) -> Double? = { Double($0.replacingOccurrences(of: ",", with: ".")) }
     var trackGradient: [Color]? = nil
+    /// A span of the range that would be refused (Scene Placement's pull-backs
+    /// below the Fit's minimum). Drawn as a dimmed stretch of the track, so
+    /// the dead zone is visible before anyone drags into it.
+    var blocked: ClosedRange<Double>? = nil
     var disabled = false
-    /// See `SliderMetrics` — the editor's panels unless a page says otherwise.
-    var metrics = SliderMetrics()
+    /// See `SliderMetrics`. Nil takes the rail's (`\.railSliderMetrics`), which
+    /// is how every slider on the Parameters rail lands on one grid without
+    /// each call site having to say so.
+    var metrics: SliderMetrics? = nil
     var onCommit: () -> Void = {}
+    @Environment(\.railSliderMetrics) private var railMetrics
+    private var m: SliderMetrics { metrics ?? railMetrics }
 
     @State private var dragStart: Double?
     @State private var editing = false
@@ -67,14 +86,17 @@ struct ScrubSlider: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 0) {
                 Text(label)
-                    .font(metrics.labelFont)
+                    .font(m.labelFont)
                     .foregroundStyle(Theme.Ink.secondary)
-                    .frame(width: metrics.labelWidth, alignment: .leading)
-                    .lineLimit(1)
+                    // A column, not a cage (2026-09-28): the label is at least
+                    // the column wide and grows past it rather than truncate.
+                    .fixedSize()
+                    .padding(.trailing, 6)
+                    .frame(minWidth: m.labelWidth, alignment: .leading)
                 track
                     .padding(.trailing, Theme.Metric.sliderValueGap)
                 valueField
-                    .frame(width: metrics.valueWidth)
+                    .frame(width: m.valueWidth)
             }
             // **The ink band.** Every row of every table puts its control's
             // ink in a `gridControl`-tall band at the top of a `gridRow`-tall
@@ -85,16 +107,21 @@ struct ScrubSlider: View {
             // instead (option A on its own) left a pill 3 pt closer to the row
             // below than a text line.
             .frame(height: Theme.Metric.gridControl)
-            .frame(height: metrics.rowHeight, alignment: .top)
+            .frame(height: m.rowHeight, alignment: .top)
             // The second line is the drawing's own: "As Shot" and its box sit
             // **under the label**, not beside the value, so they line up with
             // the label column rather than floating in the middle of the row.
             if let sublabelView {
                 sublabelView.frame(height: Theme.Metric.subRowHeight, alignment: .leading)
             } else if let sublabel {
+                // Wraps, never widens the row (1.2.2). This line carries
+                // messages as well as units — Scene Placement's refusal is a
+                // sentence — and a `.fixedSize()` sentence made the whole
+                // Parameters rail wider than the window, pushing every value
+                // off its right edge (reported from Xiaohongshu, 2026-09-30).
                 Text(sublabel).font(Theme.Font.sublabel).foregroundStyle(Theme.Ink.tertiary)
-                    .lineLimit(1)
-                    .frame(height: Theme.Metric.subRowHeight, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: Theme.Metric.subRowHeight, alignment: .leading)
             }
         }
         .rowEnabled(!disabled)
@@ -146,8 +173,17 @@ struct ScrubSlider: View {
                         .opacity(live ? 1 : 0.88)
                     }
                 }
-                .frame(height: metrics.trackHeight)
+                .frame(height: m.trackHeight)
                 .padding(.horizontal, knobW / 2)
+                if let blocked, blocked.upperBound > range.lowerBound {
+                    let span = range.upperBound - range.lowerBound
+                    let lo = CGFloat((max(blocked.lowerBound, range.lowerBound) - range.lowerBound) / span)
+                    let hi = CGFloat((min(blocked.upperBound, range.upperBound) - range.lowerBound) / span)
+                    Capsule().fill(Theme.Ink.tertiary.opacity(0.35))
+                        .frame(width: max((hi - lo) * (w - knobW), 0), height: 5)
+                        .offset(x: lo * (w - knobW) + knobW / 2)
+                        .allowsHitTesting(false)
+                }
                 // Zero tick, only when zero is not at an end.
                 if zeroFraction > 0.001 && zeroFraction < 0.999 && abs(fraction - zeroFraction) > 0.02 {
                     Rectangle().fill(Theme.text.opacity(0.55)).frame(width: 1, height: 6)
@@ -191,7 +227,7 @@ struct ScrubSlider: View {
             )
             .simultaneousGesture(TapGesture(count: 2).onEnded { value = zero; onCommit() })
         }
-        .frame(height: metrics.rowHeight)
+        .frame(height: m.rowHeight)
     }
 
     private var valueField: some View {
@@ -199,7 +235,7 @@ struct ScrubSlider: View {
             if editing {
                 TextField("", text: $text)
                     .textFieldStyle(.plain)
-                    .font(metrics.valueFont)
+                    .font(m.valueFont)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.text)
                     .focused($focused)
@@ -207,7 +243,7 @@ struct ScrubSlider: View {
                     .onChange(of: focused) { _, f in if !f { commitText() } }
             } else {
                 Text(format(value))
-                    .font(metrics.valueFont)
+                    .font(m.valueFont)
                     .foregroundStyle(Theme.text)
                     .contentShape(Rectangle())
                     .onTapGesture { text = format(value); editing = true; focused = true }
@@ -215,10 +251,10 @@ struct ScrubSlider: View {
         }
         .lineLimit(1)
         .frame(maxWidth: .infinity)
-        .frame(height: metrics.valueInPill ? Theme.Metric.gridControl : nil)
+        .frame(height: m.valueInPill ? Theme.Metric.gridControl : nil)
         // The value box is the same material as every pill and field; Camera's
         // rows show the number as plain text and so opt out of the surface.
-        .modifier(ValueBoxSurface(inPill: metrics.valueInPill, hovered: hovered, pressed: editing))
+        .modifier(ValueBoxSurface(inPill: m.valueInPill, hovered: hovered, pressed: editing))
     }
 
     private func commitText() {
@@ -262,32 +298,15 @@ struct CheckBox: View {
     var body: some View {
         Button { isOn.toggle() } label: {
             ZStack {
-                // Off, this is a **recessed** box, not an empty outline: a
-                // dark fill with the stroke dark on top and light underneath.
-                // Which way the stroke reads is the whole difference between
-                // "a hole in the rail" and "a box drawn on it", and the old
-                // single-colour 1 pt outline was the second (UI-SPEC §2.2).
-                //
-                // On, the accent carries the state — as a **flat** plate
-                // (the user's note: "橙色不需要渐变了"): the top light belongs
-                // to the grey material, and on the one colour that means
-                // "this is on" it made the signal look like a glossy button.
-                // The 1 px stroke stays; that is the edge, and it is not orange.
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(isOn
-                          ? AnyShapeStyle(Theme.accent)
-                          : AnyShapeStyle(LinearGradient(colors: [Color.black.opacity(0.34),
-                                                                  Color.white.opacity(0.07)],
-                                                         startPoint: .top, endPoint: .bottom)))
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .strokeBorder(isOn
-                                  ? LinearGradient(colors: [Color.white.opacity(0.38),
-                                                            Color.black.opacity(0.22)],
-                                                   startPoint: .top, endPoint: .bottom)
-                                  : LinearGradient(colors: [Color.black.opacity(0.50),
-                                                            Color.white.opacity(0.20)],
-                                                   startPoint: .top, endPoint: .bottom),
-                                  lineWidth: 1)
+                RoundedRectangle(cornerRadius: Theme.Metric.checkboxRadius, style: .continuous)
+                    .fill(isOn ? Theme.accent : Theme.checkboxFill)
+                RoundedRectangle(cornerRadius: Theme.Metric.checkboxRadius, style: .continuous)
+                    .strokeBorder(Theme.controlStroke, lineWidth: Theme.Metric.rule)
+                if isOn {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: Theme.Metric.checkboxMark, weight: .bold))
+                        .foregroundStyle(Theme.card)
+                }
             }
             .frame(width: Theme.Metric.checkbox, height: Theme.Metric.checkbox)
             // **A `gridControl` box, a 28 pt target.** The frame used to be
@@ -302,8 +321,10 @@ struct CheckBox: View {
         // above is the box, and this is what the *row* tests against, so the
         // 6 pt around the box belong to the control rather than to the label.
         .contentShape(Rectangle()
-            .inset(by: -(Theme.Metric.controlHitTarget - Theme.Metric.checkbox) / 2))
+            .inset(by: -Theme.Metric.checkboxHitOutset))
         .buttonStyle(.plain)
+        .accessibilityValue(Text(isOn ? T("On", "开启") : T("Off", "关闭")))
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
     }
 }
 
@@ -345,11 +366,10 @@ struct ToggleRow: View {
                 }
             }
             Spacer(minLength: 4)
-            // The box's target is wider than its ink, so it is pulled back
-            // to put the *square* on the row's trailing inset rather than
-            // the padding around it.
+            // Align visible ink, using the layout container's inset. The
+            // larger pointer target does not move the square past the fields.
             CheckBox(isOn: $isOn)
-                .padding(.trailing, -(Theme.Metric.controlHitTarget - Theme.Metric.checkbox) / 2)
+                .padding(.trailing, Theme.Metric.checkboxTrailingInset)
         }
         // A row with a sublabel is two lines and sizes itself; one without is
         // the grid's row, with its ink in the same band every other row uses.

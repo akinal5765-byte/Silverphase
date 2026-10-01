@@ -61,7 +61,10 @@ struct RightPanel: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
                     switch session.inspectorStage {
-                    case .camera: CameraSection(session: session)
+                    case .camera:
+                        LatitudeSection(session: session)
+                        ScenePlacementSection(session: session)
+                        CameraSection(session: session)
                     case .film: FilmSection(session: session, part: .params)
                     case .development: DevelopmentSection(session: session)
                     case .print: PrintProfileSection(session: session, part: .params)
@@ -79,6 +82,7 @@ struct RightPanel: View {
                 .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
             }
         }
+        .disabled(session.batchExporting)
         .frame(maxHeight: .infinity)
         .modifier(EditorChromeSurface())
     }

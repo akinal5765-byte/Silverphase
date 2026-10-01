@@ -17,6 +17,7 @@
 
 import AppKit
 import SwiftUI
+import ImageIO
 
 struct Filmstrip: View {
     @Bindable var session: Session
@@ -24,6 +25,12 @@ struct Filmstrip: View {
     var leadingInset: CGFloat = 0
     var trailingInset: CGFloat = 0
 
+    @State private var batchEXIF = ""
+    @State private var markFilter = PhotoMarkFilter()
+    private var visibleFrames: [Frame] {
+        guard compact && markFilter.isActive else { return session.frames }
+        return session.frames.filter { markFilter.includes(session.photoMarks.marks(for: $0.id)) }
+    }
     private var stripHeight: CGFloat { compact ? Theme.Metric.modernStripHeight : Theme.Metric.filmstripHeight }
     /// The strip's own leading inset. **Both states now inset by the same
     /// rule**: Traditional by the drawing's 10, Modern by the panel inset its
@@ -37,6 +44,31 @@ struct Filmstrip: View {
     private var stripInset: CGFloat { 0 }
 
     var body: some View {
+        Group {
+            if compact {
+                VStack(spacing: Theme.Metric.space8) {
+                    navigatorToolbar
+                    thumbnails.frame(height: Theme.Metric.browserContentHeight)
+                }
+                .padding(Theme.Metric.browserInset)
+                .frame(height: stripHeight)
+                .modifier(EditorChromeSurface())
+            } else {
+                thumbnails.frame(height: stripHeight)
+            }
+        }
+        .task(id: session.frames.map(\.id)) { await session.photoMarks.preload(session.frames.map(\.id)) }
+        .task(id: session.selectedFrames) {
+            let urls = session.selectedFrames
+            guard urls.count > 1 else { batchEXIF = ""; return }
+            batchEXIF = ""
+            let readouts = await Task.detached(priority: .utility) { urls.map { EXIFReadout.read($0) } }.value
+            guard !Task.isCancelled else { return }
+            batchEXIF = EXIFReadout.summary(readouts)
+        }
+    }
+
+    private var thumbnails: some View {
         HStack(spacing: 0) {
             Spacer().frame(width: leadingInset)
             if !compact {
@@ -45,13 +77,15 @@ struct Filmstrip: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: compact ? Theme.Metric.space4 : 14) {
-                        ForEach(session.frames) { frame in
+                        ForEach(visibleFrames) { frame in
                             FilmstripCell(frame: frame,
                                           framing: session.framing(of: frame.id),
                                           state: session.frameStates[frame.id] ?? .unprocessed,
-                                          height: compact ? Theme.Metric.modernStripHeight : Theme.Metric.thumbHeight,
+                                          height: compact ? Theme.Metric.browserContentHeight : Theme.Metric.thumbHeight,
                                           cornerRadius: compact ? Theme.Metric.modernCardRadius : 2,
-                                          modernSelection: compact)
+                                          modernSelection: compact,
+                                          markLibrary: session.photoMarks,
+                                          cropGeometry: session.thumbnailGeometry(for: frame.id))
                                 .id(frame.id)
                                 // The modifier is read here rather than
                                 // declared as a second gesture: a plain
@@ -64,6 +98,8 @@ struct Filmstrip: View {
                                                   shift: NSEvent.modifierFlags.contains(.shift))
                                 }
                                 .contextMenu {
+                                    SettingsClipboardMenu(session: session, frame: frame.id)
+                                    Divider()
                                     Button(L(.helpRevealInFinder)) { NSWorkspace.shared.activateFileViewerSelecting([frame.id]) }
                                     Button(L(.helpResetDefaults)) {
                                         if frame.id == session.selection { session.resetParams(); session.resetAdjustments() }
@@ -73,7 +109,8 @@ struct Filmstrip: View {
                         }
                     }
                     .padding(.horizontal, stripInset)
-                    .frame(height: stripHeight)
+                    .frame(height: compact ? Theme.Metric.browserContentHeight : stripHeight)
+                    .background(HorizontalStripWheelBridge())
                 }
                 .onChange(of: session.selection) { _, new in
                     if let new { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(new, anchor: .center) } }
@@ -91,14 +128,95 @@ struct Filmstrip: View {
             // taken when the strip was empty and was not re-evaluated when it
             // filled. Opacity depends on the same value every pass, so it
             // cannot go stale.
-            Text(L(.statusEmptyFilmstrip))
+            Text(compact ? T("No photos match these filters", "没有符合筛选条件的照片") : L(.statusEmptyFilmstrip))
                 .font(Theme.Font.label).foregroundStyle(Theme.dim)
-                .opacity(session.frames.isEmpty && !compact ? 1 : 0)
+                .opacity((compact ? visibleFrames.isEmpty && markFilter.isActive : session.frames.isEmpty) ? 1 : 0)
                 .allowsHitTesting(false)
         }
-        // The modern navigator is a row of photographs over the canvas, not a
-        // glass tray. Their own selection frames provide the only backing.
+        // The outer navigator owns the shared glass surface.
         .modifier(EditorChromeSurface(bare: compact))
+    }
+
+    private var navigatorToolbar: some View {
+        BottomStripToolbar {
+            HStack(spacing: Theme.Metric.space8) {
+                Text(session.selectedFrames.count > 1
+                     ? T("\(session.selectedFrames.count) photos selected", "已选 \(session.selectedFrames.count) 张照片")
+                     : (session.selection?.lastPathComponent ?? ""))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1).truncationMode(.middle).layoutPriority(1)
+                Text(session.selectedFrames.count > 1 ? batchEXIF : EXIFReadout.summary([session.exif]))
+                    .foregroundStyle(Theme.Ink.secondary).lineLimit(1)
+            }
+            .padding(.horizontal, Theme.Metric.bottomStripToolbarTextInset)
+            Spacer(minLength: Theme.Metric.space8)
+            BottomStripToolbarGroup {
+                BottomStripToolbarMenu(selected: markFilter.minimumRating > 0 || markFilter.unratedOnly) {
+                    BottomStripFilterOption(title: T("All ratings", "全部星级"), selected: markFilter.minimumRating == 0 && !markFilter.unratedOnly) { markFilter.minimumRating = 0; markFilter.unratedOnly = false }
+                    BottomStripFilterOption(title: T("Unrated", "未评分"), selected: markFilter.unratedOnly) { markFilter.minimumRating = 0; markFilter.unratedOnly = true }
+                    Divider()
+                    ForEach(1...5, id: \.self) { rating in
+                        BottomStripFilterOption(title: T("At least \(rating) stars", "至少 \(rating) 星"), selected: markFilter.minimumRating == rating && !markFilter.unratedOnly) {
+                            markFilter.minimumRating = rating; markFilter.unratedOnly = false
+                        }
+                    }
+                } label: {
+                    RoundedFavoriteStar().fill()
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                    Text(markFilter.unratedOnly ? T("Unrated", "未评分") : (markFilter.minimumRating > 0
+                        ? "≥ \(markFilter.minimumRating)" : T("All ratings", "全部星级")))
+                }
+                .help(T("Filter photos by rating", "按照片星级筛选"))
+                BottomStripToolbarMenu(selected: markFilter.flag != nil) {
+                    BottomStripFilterOption(title: T("All flags", "全部旗标"), selected: markFilter.flag == nil) { markFilter.flag = nil }
+                    BottomStripFilterOption(title: T("Unflagged", "无旗标"), selected: markFilter.flag == FrameMarks.Flag.none) { markFilter.flag = FrameMarks.Flag.none }
+                    BottomStripFilterOption(title: T("Pick", "保留"), selected: markFilter.flag == .pick) { markFilter.flag = .pick }
+                    BottomStripFilterOption(title: T("Reject", "淘汰"), selected: markFilter.flag == .reject) { markFilter.flag = .reject }
+                } label: {
+                    Image(systemName: "flag")
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                    Text(flagFilterTitle)
+                }
+                .help(T("Filter photos by flag", "按照片旗标筛选"))
+                if markFilter.isActive {
+                    Button { markFilter = PhotoMarkFilter() } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                            .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                            .bottomStripToolbarControl(iconOnly: true)
+                    }
+                    .buttonStyle(.toolbarSelection(selected: true))
+                    .help(T("Clear photo filters", "清除照片筛选"))
+                    .accessibilityLabel(T("Clear photo filters", "清除照片筛选"))
+                }
+            }
+            BottomStripToolbarGroup {
+                Button { session.requestCopySettings() } label: {
+                    Image(systemName: "doc.on.doc")
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                        .bottomStripToolbarControl(iconOnly: true)
+                }
+                .buttonStyle(.toolbarSelection(selected: false))
+                .disabled(!session.canRequestCopySettings).help(L(.menuCopySettings))
+                .accessibilityLabel(L(.menuCopySettings))
+                Button { session.pasteSettings() } label: {
+                    Image(systemName: "doc.on.clipboard")
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                        .bottomStripToolbarControl(iconOnly: true)
+                }
+                .buttonStyle(.toolbarSelection(selected: false))
+                .disabled(!session.canPasteSettings).help(L(.menuPasteSettings))
+                .accessibilityLabel(L(.menuPasteSettings))
+            }
+        }
+    }
+
+    private var flagFilterTitle: String {
+        switch markFilter.flag {
+        case nil: T("All flags", "全部旗标")
+        case .some(.none): T("Unflagged", "无旗标")
+        case .some(.pick): T("Pick", "保留")
+        case .some(.reject): T("Reject", "淘汰")
+        }
     }
 
     /// A chevron at the strip's edge. It had no tooltip and no disabled
@@ -116,11 +234,87 @@ struct Filmstrip: View {
             Image(systemName: name)
                 .font(.system(size: Theme.Metric.modernRowGlyph, weight: .medium))
                 .foregroundStyle(Theme.text)
-                .frame(width: Theme.Metric.railIconTarget, height: stripHeight).contentShape(Rectangle())
+                .frame(width: Theme.Metric.railIconTarget, height: compact ? Theme.Metric.browserToolbarHeight : stripHeight).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .rowEnabled(enabled, because: L(.reasonNoFrames))
         .help(help)
+    }
+}
+
+private struct ThumbnailMarks: View {
+    let imageURL: URL
+    let library: PhotoMarkLibrary
+    private var marks: FrameMarks { library.marks(for: imageURL) }
+    let hovered: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var saveError: String?
+
+    var body: some View {
+        VStack {
+            HStack {
+                Spacer(minLength: 0)
+                Menu {
+                    Button(T("Unflagged", "无旗标")) { update(flag: FrameMarks.Flag.none) }
+                    Button(T("Pick", "保留")) { update(flag: .pick) }
+                    Button(T("Reject", "淘汰")) { update(flag: .reject) }
+                } label: {
+                    Image(systemName: marks.flag == .reject ? "flag.slash.fill" : (marks.flag == .pick ? "flag.fill" : "flag"))
+                        .font(Theme.Font.label)
+                        .frame(width: Theme.Metric.browserToolbarHeight, height: Theme.Metric.browserToolbarHeight)
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                .opacity(hovered || marks.flag != .none ? 1 : 0)
+                .allowsHitTesting(hovered || marks.flag != .none)
+                .help(T("Flag photo", "照片旗标"))
+                .accessibilityLabel(T("Flag photo", "照片旗标"))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Metric.space4)
+        .overlay(alignment: .bottomLeading) {
+            HStack(spacing: hovered ? 0 : Theme.Metric.photoRatingDotSpacing) {
+                ForEach(1...5, id: \.self) { rating in
+                    Button { update(rating: marks.rating == rating ? 0 : rating) } label: {
+                        ZStack {
+                            Circle().fill(rating <= marks.rating ? Theme.accent : Theme.text.opacity(0.65))
+                                .frame(width: Theme.Metric.photoRatingDotSize, height: Theme.Metric.photoRatingDotSize)
+                                .opacity(hovered ? 0 : 1)
+                            Group {
+                                if rating <= marks.rating { RoundedFavoriteStar().fill(Theme.accent) }
+                                else { RoundedFavoriteStar().stroke(Theme.text, lineWidth: Theme.Metric.rule) }
+                            }
+                            .frame(width: Theme.Metric.photoRatingGlyphSize, height: Theme.Metric.photoRatingGlyphSize)
+                            .opacity(hovered ? 1 : 0)
+                        }
+                        .frame(width: hovered ? Theme.Metric.photoRatingTargetWidth : Theme.Metric.photoRatingDotSize,
+                               height: hovered ? Theme.Metric.browserToolbarHeight : Theme.Metric.photoRatingDotSize)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(T("Set \(rating) stars (key \(rating)); click again to clear", "设为 \(rating) 星（数字键 \(rating)），再次点击清除"))
+                    .accessibilityLabel(T("Set \(rating) stars", "设为 \(rating) 星"))
+                    .accessibilityValue(rating <= marks.rating ? T("Rated", "已评分") : T("Unrated", "未评分"))
+                }
+            }
+            .padding(.leading, hovered ? Theme.Metric.space4 : Theme.Metric.photoRatingDotLeadingInset)
+            .padding(.bottom, hovered ? Theme.Metric.space4 : Theme.Metric.photoRatingDotBottomInset)
+            .animation(reduceMotion ? nil : Theme.Motion.hover, value: hovered)
+            .allowsHitTesting(hovered)
+        }
+        .foregroundStyle(Theme.text)
+        .shadow(color: .black.opacity(0.8), radius: Theme.Metric.rule)
+        .alert(T("Unable to save photo marks", "无法保存照片标记"), isPresented: Binding(
+            get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button(T("OK", "好")) { saveError = nil }
+            } message: { Text(saveError ?? "") }
+    }
+    private func update(rating: Int? = nil, flag: FrameMarks.Flag? = nil) {
+        var next = marks
+        if let rating { next.rating = rating }
+        if let flag { next.flag = flag }
+        do { try library.set(next, for: imageURL) }
+        catch { saveError = error.localizedDescription }
     }
 }
 
@@ -135,7 +329,11 @@ struct FilmstripCell: View {
     var height: CGFloat = Theme.Metric.thumbHeight
     var cornerRadius: CGFloat = 2
     var modernSelection = false
-    @State private var image: CGImage?
+    var markLibrary: PhotoMarkLibrary? = nil
+    var cropGeometry = Geometry()
+    @State private var rawImage: CGImage?
+    @State private var shownImage: CGImage?
+    private var image: CGImage? { shownImage ?? rawImage }
     @State private var hovered = false
 
     var body: some View {
@@ -173,7 +371,7 @@ struct FilmstripCell: View {
                         // cannot cut off its outer half.
                         .strokeBorder(modernSelection ? Theme.accent : Theme.selectionFrame,
                                       lineWidth: modernSelection
-                                          ? (framing == .open ? 3 : 2.5) : framing.lineWidth)
+                                          ? (framing == .open ? Theme.Metric.photoSelectionStrokeWidth : Theme.Metric.photoPickedStrokeWidth) : framing.lineWidth)
                         .shadow(color: modernSelection ? .clear : Theme.overlayInkShadow, radius: 2)
                         .opacity(modernSelection ? 1 : framing.opacity)
                 } else if hovered {
@@ -182,14 +380,20 @@ struct FilmstripCell: View {
                 }
             }
         }
+        .overlay {
+            if modernSelection, let markLibrary { ThumbnailMarks(imageURL: frame.id, library: markLibrary, hovered: hovered) }
+        }
         .help(frame.name)
         .onHover { hovered = $0 }
+        .task(id: CropMask.Key(image: rawImage.map(ObjectIdentifier.init), geometry: cropGeometry)) {
+            shownImage = rawImage.map { CropMask.masked($0, by: cropGeometry) }
+        }
         .task(id: frame.id) {
-            image = await ThumbnailCache.shared.thumbnail(for: frame.id)
+            rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id)
         }
         .onReceive(NotificationCenter.default.publisher(for: .thumbnailUpdated)) { n in
             guard (n.object as? URL) == frame.id else { return }
-            Task { image = await ThumbnailCache.shared.thumbnail(for: frame.id) }
+            Task { rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id) }
         }
     }
 
@@ -208,7 +412,8 @@ struct SelectedFramesGrid: View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVGrid(columns: columns, alignment: .center, spacing: Theme.Metric.space20) {
                 ForEach(session.frames.filter { session.isPicked($0.id) }) { frame in
-                    SelectedFrameTile(frame: frame, isOpen: frame.id == session.selection)
+                    SelectedFrameTile(frame: frame, isOpen: frame.id == session.selection,
+                                      cropGeometry: session.thumbnailGeometry(for: frame.id))
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { session.click(frame.id) }
                         .onTapGesture {
@@ -228,6 +433,7 @@ struct SelectedFramesGrid: View {
             .frame(maxWidth: .infinity)
         }
         .background(Theme.ground)
+        .contextMenu { SettingsClipboardMenu(session: session) }
         .accessibilityLabel(T("Selected photos", "已选照片"))
     }
 }
@@ -235,7 +441,10 @@ struct SelectedFramesGrid: View {
 private struct SelectedFrameTile: View {
     let frame: Frame
     let isOpen: Bool
-    @State private var image: CGImage?
+    var cropGeometry = Geometry()
+    @State private var rawImage: CGImage?
+    @State private var shownImage: CGImage?
+    private var image: CGImage? { shownImage ?? rawImage }
 
     /// A tile's own cap. 260 was the width multiplier, the height cap and the
     /// frame height at once, which is three jobs for one number; the cap is a
@@ -254,7 +463,7 @@ private struct SelectedFrameTile: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous)
-                            .strokeBorder(Theme.accent, lineWidth: isOpen ? 3 : 2.5)
+                            .strokeBorder(Theme.accent, lineWidth: isOpen ? Theme.Metric.photoSelectionStrokeWidth : Theme.Metric.photoPickedStrokeWidth)
                     }
                     .position(x: box.size.width / 2, y: box.size.height / 2)
             } else {
@@ -266,203 +475,365 @@ private struct SelectedFrameTile: View {
         }
         .frame(height: Self.tileCap)
         .accessibilityLabel(frame.name)
+        .task(id: CropMask.Key(image: rawImage.map(ObjectIdentifier.init), geometry: cropGeometry)) {
+            shownImage = rawImage.map { CropMask.masked($0, by: cropGeometry) }
+        }
         .task(id: frame.id) {
-            image = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 640)
+            rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 640)
         }
         .onReceive(NotificationCenter.default.publisher(for: .thumbnailUpdated)) { note in
             guard (note.object as? URL) == frame.id else { return }
-            Task { image = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 640) }
+            Task { rawImage = await ThumbnailCache.shared.thumbnail(for: frame.id, maxPixel: 640) }
         }
     }
 }
 
-/// Modern film mode replaces photo thumbnails with physical stock choices.
-/// The little canister is drawn in SwiftUI, not sampled from a photograph:
-/// a recognisable, consistent symbol for every stock without pretending that
-/// a preview of one photograph describes the stock's measured response.
+/// A toolbar above material content, sharing its footprint with photo browsing.
 struct FilmChoiceStrip: View {
     @Bindable var session: Session
-    @State private var tab: MaterialTab = .film
+    @AppStorage("ui2.materialBrowser.tab") private var tab: MaterialBrowserTab = .film
+    @State private var filter: MaterialBrowserFilter = .all
+    @AppStorage("ui2.materialBrowser.listMode") private var listMode = false
 
-    private enum MaterialTab { case film, paper }
+    private var choices: [MaterialBrowserChoice] {
+        MaterialBrowserChoice.choices(catalog: session.catalog, tab: tab, filter: filter,
+                                      query: "", favorites: session.materialLibrary.favorites,
+                                      recent: session.materialLibrary.recent)
+    }
+    private var emptyMessage: String {
+        if filter == .favorites { return T("No favorites yet. Use a card’s star to add one.", "还没有收藏的材质，点卡片上的星标添加。") }
+        if filter == .recent { return T("Materials you choose will appear here.", "使用过的材质会显示在这里。") }
+        return T("No matching materials", "没有符合条件的材质")
+    }
+    private var selectedID: String {
+        if tab == .film { return session.params.filmStock }
+        return session.params.scanFilm ? MaterialBrowserChoice.scanID
+            : session.digitalIntermediateActive ? MaterialBrowserChoice.diID : session.params.printStock
+    }
+    private var filters: [MaterialBrowserFilter] {
+        tab == .film ? MaterialBrowserFilter.allCases : [.all, .favorites, .recent]
+    }
 
     var body: some View {
-        HStack(spacing: Theme.Metric.space12) {
-            HStack(spacing: Theme.Metric.space2) {
-                tabButton(L(.sectionFilm), tab: .film)
-                tabButton(L(.sectionPaper), tab: .paper)
-            }
-            .padding(Theme.Metric.space2)
-            .background(Theme.well,
-                        in: RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius))
-
+        VStack(spacing: Theme.Metric.space8) {
+            toolbar
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: Theme.Metric.space8) {
-                        if tab == .film {
-                            ForEach(session.catalog.filmGroups, id: \.title) { group in
-                                Text(L(filmGroup: group.title))
-                                    .font(Theme.Font.groupHeader)
-                                    .foregroundStyle(Theme.Ink.tertiary)
-                                    .padding(.horizontal, Theme.Metric.space4)
-                                ForEach(group.films) { stock in
-                                    FilmChoiceCard(stock: stock,
-                                                   selected: session.params.filmStock == stock.id,
-                                                   disabled: false) {
-                                        session.selectFilmStock(stock.id)
+                    Group {
+                        if listMode {
+                            LazyHStack(spacing: Theme.Metric.space8) {
+                                ForEach(Array(stride(from: 0, to: choices.count, by: 2)), id: \.self) { start in
+                                    VStack(spacing: Theme.Metric.space8) {
+                                        ForEach(Array(choices.dropFirst(start).prefix(2))) { choice in
+                                            choiceCard(choice, compact: true)
+                                                .id(choice.id)
+                                        }
+                                        Spacer(minLength: 0)
                                     }
-                                    .id(stock.id)
+                                    .frame(height: Theme.Metric.browserContentHeight, alignment: .top)
                                 }
                             }
                         } else {
-                            Button {
-                                var p = session.params
-                                p.scanFilm = true
-                                session.params = p
-                            } label: {
-                                VStack(spacing: Theme.Metric.space2) {
-                                    Image(systemName: "rectangle.slash")
-                                        .font(.system(size: Theme.Metric.modernChooserGlyph))
-                                    Text(L(.printNone)).font(Theme.Font.chooserCard).lineLimit(2)
+                            LazyHStack(spacing: Theme.Metric.space8) {
+                                ForEach(choices) { choice in
+                                    choiceCard(choice, compact: false).id(choice.id)
                                 }
-                                .frame(width: Theme.Metric.modernChooserCard.width,
-                                       height: Theme.Metric.modernChooserCard.height)
-                                .foregroundStyle(session.params.scanFilm ? Theme.onSelection : Theme.text)
-                                .background(session.params.scanFilm ? Theme.selection : Theme.well,
-                                            in: RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius))
-                            }
-                            .buttonStyle(.plain)
-                            .id("__scan_film__")
-                            ForEach(session.catalog.papers) { stock in
-                                FilmChoiceCard(stock: stock,
-                                               selected: !session.params.scanFilm && session.params.printStock == stock.id,
-                                               disabled: session.filmIsPositive) {
-                                    session.selectPrintStock(stock.id)
-                                }
-                                .id(stock.id)
                             }
                         }
                     }
-                    .padding(.horizontal, Theme.Metric.space4)
-                    .frame(height: Theme.Metric.modernFilmChooserHeight)
+                    .background(HorizontalStripWheelBridge())
                 }
-                .onAppear { scrollToSelection(proxy) }
-                .onChange(of: tab) { _, _ in scrollToSelection(proxy) }
-                .onChange(of: session.params.filmStock) { _, _ in
-                    if tab == .film { scrollToSelection(proxy) }
+                .frame(height: Theme.Metric.browserContentHeight)
+                .overlay {
+                    if choices.isEmpty {
+                        Text(emptyMessage)
+                            .font(Theme.Font.caption).foregroundStyle(Theme.Ink.secondary)
+                    }
                 }
-                .onChange(of: session.params.printStock) { _, _ in
-                    if tab == .paper { scrollToSelection(proxy) }
-                }
+                .onAppear { revealSelection(proxy) }
+                .onChange(of: selectedID) { _, _ in revealSelection(proxy) }
+                .onChange(of: tab) { _, _ in revealSelection(proxy) }
+                .onChange(of: filter) { _, _ in revealSelection(proxy) }
+                .onChange(of: listMode) { _, _ in revealSelection(proxy) }
             }
         }
-        .padding(.horizontal, Theme.Metric.modernContentInset)
+        .padding(Theme.Metric.browserInset)
+        .frame(height: Theme.Metric.modernBottomStripHeight)
         .modifier(EditorChromeSurface())
+        .disabled(session.batchExporting)
     }
 
-    private func tabButton(_ title: String, tab target: MaterialTab) -> some View {
-        Button {
-            withAnimation(.easeOut(duration: 0.16)) { tab = target }
-        } label: {
-            Text(title)
-                .font(Theme.Font.chooserTab)
-                .foregroundStyle(tab == target ? Theme.onSelection : Theme.text)
-                .frame(width: Theme.Metric.modernChooserTab.width,
-                       height: Theme.Metric.modernChooserTab.height)
-                .background(tab == target ? Theme.selection : .clear,
-                            in: RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius))
+    private var toolbar: some View {
+        GeometryReader { geometry in
+            if geometry.size.width < Theme.Metric.browserToolbarCompactWidth {
+                compactToolbar
+            } else {
+                fullToolbar
+            }
         }
-        .buttonStyle(.plain)
+        .frame(height: Theme.Metric.browserToolbarHeight)
     }
 
-    private func scrollToSelection(_ proxy: ScrollViewProxy) {
-        let id = tab == .film ? session.params.filmStock
-            : (session.params.scanFilm ? "__scan_film__" : session.params.printStock)
+    private var compactToolbar: some View {
+        BottomStripToolbar {
+            BottomStripToolbarGroup {
+                tabButton(L(.sectionFilm), target: .film)
+                tabButton(L(.sectionPaper), target: .paper)
+            }
+            BottomStripToolbarMenu(selected: filter != .all) {
+                ForEach(filters, id: \.self) { value in
+                    BottomStripFilterOption(title: filterTitle(value), selected: filter == value) { filter = value }
+                }
+            } label: {
+                Text(filterTitle(filter))
+            }
+            Spacer(minLength: Theme.Metric.space8)
+            BottomStripToolbarGroup {
+                modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图"))
+                modeButton("list.bullet", list: true, help: T("List", "列表视图"))
+            }
+        }
+    }
+
+    private var fullToolbar: some View {
+        BottomStripToolbar {
+            BottomStripToolbarGroup {
+                tabButton(L(.sectionFilm), target: .film)
+                tabButton(L(.sectionPaper), target: .paper)
+            }
+            ViewThatFits(in: .horizontal) {
+                BottomStripToolbarGroup {
+                    ForEach(filters, id: \.self) { value in filterButton(value) }
+                }
+                BottomStripToolbarMenu(selected: filter != .all) {
+                    ForEach(filters, id: \.self) { value in
+                        BottomStripFilterOption(title: filterTitle(value), selected: filter == value) { filter = value }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                    Text(filterTitle(filter))
+                }
+            }
+            Spacer(minLength: Theme.Metric.space8)
+            BottomStripToolbarGroup {
+                modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图"))
+                modeButton("list.bullet", list: true, help: T("List", "列表视图"))
+            }
+
+        }
+    }
+
+    private func tabButton(_ title: String, target: MaterialBrowserTab) -> some View {
+        Button {
+            tab = target; filter = .all
+        } label: {
+            Text(title).bottomStripToolbarControl()
+        }
+        .buttonStyle(.toolbarSelection(selected: tab == target))
+        .accessibilityAddTraits(tab == target ? [.isSelected] : [])
+    }
+
+    private func filterTitle(_ value: MaterialBrowserFilter) -> String {
+        switch value {
+        case .all: return T("All", "全部")
+        case .negative: return L(filmGroup: "Negative")
+        case .positive: return L(filmGroup: "Positive")
+        case .favorites: return T("Favorites", "收藏")
+        case .recent: return T("Recently used", "最近使用")
+        }
+    }
+    private func filterButton(_ value: MaterialBrowserFilter) -> some View {
+        Button { filter = value } label: {
+            HStack(spacing: Theme.Metric.bottomStripToolbarLabelGap) {
+                if value == .favorites {
+                    RoundedFavoriteStar().fill()
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                }
+                if value == .recent {
+                    Image(systemName: "clock")
+                        .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                }
+                Text(filterTitle(value))
+            }
+            .bottomStripToolbarControl()
+        }
+        .buttonStyle(.toolbarSelection(selected: filter == value))
+        .accessibilityAddTraits(filter == value ? [.isSelected] : [])
+    }
+    private func modeButton(_ glyph: String, list: Bool, help: String) -> some View {
+        Button { listMode = list } label: {
+            Image(systemName: glyph)
+                .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
+                .bottomStripToolbarControl(iconOnly: true)
+
+        }
+        .buttonStyle(.toolbarSelection(selected: listMode == list)).help(help).accessibilityLabel(help)
+        .accessibilityAddTraits(listMode == list ? [.isSelected] : [])
+    }
+    private func choiceCard(_ choice: MaterialBrowserChoice, compact: Bool) -> some View {
+        MaterialBrowserCard(choice: choice, selected: choice.id == selectedID,
+                            disabled: tab == .paper && choice.id != MaterialBrowserChoice.scanID && session.filmIsPositive,
+                            favorite: session.materialLibrary.favorites.contains(choice.id),
+                            compact: compact,
+                            toggleFavorite: { session.materialLibrary.toggleFavorite(choice.id) }) {
+            if choice.id == MaterialBrowserChoice.scanID { session.selectScanFilm() }
+            else if choice.id == MaterialBrowserChoice.diID { session.selectDigitalIntermediate() }
+            else if tab == .film { session.selectFilmStock(choice.id) }
+            else { session.selectPrintStock(choice.id) }
+        }
+    }
+    private func revealSelection(_ proxy: ScrollViewProxy) {
+        guard let id = choices.first(where: { $0.id == selectedID })?.id ?? choices.first?.id else { return }
         withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id, anchor: .center) }
     }
 }
 
-private struct FilmChoiceCard: View {
-    let stock: Stock
-    let selected: Bool
-    let disabled: Bool
-    let action: () -> Void
+/// Decode once at thumbnail resolution; hover and selection reuse the same image.
+@MainActor
+private enum MaterialArtworkCache {
+    static let cache = NSCache<NSURL, NSImage>()
 
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: Theme.Metric.space2) {
-                if stock.isFilm {
-                    FilmCanisterGlyph(positive: stock.isPositive)
-                        .frame(width: Theme.Metric.panelIcon + Theme.Metric.space8,
-                               height: Theme.Metric.modernChooserCard.height / 2 + 2)
-                        .scaleEffect(0.72)
-                } else {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: Theme.Metric.modernChooserGlyph))
-                        .frame(height: Theme.Metric.modernChooserCard.height / 2 + 2)
-                }
-                Text(stock.name.replacingOccurrences(of: "Professional ", with: ""))
-                    .font(Theme.Font.chooserCard)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            }
-            .foregroundStyle(selected ? Theme.onSelection : Theme.text)
-            .frame(width: Theme.Metric.modernChooserCard.width,
-                   height: Theme.Metric.modernChooserCard.height)
-            .background(selected ? Theme.selection : Theme.well,
-                        in: RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous)
-                    .strokeBorder(selected ? AnyShapeStyle(Theme.selection) : AnyShapeStyle(Theme.controlStroke), lineWidth: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .opacity(disabled ? Theme.disabledOpacity : 1)
-        .help(stock.name)
-        .accessibilityLabel(stock.name)
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    static func image(at url: URL) -> NSImage? {
+        let key = url as NSURL
+        if let cached = cache.object(forKey: key) { return cached }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: Theme.Metric.browserArtworkDecodeSize,
+                kCGImageSourceShouldCacheImmediately: true,
+              ] as CFDictionary) else { return nil }
+        let image = NSImage(cgImage: thumbnail, size: .zero)
+        cache.setObject(image, forKey: key, cost: thumbnail.bytesPerRow * thumbnail.height)
+        return image
     }
 }
 
-private struct FilmCanisterGlyph: View {
-    let positive: Bool
-
-    /// The canister's own drawing, in one place. These are the one shape in
-    /// the interface that is *a picture of an object* rather than a control,
-    /// so they are local constants rather than panel tokens — but they are
-    /// constants, not numbers scattered through five modifiers.
-    private enum Ink {
-        static let body = CGSize(width: 25, height: 36)
-        static let label = CGSize(width: 25, height: 7)
-        static let spoolTop = CGSize(width: 29, height: 5)
-        static let spoolBottom = CGSize(width: 27, height: 4)
-        static let labelOffset: CGFloat = 8
-        static let spoolTopOffset: CGFloat = 19
-        static let spoolBottomOffset: CGFloat = 18
-        static let glyphOffset: CGFloat = 6
-    }
+private struct MaterialBrowserCard: View {
+    let choice: MaterialBrowserChoice
+    let selected: Bool
+    let disabled: Bool
+    let favorite: Bool
+    let compact: Bool
+    let toggleFavorite: () -> Void
+    let action: () -> Void
+    @State private var hovered = false
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: Theme.Metric.fieldRadius)
-                .fill(Color(hex: positive ? 0x453947 : 0x333B45))
-                .frame(width: Ink.body.width, height: Ink.body.height)
-            RoundedRectangle(cornerRadius: Theme.Metric.space2)
-                .fill(Color(hex: positive ? 0xD067A2 : 0xE6A348))
-                .frame(width: Ink.label.width, height: Ink.label.height)
-                .offset(y: -Ink.labelOffset)
-            Capsule().fill(Color(hex: 0xADB1B5))
-                .frame(width: Ink.spoolTop.width, height: Ink.spoolTop.height)
-                .offset(y: -Ink.spoolTopOffset)
-            Capsule().fill(Color(hex: 0x6F7378))
-                .frame(width: Ink.spoolBottom.width, height: Ink.spoolBottom.height)
-                .offset(y: Ink.spoolBottomOffset)
-            Image(systemName: "film")
-                .font(.system(size: Theme.Metric.modernRowGlyph, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
-                .offset(y: Ink.glyphOffset)
+        Button(action: action) {
+            Group {
+                if compact {
+                    HStack(spacing: Theme.Metric.space8) {
+                        coverPlaceholder
+                            .frame(width: Theme.Metric.browserListRowHeight - Theme.Metric.space8 * 2)
+                        labels
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: Theme.Metric.space4) {
+                        coverPlaceholder
+                            .frame(height: Theme.Metric.browserCoverHeight)
+                        labels
+                    }
+                }
+            }
+            .padding(compact ? Theme.Metric.space8 : Theme.Metric.browserCardInset)
+            .frame(width: compact ? Theme.Metric.browserListWidth : Theme.Metric.browserCardWidth,
+                   height: compact ? Theme.Metric.browserListRowHeight : Theme.Metric.browserContentHeight,
+                   alignment: .topLeading)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous)
+                    .fill(Theme.rowHoverWash.opacity(hovered ? 1 : 0))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous)
+                    .strokeBorder(selected ? Theme.accent : Theme.controlStroke,
+                                  lineWidth: selected ? Theme.Metric.modernSelectionStrokeWidth : Theme.Metric.rule)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernCardRadius, style: .continuous))
         }
-        .accessibilityHidden(true)
+        .buttonStyle(.plain).disabled(disabled)
+        .opacity(disabled ? Theme.disabledOpacity : 1)
+        .onHover { hovered = $0 }
+        .help(disabled ? T("Paper printing is unavailable for reversal film", "正片不使用相纸印放") : (choice.stock?.name ?? choice.title))
+        .accessibilityLabel((choice.stock?.name ?? choice.title) + ", " + choice.subtitle)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .overlay(alignment: .topTrailing) {
+            Button(action: toggleFavorite) {
+                Group {
+                    if favorite {
+                        RoundedFavoriteStar().fill(Theme.accent)
+                    } else {
+                        RoundedFavoriteStar()
+                            .stroke(compact ? Theme.Ink.secondary : (choice.artworkURL == nil ? Theme.materialPlaceholderControlInk : Theme.text),
+                                    style: StrokeStyle(lineWidth: Theme.Metric.rule, lineCap: .round, lineJoin: .round))
+                    }
+                }
+                    .frame(width: Theme.Metric.browserFavoriteGlyphSize, height: Theme.Metric.browserFavoriteGlyphSize)
+                    .shadow(color: !compact && choice.artworkURL != nil ? .black.opacity(0.8) : .clear,
+                            radius: Theme.Metric.rule)
+                    .frame(width: Theme.Metric.browserToolbarHeight, height: Theme.Metric.browserToolbarHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(favorite ? T("Remove favorite", "取消收藏") : T("Add favorite", "收藏材质"))
+            .accessibilityLabel(favorite ? T("Remove favorite", "取消收藏") : T("Add favorite", "收藏材质"))
+            .padding(Theme.Metric.browserFavoriteInset)
+        }
+    }
+
+    private var coverPlaceholder: some View {
+        RoundedRectangle(cornerRadius: Theme.Metric.browserCoverRadius, style: .continuous)
+            .fill(Theme.materialPlaceholder)
+            .overlay {
+                if let url = choice.artworkURL,
+                   let image = MaterialArtworkCache.image(at: url) {
+                    Image(nsImage: image).resizable().scaledToFill()
+                } else {
+                    Image(systemName: "photo")
+                        .font(Theme.Font.label)
+                        .foregroundStyle(Theme.materialPlaceholderInk)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Metric.browserCoverRadius, style: .continuous))
+            .accessibilityHidden(true)
+    }
+
+    private var labels: some View {
+        VStack(alignment: .leading, spacing: Theme.Metric.space2) {
+            Text(choice.cardTitle).font(Theme.Font.chooserCard).foregroundStyle(Theme.text)
+                .lineLimit(1)
+                .padding(.trailing, compact ? Theme.Metric.browserToolbarHeight : 0)
+            Text(choice.subtitle).font(Theme.Font.caption).foregroundStyle(Theme.Ink.secondary).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, compact ? 0 : Theme.Metric.browserTextInset - Theme.Metric.browserCardInset)
+    }
+}
+
+/// Both the navigator and the contact sheet act on the same selection.
+/// A right click must never collapse an existing batch.
+private struct SettingsClipboardMenu: View {
+    @Bindable var session: Session
+    var frame: URL?
+
+    var body: some View {
+        Button(L(.menuCopySettings)) {
+            prepareSingleFrame()
+            session.requestCopySettings()
+        }
+        .disabled(!session.canRequestCopySettings)
+        Button(L(.menuPasteSettings)) {
+            prepareSingleFrame()
+            session.pasteSettings()
+        }
+        .disabled(!session.canPasteSettings)
+    }
+
+    private func prepareSingleFrame() {
+        if session.selectedFrames.count <= 1, let frame, frame != session.selection {
+            session.click(frame)
+        }
     }
 }

@@ -209,7 +209,14 @@ final class ParamsTests: XCTestCase {
                                   "halation_active", "print_exposure", "print_contrast",
                                   "y_filter_shift", "m_filter_shift", "glare_active", "scan_film",
                                   "extended_dynamic_range", "halation_amount", "antihalation_mode", "density_curve_gamma",
-                                  "dir_couplers_amount", "preflash_exposure",
+                                  "dir_couplers_amount", "dir_couplers_active", "preflash_exposure",
+                                  "grain_amount", "glare_amount", "halation_scatter_amount",
+                                  "digital_intermediate", "digital_intermediate_blue_compensation",
+                                  "contrast_mask_active", "contrast_mask_highlights", "contrast_mask_shadows",
+                                  "contrast_mask_core", "contrast_mask_scale", "contrast_mask_scheme",
+                                  "scene_latitude_active", "scene_latitude_norm", "scene_latitude_highlight_knee",
+                                  "scene_latitude_highlight_room", "scene_latitude_shadow_knee", "scene_latitude_shadow_room",
+                                  "scene_latitude_rolloff", "scene_latitude_max_lift",
                                   // RFC-015 §3. Shoot layer; absent from a legacy
                                   // frame's delta, which is why this list holds
                                   // the name and `wire` only carries it when set.
@@ -243,17 +250,19 @@ final class ParamsTests: XCTestCase {
         XCTAssertEqual(p.autoExposureMethod, "protect_highlights")
 
         // A sidecar written before the method existed: the engine's own
-        // `center_weighted`, which the menu does not offer.
+        // `center_weighted`, now also selectable from the menu.
         AEMethod.legacy.apply(to: &p)
-        XCTAssertNil(p.autoExposureMethod)
+        XCTAssertEqual(p.autoExposureMethod, "center_weighted")
         XCTAssertEqual(AEMethod.of(p), .legacy)
-        XCTAssertFalse(AEMethod.offered.contains(.legacy))
+        XCTAssertTrue(AEMethod.offered.contains(.legacy))
+        XCTAssertEqual(p.delta(from: .default).delta["auto_exposure_method"],
+                       .string("center_weighted"), "Selecting the original meter must reach an already-open engine session")
     }
 
     /// The physical frame: the user says a type, a side and a length, and the
     /// engine gets a **long edge**.
     func testTheFrameDerivesTheEngineSLongEdge() {
-        let m = Session.filmFormatMM
+        let m: (FilmSide, Double, Double) -> Double = { Session.filmFormatMM(side: $0, sideLengthMM: $1, aspect: $2) }
         // 135, short side 24, on a 3:2 photograph — the drawing's own row, and
         // it has to come out at the 36 the old single-number Format sent.
         XCTAssertEqual(m(.short, 24, 3.0 / 2.0), 36, accuracy: 1e-9)

@@ -76,13 +76,11 @@ struct SettingsWindow: View {
             .padding(.horizontal, Theme.Metric.modernContentInset)
             .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
         }
-        // **A floating surface, like the inspector.** The page's
-        // `PanelSection`s draw the same 40 pt header every other panel draws;
-        // before this they drew the retired layout's 30 pt triangle header,
-        // which is what made the page look like a different app.
+        // A native window surface, like the native Copy Settings sheet.
+        // Section headers and controls keep the shared editor roles; the
+        // system owns the window background rather than a second card gradient.
         .frame(width: Theme.Metric.Settings.width,
                height: snapshotMode ? nil : Theme.Metric.Settings.height)
-        .background(Theme.cardFill)
         .preferredColorScheme(.dark)
         .onAppear {
             diagnostics.refreshMemory()
@@ -164,6 +162,10 @@ struct SettingsWindow: View {
                                             set: { Session.recalculateEffectsAfterCrop = $0
                                                    session.recomputeFilmFormat() }))
                     caption(L(.setCropRemapsCaption))
+                    ToggleRow(label: T("DI blue compensation", "数字中间片蓝色补偿"),
+                              isOn: Binding(get: { session.diBlueCompensation },
+                                            set: { session.diBlueCompensation = $0 }))
+                    caption(T("Optional correction derived per film. Applies only to Digital Intermediate output.", "按胶片推导的可选补偿，仅作用于数字中间片输出。"))
                 }
             }
         }

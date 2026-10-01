@@ -56,7 +56,7 @@ struct CameraSection: View {
                      menu: { AnyView(exposureMenu) }) {
             RailRows {
                 PillMenu(label: L(.cameraMetering),
-                         options: AEMethod.offered + (session.aeMethod == .legacy ? [.legacy] : []),
+                         options: AEMethod.offered,
                          title: { L($0.key) },
                          selection: Binding(get: { session.aeMethod },
                                             set: { session.aeMethod = $0 }))
@@ -172,10 +172,10 @@ struct AsShotLine: View {
                 .font(Theme.Font.sublabel)
                 .foregroundStyle(Theme.Ink.tertiary)
             Spacer(minLength: Theme.Metric.space4)
-            // The box's target is wider than its ink, so it is pulled back to
-            // put the *square* on the row's trailing inset.
+            // Match the visible right edge of the other parameter controls;
+            // the expanded pointer target does not participate in alignment.
             CheckBox(isOn: $isOn)
-                .padding(.trailing, -(Theme.Metric.controlHitTarget - Theme.Metric.checkbox) / 2)
+                .padding(.trailing, Theme.Metric.checkboxTrailingInset)
         }
         .contentShape(Rectangle())
         .onTapGesture { isOn.toggle() }

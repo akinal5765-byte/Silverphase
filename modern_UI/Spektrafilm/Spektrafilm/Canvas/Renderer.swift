@@ -28,38 +28,17 @@
 //  output transform — export and the proof only".
 
 import Foundation
+import AppKit
 import Metal
 import MetalKit
 import QuartzCore
 
-/// The ground behind the picture — the letterbox around a frame that does not
-/// fill the canvas — **in the working space's encoding**.
-///
-/// The drawing's value is `0x5F/255`, and it is an *sRGB-encoded* grey: that is
-/// what `Theme.ground` names and what every capture since the drawing has
-/// shown. The canvas carries it in ProPhoto now, and the same number means a
-/// different colour there — γ1.8 is the flatter curve, so ROMM-encoded 0x5F
-/// decodes to **1.478× the light**. Left alone, the whole interface would have
-/// shifted lighter around the picture.
-///
-/// Derived rather than written down: sRGB 0x5F decodes to linear 0.11444 and
-/// ROMM γ1.8 encodes that to 0.29990. Both steps are here, so a change to
-/// either moves the ground with it. `Theme.ground` stays the sRGB literal it
-/// is, because AppKit draws that one and colour-manages it itself.
-///
-/// Three things paint this ground and all three take the value from here: the
-/// shader's letterbox (`CanvasUniforms.surroundGray`), the clear colour, and
-/// the layer's background behind the drawable.
-///
-/// The mask overlay's red is the same problem and is handled in the shader
-/// (`layer2`), where it is mixed into the picture: `0.85, 0.15, 0.15` read as
-/// sRGB is the red the interface was drawn with, and γ1.8 re-encodes it to
-/// `0.81507, 0.11255, 0.11255`. It is not here because it is not a uniform —
-/// it never changes, and a uniform that cannot change is a uniform that can
-/// disagree with the one place it is used.
+/// The fixed neutral sRGB surround re-encoded for the ProPhoto drawable.
+/// Shader letterbox and Metal clear use `value`; AppKit uses the sRGB token.
+/// UI colour conversion belongs here, never in the film or paper model.
 enum CanvasGround {
     static let value: Float = {
-        let encoded = 0x5F / 255.0
+        let encoded = Theme.canvasSurroundSRGB
         let linear = encoded <= 0.040449936 ? encoded / 12.92
                                             : pow((encoded + 0.055) / 1.055, 2.4)
         return Float(linear < 1.0 / 512.0 ? linear * 16 : pow(linear, 1.0 / 1.8))
@@ -97,6 +76,7 @@ struct CanvasUniforms {
     /// there is no position anywhere in it — the frame develops as a sheet,
     /// not from an edge.
     var develop: Float = -1
+    var developmentStyle: UInt32 = 0
 }
 
 /// The before/after comparison, as the canvas understands it.
@@ -220,16 +200,17 @@ final class Renderer: NSObject {
     /// It is the engine's own `scan_film` render (`spk_preview_scan`), so what
     /// is on screen really is the film that was just developed rather than an
     /// inversion of the print.
-    var filmScan: MTLTexture? { didSet { if oldValue !== filmScan { needsDraw?() } } }
-    /// 0 = the film, 1 = the print. **The whole animation, and there is no
-    /// position in it.**
-    ///
-    /// Three versions of this ran a *wipe* — a front travelling across the
-    /// frame — and the user's report on each was the same: "还是横向扫过去正片
-    /// 就出现了". That reading is not a tuning problem, it is what a front
-    /// means: at any instant the frame is half one picture and half the other.
-    /// A sheet in a tray is not like that. It develops everywhere at once, the
-    /// densest parts first, and that is what this drives.
+    var filmScan: MTLTexture? {
+        didSet {
+            if filmScan == nil { developAnimation = nil }
+            if oldValue !== filmScan { needsDraw?() }
+        }
+    }
+    enum DevelopmentStyle: UInt32 { case paper = 0, scan = 1 }
+    var developmentStyle: DevelopmentStyle = .paper
+    var reduceMotion: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    /// 0 = the held film; 1 = the unmodified output. Layer easing lives in
+    /// the shader; progress is shared by the draw and snapshot paths.
     var develop: Float = 0 {
         didSet {
             develop = develop.clamped(to: 0...1)
@@ -259,21 +240,23 @@ final class Renderer: NSObject {
     /// accumulate. The canvas still draws on demand — the animation is the one
     /// thing that demands.
     private var developAnimation: (start: CFTimeInterval, duration: Double)?
-    /// How long the film-to-print develop takes. **3.6 s, and every part of that
-    /// number is the brief.** The band crosses the frame for ~1.25 s of it —
-    /// deliberately the same pace as the 2.2 s version, which is the one that
-    /// felt right — and the extra time is all in the *holds*: a long, almost
-    /// still start while the lamp comes on, and the tail where the last strips
-    /// finish developing after the band has left. The ease being more
-    /// pronounced would otherwise have sped the middle up to pay for itself,
-    /// which is the opposite of what was asked for.
-    static let printDevelopSeconds: Double = 3.6
+    /// The paper reveal includes a brief negative-to-paper transition. Scan/DI
+    /// has only a short crossfade, without a paper or dye-development metaphor.
+    static let printDevelopSeconds: Double = 2.2
+    static let scanRevealSeconds: Double = 0.35
 
-    /// Print the negative: start the develop. `Session` owns *when*; the canvas
-    /// owns *how*, because only the canvas knows when a frame is being drawn.
+    func cancelFilmDevelopment() {
+        developAnimation = nil
+        filmScan = nil
+        holdForNegative = false
+        develop = 0
+    }
+
     func printTheNegative() {
         guard filmScan != nil, developAnimation == nil else { return }
-        developAnimation = (CACurrentMediaTime(), Self.printDevelopSeconds)
+        guard !reduceMotion() else { cancelFilmDevelopment(); return }
+        developAnimation = (CACurrentMediaTime(), developmentStyle == .paper
+                            ? Self.printDevelopSeconds : Self.scanRevealSeconds)
         needsDraw?()
     }
 
@@ -282,6 +265,10 @@ final class Renderer: NSObject {
     @discardableResult
     func stepFilmDevelopment() -> Bool {
         guard let anim = developAnimation else { return false }
+        guard filmScan != nil, !reduceMotion() else {
+            cancelFilmDevelopment()
+            return false
+        }
         let elapsed = CACurrentMediaTime() - anim.start
         applyDevelop(elapsed: elapsed, duration: anim.duration)
         if elapsed >= anim.duration {
@@ -307,14 +294,9 @@ final class Renderer: NSObject {
     /// photographing the old one and calls it a regression.
     func applyDevelop(elapsed: Double, duration: Double = Renderer.printDevelopSeconds) {
         let t = min(1, max(0, elapsed / duration))
-        // **Septic ease** (35t⁴ − 84t⁵ + 70t⁶ − 20t⁷), one step beyond
-        // smootherstep: zero velocity *and* zero acceleration at both ends, and
-        // a flatter start than smootherstep can give — a tenth of the time in
-        // it has moved 0.3 % of the frame, a quarter of the time in 7 % (linear
-        // would say 25 %, smoothstep 16 %, smootherstep 10 %). The brief asked
-        // for the non-linearity to be *clearer*, and this is the standard curve
-        // that has more of it rather than a hand-rolled exponent.
-        develop = Float(t * t * t * t * (35 + t * (-84 + t * (70 - 20 * t))))
+        // Each density layer owns its easing in the shader. Easing the clock
+        // as well would bunch those staggered arrivals together.
+        develop = Float(t)
     }
 
     /// What the shader is told to do, from the three pieces of state above.
@@ -474,6 +456,15 @@ final class Renderer: NSObject {
     /// Old sidecars may contain an output grade. Fresh projects draw the
     /// physical render directly; this flag keeps old images reproducible.
     var legacyGradeActive = false { didSet { layer2Dirty = true; needsDraw?() } }
+    /// RFC-028: asked at encode time, so it follows the frame the texture is
+    /// of. True for a Digital Intermediate, whose pixels are Cineon codes: the
+    /// layer reads them through the DI view (`CineonLUT`) first, and Post-Dev
+    /// then works in ProPhoto exactly as it does on a print.
+    var layer2DecodesCineon: (() -> Bool)?
+    /// Set only inside `applyCineonView`, which decodes whatever the frame is.
+    private var forceCineonDecode = false
+    /// The DI view, the shipped ProPhoto `.cube`, loaded once.
+    private lazy var cineonTable: MTLTexture? = CineonLUT.makeTexture(device: device)
     /// The masks, already packed. Set from `Session` whenever the mask list
     /// changes; at most `EditMask.maxCount`.
     var masks: [MaskUniform] = [] { didSet { layer2Dirty = true; needsDraw?() } }
@@ -646,7 +637,11 @@ final class Renderer: NSObject {
         enc.setTexture(dst, index: 1)
         enc.setTexture(curveTable, index: 2)
         enc.setTexture(maskRasters ?? emptyRasterArray, index: 3)
+        let decode = forceCineonDecode || (layer2DecodesCineon?() ?? false)
         var u = layer2
+        if forceCineonDecode { u.enabled = 0 }
+        u.inputDecode = decode ? 1 : 0
+        enc.setTexture(cineonTable, index: 4)
         enc.setBytes(&u, length: MemoryLayout<Layer2Uniforms>.stride, index: 0)
         var list = Array(masks.prefix(EditMask.maxCount))
         var count = UInt32(list.count)
@@ -801,9 +796,16 @@ final class Renderer: NSObject {
         enc.setComputePipelineState(histogramPipeline)
         enc.setTexture(src, index: 0)
         enc.setBuffer(histogramBuffer, offset: 0, index: 0)
-        var stride = UInt32(max(1, Int((Double(src.width * src.height) / 200_000).squareRoot())))
+        let sourceSize = CGSize(width: src.width, height: src.height)
+        let outputSize = geometry.outputSize(for: sourceSize)
+        var size = SIMD2<UInt32>(UInt32(max(1, outputSize.width)), UInt32(max(1, outputSize.height)))
+        var g = geometry.uniform(for: sourceSize)
+        var stride = UInt32(max(1, Int((Double(size.x) * Double(size.y) / 200_000).squareRoot())))
         enc.setBytes(&stride, length: 4, index: 1)
-        let gw = (src.width + Int(stride) - 1) / Int(stride), gh = (src.height + Int(stride) - 1) / Int(stride)
+        enc.setBytes(&g, length: MemoryLayout<Geometry.Uniform>.stride, index: 2)
+        enc.setBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 3)
+        let gw = (Int(size.x) + Int(stride) - 1) / Int(stride)
+        let gh = (Int(size.y) + Int(stride) - 1) / Int(stride)
         let w = histogramPipeline.threadExecutionWidth
         let h = max(1, histogramPipeline.maxTotalThreadsPerThreadgroup / w)
         enc.dispatchThreads(MTLSize(width: gw, height: gh, depth: 1),
@@ -887,7 +889,8 @@ final class Renderer: NSObject {
         u.compareSplit = comparePosition
         // Negative is "no film on the canvas" — see the field. The shader needs
         // the difference between a ceremony at 0 and no ceremony at all.
-        u.develop = showingFilmScan ? develop : -1
+        u.develop = showingFilmScan && !showOriginal ? develop : -1
+        u.developmentStyle = developmentStyle.rawValue
         u.pivot = SIMD2(Float(cropPivot.x), Float(cropPivot.y))
         return u
     }
@@ -918,7 +921,7 @@ final class Renderer: NSObject {
                 shown = original
             } else {
                 let physicalOrLegacy: MTLTexture
-                if legacyGradeActive, let dst = ensureAdjusted(for: base) {
+                if legacyGradeActive || (layer2DecodesCineon?() ?? false), let dst = ensureAdjusted(for: base) {
                     if layer2Dirty { encodeLayer2(cb, src: base, dst: dst) }
                     physicalOrLegacy = dst
                 } else {
@@ -945,7 +948,7 @@ final class Renderer: NSObject {
         // Left of the split and under Space. The same texture the right half is
         // drawn from — both are the working space, so the split compares two
         // renderings and not two colour spaces.
-        let before = filmScan ?? original ?? shown
+        let before = compareMode == .off ? (filmScan ?? original ?? shown) : (original ?? shown)
         let bs = Float(view.window?.backingScaleFactor ?? viewport.backingScale)
         var u = canvasUniforms(shown: shown, viewportSize: view.drawableSize, backingScale: CGFloat(bs))
         // The timestamp is not decoration: "the canvas twitches" is a question
@@ -1011,6 +1014,18 @@ final class Renderer: NSObject {
         return dst
     }
 
+    /// A Digital Intermediate texture (Cineon codes) through the DI view and
+    /// nothing else — no grade, no mask. The DI export's preview page.
+    func applyCineonView(to src: MTLTexture) -> MTLTexture? {
+        var viewOnly = Layer2Uniforms()
+        viewOnly.enabled = 0
+        let savedMasks = masks
+        forceCineonDecode = true
+        masks = []
+        defer { forceCineonDecode = false; masks = savedMasks }
+        return applyLayer2(to: src, uniforms: viewOnly)
+    }
+
     /// Apply crop, straighten, quarter turns and flips to a texture at its
     /// own resolution, through the same `geometryMap` the canvas draws with.
     /// Export calls this; nothing else needs to, because the canvas applies
@@ -1054,7 +1069,7 @@ final class Renderer: NSObject {
             shown = original
         } else if let base {
             let physicalOrLegacy: MTLTexture
-            if legacyGradeActive, let dst = ensureAdjusted(for: base) {
+            if legacyGradeActive || (layer2DecodesCineon?() ?? false), let dst = ensureAdjusted(for: base) {
                 encodeLayer2(cb, src: base, dst: dst)
                 physicalOrLegacy = dst
             } else {
@@ -1064,7 +1079,7 @@ final class Renderer: NSObject {
             shown = physicalOrLegacy
             encodeHistogram(cb, src: physicalOrLegacy)
         }
-        let before = filmScan ?? original ?? shown
+        let before = compareMode == .off ? (filmScan ?? original ?? shown) : (original ?? shown)
         var u = canvasUniforms(shown: shown, viewportSize: CGSize(width: w, height: h), backingScale: backingScale)
         let rpd = MTLRenderPassDescriptor()
         rpd.colorAttachments[0].texture = target

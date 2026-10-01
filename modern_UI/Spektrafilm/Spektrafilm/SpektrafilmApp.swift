@@ -101,10 +101,10 @@ struct EditorCommands: Commands {
             Button(L(.menuUndo)) { session.undo() }.keyboardShortcut("z").disabled(!session.canUndo)
         }
         CommandGroup(replacing: .pasteboard) {
-            Button(L(.menuCopySettings)) { session.copySettings() }
-                // Capture One's adjustment clipboard uses ⇧⌘C / ⇧⌘V. Keep
+            Button(L(.menuCopySettings)) { session.requestCopySettings() }
+                // Selective settings copy uses ⇧⌘C / ⇧⌘V. Keep
                 // plain ⌘C / ⌘V available for the system pasteboard.
-                .keyboardShortcut("c", modifiers: [.command, .shift]).disabled(session.selection == nil)
+                .keyboardShortcut("c", modifiers: [.command, .shift]).disabled(!session.canRequestCopySettings)
             Button(L(.menuPasteSettings)) { session.pasteSettings() }
                 .keyboardShortcut("v", modifiers: [.command, .shift]).disabled(!session.canPasteSettings)
         }

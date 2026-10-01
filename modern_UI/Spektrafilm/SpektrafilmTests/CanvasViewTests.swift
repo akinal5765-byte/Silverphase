@@ -38,6 +38,45 @@ final class CanvasViewTests: XCTestCase {
         XCTAssertFalse(session.negativePending)
     }
 
+    func testNoPaperAndReduceMotionDoNotHoldANegative() throws {
+        let session = Session()
+        let selected = URL(fileURLWithPath: "/tmp/no-paper-ceremony.tif")
+        session.selection = selected
+        session.busy = false
+        let texture = try XCTUnwrap(session.renderer.store.makeWritable(width: 8, height: 8))
+        session.renderer.reduceMotion = { false }
+        session.sidecar.params.scanFilm = true
+        session.renderer.holdForNegative = true
+        session.finishFilmScan(texture, for: selected)
+        XCTAssertFalse(session.renderer.holdForNegative)
+        XCTAssertNil(session.renderer.filmScan)
+        XCTAssertFalse(session.negativePending)
+
+        session.sidecar.params.scanFilm = false
+        session.renderer.reduceMotion = { true }
+        session.renderer.holdForNegative = true
+        session.finishFilmScan(texture, for: selected)
+        XCTAssertFalse(session.renderer.holdForNegative)
+        XCTAssertFalse(session.negativePending)
+    }
+
+    func testParameterEditCancelsTheHeldFilm() throws {
+        let session = Session()
+        let selected = URL(fileURLWithPath: "/tmp/edit-ceremony.tif")
+        session.selection = selected
+        session.busy = false
+        session.renderer.reduceMotion = { false }
+        let texture = try XCTUnwrap(session.renderer.store.makeWritable(width: 8, height: 8))
+        session.finishFilmScan(texture, for: selected)
+        XCTAssertTrue(session.negativePending)
+        var changed = session.params
+        changed.scanFilm = true
+        session.params = changed
+        XCTAssertFalse(session.negativePending)
+        XCTAssertNil(session.renderer.filmScan)
+        XCTAssertFalse(session.renderer.holdForNegative)
+    }
+
     /// The formats `CAMetalLayer` accepts. Anything else raises an ObjC
     /// exception on assignment, which is a crash, not an error.
     static let drawableFormats: Set<MTLPixelFormat> = [

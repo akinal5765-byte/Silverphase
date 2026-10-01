@@ -3,15 +3,86 @@ import XCTest
 
 @MainActor
 final class PerformanceStressTests: XCTestCase {
+    /// The same select -> develop -> export sequence as the export page, with
+    /// distinct real files. Opt in with a directory of photographs; outputs
+    /// stay in a temporary directory so the sources are untouched.
+    func testRealPhotoBatchExport() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_BATCH_DIR"] else {
+            throw XCTSkip("Set SILVERPHASE_PERF_BATCH_DIR to run the batch benchmark")
+        }
+        let source = URL(fileURLWithPath: path)
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "silverphase-batch-stress-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let session = Session()
+        session.open(urls: [source])
+        let count = Int(ProcessInfo.processInfo.environment["SILVERPHASE_PERF_BATCH_COUNT"] ?? "10") ?? 10
+        let urls = Array(session.frames.map(\.id).prefix(count))
+        XCTAssertFalse(urls.isEmpty)
+        let legacy = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_BATCH_LEGACY"] == "1"
+        if !legacy { session.beginBatchExport() }
+        defer { if !legacy { session.endBatchExport() } }
+        let fullRendersBefore = Log.shared.records(category: .render).filter {
+            $0.value("tier") == .string("full")
+        }.count
+        var recipe = ExportRecipe()
+        recipe.format = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_BATCH_FORMAT"] == "jpeg"
+            ? .jpeg : .tiff
+        recipe.folder = .fixed(path: folder.path)
+        recipe.subfolder = ""
+        recipe.colorSpace = .displayP3
+        let batchStart = Date()
+        var rows = ["index\tfile\tdevelop_ms\texport_ms\toutput_bytes\tphys_footprint_bytes"]
+        for (index, url) in urls.enumerated() {
+            let developStart = Date()
+            if session.selection != url { session.select(url) }
+            let developedID = await session.ensureDeveloped()
+            let sessionID = try XCTUnwrap(developedID)
+            let developMs = Int(Date().timeIntervalSince(developStart) * 1000)
+            let size = try XCTUnwrap(session.decoded?.pixelSize)
+            let context = NamingRule.Context(
+                originalName: url.deletingPathExtension().lastPathComponent,
+                filmStock: session.params.filmStock, printStock: session.params.printStock,
+                pixelSize: size, counter: index + 1, date: Date())
+            let exportStart = Date()
+            let outcome = try await Exporter.export(session: session, recipe: recipe,
+                                                    context: context, sessionID: sessionID)
+            let exportMs = Int(Date().timeIntervalSince(exportStart) * 1000)
+            if !legacy {
+                XCTAssertTrue(session.renderer.showsFullRender,
+                              "the export's full print should also reach the canvas")
+            }
+            guard case .wrote(let files, _, _) = outcome, let output = files.first else {
+                return XCTFail("frame \(index) wrote no file")
+            }
+            let bytes = try output.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            XCTAssertGreaterThan(bytes, 0)
+            rows.append("\(index)\t\(url.lastPathComponent)\t\(developMs)\t\(exportMs)\t\(bytes)\t\(MemorySampler.footprintBytes())")
+        }
+        rows.append("total_ms\t\(Int(Date().timeIntervalSince(batchStart) * 1000))")
+        let fullRendersAfter = Log.shared.records(category: .render).filter {
+            $0.value("tier") == .string("full")
+        }.count
+        rows.append("full_renders\t\(fullRendersAfter - fullRendersBefore)")
+        if !legacy { XCTAssertEqual(fullRendersAfter - fullRendersBefore, urls.count) }
+        if let result = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_RESULTS"] {
+            try rows.joined(separator: "\n").write(toFile: result, atomically: true,
+                                                  encoding: .utf8)
+        }
+    }
+
     func testSingleFullResolutionTIFFExport() async throws {
         guard let path = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_RAW"] else {
             throw XCTSkip("Set SILVERPHASE_PERF_RAW to run the export benchmark")
         }
         let source = URL(fileURLWithPath: path)
-        let folder = FileManager.default.temporaryDirectory
-            .appending(path: "silverphase-export-stress-\(UUID().uuidString)")
+        let keep = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_KEEP_OUTPUT"]
+        let folder = keep.map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.temporaryDirectory
+                .appending(path: "silverphase-export-stress-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
+        defer { if keep == nil { try? FileManager.default.removeItem(at: folder) } }
         let session = Session()
         session.open(urls: [source])
         let readyStarted = Date()

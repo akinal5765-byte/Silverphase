@@ -21,6 +21,9 @@ struct DevelopmentSection: View {
                                            set: { var p = session.params; p.developmentContrast = $0; session.params = p }),
                             range: 0.5...1.5, zero: 1, snap: 0.05,
                             format: { String(format: "%.2f×", $0) })
+                ToggleRow(label: L(.filmCouplers),
+                          isOn: Binding(get: { session.params.effects.couplersActive },
+                                        set: { var p = session.params; p.effects.couplersActive = $0; session.params = p }))
                 ScrubSlider(label: L(.developmentColorSeparation),
                             value: Binding(get: { session.params.colorSeparation },
                                            set: { var p = session.params; p.colorSeparation = $0; session.params = p }),
@@ -28,6 +31,7 @@ struct DevelopmentSection: View {
                             // loses monotonicity at 1.473 (Portra 800 Push 2).
                             range: 0...1.4, zero: 1, snap: 0.05,
                             format: { String(format: "%.2f×", $0) })
+                    .disabled(!session.params.effects.couplersActive)
             }
         }
     }
@@ -42,6 +46,7 @@ struct DevelopmentSection: View {
         var p = session.params
         p.developmentContrast = 1
         p.colorSeparation = 1
+        p.effects.couplersActive = true
         session.params = p
     }
 }
