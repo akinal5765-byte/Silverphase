@@ -46,6 +46,10 @@ OVERRIDES: dict[str, object] = {
     # Not the default, and one of RFC-015 §2.3's four intents. A str field with
     # no strategy used to stop the walk before the exposure comparison below.
     "auto_exposure_method": "balanced",
+    "scene_latitude_norm": "y",
+    "contrast_mask_scheme": "gaussian",
+    "scene_latitude_highlight_knee": 4.0,
+    "scene_latitude_shadow_knee": -12.0,
 }
 
 # Print-layer fields that nevertheless invalidate cached work. The walk below

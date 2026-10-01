@@ -44,6 +44,11 @@ struct GrainParams {
     double blur_dye_clouds_um = 1.0;
     double micro_structure[2] = {0.2, 30.0};
     int n_sub_layers = 1;
+    /// RFC-025. Native-only: `node_grain`'s output mixed back over its input,
+    /// `in + amount * (grained - in)`, in density. 1 is the model's own grain
+    /// and skips the mix, so a frame that never sets it is byte for byte what
+    /// it was; 0 skips the node's work entirely.
+    double amount = 1.0;
 };
 
 struct HalationParams {
@@ -100,6 +105,9 @@ struct GlareParams {
     /// measured, the unsharp going 0.7 px to 0.5087 on a 6000 px frame and to
     /// 0.1017 on a 1200 px one.
     double blur = 0.5;
+    /// RFC-025. Native-only multiplier on `percent` -- and so on the field's
+    /// spread too, which is `roughness * percent` -- read where `percent` is.
+    double amount = 1.0;
 };
 
 struct DiffusionFilterParams {
@@ -129,13 +137,65 @@ struct FilmRenderParams {
     GlareParams glare;
 };
 
+// RFC-024: the virtual contrast mask, a neutral spatial gain on the
+// enlarger's image exposure before pre-flash and paper development. Off by
+// default, and `active = false` leaves the print path's nodes and kernels
+// exactly as they were -- the bypass is structural, not a unity gain.
+//
+// Units are the RFC's: stops of paper exposure relative to the negative's own
+// mid-grey through the same enlarger. `highlights` / `shadows` are named for
+// the *final print* (RFC-024 §5.1): print highlights are the low projected
+// exposures a dense negative gives, and they are raised; print shadows are the
+// high ones, and they are lowered. Each is the change the curve makes to a
+// base exposure `kContrastMaskReach` stops beyond its knee, so 0 disables that
+// branch exactly.
+//
+// The defaults are placeholders, not recommendations: every control is the
+// user's to set, and none is calibrated (RFC-024 §12.5).
+struct ContrastMaskParams {
+    bool active = false;
+    double highlights = 0.0;   ///< stops raised, print-highlight side
+    double shadows = 0.0;      ///< stops lowered, print-shadow side
+    double core = 1.0;         ///< half-width of the identity core, stops
+    double scale = 0.03;       ///< base extractor's sigma, fraction of the long edge
+    /// The base extractor, by name. Only "gaussian" (the classic unsharp mask)
+    /// is a product scheme: the self-guided filter behaved like the per-pixel
+    /// arm at its fixed threshold (RFC-024 §12.4), so it is reachable only
+    /// through `SPEKTRAFILM_MASK_GUIDED` for research.
+    std::string scheme = "gaussian";
+};
+
+bool is_known_contrast_mask_scheme(const std::string& scheme);
+
 struct PrintRenderParams {
     GlareParams glare;
+    ContrastMaskParams contrast_mask;
     PrintCurvesMorphParams density_curves_morph;
     // Print-layer EDR master toggle. It defaults off so the legacy print
     // path remains byte-identical until the user opts in.
     bool edr_enabled = false;
 };
+
+// RFC-023's Scene Latitude Mapping: a pointwise gain before spectral
+// upsampling that compresses the scene's two ends onto the medium while an
+// identity core stays exactly untouched. The axis is stops relative to the
+// metered mid-grey, measured after auto-exposure and before Exp. Comp.
+// (RFC-023 §5.1, §15.4). These are the **resolved** knees and rooms: the UI's
+// pull-backs are solved into them at commit time (`spk_scene_latitude`) and
+// never travel on the wire, so a paper change cannot re-render an old edit
+// (§8.3). A side whose room is 0 is off, exactly.
+struct SceneLatitudeParams {
+    bool active = false;
+    std::string norm = "power";     ///< power | y | max -- the scalar the gain is computed on
+    double highlight_knee = 2.0;    ///< K_h, stops
+    double highlight_room = 0.0;    ///< H_h, stops; 0 = the highlight side is off
+    double shadow_knee = -2.0;      ///< K_s, stops
+    double shadow_room = 0.0;       ///< H_s, stops; 0 = the shadow side is off
+    double rolloff = 2.0;           ///< m, the roll-off order (§5.5)
+    double max_lift = 4.0;          ///< L_max, stops: the smooth bound on the shadow lift (§15.5)
+};
+
+bool is_known_scene_latitude_norm(const std::string& norm);
 
 struct CameraParams {
     double exposure_compensation_ev = 0.0;
@@ -149,6 +209,7 @@ struct CameraParams {
     double filter_uv[3] = {0.0, 410.0, 8.0};
     double filter_ir[3] = {0.0, 675.0, 15.0};
     DiffusionFilterParams diffusion_filter;
+    SceneLatitudeParams scene_latitude;
 };
 
 struct EnlargerParams {
@@ -237,6 +298,15 @@ struct IOParams {
     GeometryParams geometry;
     double upscale_factor = 1.0;
     bool scan_film = false;
+    /// RFC-028: the Digital Intermediate. The negative is read in printing
+    /// density with its base removed per wavelength, reversed on the film's
+    /// own neutral curve, and written as Cineon-style log. It replaces the
+    /// paper exactly as `scan_film` does, and `scan_film` wins if both are set.
+    /// Ignored for a positive film, which has no mask and no paper.
+    bool digital_intermediate = false;
+    /// RFC-028 §10: the optional blue-sector correction of the DI's colour
+    /// step. Off by default, by the user's decision of 2026-09-29.
+    bool digital_intermediate_blue_compensation = false;
     /// The long edge of the `live` tier, i.e. the size every interactive edit
     /// renders at — the app's **preview resolution**, and a user setting.
     /// `engine.cpp` resolves the `live` row of its tier table from here, so
@@ -292,6 +362,11 @@ struct DebugParams {
 
 struct Params {
     Profile film, print;
+    /// The paper whose spectral sensitivity defines the DI's printing density:
+    /// the film's own `target_print`, the paper it was balanced for, loaded
+    /// whether or not the DI is on so switching to it is a print-layer change.
+    /// It is never the session's `print_stock`, which the DI hides.
+    Profile di_paper;
     std::string film_stock = "kodak_portra_400";
     std::string print_stock = "kodak_portra_endura";
     FilmRenderParams film_render;

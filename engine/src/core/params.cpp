@@ -108,6 +108,47 @@ const SchemaField kFields[] = {
     {"striped",                  "settings.striped",                     B, PRINT, false, 0, 0, true},
     {"strip_rows",               "settings.strip_rows",                  I, PRINT, true, 0.0, 16384.0, true},
     {"strip_budget_bytes",       "settings.strip_budget_bytes",          I, PRINT, true, 0.0, 8e9, true},
+    // RFC-024's virtual contrast mask. Native-only like the strip fields, so
+    // they sit in the same place for the same reason -- before
+    // `preview_long_edge`, in `parity_schema.py`'s NATIVE_ONLY order. PRINT
+    // layer: a mask edit reprints the cached negative and never re-develops it
+    // (RFC-024 §8). Not live, because the analysis is prepared per run and a
+    // rebuild is the cheap, honest default.
+    {"contrast_mask_active",     "print_render.contrast_mask.active",     B, PRINT, false, 0, 0, false},
+    {"contrast_mask_highlights", "print_render.contrast_mask.highlights", F, PRINT, true, 0.0, 3.0, false},
+    {"contrast_mask_shadows",    "print_render.contrast_mask.shadows",    F, PRINT, true, 0.0, 3.0, false},
+    {"contrast_mask_core",       "print_render.contrast_mask.core",       F, PRINT, true, 0.0, 3.0, false},
+    // Scale 0.002-0.12, the user's decision of 2026-09-24: below ~4/preview
+    // long edge the live tier caps the analysis grid and the canvas stops
+    // matching the export, and 0.25 cost 161 ms per live edit (host Gaussian).
+    {"contrast_mask_scale",      "print_render.contrast_mask.scale",      F, PRINT, true, 0.002, 0.12, false},
+    {"contrast_mask_scheme",     "print_render.contrast_mask.scheme",     S, PRINT, false, 0, 0, false},
+    // RFC-023's Scene Latitude Mapping, native-only and in the same place for
+    // the same reason. SHOOT layer: the gain sits before the film, so an edit
+    // re-develops the negative. The knees and rooms are the *resolved* curve
+    // (RFC-023 §8.3) -- `spk_scene_latitude` solves them from the UI's
+    // pull-backs -- and a room of 0 turns that side off exactly.
+    {"scene_latitude_active",         "camera.scene_latitude.active",         B, SHOOT, false, 0, 0, false},
+    {"scene_latitude_norm",           "camera.scene_latitude.norm",           S, SHOOT, false, 0, 0, false},
+    {"scene_latitude_highlight_knee", "camera.scene_latitude.highlight_knee", F, SHOOT, true, -24.0, 24.0, false},
+    {"scene_latitude_highlight_room", "camera.scene_latitude.highlight_room", F, SHOOT, true, 0.0, 24.0, false},
+    {"scene_latitude_shadow_knee",    "camera.scene_latitude.shadow_knee",    F, SHOOT, true, -24.0, 24.0, false},
+    {"scene_latitude_shadow_room",    "camera.scene_latitude.shadow_room",    F, SHOOT, true, 0.0, 24.0, false},
+    {"scene_latitude_rolloff",        "camera.scene_latitude.rolloff",        F, SHOOT, true, 1.0, 4.0, false},
+    {"scene_latitude_max_lift",       "camera.scene_latitude.max_lift",       F, SHOOT, true, 0.25, 12.0, false},
+    // RFC-025's decoupled effect strengths, native-only and placed like the
+    // rest. `halation_amount` and `dir_couplers_amount` were on the wire
+    // already; these are the three the switches could not reach. Scatter is
+    // `HalationParams::scatter_amount`, which `halation_active` used to be the
+    // only way to turn off -- and it is a mix weight, so above 1 it sharpens.
+    {"halation_scatter_amount",  "film_render.halation.scatter_amount",   F, SHOOT, true, 0.0, 1.0, false},
+    {"grain_amount",             "film_render.grain.amount",              F, SHOOT, true, 0.0, 2.0, false},
+    {"glare_amount",             "print_render.glare.amount",             F, PRINT, true, 0.0, 4.0, false},
+    // RFC-028's Digital Intermediate, native-only and placed like the rest.
+    // PRINT layer: it replaces the paper and reads the cached negative.
+    {"digital_intermediate",     "io.digital_intermediate",               B, PRINT, false, 0, 0, false},
+    {"digital_intermediate_blue_compensation", "io.digital_intermediate_blue_compensation",
+                                                                          B, PRINT, false, 0, 0, false},
     // The app's *preview resolution*: the `live` tier's long edge, and so the
     // size every interactive edit renders at. PRINT layer, because it is a
     // decision about the canvas rather than about the film -- but it is one of
@@ -155,6 +196,19 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "print_render.density_curves_morph.gamma_factor")
         return &p.print_render.density_curves_morph.gamma_factor;
     if (path == "scanner.lens_blur") return &p.scanner.lens_blur;
+    if (path == "print_render.contrast_mask.highlights") return &p.print_render.contrast_mask.highlights;
+    if (path == "print_render.contrast_mask.shadows") return &p.print_render.contrast_mask.shadows;
+    if (path == "print_render.contrast_mask.core") return &p.print_render.contrast_mask.core;
+    if (path == "print_render.contrast_mask.scale") return &p.print_render.contrast_mask.scale;
+    if (path == "camera.scene_latitude.highlight_knee") return &p.camera.scene_latitude.highlight_knee;
+    if (path == "camera.scene_latitude.highlight_room") return &p.camera.scene_latitude.highlight_room;
+    if (path == "camera.scene_latitude.shadow_knee") return &p.camera.scene_latitude.shadow_knee;
+    if (path == "camera.scene_latitude.shadow_room") return &p.camera.scene_latitude.shadow_room;
+    if (path == "camera.scene_latitude.rolloff") return &p.camera.scene_latitude.rolloff;
+    if (path == "camera.scene_latitude.max_lift") return &p.camera.scene_latitude.max_lift;
+    if (path == "film_render.halation.scatter_amount") return &p.film_render.halation.scatter_amount;
+    if (path == "film_render.grain.amount") return &p.film_render.grain.amount;
+    if (path == "print_render.glare.amount") return &p.print_render.glare.amount;
     return nullptr;
 }
 
@@ -175,7 +229,12 @@ bool* bool_slot(Params& p, const std::string& path) {
     if (path == "scanner.black_correction") return &p.scanner.black_correction;
     if (path == "io.output_cctf_encoding") return &p.io.output_cctf_encoding;
     if (path == "io.scan_film") return &p.io.scan_film;
+    if (path == "io.digital_intermediate") return &p.io.digital_intermediate;
+    if (path == "io.digital_intermediate_blue_compensation")
+        return &p.io.digital_intermediate_blue_compensation;
     if (path == "settings.striped") return &p.settings.striped;
+    if (path == "print_render.contrast_mask.active") return &p.print_render.contrast_mask.active;
+    if (path == "camera.scene_latitude.active") return &p.camera.scene_latitude.active;
     return nullptr;
 }
 
@@ -189,6 +248,8 @@ std::string* str_slot(Params& p, const std::string& path) {
     if (path == "camera.diffusion_filter.filter_family") return &p.camera.diffusion_filter.filter_family;
     if (path == "enlarger.diffusion_filter.filter_family") return &p.enlarger.diffusion_filter.filter_family;
     if (path == "film_render.halation.antihalation_mode") return &p.film_render.halation.antihalation_mode;
+    if (path == "camera.scene_latitude.norm") return &p.camera.scene_latitude.norm;
+    if (path == "print_render.contrast_mask.scheme") return &p.print_render.contrast_mask.scheme;
     return nullptr;
 }
 
@@ -218,6 +279,12 @@ bool is_known_exposure_method(const std::string& method) {
     return method == "center_weighted" || method == "average" || method == "median" ||
            method == "balanced" || method == "center" ||
            method == "protect_highlights" || method == "protect_shadows";
+}
+
+bool is_known_contrast_mask_scheme(const std::string& scheme) { return scheme == "gaussian"; }
+
+bool is_known_scene_latitude_norm(const std::string& norm) {
+    return norm == "power" || norm == "y" || norm == "max";
 }
 
 const std::vector<SchemaField>& schema_fields() {
@@ -276,7 +343,7 @@ bool validate_delta(const Json& delta, std::string& error, std::string& param) {
             return false;
         }
         // A closed set of names is not a range, so `has_range` cannot express
-        // it; this is the one enumerated string on the wire.
+        // it; this, `contrast_mask_scheme` and `scene_latitude_norm` are the enumerated strings.
         if (kv.first == "auto_exposure_method" && !is_known_exposure_method(v.as_string())) {
             error = "'auto_exposure_method' = '" + v.as_string() +
                     "' is not an exposure method (balanced, center, protect_highlights, "
@@ -295,6 +362,17 @@ bool validate_delta(const Json& delta, std::string& error, std::string& param) {
             v.as_string() != "glimmerglass" && v.as_string() != "black_pro_mist" &&
             v.as_string() != "pro_mist" && v.as_string() != "cinebloom") {
             error = "diffusion family must be glimmerglass, black_pro_mist, pro_mist, or cinebloom";
+            param = kv.first;
+            return false;
+        }
+        if (kv.first == "contrast_mask_scheme" && !is_known_contrast_mask_scheme(v.as_string())) {
+            error = "'contrast_mask_scheme' = '" + v.as_string() + "' is not a scheme (gaussian)";
+            param = kv.first;
+            return false;
+        }
+        if (kv.first == "scene_latitude_norm" && !is_known_scene_latitude_norm(v.as_string())) {
+            error = "'scene_latitude_norm' = '" + v.as_string() +
+                    "' is not a norm (power, y, max)";
             param = kv.first;
             return false;
         }
@@ -488,6 +566,12 @@ bool init_params(const std::string& resources_dir, const std::string& film_stock
                  Params& out, std::string& error) {
     if (!load_profile(resources_dir, film_stock, out.film, error)) return false;
     if (!load_profile(resources_dir, print_stock, out.print, error)) return false;
+    // RFC-028: the DI's printing density is the film's own paper's. A film
+    // with none named (the positives, which the DI ignores) falls back to the
+    // session's paper so the profile is always loadable.
+    const std::string di_paper = out.film.info.target_print.empty() ? print_stock
+                                                                     : out.film.info.target_print;
+    if (!load_profile(resources_dir, di_paper, out.di_paper, error)) return false;
     out.film_stock = out.film.info.stock.empty() ? film_stock : out.film.info.stock;
     out.print_stock = out.print.info.stock.empty() ? print_stock : out.print.info.stock;
     return digest(out, neutral_filters, error);

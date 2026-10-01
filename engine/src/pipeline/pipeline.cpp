@@ -1,4 +1,5 @@
 #include "pipeline.hpp"
+#include "timer.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -240,33 +241,6 @@ void axis_and_inv(const Vec& axis, size_t k, Vec& inv) {
 
 }  // namespace
 
-// A node's timing, recorded under the reference's label so a per-node
-// regression is attributable to the same name on both engines.
-struct Pipeline::Timer {
-    Timer(Pipeline* p, const char* label) : p_(p), label_(label) {
-        if (p_->progress_) {
-            p_->progress_->stage = label_;
-            if (p_->progress_->detailed) start_ = std::chrono::steady_clock::now();
-        }
-    }
-    ~Timer() {
-        if (!p_->progress_) return;
-        if (p_->progress_->detailed) {
-            // Wait for the work this node encoded, so the number is GPU time
-            // and not encode time. Costs the batching for the whole run.
-            std::string error;
-            p_->gpu_->flush(error);
-            const double ms = std::chrono::duration<double, std::milli>(
-                std::chrono::steady_clock::now() - start_).count();
-            p_->progress_->node_ms[label_] += ms;
-        }
-        p_->progress_->fired += 1;
-    }
-    Pipeline* p_;
-    const char* label_;
-    std::chrono::steady_clock::time_point start_;
-};
-
 
 uint32_t Pipeline::fresh_seed() {
     // splitmix64, so the stochastic grain sampler gets a fresh realisation per
@@ -306,6 +280,16 @@ bool Pipeline::build(const Params& params, std::string& error) {
     // return None from a node body and let the dispatcher run the numba
     // reference; there is no reference here, so an unsupported configuration
     // must be refused loudly rather than silently rendered differently.
+    // RFC-023 §9.2's validity rule, held at the render as well as in the Fit:
+    // the two knees must not cross, because the gap between them is the
+    // identity core. A client that sends a crossed pair gets a refusal, not a
+    // curve that silently picks one branch.
+    if (const SceneLatitudeParams& sl = params_.camera.scene_latitude;
+        sl.active && sl.highlight_room > 0.0 && sl.shadow_room > 0.0 &&
+        !(sl.shadow_knee < sl.highlight_knee)) {
+        error = "scene latitude: the shadow knee must lie below the highlight knee";
+        return false;
+    }
     if (params_.settings.rgb_to_raw_method != "hanatos2025") {
         error = "rgb_to_raw_method '" + params_.settings.rgb_to_raw_method +
                 "' is not implemented by the native engine (only hanatos2025)";
@@ -447,8 +431,26 @@ bool Pipeline::build(const Params& params, std::string& error) {
             return false;
     }
 
+    // --- RFC-028: the Digital Intermediate --------------------------------
+    // It replaces the paper exactly as `scan_film` does, and `scan_film` wins.
+    // A positive has no mask and no paper, so the switch means nothing there.
+    di_active_ = params_.io.digital_intermediate && !params_.io.scan_film && !film.info.is_positive();
+    if (di_active_) {
+        if (!di_constants(*colour_, *blob_, params_, tc_lut_host_, baked_.tc_lut_side, tc_b_host_,
+                          film_sensitivity_, di_, error)) return false;
+        const Vec zero(kNumWavelengths, 0.0);
+        baked_.di_chd = gpu_->upload_persistent_f32(di_.chd.data(), di_.chd.size(), error);
+        baked_.di_zero_base = gpu_->upload_persistent_f32(zero.data(), zero.size(), error);
+        baked_.di_ixs = gpu_->upload_persistent_f32(di_.ixs.data(), di_.ixs.size(), error);
+        baked_.di_curve_x = gpu_->upload_persistent_f32(di_.curve.x.data(), di_.curve.x.size(), error);
+        baked_.di_curve_inv = gpu_->upload_persistent_f32(di_.curve.inv.data(), di_.curve.inv.size(), error);
+        baked_.di_curve_y = gpu_->upload_persistent_f32(di_.curve.y.data(), di_.curve.y.size(), error);
+        if (!baked_.di_chd || !baked_.di_zero_base || !baked_.di_ixs || !baked_.di_curve_x ||
+            !baked_.di_curve_inv || !baked_.di_curve_y) return false;
+    }
+
     // --- print curves -------------------------------------------------------
-    if (!params_.io.scan_film) {
+    if (!params_.io.scan_film && !di_active_) {
         Vec morphed;
         if (!print_curves_morph(print.data.log_exposure, print.data.model,
                                 params_.print_render.density_curves_morph,
@@ -517,7 +519,7 @@ bool Pipeline::build(const Params& params, std::string& error) {
     // CCTF encoding. Each print profile carries its measured native-Y ->
     // extended-Y table. No table means no calibrated EDR; never substitute
     // another paper.
-    if (params_.print_render.edr_enabled && !params_.io.scan_film) {
+    if (params_.print_render.edr_enabled && !params_.io.scan_film && !di_active_) {
         const EdrToneMap& edr = params_.print.data.edr_tone_map;
         if (!edr.available()) {
             error = "print profile '" + params_.print.info.stock + "' has no calibrated EDR tone map";
@@ -592,6 +594,7 @@ bool Pipeline::build(const Params& params, std::string& error) {
     node_count_ += params_.io.geometry.is_identity() ? 0 : 1;            // geometry
     node_count_ += params_.camera.auto_exposure ? 1 : 0;                 // auto_exposure
     node_count_ += 1;                                                    // crop_rescale
+    node_count_ += scene_latitude_wanted() ? 1 : 0;                      // RFC-023
     node_count_ += 1;                                                    // upsample
     node_count_ += 1;                                                    // exposure
     node_count_ += 1;                                                    // boost
@@ -603,15 +606,20 @@ bool Pipeline::build(const Params& params, std::string& error) {
     node_count_ += 1;                                                    // develop.curves
     node_count_ += params_.film_render.dir_couplers.active ? 1 : 0;      // dir_couplers
     node_count_ += params_.film_render.grain.active ? 1 : 0;             // grain
+    if (di_active_) {
+        node_count_ += 1;                                                // digital_intermediate
+    } else {
     if (!params_.io.scan_film) node_count_ += 3;                         // the printing stage
     node_count_ += (!params_.io.scan_film && params_.enlarger.diffusion_filter.active &&
                     params_.enlarger.diffusion_filter.strength > 0.0) ? 1 : 0;
+    node_count_ += contrast_mask_wanted() ? 1 : 0;                       // RFC-024 analysis
     node_count_ += 5;                                                    // scan..gamut_compress
     node_count_ += params_.print_render.edr_enabled && !params_.io.scan_film ? 1 : 0;
     node_count_ += params_.scanner.lens_blur > 0.0 ? 1 : 0;              // scanner_blur
     node_count_ += (params_.scanner.unsharp_mask[0] > 0.0 &&
                     params_.scanner.unsharp_mask[1] > 0.0) ? 1 : 0;      // unsharp
     node_count_ += 1;                                                    // cctf
+    }
 
     built_ = true;
     return true;
@@ -1415,9 +1423,26 @@ bool Pipeline::node_dir_couplers(const Image& cmy, const Image& log_raw, Image& 
                         baked_.coupler_curve_y, baked_.film_curve_k, out, error);
 }
 
+// RFC-025's strength, as a mix in density of the grained image over the one
+// that went in: `in + k * (grained - in)`. It scales the grain's deviation and
+// the blur the node applies alike, which is what "less of this film's grain"
+// means; a smaller particle would be a different film. At k = 1 the mix is not
+// run, so the default is the node as it always was, and at k = 0 neither is
+// the model. Pointwise, so a strip's band mixes exactly as the plane would.
 bool Pipeline::node_grain(const Image& in, Image& out, std::string& error) {
     const GrainParams& g = params_.film_render.grain;
-    if (!g.active) { out = in; return true; }
+    if (!g.active || g.amount <= 0.0) { out = in; return true; }
+    if (g.amount == 1.0) return grain_realise(in, out, error);
+    Image grained;
+    if (!grain_realise(in, grained, error)) return false;
+    double a[3], b[3];
+    fill3(a, 1.0 - g.amount);
+    fill3(b, g.amount);
+    return blur_.lincomb(in, grained, a, b, out, error);
+}
+
+bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
+    const GrainParams& g = params_.film_render.grain;
     Timer t(this, "filming.develop.grain");
     const double px = pixel_size_um_;
     // `grain_sampler = "exact"` pins the realisation so an A/B is meaningful;
@@ -1724,6 +1749,51 @@ bool Pipeline::node_scan_spectral(const Image& in, Image& out, std::string& erro
                     /*log_out=*/false, kNumWavelengths, out, error);
 }
 
+// RFC-028. The negative read in printing density with the base removed per
+// wavelength (the existing spectral kernel with a zero base), each channel
+// reversed on the film's own neutral curve (the existing curve kernel), then
+// one pass for the colour step, the optional blue-sector compensation and the
+// Cineon-style log encode. The live print controls arrive as log offsets.
+bool Pipeline::node_digital_intermediate(const Image& in, Image& out, std::string& error) {
+    Timer t(this, "scanning.digital_intermediate");
+    double gain[3], offset[3];
+    fill3(gain, 1.0);
+    fill3(offset, 0.0);
+    Image log_t, positive;
+    if (!spectral(in, baked_.di_chd, baked_.di_zero_base, baked_.di_ixs, gain, offset,
+                  /*log_out=*/true, kNumWavelengths, log_t, error)) return false;
+    if (!curve_interp(log_t, baked_.di_curve_x, baked_.di_curve_inv, baked_.di_curve_y,
+                      di_.curve.k, positive, error)) return false;
+    double live[3];
+    di_live_offsets(params_, live);
+    const bool comp = params_.io.digital_intermediate_blue_compensation;
+    float p[42] = {};
+    for (int i = 0; i < 9; ++i) p[i] = float(di_.matrix[i]);
+    for (int i = 0; i < 3; ++i) p[9 + i] = float(live[i]);
+    for (int i = 0; i < 9; ++i) p[12 + i] = float(di_.to_lms[i]);
+    for (int i = 0; i < 9; ++i) p[21 + i] = float(di_.from_lms[i]);
+    p[30] = comp ? 1.0f : 0.0f;
+    p[31] = float(di_.blue_delta_deg);
+    p[32] = float(di_.blue_kappa);
+    p[33] = float(kDiBlueHueCentre);
+    p[34] = float(kDiBlueHueHalfWidth);
+    p[35] = float(kDiBlueChromaLo);
+    p[36] = float(kDiBlueChromaHi);
+    p[37] = float(kDiCineonWhite);
+    p[38] = float(kDiCineonPerDecade);
+    p[39] = float(kDiCineonMax);
+    p[40] = float(di_.positive_floor);
+    p[41] = float(di_cineon_black_offset());
+    gpu::BufferRef p_buf = gpu_->upload(p, sizeof p, error);
+    if (!p_buf) return false;
+    if (!alloc_like(positive, out, error)) return false;
+    const uint32_t n[1] = {uint32_t(positive.pixels())};
+    return gpu_->dispatch("spk_di_encode",
+                          {gpu::Arg::buf(positive.buf), gpu::Arg::buf(p_buf), gpu::Arg::inline_bytes(n, 1),
+                           gpu::Arg::buf(out.buf)},
+                          positive.pixels(), error);
+}
+
 bool Pipeline::node_bw_correction(const Image& in, Image& out, std::string& error) {
     if (!bw_active_) { out = in; return true; }
     if (params_.io.scan_film && !params_.film.info.is_positive()) { out = in; return true; }
@@ -1745,13 +1815,16 @@ bool Pipeline::node_bw_correction(const Image& in, Image& out, std::string& erro
 }
 
 bool Pipeline::node_glare(const Image& in, Image& out, std::string& error) {
-    if (params_.io.scan_film) { out = in; return true; }
+    if (params_.io.scan_film || di_active_) { out = in; return true; }
     const GlareParams& glare = params_.print_render.glare;
-    if (!glare.active || glare.percent <= 0.0) { out = in; return true; }
+    // RFC-025: the strength scales `percent`, so a mean and a spread move
+    // together, as a hazier enlarger's would. × 1.0 is exact.
+    const double percent = glare.percent * glare.amount;
+    if (!glare.active || percent <= 0.0) { out = in; return true; }
     Timer t(this, "scanning.glare");
     Image field;
     // `print_seed_`: hoisted to `print_prefix`, one field per render.
-    if (!lognormal_field(in.h, in.w, glare.percent, glare.roughness * glare.percent,
+    if (!lognormal_field(in.h, in.w, percent, glare.roughness * percent,
                          print_seed_, 200, false, field, error)) return false;
     // Pixels *at the full tier*, scaled to this one: the parameter is a
     // fraction of the frame, not of the film (see `GlareParams::blur`), so the
@@ -1929,6 +2002,10 @@ bool Pipeline::film_prefix(const Image& in, const FrameShape& frame, Image& cur,
 // complication invented here, and step 6 inherits it.
 bool Pipeline::film_scale_and_expose(const Chain& in, Chain& out, std::string& error) {
     Image cur = in.cur, next;
+    // RFC-023 sits here, before `upsample`: a scalar gain commutes with the
+    // spectral reconstruction exactly (§12.2), and this is the band-able
+    // stage, so the node strips with it.
+    if (scene_latitude_wanted()) { SPK_NODE(node_scene_latitude(cur, next, error)); cur = next; }
     SPK_NODE(node_upsample(cur, next, error)); cur = next;
     SPK_NODE(node_exposure(cur, next, error)); cur = next;
     out = in;
@@ -2010,8 +2087,15 @@ bool Pipeline::film_grain(const Chain& in, Chain& out, std::string& error) {
 
 bool Pipeline::print_expose(const Chain& in, Chain& out, std::string& error) {
     Image cur = in.cur, next;
+    if (di_active_) {
+        SPK_NODE(node_digital_intermediate(cur, next, error)); cur = next;
+        out = in;
+        out.cur = cur;
+        return true;
+    }
     if (!params_.io.scan_film) {
-        SPK_NODE(node_enlarger_spectral(cur, next, error)); cur = next;
+        if (mask_on_) { SPK_NODE(node_contrast_mask_epilogue(cur, next, error)); cur = next; }
+        else { SPK_NODE(node_enlarger_spectral(cur, next, error)); cur = next; }
         SPK_NODE(node_print_exposure(cur, next, error)); cur = next;
     }
     out = in;
@@ -2021,12 +2105,13 @@ bool Pipeline::print_expose(const Chain& in, Chain& out, std::string& error) {
 
 bool Pipeline::print_diffusion(const Chain& in, Chain& out, std::string& error) {
     out = in;
-    if (params_.io.scan_film) return true;
+    if (params_.io.scan_film || di_active_) return true;
     SPK_NODE(node_diffusion(in.cur, params_.enlarger.diffusion_filter, true, out.cur, error));
     return true;
 }
 
 bool Pipeline::print_develop_and_scan(const Chain& in, Chain& out, std::string& error) {
+    if (di_active_) { out = in; return true; }
     Image cur = in.cur, next;
     if (!params_.io.scan_film) {
         SPK_NODE(node_print_curves(cur, next, error)); cur = next;
@@ -2045,6 +2130,7 @@ bool Pipeline::print_glare(const Chain& in, Chain& out, std::string& error) {
 }
 
 bool Pipeline::print_linear(const Chain& in, Chain& out, std::string& error) {
+    if (di_active_) { out = in; return true; }   // the DI is already its own encoded output
     Image cur = in.cur, next;
     SPK_NODE(node_xyz_to_rgb(cur, next, error)); cur = next;
     SPK_NODE(node_gamut_compress(cur, next, error)); cur = next;
@@ -2054,6 +2140,7 @@ bool Pipeline::print_linear(const Chain& in, Chain& out, std::string& error) {
 }
 
 bool Pipeline::print_scan_finish(const Chain& in, Chain& out, std::string& error) {
+    if (di_active_) { out = in; return true; }   // the DI is already its own encoded output
     Image cur = in.cur, next;
     SPK_NODE(node_scanner_blur(cur, next, error)); cur = next;
     SPK_NODE(node_unsharp(cur, next, error)); cur = next;
@@ -2063,6 +2150,7 @@ bool Pipeline::print_scan_finish(const Chain& in, Chain& out, std::string& error
 }
 
 bool Pipeline::print_output(const Chain& in, Chain& out, std::string& error) {
+    if (di_active_) { out = in; return true; }   // the DI is already its own encoded output
     // Calibrations observe the completed linear print scan. Apply EDR after
     // spatial scanner corrections so those stages cannot bend its joins or
     // reduce its requested tail separation, and immediately before encoding.
@@ -2232,6 +2320,7 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
                     !band_from(chain.log_e_film, span, halo, read, band_in.log_e_film, error)) return false;
 
                 Chain cur = band_in;
+                band_row0_ = read.y0;
                 for (size_t k = i; k < j; ++k) {
                     Chain next;
                     if (!(this->*stages[k].run)(cur, next, error)) return false;
@@ -2271,6 +2360,7 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
                     if (!band_into(cur.log_e_film, read, plane_out.log_e_film, error)) return false;
                 }
             }
+            band_row0_ = 0;
             chain = plane_out;
             i = j;
         } else {
@@ -2379,14 +2469,14 @@ bool Pipeline::print_prefix(std::string& error) {
     // The enlarger's cheap constants are re-derived on every print run,
     // because `print_exposure` and the two filter shifts are live-mutable: the
     // service writes them straight onto this pipeline between renders.
-    if (!params_.io.scan_film && !refresh_print_constants(error)) return false;
+    if (!params_.io.scan_film && !di_active_ && !refresh_print_constants(error)) return false;
 
     // The print side's one seed for this run, on the same terms as the film
     // side's: `node_glare`'s field is a realisation of the *frame*, so a draw
     // per pass would seam it at every boundary. Same gating condition as the
     // draw it replaces, so the sequence is unchanged.
     const GlareParams& glare = params_.print_render.glare;
-    print_seed_ = (glare.active && glare.percent > 0.0) ? fresh_seed() : 0u;
+    print_seed_ = (glare.active && glare.percent * glare.amount > 0.0) ? fresh_seed() : 0u;
     return true;
 }
 
@@ -2413,7 +2503,10 @@ bool Pipeline::run_print(const Image& cmy, Image& out, Progress* progress, std::
         return false;
     }
     if (!print_prefix(error)) { progress_ = nullptr; return false; }
-    if (!print_segment(cmy, out, error)) return false;
+    if (!prepare_contrast_mask(cmy, error)) { progress_ = nullptr; return false; }
+    const bool ok = print_segment(cmy, out, error);
+    release_contrast_mask();
+    if (!ok) return false;
     if (progress_) progress_->done = true;
     progress_ = nullptr;
     return true;
@@ -2428,15 +2521,17 @@ bool Pipeline::run_print_striped(const Image& cmy, Image& out, Progress* progres
         return false;
     }
     if (!print_prefix(error)) { progress_ = nullptr; return false; }
+    if (!prepare_contrast_mask(cmy, error)) { progress_ = nullptr; return false; }
 
     Chain chain;
     chain.cur = cmy;
     Progress::StripRun report;
     report.stage = "print";
     report.plan = strip_plan(cmy.h);
-    if (!run_stages_striped(kPrintStages, kPrintStageCount, chain, report.plan, report, error)) {
-        return false;
-    }
+    const bool ok = run_stages_striped(kPrintStages, kPrintStageCount, chain, report.plan, report,
+                                       error);
+    release_contrast_mask();
+    if (!ok) return false;
     if (progress_) { progress_->strips.push_back(std::move(report)); progress_->done = true; }
     progress_ = nullptr;
     out = chain.cur;

@@ -34,6 +34,7 @@
 #include "cam16.hpp"
 #include "colour.hpp"
 #include "curves.hpp"
+#include "digital_intermediate.hpp"
 #include "hanatos.hpp"
 #include "image.hpp"
 #include "params.hpp"
@@ -290,6 +291,21 @@ public:
     // it (input_cast, decode_input, geometry), reads the whole image back and
     // returns all seven methods' EVs. Leaves the pipeline's pitch as it was.
     bool measure_meter_evs(const Image& in, ExposureEvs& out, std::string& error);
+
+    // RFC-024: the mask this print would apply, as the delta in stops at each
+    // cell of its analysis grid (`gw` x `gh`, row-major, the frame's own
+    // aspect). Empty with the mask off. Runs the analysis only -- no print --
+    // and leaves the pipeline's print state as it was.
+    bool contrast_mask_field(const Image& cmy, std::vector<float>& delta, uint32_t& gw,
+                             uint32_t& gh, std::string& error);
+
+    // RFC-023 §9.1: the scene on Scene Latitude's own axis -- stops of the
+    // node's norm relative to the metered mid-grey -- for every pixel of `in`
+    // (the frame at the meter's resolution) after the node's upstream nodes
+    // and the auto-exposure gain `ev`. Leaves the pipeline's pitch as it was,
+    // as `measure_meter_evs` does.
+    bool scene_latitude_sample(const Image& in, double ev, std::vector<double>& E,
+                               std::string& error);
 
     // The EV the auto-exposure node applies instead of metering its own
     // input. The session sets it before every film render, so every tier is
@@ -575,10 +591,29 @@ private:
     bool node_film_curves(const Image& in, Image& out, std::string& error);
     bool node_dir_couplers(const Image& cmy, const Image& log_raw, Image& out, std::string& error);
     bool node_grain(const Image& in, Image& out, std::string& error);
+    /// The grain model itself; `node_grain` is this plus RFC-025's strength.
+    bool grain_realise(const Image& in, Image& out, std::string& error);
     bool node_enlarger_spectral(const Image& in, Image& out, std::string& error);
     bool node_print_exposure(const Image& in, Image& out, std::string& error);
     bool node_print_curves(const Image& in, Image& out, std::string& error);
+
+    // RFC-023's Scene Latitude Mapping (`scene_latitude.cpp`): pointwise,
+    // before `node_upsample`, and not dispatched at all while it is off.
+    bool scene_latitude_wanted() const;
+    bool node_scene_latitude(const Image& in, Image& out, std::string& error);
+
+    // RFC-024's virtual contrast mask (`contrast_mask.cpp`). `prepare` runs
+    // once per print run on the whole negative, after `print_prefix`; the
+    // epilogue replaces `node_enlarger_spectral` in `print_spectral` only
+    // while `mask_on_` is set, and is pointwise, so it bands.
+    bool contrast_mask_wanted() const;
+    bool prepare_contrast_mask(const Image& cmy, std::string& error,
+                               std::vector<float>* delta_out = nullptr);
+    void release_contrast_mask();
+    bool node_contrast_mask_epilogue(const Image& in, Image& out, std::string& error);
     bool node_scan_spectral(const Image& in, Image& out, std::string& error);
+    // RFC-028: the Digital Intermediate, in place of the whole paper and scan.
+    bool node_digital_intermediate(const Image& in, Image& out, std::string& error);
     bool node_bw_correction(const Image& in, Image& out, std::string& error);
     bool node_glare(const Image& in, Image& out, std::string& error);
     bool node_xyz_to_rgb(const Image& in, Image& out, std::string& error);
@@ -666,7 +701,15 @@ private:
         gpu::BufferRef cam16_m2x, cam16_m2r, cam16_cmax, cam16_k;
         size_t cam16_nl = 0, cam16_nh = 0;
         bool cam16_lightness = false;
+
+        // RFC-028's Digital Intermediate
+        gpu::BufferRef di_chd, di_zero_base, di_ixs;
+        gpu::BufferRef di_curve_x, di_curve_inv, di_curve_y;
     } baked_;
+
+    // RFC-028: on when the DI replaces the paper (negative film, no scan_film).
+    bool di_active_ = false;
+    DiConstants di_;
 
     // --- derived on the host, refreshed per run --------------------------
     Vec film_sensitivity_;
@@ -687,6 +730,19 @@ private:
     double print_gain_[3] = {1, 1, 1};
     double print_offset_[3] = {0, 0, 0};
     double print_exposure_gain_[3] = {1, 1, 1};
+
+    // RFC-024, per print run: the prepared field and the parameter block both
+    // mask kernels read. The coefficients are a frame-arena buffer, dropped at
+    // the end of the run that made them.
+    bool mask_on_ = false;
+    gpu::BufferRef mask_coef_;
+    uint32_t mask_gw_ = 0, mask_gh_ = 0, mask_frame_w_ = 0, mask_frame_h_ = 0;
+    float mask_params_[16] = {};
+    // The first row, in the plane, of the band a band-able stage is running
+    // on; 0 on the un-striped path. Set by `run_stages_striped` -- the one
+    // node that needs a frame coordinate reads it rather than every stage
+    // growing a `Strip` argument.
+    uint32_t band_row0_ = 0;
 
     // black/white references
     bool bw_active_ = false;
