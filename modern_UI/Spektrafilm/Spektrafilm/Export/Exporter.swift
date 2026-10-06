@@ -163,7 +163,7 @@ enum Exporter {
                 : try await exportPrint(session: session, to: out, format: format,
                                         quality: recipe.quality, recipe: recipe,
                                         sessionID: sessionID,
-                                        sourceEXIF: session.decoded?.sourceEXIF)
+                                        sourceMetadata: session.decoded?.sourceMetadata)
             // The fallback's reason, if the route did not have one of its own.
             // Merged rather than set, because the DI route has a note of its
             // own (a film/paper mismatch) and losing it to a colour note would
@@ -462,25 +462,25 @@ enum Exporter {
         let format: ExportFormat
         let quality: Double
         let embedsPreview: Bool
-        let sourceEXIF: [CFString: Any]?
+        let sourceMetadata: [CFString: Any]?
     }
 
     private struct DIWrite: @unchecked Sendable {
         let texture: MTLTexture
         let preview: MTLTexture?
         let out: URL
-        let sourceEXIF: [CFString: Any]?
+        let sourceMetadata: [CFString: Any]?
     }
 
     private static func exportPrint(session: Session, to out: URL, format: ExportFormat,
                                     quality: Double, recipe: ExportRecipe,
                                     sessionID: String,
-                                    sourceEXIF: [CFString: Any]?) async throws -> Result {
+                                    sourceMetadata: [CFString: Any]?) async throws -> Result {
         let r = try await filePixels(session: session, recipe: recipe, sessionID: sessionID)
         try await writeFinishedTexture(r.texture, scratch: r.scratch, space: r.target,
                                        to: out, format: format, quality: quality,
                                        embedsPreview: writesPreviewPage(recipe),
-                                       sourceEXIF: sourceEXIF)
+                                       sourceMetadata: sourceMetadata)
         return Result(urls: [out], note: nil, appliedEV: r.appliedEV, pixels: r.pixels)
     }
 
@@ -492,10 +492,12 @@ enum Exporter {
                                      space: CGColorSpace, to out: URL,
                                      format: ExportFormat, quality: Double = 0.95,
                                      embedsPreview: Bool = false,
-                                     sourceEXIF: [CFString: Any]? = nil) async throws {
+                                     sourceEXIF: [CFString: Any]? = nil,
+                                     sourceMetadata: [CFString: Any]? = nil) async throws {
         let work = PrintWrite(texture: texture, scratch: scratch, target: space,
                               out: out, format: format, quality: quality,
-                              embedsPreview: embedsPreview, sourceEXIF: sourceEXIF)
+                              embedsPreview: embedsPreview,
+                              sourceMetadata: sourceMetadata ?? sourceEXIF.map { [kCGImagePropertyExifDictionary: $0] })
         try await Task.detached(priority: .userInitiated) {
             let trace = PerformanceTrace.begin("Export File Write")
             defer { PerformanceTrace.end("Export File Write", trace) }
@@ -507,7 +509,7 @@ enum Exporter {
             let preview = work.embedsPreview ? preview(of: image) : nil
             let readbackMs = Date().timeIntervalSince(started) * 1000
             try write(image, to: work.out, format: work.format, quality: work.quality,
-                      preview: preview, sourceEXIF: work.sourceEXIF)
+                      preview: preview, sourceMetadata: work.sourceMetadata)
             if ProcessInfo.processInfo.environment["SILVERPHASE_PERF_EXPORT_STAGES"] == "1" {
                 print("export write: readback+preview=\(Int(readbackMs)) ms; imageio=\(Int(Date().timeIntervalSince(started) * 1000 - readbackMs)) ms")
             }
@@ -532,6 +534,7 @@ enum Exporter {
     /// Geometry is already in the negative (`node_geometry` runs on the film
     /// side). Post-Dev is not, and must not be: the DI is where a grade starts.
     private static func exportDigitalIntermediate(session: Session, to out: URL) async throws -> Result {
+        let metadata = session.decoded?.sourceMetadata
         let di = try await session.client.renderDigitalIntermediate()
         guard let texture = di.texture else { throw ExportError.noPixels }
         let view = session.renderer.applyCineonView(to: texture)
@@ -542,16 +545,17 @@ enum Exporter {
                 width: max(1, Int(Double(view.width) * scale)),
                 height: max(1, Int(Double(view.height) * scale)))
         }
-        var exif = session.decoded?.sourceEXIF
-        exif?[kCGImagePropertyExifColorSpace] = 0xFFFF
-        let work = DIWrite(texture: texture, preview: small, out: out, sourceEXIF: exif)
+        // Snapshot the originating frame's metadata before crossing awaits.
+        let work = DIWrite(texture: texture, preview: small, out: out,
+                           sourceMetadata: metadata)
         let luts = try await Task.detached(priority: .userInitiated) {
             guard let cg = work.texture.makeCGImage(space: CGColorSpaceCreateDeviceRGB()) else {
                 throw ExportError.noPixels
             }
             let preview = work.preview?.makeCGImage()
             let luts = try CineonLUT.copyBeside(directory: work.out.deletingLastPathComponent())
-            try write(cg, to: work.out, format: .tiff, preview: preview, sourceEXIF: work.sourceEXIF)
+            try write(cg, to: work.out, format: .tiff, preview: preview,
+                      sourceMetadata: work.sourceMetadata)
             return luts
         }.value
         let note = L("Digital Intermediate: Cineon log in ProPhoto primaries, 16-bit and untagged. The two DI-view LUTs beside it (to ProPhoto RGB, to Rec.709) show it as the canvas does.",
@@ -611,7 +615,8 @@ enum Exporter {
     @discardableResult
     nonisolated static func write(_ image: CGImage, to url: URL, format: ExportFormat,
                       quality: Double = 0.95, preview: CGImage? = nil,
-                      sourceEXIF: [CFString: Any]? = nil) throws -> URL {
+                      sourceEXIF: [CFString: Any]? = nil,
+                      sourceMetadata: [CFString: Any]? = nil) throws -> URL {
         var cg = image
         let needsEight = format.isEightBit
         if needsEight {
@@ -638,17 +643,18 @@ enum Exporter {
             partial as CFURL, format.utType.identifier as CFString, small == nil ? 1 : 2, nil) else {
             throw ExportError.write(url)
         }
-        var props: [CFString: Any] = [:]
+        var props = outputMetadata(sourceMetadata ?? sourceEXIF.map { [kCGImagePropertyExifDictionary: $0] },
+                                   image: cg)
         if format == .jpeg { props[kCGImageDestinationLossyCompressionQuality] = quality.clamped(to: 0.1...1) }
         // The 16-bit print is already dominated by high-frequency film grain.
         // LZW can expand it while spending seconds compressing every frame.
         // TIFF compression 1 is lossless, preserves the pixel data and ICC,
         // and avoids that cost. The DI route retains its existing policy.
-        if format == .tiff { props[kCGImagePropertyTIFFDictionary] = [kCGImagePropertyTIFFCompression: 1] }
-        // EXIF is a side channel, never an engine input. Pass the source
-        // dictionary through unchanged; ImageIO owns only the outer file
-        // container and the export's pixels.
-        if let sourceEXIF { props[kCGImagePropertyExifDictionary] = sourceEXIF }
+        if format == .tiff {
+            var tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+            tiff[kCGImagePropertyTIFFCompression] = 1
+            props[kCGImagePropertyTIFFDictionary] = tiff
+        }
         CGImageDestinationAddImage(dest, cg, props as CFDictionary)
         if let small { CGImageDestinationAddImage(dest, small, nil) }
         guard CGImageDestinationFinalize(dest) else { throw ExportError.write(url) }
@@ -662,6 +668,33 @@ enum Exporter {
             throw ExportError.write(url)
         }
         return url
+    }
+
+    /// Capture fields survive; RAW storage layout, orientation, dimensions
+    /// and colour declarations must not describe the newly rendered pixels.
+    nonisolated static func outputMetadata(_ source: [CFString: Any]?, image: CGImage) -> [CFString: Any] {
+        var props: [CFString: Any] = [:]
+        for key in [kCGImagePropertyExifAuxDictionary, kCGImagePropertyIPTCDictionary,
+                    kCGImagePropertyGPSDictionary] { props[key] = source?[key] }
+        let sourceTIFF = source?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+        var tiff: [CFString: Any] = [:]
+        for key in [kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel,
+                    kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright,
+                    kCGImagePropertyTIFFDateTime, kCGImagePropertyTIFFImageDescription] {
+            tiff[key] = sourceTIFF[key]
+        }
+        tiff[kCGImagePropertyTIFFSoftware] = "Silverphase"
+        tiff[kCGImagePropertyTIFFOrientation] = 1
+        props[kCGImagePropertyTIFFDictionary] = tiff
+        props[kCGImagePropertyOrientation] = 1
+        var exif = source?[kCGImagePropertyExifDictionary] as? [CFString: Any] ?? [:]
+        // MakerNote may contain offsets into the original RAW container.
+        exif.removeValue(forKey: kCGImagePropertyExifMakerNote)
+        exif[kCGImagePropertyExifPixelXDimension] = image.width
+        exif[kCGImagePropertyExifPixelYDimension] = image.height
+        exif[kCGImagePropertyExifColorSpace] = image.colorSpace?.name == CGColorSpace.sRGB ? 1 : 0xFFFF
+        props[kCGImagePropertyExifDictionary] = exif
+        return props
     }
 
     /// Core Graphics does the colour conversion; this only sets up the
