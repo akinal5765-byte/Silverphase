@@ -71,7 +71,7 @@ struct PrintProfileSection: View {
             out.append(StockList.Row(id: "__group_" + group.title,
                                      name: L(paperGroup: group.title), isHeader: true))
             out += group.papers.map {
-                StockList.Row(id: $0.id, name: $0.name, isCine: $0.isCine,
+                StockList.Row(id: $0.id, name: MaterialBrowserChoice(id: $0.id, stock: $0).title, isCine: $0.isCine,
                               help: filmIsPositive ? "" : helpFor($0.id),
                               enabled: !filmIsPositive,
                               disabledReason: filmIsPositive ? Self.positiveOnlyReason : "")
@@ -154,13 +154,15 @@ struct PrintProfileSection: View {
                                                set: { var p = session.params; p.yFilterShift = $0; session.params = p }),
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive || session.paperIsMonochrome)
+                        .help(T("Colour filtration is not available for the synthetic neutral B&W print; this is not a calibrated variable-contrast paper model.", "合成的中性黑白印相不使用彩色滤色控制，也不是经过标定的多反差相纸模型。"))
                     ScrubSlider(label: L(.printMagenta), sublabel: "Kodak CC",
                                 value: Binding(get: { session.params.mFilterShift },
                                                set: { var p = session.params; p.mFilterShift = $0; session.params = p }),
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive || session.paperIsMonochrome)
+                        .help(T("Colour filtration is not available for the synthetic neutral B&W print; use print contrast.", "合成的中性黑白印相不使用彩色滤色控制；请调整印相反差。"))
                     ScrubSlider(label: L(.printPreflash),
                                 value: Binding(get: { session.params.preflashExposure },
                                                set: { var p = session.params; p.preflashExposure = $0; session.params = p }),

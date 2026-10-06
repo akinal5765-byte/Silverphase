@@ -174,6 +174,53 @@ final class StockListTests: XCTestCase {
         XCTAssertEqual(Array(paper.prefix(2).map(\.id)), [MaterialBrowserChoice.scanID, MaterialBrowserChoice.diID])
     }
 
+    func testNegativeFilterDoesNotMixInExperimentalFilms() {
+        let choices = MaterialBrowserChoice.choices(catalog: .shared, tab: .film,
+                                                    filter: .negative, query: "",
+                                                    favorites: [], recent: [])
+        XCTAssertFalse(choices.isEmpty)
+        XCTAssertFalse(choices.contains { $0.id.hasSuffix("_experimental") })
+    }
+
+    func testExperimentalFilmTabPartitionsCatalogAndIntersectsSearch() {
+        XCTAssertEqual(MaterialBrowserFilter.filmTabs, [.all, .positive, .negative, .experimental, .blackwhiteExperimental])
+        let catalog = StockCatalog.shared
+        func choices(_ filter: MaterialBrowserFilter, query: String = "") -> [MaterialBrowserChoice] {
+            MaterialBrowserChoice.choices(catalog: catalog, tab: .film, filter: filter,
+                                          query: query, favorites: [], recent: [])
+        }
+        let experimental = choices(.experimental)
+        XCTAssertEqual(experimental.count, 14)
+        XCTAssertTrue(experimental.allSatisfy { $0.stock?.isExperimental == true })
+        let positive = Set(choices(.positive).map(\.id))
+        let negative = Set(choices(.negative).map(\.id))
+        let experiments = Set(experimental.map(\.id))
+        XCTAssertTrue(positive.isDisjoint(with: experiments))
+        XCTAssertTrue(negative.isDisjoint(with: experiments))
+        XCTAssertTrue(positive.isDisjoint(with: negative))
+        XCTAssertEqual(positive.union(negative).union(experiments), Set(choices(.all).map(\.id)))
+        XCTAssertEqual(choices(.experimental, query: "Pro Image").map(\.id), ["kodak_pro_image_100_experimental"])
+        XCTAssertTrue(choices(.experimental, query: "Velvia").isEmpty)
+    }
+
+    func testBlackWhiteExperimentalFilterIncludesSixFilmsAndIntersectsSearch() {
+        let catalog = StockCatalog.shared
+        func choices(_ query: String = "", tab: MaterialBrowserTab = .film) -> [MaterialBrowserChoice] {
+            MaterialBrowserChoice.choices(catalog: catalog, tab: tab,
+                                          filter: .blackwhiteExperimental, query: query,
+                                          favorites: [], recent: [])
+        }
+        XCTAssertEqual(Set(choices().map(\.id)), Set([
+            "ilford_hp5_plus_400_experimental", "kodak_tri_x_400_experimental",
+            "ilford_delta_100_experimental", "ilford_fp4_plus_125_experimental",
+            "ilford_xp2_super_400_experimental", "foma_fomapan_100_experimental"
+        ]))
+        XCTAssertTrue(choices().allSatisfy { $0.stock?.isMonochrome == true && $0.stock?.isExperimental == true })
+        XCTAssertEqual(choices("XP2").map(\.id), ["ilford_xp2_super_400_experimental"])
+        XCTAssertTrue(choices("Portra").isEmpty)
+        XCTAssertTrue(choices(tab: .paper).isEmpty)
+    }
+
     func testMaterialPreferencesPersistIDsAndDeduplicateRecentUse() {
         let suite = "material-browser-test-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
@@ -231,8 +278,35 @@ final class StockListTests: XCTestCase {
 
     func testAllMaterialPackagingArtworkDecodesFromBundle() throws {
         let catalog = StockCatalog.shared
-        XCTAssertEqual(catalog.stocks.count, 28)
+        XCTAssertEqual(catalog.stocks.count, 43)
+        let experimentalSpeeds = ["fujifilm_pro_160ns_experimental": 160,
+                                  "fujifilm_superia_reala_100_experimental": 100,
+                                  "fujifilm_natura_1600_experimental": 1600,
+                                  "kodak_pro_image_100_experimental": 100,
+                                  "agfa_portrait_xps_160_experimental": 160,
+                                  "agfa_optima_ii_200_experimental": 200,
+                                  "kodak_elite_color_200_experimental": 200,
+                                  "fujifilm_pro_160c_experimental": 160]
+        for (id, speed) in experimentalSpeeds {
+            let experimental = try XCTUnwrap(catalog.stock(id))
+            XCTAssertEqual(experimental.nominalSpeed, speed)
+            XCTAssertEqual(experimental.type, "negative")
+            XCTAssertTrue(experimental.name.contains("Experimental"))
+            XCTAssertNotNil(experimental.packagingArtworkURL, id)
+            // Search the stock identity; the experimental suffix is localized.
+            let query = experimental.name.replacingOccurrences(of: " (Experimental)", with: "")
+            let choices = MaterialBrowserChoice.choices(catalog: catalog, tab: .film,
+                                                       filter: .experimental, query: query,
+                                                       favorites: [], recent: [])
+            XCTAssertTrue(choices.contains { $0.id == id }, "experimental stock is not selectable: \(id)")
+        }
+        // B&W film covers are now bundled too. Only the synthetic neutral
+        // paper retains its placeholder: it has no real product packaging.
         for stock in catalog.stocks {
+            if stock.id == "silverphase_neutral_bw_print_experimental" {
+                XCTAssertNil(stock.packagingArtworkURL, stock.id)
+                continue
+            }
             let url = try XCTUnwrap(stock.packagingArtworkURL, stock.id)
             let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil), stock.id)
             let image = try XCTUnwrap(CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -253,6 +327,26 @@ final class StockListTests: XCTestCase {
         let portra = try XCTUnwrap(catalog.stock("kodak_portra_800"))
         XCTAssertEqual(catalog.stock("kodak_portra_800_push1")?.packagingArtworkURL, portra.packagingArtworkURL)
         XCTAssertEqual(catalog.stock("kodak_portra_800_push2")?.packagingArtworkURL, portra.packagingArtworkURL)
+    }
+
+    func testExperimentalBlackAndWhiteCatalog() throws {
+        let catalog = StockCatalog.shared
+        let speeds = ["ilford_hp5_plus_400_experimental":400, "kodak_tri_x_400_experimental":400,
+                      "ilford_delta_100_experimental":100, "ilford_fp4_plus_125_experimental":125,
+                      "ilford_xp2_super_400_experimental":400, "foma_fomapan_100_experimental":100]
+        let paper = try XCTUnwrap(catalog.stock("silverphase_neutral_bw_print_experimental"))
+        XCTAssertTrue(paper.isPaper && paper.isMonochrome)
+        XCTAssertNil(paper.nominalSpeed)
+        for (id, speed) in speeds {
+            let film = try XCTUnwrap(catalog.stock(id))
+            XCTAssertTrue(film.isFilm && film.isMonochrome && film.isExperimental)
+            XCTAssertEqual(film.type, "negative")
+            XCTAssertEqual(film.nominalSpeed, speed)
+            XCTAssertEqual(film.targetPrint, paper.id)
+            XCTAssertNotNil(film.speedSource)
+        }
+        XCTAssertEqual(catalog.films.filter(\.isMonochrome).count, 6)
+        XCTAssertEqual(catalog.stock("ilford_xp2_super_400_experimental")?.channelModel, "chromogenic_monochrome")
     }
 
 }

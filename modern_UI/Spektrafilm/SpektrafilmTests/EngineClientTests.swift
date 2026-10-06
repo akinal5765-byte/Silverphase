@@ -212,7 +212,7 @@ final class EngineClientTests: XCTestCase {
         let names = Set(schema.fields.map(\.name))
         for required in ["film_stock", "print_stock", "print_exposure", "m_filter_shift",
                          "y_filter_shift", "exposure_compensation_ev", "scan_film",
-                         "extended_dynamic_range"] {
+                         "extended_dynamic_range", "scanner_sharpening_amount", "grain_softness"] {
             XCTAssertTrue(names.contains(required), "the schema lost \(required)")
         }
         for filter in ["m_filter_shift", "y_filter_shift"] {
@@ -222,6 +222,10 @@ final class EngineClientTests: XCTestCase {
         XCTAssertEqual(schema.fields.first { $0.name == "halation_amount" }?.range, [0, 4],
                        "halation strength must retain the upstream physical range")
         XCTAssertEqual(schema.fields.first { $0.name == "antihalation_mode" }?.layer, "shoot")
+        XCTAssertEqual(schema.fields.first { $0.name == "scanner_sharpening_amount" }?.layer, "print")
+        XCTAssertEqual(schema.fields.first { $0.name == "scanner_sharpening_amount" }?.range, [0, 1.4])
+        XCTAssertEqual(schema.fields.first { $0.name == "grain_softness" }?.layer, "shoot")
+        XCTAssertEqual(schema.fields.first { $0.name == "grain_softness" }?.range, [0, 1.3])
         await client.stop()
     }
 

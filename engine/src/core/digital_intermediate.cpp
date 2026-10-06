@@ -271,6 +271,12 @@ bool di_constants(const Colour& colour, const Blob& blob, const Params& params,
     // Least squares over the upsampler's own spectra inside Pointer's gamut,
     // through the same film eye the tc_lut uses, with the neutral pinned
     // (M @ [1,1,1] = [1,1,1]). Not fitted to any chart.
+    if (film.info.is_monochrome()) {
+        // Three identical latent channels are rank one. Their average is
+        // the neutral working-space signal, not a fitted colour inverse.
+        for (double& value : out.matrix) value = 1.0 / 3.0;
+        out.matrix_fit_rms = 0.0;  // not applicable: no colour fit performed
+    } else {
     Vec spectra;
     uint32_t dims[4] = {0, 0, 0, 0};
     uint32_t ndim = 0;
@@ -349,6 +355,7 @@ bool di_constants(const Colour& colour, const Blob& blob, const Params& params,
     out.matrix_fit_rms = std::sqrt(ee / rr);
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j) out.matrix[3 * i + j] = M[j][i];   // x @ M convention
+    }
 
     // --- Oklab, for the optional blue-sector compensation ------------------
     {
@@ -363,6 +370,8 @@ bool di_constants(const Colour& colour, const Blob& blob, const Params& params,
         lms.to_row_major(out.to_lms);
         lms.inverse().to_row_major(out.from_lms);
     }
+
+    if (film.info.is_monochrome()) return true;  // no blue/chroma compensation
 
     // --- the blue-sector fit: this film's own chain against its input ------
     // Synthetic blues at 0 EV, generated in Oklab around the window, through
@@ -421,8 +430,8 @@ void di_live_offsets(const Params& params, double out[3]) {
     const double k = -std::log10(std::fmax(params.enlarger.print_exposure, 1e-6));
     const double stop = std::log10(2.0);
     out[0] = k;
-    out[1] = k + params.enlarger.m_filter_shift * 0.03 * stop;
-    out[2] = k + params.enlarger.y_filter_shift * 0.05 * stop;
+    out[1] = k + (params.film.info.is_monochrome() ? 0.0 : params.enlarger.m_filter_shift * 0.03 * stop);
+    out[2] = k + (params.film.info.is_monochrome() ? 0.0 : params.enlarger.y_filter_shift * 0.05 * stop);
 }
 
 }  // namespace spk

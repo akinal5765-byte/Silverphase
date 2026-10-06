@@ -57,6 +57,11 @@ bool Profile::from_json(const Json& root, std::string& error) {
     info.antihalation = str_or(in, "antihalation", "weak");
     info.target_print = str_or(in, "target_print", "");
     info.channel_model = str_or(in, "channel_model", "color");
+    info.grain_size_scale = in.at("grain_size_scale").as_double(1.0);
+    if (!std::isfinite(info.grain_size_scale) || info.grain_size_scale <= 0.0) {
+        error = "profile has invalid grain_size_scale";
+        return false;
+    }
     info.densitometer = str_or(in, "densitometer", "status_M");
     info.log_sensitivity_density_over_min = in.at("log_sensitivity_density_over_min").as_double(0.2);
     info.reference_illuminant = str_or(in, "reference_illuminant", "D55");

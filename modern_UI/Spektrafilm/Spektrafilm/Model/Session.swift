@@ -891,7 +891,7 @@ final class Session: CanvasHost {
     private static func storedClipboardGroups() -> Set<ClipboardGroup> {
         guard let raw = UserDefaults.standard.stringArray(forKey: clipboardGroupsKey)
         else { return Set(ClipboardGroup.allCases) }
-        return Set(raw.compactMap(ClipboardGroup.init(rawValue:)))
+        return ClipboardGroup.fromStored(raw)
     }
 
     // MARK: undo and the work clock
@@ -1462,18 +1462,28 @@ final class Session: CanvasHost {
     /// The modifier is a parameter and not read off `NSEvent` in here, so that
     /// what a ⌘-click does is testable without synthesising one — the reading
     /// itself stays in the gesture, once, at each call site.
-    func click(_ url: URL, command: Bool = false, shift: Bool = false) {
+    /// A filtered surface supplies its displayed order as `rangeScope`.
+    /// Hidden frames must not be reintroduced by the range or its anchor.
+    func click(_ url: URL, command: Bool = false, shift: Bool = false, rangeScope: [URL]? = nil) {
         guard !batchExporting else { return }
         guard frames.contains(where: { $0.id == url }) else { return }
         if shift {
-            let anchor = pickAnchor ?? selection ?? url
-            guard let start = frames.firstIndex(where: { $0.id == anchor }),
-                  let end = frames.firstIndex(where: { $0.id == url }) else { return }
-            let range = Set(frames[min(start, end)...max(start, end)].map(\.id))
+            let imported = Set(frames.map(\.id))
+            let order = (rangeScope ?? frames.map(\.id)).filter { imported.contains($0) }
+            let visible = Set(order)
+            guard visible.contains(url) else { return }
+            let anchor = [pickAnchor, selection, url].compactMap { $0 }.first { visible.contains($0) } ?? url
+            guard let start = order.firstIndex(of: anchor),
+                  let end = order.firstIndex(of: url) else { return }
+            let range = Set(order[min(start, end)...max(start, end)])
             // An additive range leaves existing picks alone; a plain range
             // replaces them, but always keeps the displayed frame in the set.
-            picked = command ? picked.union(range) : range.union(selection.map { [$0] } ?? [])
+            let viewed = selection.flatMap { visible.contains($0) ? $0 : nil }
+            picked = command ? picked.union(range) : range.union(viewed.map { [$0] } ?? [])
             pickAnchor = anchor
+            // Preserve the viewed-frame invariant without silently selecting a
+            // hidden photo. Additive selection intentionally keeps old picks.
+            if !command && viewed == nil { select(url) }
             return
         }
         guard command else {
@@ -1484,6 +1494,17 @@ final class Session: CanvasHost {
         }
         togglePick(url)
         pickAnchor = url
+    }
+
+    /// Select exactly the navigator's visible photos, not the backing library.
+    func selectAllFrames(in scope: [URL]? = nil) {
+        guard !batchExporting else { return }
+        let imported = Set(frames.map(\.id))
+        let order = (scope ?? frames.map(\.id)).filter { imported.contains($0) }
+        guard let first = order.first else { return }
+        picked = Set(order)
+        pickAnchor = first
+        if selection.map({ picked.contains($0) }) != true { select(first) }
     }
 
     /// One frame in or out of the set, canvas unmoved.
@@ -2981,6 +3002,8 @@ final class Session: CanvasHost {
     /// than printed. The catalogue has carried `type` since it was generated
     /// and nothing read it until now.
     var filmIsPositive: Bool { catalog.stock(params.filmStock)?.isPositive ?? false }
+    var filmIsMonochrome: Bool { catalog.stock(params.filmStock)?.isMonochrome ?? false }
+    var paperIsMonochrome: Bool { catalog.stock(params.printStock)?.isMonochrome ?? false }
 
     /// Shared by the rail and the compact film chooser so both apply the
     /// declared paper pairing and slide-film rule in exactly the same way.
@@ -3889,10 +3912,10 @@ final class Session: CanvasHost {
         pushUndo()
         let decodeChanged = next.decode != sidecar.decode
         sidecar = next
-        if clip.groups.contains(.filmEffects) { recomputeFilmFormat(beforeOpen: true) }
+        if clip.groups.contains(.film) { recomputeFilmFormat(beforeOpen: true) }
         // The clip carries a Tone, so the label follows the paste the same way
         // it follows the pill.
-        if clip.groups.contains(.exposure) { retargetSolvedEV() }
+        if clip.groups.contains(.camera) { retargetSolvedEV() }
         if clip.groups.contains(.masks) {
             selectedMaskID = sidecar.masks.first?.id
             syncMasks()

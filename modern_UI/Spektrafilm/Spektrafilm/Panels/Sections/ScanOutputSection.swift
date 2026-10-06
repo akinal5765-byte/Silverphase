@@ -15,6 +15,18 @@ struct ScanOutputSection: View {
                      blockTitle: T("Scan Rendering", "扫描呈现"),
                      menu: { AnyView(resetItem) }) {
             RailRows {
+                ToggleRow(label: T("Scan Sharpening", "扫描锐化"),
+                          isOn: param(\.scannerSharpeningActive),
+                          enabled: !session.digitalIntermediateActive,
+                          reason: T("Digital Intermediate bypasses scanner sharpening.", "数字中间片不应用扫描锐化。"),
+                          help: T("Enhances edge contrast during scanning. 1× preserves the original strength; turn off to leave sharpening to another editor.",
+                                  "在扫描阶段增强边缘反差。1× 保留原有强度；可关闭后交给其他软件做最终锐化。"))
+                ScrubSlider(label: T("Sharpening Strength", "锐化强度"),
+                            value: Binding(get: { session.params.scannerSharpeningStrength },
+                                           set: { var p = session.params; p.scannerSharpeningStrength = $0; session.params = p }),
+                            range: FilmParams.scannerSharpeningRange, zero: 1, snap: 0.1,
+                            format: { String(format: "%.1f×", $0) },
+                            disabled: !session.params.scannerSharpeningActive || session.digitalIntermediateActive)
                 ToggleRow(label: L(.filmGlare),
                           isOn: param(\.glareActive),
                           enabled: !session.params.scanFilm && !session.digitalIntermediateActive,
@@ -27,10 +39,11 @@ struct ScanOutputSection: View {
                             format: { String(format: "%.1f×", $0) },
                             disabled: !session.params.glareActive || session.params.scanFilm || session.digitalIntermediateActive)
                 ToggleRow(label: L(.printEDR),
-                          isOn: param(\.extendedDynamicRange),
+                          isOn: Binding(get: { !session.paperIsMonochrome && session.params.extendedDynamicRange },
+                                        set: { var p = session.params; p.extendedDynamicRange = $0; session.params = p }),
                           labelFont: Theme.Font.edrLabel,
-                          enabled: !session.params.scanFilm && !session.digitalIntermediateActive,
-                          reason: L(.reasonEDRDisabledInScanFilm),
+                          enabled: !session.params.scanFilm && !session.digitalIntermediateActive && !session.paperIsMonochrome,
+                          reason: session.paperIsMonochrome ? T("The experimental B&W print has no calibrated highlight expansion.", "实验黑白印相没有标定的高光扩展曲线。") : L(.reasonEDRDisabledInScanFilm),
                           sublabel: L(.statusEDRScope),
                           help: L(.highlightExpansionHelp))
             }
@@ -45,6 +58,8 @@ struct ScanOutputSection: View {
         var p = session.params
         p.glareActive = true
         p.effects.glare = 1
+        p.scannerSharpeningActive = true
+        p.scannerSharpeningStrength = 1
         p.extendedDynamicRange = false
         session.params = p
     }

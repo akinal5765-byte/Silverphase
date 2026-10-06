@@ -278,7 +278,7 @@ extension S {
         case .meteringCenter: "Center"
         case .meteringProtectHighlights: "Protect highlights"
         case .meteringProtectShadows: "Protect shadows"
-        case .meteringCenterWeightedLegacy: "Center weighted (original default)"
+        case .meteringCenterWeightedLegacy: "Center weighted"
 
         // Film
         case .filmGroupPositive: "Positive"
@@ -729,7 +729,7 @@ extension S {
         case .meteringCenter: "中央主体"
         case .meteringProtectHighlights: "保护高光"
         case .meteringProtectShadows: "保护阴影"
-        case .meteringCenterWeightedLegacy: "中央加权（原默认）"
+        case .meteringCenterWeightedLegacy: "中央加权"
 
         // Film
         case .filmGroupPositive: "正片"

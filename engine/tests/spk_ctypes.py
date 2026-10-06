@@ -126,6 +126,9 @@ class Engine:
         lib.spk_export_di.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
                                       ctypes.POINTER(SpkResult),
                                       ctypes.POINTER(ctypes.c_char_p)]
+        lib.spk_render_digital_intermediate.restype = ctypes.c_int32
+        lib.spk_render_digital_intermediate.argtypes = [ctypes.c_void_p, ctypes.POINTER(SpkResult),
+                                                       ctypes.POINTER(ctypes.c_char_p)]
         lib.spk_progress.restype = ctypes.c_int32
         lib.spk_progress.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
         lib.spk_session_release.argtypes = [ctypes.c_void_p]
@@ -265,6 +268,14 @@ class Session:
         rgba = np.array(flat.reshape(h, stride, 4)[:, :w, :], copy=True)
         self._engine._lib.spk_result_free(ctypes.byref(result))
         return rgba
+
+    def render_digital_intermediate(self) -> tuple[np.ndarray, dict]:
+        """Current Cineon export path, distinct from the legacy print-LUT DI."""
+        result, out = SpkResult(), ctypes.c_char_p()
+        if self._engine._lib.spk_render_digital_intermediate(self._handle, ctypes.byref(result),
+                                                           ctypes.byref(out)) != SPK_OK:
+            raise EngineError(self._engine._last_error())
+        return self._take_result(result), self._engine._take_json(out)
 
     def preview_stock_lut(self, print_stock: str, tier: str = "live") -> tuple[np.ndarray, dict]:
         result, out = SpkResult(), ctypes.c_char_p()

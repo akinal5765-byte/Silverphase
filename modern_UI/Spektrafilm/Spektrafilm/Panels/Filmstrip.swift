@@ -57,6 +57,9 @@ struct Filmstrip: View {
                 thumbnails.frame(height: stripHeight)
             }
         }
+        .background(PhotoSelectAllShortcut(scope: visibleFrames.map(\.id)) {
+            session.selectAllFrames(in: $0)
+        })
         .task(id: session.frames.map(\.id)) { await session.photoMarks.preload(session.frames.map(\.id)) }
         .task(id: session.selectedFrames) {
             let urls = session.selectedFrames
@@ -95,7 +98,8 @@ struct Filmstrip: View {
                                 .onTapGesture {
                                     session.click(frame.id,
                                                   command: NSEvent.modifierFlags.contains(.command),
-                                                  shift: NSEvent.modifierFlags.contains(.shift))
+                                                  shift: NSEvent.modifierFlags.contains(.shift),
+                                                  rangeScope: visibleFrames.map(\.id))
                                 }
                                 .contextMenu {
                                     SettingsClipboardMenu(session: session, frame: frame.id)
@@ -239,6 +243,49 @@ struct Filmstrip: View {
         .buttonStyle(.plain)
         .rowEnabled(enabled, because: L(.reasonNoFrames))
         .help(help)
+    }
+}
+
+/// The navigator owns its filter, so it also owns the scope of Cmd+A.
+/// A local key monitor preserves native text-field Select All and modal sheets.
+struct PhotoSelectAllShortcut: NSViewRepresentable {
+    let scope: [URL]
+    let select: ([URL]) -> Void
+
+    func makeNSView(context: Context) -> ShortcutView { ShortcutView() }
+    func updateNSView(_ view: ShortcutView, context: Context) {
+        view.scope = scope
+        view.select = select
+    }
+    static func dismantleNSView(_ view: ShortcutView, coordinator: ()) { view.stopMonitoring() }
+
+    static func accepts(_ event: NSEvent, firstResponder: NSResponder?, hasSheet: Bool, hasPhotos: Bool) -> Bool {
+        !hasSheet && hasPhotos && !(firstResponder is NSTextView) && !(firstResponder is NSTextField)
+            && event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command
+            && event.charactersIgnoringModifiers?.lowercased() == "a"
+    }
+
+    final class ShortcutView: NSView {
+        var scope: [URL] = []
+        var select: (([URL]) -> Void)?
+        private var monitor: Any?
+        func stopMonitoring() {
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+        }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopMonitoring()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, let window = self.window, event.window === window,
+                      !self.isHiddenOrHasHiddenAncestor,
+                      PhotoSelectAllShortcut.accepts(event, firstResponder: window.firstResponder,
+                                                    hasSheet: window.attachedSheet != nil,
+                                                    hasPhotos: !self.scope.isEmpty) else { return event }
+                self.select?(self.scope)
+                return nil
+            }
+        }
     }
 }
 
@@ -511,7 +558,7 @@ struct FilmChoiceStrip: View {
             : session.digitalIntermediateActive ? MaterialBrowserChoice.diID : session.params.printStock
     }
     private var filters: [MaterialBrowserFilter] {
-        tab == .film ? MaterialBrowserFilter.allCases : [.all, .favorites, .recent]
+        tab == .film ? MaterialBrowserFilter.filmTabs : [.all, .favorites, .recent]
     }
 
     var body: some View {
@@ -639,6 +686,8 @@ struct FilmChoiceStrip: View {
         case .all: return T("All", "全部")
         case .negative: return L(filmGroup: "Negative")
         case .positive: return L(filmGroup: "Positive")
+        case .experimental: return T("Experimental", "实验")
+        case .blackwhiteExperimental: return T("B&W (Experimental)", "黑白（实验）")
         case .favorites: return T("Favorites", "收藏")
         case .recent: return T("Recently used", "最近使用")
         }

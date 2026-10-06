@@ -37,9 +37,13 @@ struct ProfileInfo {
     std::string use = "still", antihalation = "weak", target_print;
     std::string channel_model = "color", densitometer = "status_M";
     double log_sensitivity_density_over_min = 0.2;
+    double grain_size_scale = 1.0;  // optional experimental particle-size prior
     std::string reference_illuminant = "D55", viewing_illuminant = "D50";
 
     bool is_positive() const { return type == "positive"; }
+    bool is_monochrome() const {
+        return channel_model == "monochrome" || channel_model == "chromogenic_monochrome";
+    }
 };
 
 struct ProfileData {

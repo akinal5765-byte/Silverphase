@@ -273,6 +273,20 @@ bool Pipeline::alloc_like(const Image& img, Image& out, std::string& error) {
 
 bool Pipeline::build(const Params& params, std::string& error) {
     params_ = params;
+    // Runtime policy, not changes to saved controls or measured colour stocks.
+    // A monochrome latent image has no inter-colour DIR coupling.
+    if (params_.film.info.is_monochrome()) {
+        params_.film_render.dir_couplers.active = false;
+        auto& h = params_.film_render.halation;
+        for (auto* a : {h.scatter_core_um, h.scatter_tail_um, h.scatter_tail_weight,
+                        h.halation_strength, h.halation_first_sigma_um}) {
+            const double mean = (a[0] + a[1] + a[2]) / 3.0;
+            for (int c = 0; c < 3; ++c) a[c] = mean;
+        }
+    }
+    // The synthetic B&W paper has no calibrated EDR map. Never borrow a
+    // colour paper's highlight mapping and present it as measured B&W data.
+    if (params_.print.info.is_monochrome()) params_.print_render.edr_enabled = false;
     const Profile& film = params_.film;
     const Profile& print = params_.print;
 
@@ -425,7 +439,8 @@ bool Pipeline::build(const Params& params, std::string& error) {
         uint32_t streams[9];
         const uint32_t base_seed[3] = {0, 1, 2};
         for (uint32_t ch = 0; ch < 3; ++ch)
-            for (uint32_t sl = 0; sl < 3; ++sl) streams[ch * 3 + sl] = base_seed[ch] + sl * 10;
+            for (uint32_t sl = 0; sl < 3; ++sl)
+                streams[ch * 3 + sl] = (film.info.is_monochrome() ? 0 : base_seed[ch]) + sl * 10;
         baked_.grain_streams = gpu_->upload_persistent_u32(streams, 9, error);
         if (!baked_.grain_xa || !baked_.grain_inv || !baked_.grain_ylay || !baked_.grain_streams)
             return false;
@@ -1442,7 +1457,15 @@ bool Pipeline::node_grain(const Image& in, Image& out, std::string& error) {
 }
 
 bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
-    const GrainParams& g = params_.film_render.grain;
+    GrainParams g = params_.film_render.grain;
+    if (params_.film.info.is_monochrome()) {
+        g.size_scale *= params_.film.info.grain_size_scale;
+        for (int c = 0; c < 3; ++c) {
+            g.particle_scale[c] = 1.6;
+            g.uniformity[c] = .98;
+        }
+        g.blur_dye_clouds_um = params_.film.info.channel_model == "chromogenic_monochrome" ? 1.0 : 0.0;
+    }
     Timer t(this, "filming.develop.grain");
     const double px = pixel_size_um_;
     // `grain_sampler = "exact"` pins the realisation so an A/B is meaningful;
@@ -1548,7 +1571,8 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
             lp[4 * ch + 3] = float(g.uniformity[ch]);
         }
         gpu::BufferRef lp_buf = gpu_->upload(lp, sizeof lp, error);
-        const uint32_t streams[3] = {0, 1, 2};
+        const uint32_t streams[3] = {0, params_.film.info.is_monochrome() ? 0u : 1u,
+                                      params_.film.info.is_monochrome() ? 0u : 2u};
         gpu::BufferRef streams_buf = gpu_->upload_u32(streams, 3, error);
         if (!lp_buf || !streams_buf) return false;
         if (!alloc_like(in, grain, error)) return false;

@@ -5,6 +5,20 @@
 import XCTest
 
 final class SettingsClipboardTests: XCTestCase {
+    @MainActor func testProcessGroupsReuseInspectorTitlesAndOrder() {
+        let groups: [ClipboardGroup] = [.camera, .film, .development, .print, .output]
+        let stages: [InspectorStage] = [.camera, .film, .development, .print, .output]
+        XCTAssertEqual(Array(ClipboardGroup.offered.prefix(5)), groups)
+        XCTAssertEqual(groups.map(\.title), stages.map(\.title))
+    }
+
+    func testRememberedLegacyGroupsMigrateToProcessStages() {
+        XCTAssertEqual(ClipboardGroup.fromStored(["filmAndPaper"]), [.film, .print, .output])
+        XCTAssertEqual(ClipboardGroup.fromStored(["filmEffects"]), [.camera, .film, .development])
+        XCTAssertEqual(ClipboardGroup.fromStored(["printEffects"]), [.print, .output])
+        XCTAssertEqual(ClipboardGroup.fromStored(["exposure", "whiteBalance", "scenePlacement"]), [.camera, .print])
+        XCTAssertEqual(ClipboardGroup.fromStored(["output", "development", "unknown"]), [.output, .development])
+    }
 
     // MARK: - the model, walked
 
@@ -84,8 +98,14 @@ final class SettingsClipboardTests: XCTestCase {
         p.filmSide = FilmSide.long.rawValue
         p.sideLengthMM = 56
         p.grainActive = false
+        p.grainSoftness = 1.6
         p.halationActive = false
         p.glareActive = false
+        p.scannerSharpeningActive = false
+        p.scannerSharpeningStrength = 1.6
+        p.developmentContrast = 1.2
+        p.colorSeparation = 0.8
+        p.effects.couplersActive = false
         p.printBrightnessStops = 0.5
         p.yFilterShift = 0.2
         p.mFilterShift = -0.1
@@ -136,7 +156,7 @@ final class SettingsClipboardTests: XCTestCase {
             XCTAssertFalse(diff.isEmpty, "\(g.rawValue) pasted nothing")
             // The one field outside a group a paste may touch: Exposure clears
             // the report of the old meter.
-            let allowed = g == .exposure ? ["solvedEV"] : []
+            let allowed = g == .camera ? ["solvedEV"] : []
             for path in diff where !g.paths.contains(where: { owned(path, by: $0) }) && !allowed.contains(path) {
                 XCTFail("pasting \(g.rawValue) changed \(path), which it does not own")
             }
@@ -163,36 +183,36 @@ final class SettingsClipboardTests: XCTestCase {
         var s = source()
         s.decode.whiteBalance = .asShot
         s.decode.temperature = 3400      // the *source* camera's
-        let out = SettingsClip(groups: [.whiteBalance], settings: s, sourceName: "src").applied(to: target())
+        let out = SettingsClip(groups: [.camera], settings: s, sourceName: "src").applied(to: target())
         XCTAssertEqual(out.decode.whiteBalance, .asShot)
         XCTAssertEqual(out.decode.temperature, 5100, "As Shot carried the source camera's Kelvin")
         XCTAssertEqual(out.decode.tint, -3)
-        XCTAssertEqual(out.params.yFilterShift, 0.2)
+        XCTAssertEqual(out.params.yFilterShift, target().params.yFilterShift, "capture must not copy enlarger filters")
     }
 
     func testACustomWhiteBalancePastesItsNumbers() {
-        let out = SettingsClip(groups: [.whiteBalance], settings: source(), sourceName: "src").applied(to: target())
+        let out = SettingsClip(groups: [.camera], settings: source(), sourceName: "src").applied(to: target())
         XCTAssertEqual(out.decode.whiteBalance, .custom)
         XCTAssertEqual(out.decode.temperature, 3400)
         XCTAssertEqual(out.decode.tint, 12)
     }
 
     func testExposureClearsTheReportOnlyWhenTheMeterChanges() {
-        let changedMeter = SettingsClip(groups: [.exposure], settings: source(), sourceName: "src").applied(to: target())
+        let changedMeter = SettingsClip(groups: [.camera], settings: source(), sourceName: "src").applied(to: target())
         XCTAssertNil(changedMeter.solvedEV, "the old meter's report survived a change of meter")
         XCTAssertEqual(changedMeter.params.exposureCompensationEV, 1.5)
 
         var sameMeter = source()
         sameMeter.params.autoExposure = true
         sameMeter.params.autoExposureMethod = FilmParams().autoExposureMethod
-        let kept = SettingsClip(groups: [.exposure], settings: sameMeter, sourceName: "src").applied(to: target())
+        let kept = SettingsClip(groups: [.camera], settings: sameMeter, sourceName: "src").applied(to: target())
         XCTAssertEqual(kept.solvedEV, 0.4, "the report was dropped although the meter is the same")
     }
 
     /// The defect behind "high-contrast photos blow out": the source's fitted
     /// curve is its own histogram, and must not be pasted.
     func testScenePlacementPastesTheIntentAndNeverTheCurve() {
-        let out = SettingsClip(groups: [.scenePlacement], settings: source(), sourceName: "src").applied(to: target())
+        let out = SettingsClip(groups: [.camera], settings: source(), sourceName: "src").applied(to: target())
         let l = out.params.sceneLatitude
         XCTAssertEqual(l.highlightPullBack, 2)
         XCTAssertEqual(l.shadowPullBack, 1)
@@ -212,7 +232,7 @@ final class SettingsClipboardTests: XCTestCase {
         var t = target()
         t.params.sceneLatitude.active = true
         t.params.sceneLatitude.highlightPullBack = 3
-        let out = SettingsClip(groups: [.scenePlacement], settings: s, sourceName: "src").applied(to: t)
+        let out = SettingsClip(groups: [.camera], settings: s, sourceName: "src").applied(to: t)
         XCTAssertEqual(out.params.sceneLatitude, SceneLatitudeSettings())
         XCTAssertFalse(out.placementNeedsFit)
     }
@@ -221,7 +241,7 @@ final class SettingsClipboardTests: XCTestCase {
         var s = source()
         s.params.filmStock = "fujifilm_provia_100f"
         s.params.scanFilm = true
-        let out = SettingsClip(groups: [.filmAndPaper], settings: s, sourceName: "src").applied(to: target())
+        let out = SettingsClip(groups: [.film, .print], settings: s, sourceName: "src").applied(to: target())
         XCTAssertEqual(out.params.filmStock, "fujifilm_provia_100f")
         XCTAssertTrue(out.params.scanFilm)
     }

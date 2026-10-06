@@ -209,6 +209,80 @@ final class SelectionModelTests: XCTestCase {
         XCTAssertEqual(session.selection, urls[1])
     }
 
+    func testFilteredShiftRangeNeverIncludesHiddenFrames() throws {
+        let (session, urls) = try openedSession(frameCount: 7)
+        let visible = [urls[0], urls[2], urls[4], urls[6]]
+        session.click(visible[0], rangeScope: visible)
+        session.click(visible[3], shift: true, rangeScope: visible)
+        XCTAssertEqual(session.selectedFrames, visible)
+        XCTAssertEqual(session.selection, visible[0])
+        session.click(visible[1], shift: true, rangeScope: visible)
+        XCTAssertEqual(session.selectedFrames, Array(visible.prefix(2)))
+        session.click(visible[3], rangeScope: visible)
+        session.click(visible[0], shift: true, rangeScope: visible)
+        XCTAssertEqual(session.selectedFrames, visible)
+    }
+
+    func testFilteredCommandShiftAddsOnlyVisibleRange() throws {
+        let (session, urls) = try openedSession(frameCount: 7)
+        let visible = [urls[0], urls[2], urls[4], urls[6]]
+        session.click(urls[0])
+        session.click(urls[2], command: true, rangeScope: visible)
+        session.click(urls[6], command: true, shift: true, rangeScope: visible)
+        XCTAssertEqual(session.selectedFrames, visible)
+        XCTAssertEqual(session.selection, urls[0])
+    }
+
+    func testFilteredShiftDoesNotReviveHiddenAnchorOrViewedFrame() throws {
+        let (session, urls) = try openedSession(frameCount: 7)
+        session.click(urls[1])
+        let visible = [urls[0], urls[2], urls[4], urls[6]]
+        session.click(urls[6], shift: true, rangeScope: visible)
+        XCTAssertEqual(session.selectedFrames, [urls[6]])
+        XCTAssertEqual(session.selection, urls[6])
+        session.click(urls[0], shift: true, rangeScope: visible)
+        XCTAssertEqual(session.selectedFrames, visible)
+    }
+
+    func testSelectAllFramesUsesVisibleScopeAndPreservesVisibleCanvas() throws {
+        let (session, urls) = try openedSession(frameCount: 7)
+        let visible = [urls[0], urls[2], urls[4], urls[6]]
+        session.click(urls[2])
+        session.selectAllFrames(in: visible)
+        XCTAssertEqual(session.selectedFrames, visible)
+        XCTAssertEqual(session.selection, urls[2])
+        session.selectAllFrames()
+        XCTAssertEqual(session.selectedFrames, urls)
+        XCTAssertEqual(session.selection, urls[2])
+    }
+
+    func testSelectAllFramesReplacesHiddenPicksAndOpensVisibleFrame() throws {
+        let (session, urls) = try openedSession(frameCount: 7)
+        session.click(urls[1])
+        session.selectAllFrames(in: [urls[0], urls[2], urls[4]])
+        XCTAssertEqual(session.selectedFrames, [urls[0], urls[2], urls[4]])
+        XCTAssertEqual(session.selection, urls[0])
+        session.click(urls[4], shift: true, rangeScope: [urls[0], urls[2], urls[4]])
+        XCTAssertEqual(session.selectedFrames, [urls[0], urls[2], urls[4]])
+    }
+
+    func testNavigatorSelectAllShortcutLeavesTextAndSheetsAlone() throws {
+        func event(_ modifiers: NSEvent.ModifierFlags) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                                          timestamp: 0, windowNumber: 0, context: nil,
+                                          characters: "a", charactersIgnoringModifiers: "a",
+                                          isARepeat: false, keyCode: 0))
+        }
+        let cmdA = try event(.command)
+        XCTAssertTrue(PhotoSelectAllShortcut.accepts(cmdA, firstResponder: nil, hasSheet: false, hasPhotos: true))
+        XCTAssertFalse(PhotoSelectAllShortcut.accepts(cmdA, firstResponder: NSTextView(), hasSheet: false, hasPhotos: true))
+        XCTAssertFalse(PhotoSelectAllShortcut.accepts(cmdA, firstResponder: NSTextField(), hasSheet: false, hasPhotos: true))
+        XCTAssertFalse(PhotoSelectAllShortcut.accepts(cmdA, firstResponder: nil, hasSheet: true, hasPhotos: true))
+        XCTAssertFalse(PhotoSelectAllShortcut.accepts(cmdA, firstResponder: nil, hasSheet: false, hasPhotos: false))
+        XCTAssertFalse(PhotoSelectAllShortcut.accepts(try event([.command, .shift]), firstResponder: nil,
+                                                     hasSheet: false, hasPhotos: true))
+    }
+
     /// The open frame can never leave the set, however it is clicked.
     ///
     /// A batch that excludes the photograph on the canvas is a state with

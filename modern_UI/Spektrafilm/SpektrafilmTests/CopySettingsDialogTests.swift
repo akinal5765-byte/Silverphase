@@ -15,7 +15,7 @@ final class CopySettingsDialogTests: XCTestCase {
     func testRequestAndCancellationPreserveTheClipboardAndRememberedGroups() throws {
         let s = Session()
         s.selection = URL(fileURLWithPath: "/tmp/source.tif")
-        s.clipboardGroups = [.exposure]
+        s.clipboardGroups = [.camera]
         s.copySettings()
         let previous = s.clipboard
         s.requestCopySettings()
@@ -23,23 +23,23 @@ final class CopySettingsDialogTests: XCTestCase {
         XCTAssertEqual(s.clipboard, previous)
         s.copySettingsRequest = nil // sheet dismissal, including Escape
         XCTAssertEqual(s.clipboard, previous)
-        XCTAssertEqual(s.clipboardGroups, [.exposure])
+        XCTAssertEqual(s.clipboardGroups, [.camera])
     }
 
     func testConfirmationCopiesFrozenSourceAndOnlyConfirmedGroups() throws {
         let s = Session()
         s.selection = URL(fileURLWithPath: "/tmp/source.tif")
         s.sidecar.params.printBrightnessStops = 2
-        s.clipboardGroups = [.exposure]
+        s.clipboardGroups = [.camera]
         s.requestCopySettings()
         let request = try XCTUnwrap(s.copySettingsRequest)
         s.sidecar.params.printBrightnessStops = -1
         s.selection = URL(fileURLWithPath: "/tmp/other.tif")
-        s.confirmCopySettings(requestID: request.id, groups: [.exposure, .whiteBalance])
+        s.confirmCopySettings(requestID: request.id, groups: [.camera])
         XCTAssertEqual(s.clipboard?.sourceName, "source.tif")
         XCTAssertEqual(s.clipboard?.settings.params.printBrightnessStops, 2)
-        XCTAssertEqual(s.clipboard?.groups, [.exposure, .whiteBalance])
-        XCTAssertEqual(s.clipboardGroups, [.exposure, .whiteBalance])
+        XCTAssertEqual(s.clipboard?.groups, [.camera])
+        XCTAssertEqual(s.clipboardGroups, [.camera])
         XCTAssertNil(s.copySettingsRequest)
     }
 
@@ -53,23 +53,23 @@ final class CopySettingsDialogTests: XCTestCase {
         s.confirmCopySettings(requestID: request.id, groups: [])
         XCTAssertNil(s.clipboard)
         XCTAssertNotNil(s.copySettingsRequest)
-        s.confirmCopySettings(requestID: request.id, groups: [.filmEffects])
-        XCTAssertEqual(s.clipboard?.groups, [.filmEffects])
+        s.confirmCopySettings(requestID: request.id, groups: [.film])
+        XCTAssertEqual(s.clipboard?.groups, [.film])
     }
 
     func testBatchExportAndStaleConfirmationCannotReplaceClipboard() throws {
         let s = Session()
         s.selection = URL(fileURLWithPath: "/tmp/source.tif")
-        s.clipboardGroups = [.exposure]
+        s.clipboardGroups = [.camera]
         s.copySettings()
         let previous = s.clipboard
         s.requestCopySettings()
         let request = try XCTUnwrap(s.copySettingsRequest)
-        s.confirmCopySettings(requestID: UUID(), groups: [.filmEffects])
+        s.confirmCopySettings(requestID: UUID(), groups: [.film])
         XCTAssertEqual(s.clipboard, previous)
         s.batchExporting = true
         XCTAssertFalse(s.canRequestCopySettings)
-        s.confirmCopySettings(requestID: request.id, groups: [.filmEffects])
+        s.confirmCopySettings(requestID: request.id, groups: [.film])
         XCTAssertEqual(s.clipboard, previous)
         s.copySettingsRequest = nil
         s.requestCopySettings()

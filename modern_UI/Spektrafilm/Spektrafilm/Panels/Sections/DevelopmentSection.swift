@@ -22,8 +22,10 @@ struct DevelopmentSection: View {
                             range: 0.5...1.5, zero: 1, snap: 0.05,
                             format: { String(format: "%.2f×", $0) })
                 ToggleRow(label: L(.filmCouplers),
-                          isOn: Binding(get: { session.params.effects.couplersActive },
+                          isOn: Binding(get: { !session.filmIsMonochrome && session.params.effects.couplersActive },
                                         set: { var p = session.params; p.effects.couplersActive = $0; session.params = p }))
+                    .disabled(session.filmIsMonochrome)
+                    .help(T("Colour couplers do not apply to these monochrome models.", "这些黑白模型不使用彩色耦合剂。"))
                 ScrubSlider(label: L(.developmentColorSeparation),
                             value: Binding(get: { session.params.colorSeparation },
                                            set: { var p = session.params; p.colorSeparation = $0; session.params = p }),
@@ -31,7 +33,7 @@ struct DevelopmentSection: View {
                             // loses monotonicity at 1.473 (Portra 800 Push 2).
                             range: 0...1.4, zero: 1, snap: 0.05,
                             format: { String(format: "%.2f×", $0) })
-                    .disabled(!session.params.effects.couplersActive)
+                    .disabled(!session.params.effects.couplersActive || session.filmIsMonochrome)
             }
         }
     }

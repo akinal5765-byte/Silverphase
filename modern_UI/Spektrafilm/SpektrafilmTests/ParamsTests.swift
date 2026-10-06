@@ -1,6 +1,68 @@
 import XCTest
 
 final class ParamsTests: XCTestCase {
+    func testGrainSoftnessRoutesToFilmWithoutChangingParticleSize() {
+        var p = FilmParams.default
+        XCTAssertEqual(p.fullDelta["grain_softness"], .double(0.65))
+        p.grainSoftness = 2
+        let delta = p.delta(from: .default)
+        XCTAssertEqual(delta.layers, [.shoot])
+        XCTAssertEqual(delta.delta, ["grain_softness": .double(1.3)])
+        XCTAssertEqual(p.grainSizeScale, 1)
+        p.grainSoftness = -1
+        XCTAssertEqual(p.fullDelta["grain_softness"], .double(0))
+        p.grainSoftness = 9
+        XCTAssertEqual(p.fullDelta["grain_softness"], .double(1.3))
+    }
+
+    func testGrainSoftnessSidecarCompatibilityAndRoundTrip() throws {
+        let original = Sidecar()
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        var params = try XCTUnwrap(root["params"] as? [String: Any])
+        params.removeValue(forKey: "grainSoftness")
+        root["params"] = params
+        let legacy = try JSONDecoder().decode(Sidecar.self, from: JSONSerialization.data(withJSONObject: root))
+        XCTAssertEqual(legacy.params, original.params)
+        var changed = original
+        changed.params.grainSoftness = 0
+        let restored = try JSONDecoder().decode(Sidecar.self, from: JSONEncoder().encode(changed))
+        XCTAssertEqual(restored.params, changed.params)
+    }
+
+    func testScannerSharpeningRoutesToScanAndPreservesStrengthWhenOff() {
+        var p = FilmParams.default
+        XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(0.7))
+        p.scannerSharpeningStrength = 2
+        XCTAssertEqual(p.delta(from: .default).layers, [.print])
+        XCTAssertEqual(p.delta(from: .default).delta["scanner_sharpening_amount"], .double(1.4))
+        p.scannerSharpeningActive = false
+        XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(0))
+        XCTAssertEqual(p.scannerSharpeningStrength, 2)
+        p.scannerSharpeningActive = true
+        XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(1.4))
+        p.scannerSharpeningStrength = -1
+        XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(0))
+        p.scannerSharpeningStrength = 9
+        XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(1.4))
+    }
+
+    func testScannerSharpeningSidecarCompatibilityAndRoundTrip() throws {
+        let original = Sidecar()
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        var params = try XCTUnwrap(root["params"] as? [String: Any])
+        params.removeValue(forKey: "scannerSharpeningActive")
+        params.removeValue(forKey: "scannerSharpeningStrength")
+        root["params"] = params
+        let legacy = try JSONDecoder().decode(Sidecar.self, from: JSONSerialization.data(withJSONObject: root))
+        XCTAssertEqual(legacy.params, original.params)
+
+        var changed = original
+        changed.params.scannerSharpeningActive = false
+        changed.params.scannerSharpeningStrength = 1.6
+        let restored = try JSONDecoder().decode(Sidecar.self, from: JSONEncoder().encode(changed))
+        XCTAssertEqual(restored.params, changed.params)
+    }
+
     func testDeltaIsEmptyForEqualParams() {
         let (d, l) = FilmParams.default.delta(from: .default)
         XCTAssertTrue(d.isEmpty); XCTAssertTrue(l.isEmpty)
@@ -203,14 +265,14 @@ final class ParamsTests: XCTestCase {
         // The names the Python schema declares (service/schema.py). A rename
         // there must be mirrored here or the delta is rejected at runtime.
         let known: Set<String> = ["film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
-                                  "grain_active", "grain_sublayers_active", "grain_size_scale",
+                                  "grain_active", "grain_sublayers_active", "grain_size_scale", "grain_softness",
                                   "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range",
                                   "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range",
                                   "halation_active", "print_exposure", "print_contrast",
                                   "y_filter_shift", "m_filter_shift", "glare_active", "scan_film",
                                   "extended_dynamic_range", "halation_amount", "antihalation_mode", "density_curve_gamma",
                                   "dir_couplers_amount", "dir_couplers_active", "preflash_exposure",
-                                  "grain_amount", "glare_amount", "halation_scatter_amount",
+                                  "grain_amount", "glare_amount", "halation_scatter_amount", "scanner_sharpening_amount",
                                   "digital_intermediate", "digital_intermediate_blue_compensation",
                                   "contrast_mask_active", "contrast_mask_highlights", "contrast_mask_shadows",
                                   "contrast_mask_core", "contrast_mask_scale", "contrast_mask_scheme",
@@ -235,11 +297,11 @@ final class ParamsTests: XCTestCase {
     /// on again comes back to the intent it had.
     func testAEMethodIsTheFlagAndTheMethod() {
         var p = FilmParams.default
-        XCTAssertEqual(AEMethod.of(p), .metered(.balanced))
+        XCTAssertEqual(AEMethod.of(p), .legacy)
 
         AEMethod.custom.apply(to: &p)
         XCTAssertFalse(p.autoExposure)
-        XCTAssertEqual(p.autoExposureMethod, "balanced", "Custom must not forget the intent")
+        XCTAssertEqual(p.autoExposureMethod, "center_weighted", "Custom must not forget the intent")
         XCTAssertEqual(AEMethod.of(p), .custom)
         XCTAssertEqual(p.delta(from: .default).delta["auto_exposure"], .bool(false))
         XCTAssertNil(p.delta(from: .default).delta["auto_exposure_method"],
@@ -251,11 +313,12 @@ final class ParamsTests: XCTestCase {
 
         // A sidecar written before the method existed: the engine's own
         // `center_weighted`, now also selectable from the menu.
+        let previous = p
         AEMethod.legacy.apply(to: &p)
         XCTAssertEqual(p.autoExposureMethod, "center_weighted")
         XCTAssertEqual(AEMethod.of(p), .legacy)
         XCTAssertTrue(AEMethod.offered.contains(.legacy))
-        XCTAssertEqual(p.delta(from: .default).delta["auto_exposure_method"],
+        XCTAssertEqual(p.delta(from: previous).delta["auto_exposure_method"],
                        .string("center_weighted"), "Selecting the original meter must reach an already-open engine session")
     }
 

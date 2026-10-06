@@ -238,55 +238,17 @@ final class CanvasViewTests: XCTestCase {
         XCTAssertEqual(widths.first! - widths.last!, 400, accuracy: 0.001)
     }
 
-    /// The hover band must be **centred on the pill it reveals**.
-    ///
-    /// They are hung off the same canvas edge but by different rules — the
-    /// band is 28 pt against the edge, the pill is 14 pt and inset — so
-    /// whichever way the arithmetic goes, one of them ends up off to a side.
-    /// Measured in a hosted window on the code this was written against:
-    ///
-    ///     leading   band x 343…371   pill x 343…357    centres 357 vs 350
-    ///     trailing  band x 1591…1619 pill x 1605…1619  centres 1605 vs 1612
-    ///     bottom    band y 914…942   pill y 918…932    centres 928 vs 925
-    ///
-    /// Seven points on the two vertical edges and three on the bottom, all of
-    /// the slack on the far side from where a person reaches: coming *from*
-    /// the panel or the filmstrip, the band was not there at all. The user's
-    /// words were that the bottom trigger sits above the bar it belongs to.
-    ///
-    /// The invariant is stated as "the pill is centred in the band" rather
-    /// than as three numbers, so it holds however the tokens move and does not
-    /// repeat the arithmetic it is checking.
-    func testTheHoverBandIsCentredOnThePillItReveals() throws {
+    /// Floating strips are controlled by the toolbar; no edge hover tabs
+    /// should create invisible hit regions over the photo.
+    func testModernEditorHasNoLegacyHoverBands() {
         let session = Session()
         let host = NSHostingView(rootView: EditorWindow(session: session))
-        host.frame = CGRect(x: 0, y: 0, width: 1920, height: 1080)
-        let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = host
-        window.orderFront(nil)
-        defer { window.orderOut(nil) }
+        host.frame = CGRect(x: 0, y: 0, width: 1200, height: 800)
         host.layoutSubtreeIfNeeded()
-
         func bands(in view: NSView) -> [HoverBand.Band] {
             (view as? HoverBand.Band).map { [$0] } ?? view.subviews.flatMap(bands(in:))
         }
-        let found = bands(in: host)
-        // **One**, not three. The 2026-09-17 drawing folds the two rails with
-        // the `sidebar.left` / `sidebar.right` buttons in their own headers,
-        // so the leading and trailing bands are gone; the bottom one is the
-        // only tab the redraw left alone ("except the bottom gallery view
-        // remains unchanged").
-        XCTAssertEqual(found.count, 1, "the filmstrip's is the one hover tab left")
-        for band in found {
-            XCTAssertGreaterThan(band.bounds.width, 0)
-            XCTAssertGreaterThan(band.bounds.height, 0)
-            // The pill's rect is in the band's own coordinates, so "centred"
-            // is a statement about the band's bounds alone.
-            XCTAssertEqual(band.pillRect.midX, band.bounds.midX, accuracy: 0.5,
-                           "pill is \(band.pillRect.midX - band.bounds.midX) pt off centre across")
-            XCTAssertEqual(band.pillRect.midY, band.bounds.midY, accuracy: 0.5,
-                           "pill is \(band.pillRect.midY - band.bounds.midY) pt off centre down")
-        }
+        XCTAssertTrue(bands(in: host).isEmpty)
     }
 
     /// The drawable must **cover** the layer it is drawn into.
@@ -332,133 +294,44 @@ final class CanvasViewTests: XCTestCase {
         }
     }
 
-    /// **The canvas twitch, measured in-process.**
-    ///
-    /// What "the picture twitches while the panels move" is: during the
-    /// collapse the canvas is re-laid-out continuously, and the frames that
-    /// reach the screen are the ones drawn — so the picture moves in steps
-    /// whose size is decided by *when the draw happened*, not by the
-    /// animation. Measured on the real app: a 113 ms interval with no draw at
-    /// all, straddled by a 108 pt jump, against a total travel of 167 pt.
-    ///
-    /// This drives the same thing where a test can see it: the real
-    /// `EditorWindow`, the real `MetalCanvasView`, in a real window, with the
-    /// collapse run as an animation exactly as the tab runs it. Every
-    /// millisecond it samples the draw count and where the picture is, and
-    /// reports the longest interval with no draw and how far the picture
-    /// moved across it. That is the number to compare when someone changes
-    /// what animates — an A/B needs the same measurement on both arms.
-    ///
-    /// **The assertion is deliberately weak.** It fires if the collapse stops
-    /// running at all (no resizes, no draws, or the canvas never moves),
-    /// which is a real regression: this file is where the collapse, the fit
-    /// and the draw path meet. It does **not** assert a bound on the hole,
-    /// because the hole is wall-clock on whatever machine is running and a
-    /// bound would be flaky rather than informative. The printed line is the
-    /// point; the assertion is the tripwire under it.
-    ///
-    /// **One result, so it is not re-tested.** The obvious cheap fix — keep
-    /// the panel at its fixed width and animate a clip window over it,
-    /// instead of removing it and animating its width — was measured as an
-    /// A/B on this harness, four runs per arm: baseline 37–41 canvas resizes
-    /// and ~304–325 ms of CPU for a 180 ms animation; clip version 45–47
-    /// resizes and ~298–321 ms of CPU. A wash. The canvas's width animates
-    /// either way — that is what drives the fit — so the pass count is set by
-    /// the canvas, not by whether the panel is laid out inside its own slot.
-    /// The same reasoning applies to the right panel and the filmstrip.
-    func testTheCollapseIsMeasuredAndTheCanvasKeepsUp() async throws {
+    /// The inspector floats over a window-sized canvas. Fit changes with its
+    /// occlusion, while Metal's surface must retain the same dimensions.
+    func testInspectorCollapseUpdatesFitWithoutResizingMetalCanvas() async throws {
         let session = Session()
-        let size = CGSize(width: 1920, height: 1080)
+        session.rightCollapsed = false
+        session.showExport = false
+        session.renderer.setLive(session.renderer.store.makeWritable(width: 600, height: 400))
         let host = NSHostingView(rootView: EditorWindow(session: session))
-        host.frame = CGRect(origin: .zero, size: size)
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size),
-                              styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = host
-        window.orderFront(nil)
-        defer { window.orderOut(nil) }
+        host.frame = CGRect(x: 0, y: 0, width: 1200, height: 800)
         host.layoutSubtreeIfNeeded()
-
-        func find<T: NSView>(_ type: T.Type, in view: NSView) -> T? {
-            (view as? T) ?? view.subviews.lazy.compactMap { find(type, in: $0) }.first
+        func findCanvas(in view: NSView) -> CanvasNSView? {
+            (view as? CanvasNSView) ?? view.subviews.lazy.compactMap { findCanvas(in: $0) }.first
         }
-        let canvas = try XCTUnwrap(find(CanvasNSView.self, in: host), "the representable must produce a CanvasNSView")
-
-        // `Session` reads the collapse flags out of `UserDefaults` at init, and
-        // this test does not own those: whether the panel starts open depends
-        // on whatever wrote `ui2.leftCollapsed` last — the app itself, another
-        // test class, or a person. Measured: with the flag left set, this test
-        // measured a collapse that never happened and reported zero of
-        // everything. So it sets its own input and puts it back (AGENTS 24).
-        let savedLeft = session.leftCollapsed
-        defer { session.leftCollapsed = savedLeft }
-        session.leftCollapsed = false
+        let canvas = try XCTUnwrap(findCanvas(in: host))
+        try await Task.sleep(for: .milliseconds(100))
         host.layoutSubtreeIfNeeded()
+        let surface = canvas.bounds.size
+        let opened = session.renderer.viewport
+        XCTAssertGreaterThan(opened.obscuredRight, 0)
+        session.renderer.viewport.fit()
+        let fitted = session.renderer.viewport
 
-        try await Task.sleep(for: .milliseconds(700))     // let the window settle
-        XCTAssertFalse(session.leftCollapsed, "the panel must be open before it is collapsed")
+        session.rightCollapsed = true
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        let collapsed = session.renderer.viewport
+        XCTAssertEqual(canvas.bounds.size, surface)
+        XCTAssertEqual(collapsed.viewport, fitted.viewport)
+        XCTAssertEqual(collapsed.obscuredRight, 0)
+        XCTAssertNotEqual(collapsed.imageFrame, fitted.imageFrame)
+        XCTAssertTrue(collapsed.isFit)
 
-        let before = (resizes: canvas.resizeCount, draws: session.renderer.drawCount)
-        func cpu() -> Double {
-            var t = timespec()
-            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t)
-            return Double(t.tv_sec) + Double(t.tv_nsec) / 1e9
-        }
-        let cpuBefore = cpu()
-        withAnimation(.easeOut(duration: 0.18)) { session.leftCollapsed = true }
-
-        // Sample until the animation is over and the surface is still.
-        var samples: [(t: Double, draws: Int, left: CGFloat)] = []
-        let deadline = Date().addingTimeInterval(1.5)
-        while Date() < deadline {
-            samples.append((ProcessInfo.processInfo.systemUptime, session.renderer.drawCount,
-                            session.renderer.viewport.offset.x))
-            try await Task.sleep(for: .milliseconds(1))
-        }
-
-        let after = (resizes: canvas.resizeCount, draws: session.renderer.drawCount)
-        XCTAssertGreaterThan(after.resizes, before.resizes + 2,
-                             "the collapse must resize the canvas repeatedly — it is an animation")
-        XCTAssertGreaterThan(after.draws, before.draws,
-                             "the canvas must draw while it is being resized")
-
-        // Only the stretch where the picture is actually moving counts: the
-        // pause before the animation starts is not the defect, and it is
-        // longer than anything inside it.
-        let moving = samples.indices.filter { i in
-            i > 0 && abs(samples[i].left - samples[i - 1].left) > 0.01
-        }
-        let span = (moving.first ?? 0)...(moving.last ?? samples.count - 1)
-        let inFlight = Array(samples[span])
-
-        // The longest stretch with no draw, and how far the picture moved
-        // across it: the twitch, as a pair of numbers.
-        var hole = 0.0, jump: CGFloat = 0, at = 0.0
-        var last = inFlight.first
-        for s in inFlight.dropFirst() {
-            guard let l = last else { break }
-            if s.draws == l.draws {
-                let dt = s.t - l.t
-                if dt > hole { hole = dt; jump = abs(s.left - l.left); at = l.t - inFlight[0].t }
-            }
-            last = s
-        }
-        let moved = abs(inFlight.last!.left - inFlight.first!.left)
-        // How long the animation actually took. A 0.18 s animation that takes
-        // 0.4 s is one whose frames are not keeping up, and that is what this
-        // process *can* see: there is no display link here, so the visible
-        // stall of the real app — no draw at all for 113 ms — does not
-        // reproduce. The pass count and the wall-clock cost do.
-        let took = (inFlight.last!.t - inFlight.first!.t) * 1000
-        // …and what it *cost*. The pass count is the same either way — the
-        // canvas's width animates whatever the panel does — so the number that
-        // separates "the panel is re-laid-out forty times" from "the panel is
-        // laid out once and clipped" is the CPU burnt doing it.
-        let cpuUsed = cpu() - cpuBefore
-        print(String(format: "collapse: %d canvas resizes, %d draws, picture moved %.1f pt "
-                     + "in %.0f ms (the animation asks for 180), %.0f ms of CPU; "
-                     + "longest gap with no draw %.0f ms (at %.0f ms), across which it moved %.1f pt",
-                     after.resizes - before.resizes, after.draws - before.draws, moved, took,
-                     cpuUsed * 1000, hole * 1000, at * 1000, jump))
+        session.rightCollapsed = false
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        XCTAssertEqual(canvas.bounds.size, surface)
+        XCTAssertEqual(session.renderer.viewport.obscuredRight, opened.obscuredRight)
+        XCTAssertEqual(session.renderer.viewport.imageFrame, fitted.imageFrame)
     }
 
     /// The zoom readout is computed from the viewport, and the viewport only

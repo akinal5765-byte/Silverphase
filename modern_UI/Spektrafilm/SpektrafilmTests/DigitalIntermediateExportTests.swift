@@ -13,11 +13,15 @@ import XCTest
 final class DigitalIntermediateExportTests: XCTestCase {
 
     private func frame() throws -> URL {
-        let source = URL(fileURLWithPath: #filePath)
+        let selected = ProcessInfo.processInfo.environment["SILVERPHASE_TEST_RAW"]
+        let historical = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/Test_image/A7m3/DSC03710.ARW")
+        let source = selected.map { URL(fileURLWithPath: $0) } ?? historical
         let exists = FileManager.default.fileExists(atPath: source.path)
+        if selected != nil, !exists { throw CocoaError(.fileReadNoSuchFile) }
+        print("DI export input: \(exists ? source.lastPathComponent : "synthetic encoded TIFF")")
         let dir = FileManager.default.temporaryDirectory
             .appending(path: "spk-di-export-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

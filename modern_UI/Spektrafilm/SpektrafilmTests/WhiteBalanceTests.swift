@@ -63,19 +63,20 @@ final class WhiteBalanceTests: XCTestCase {
         XCTAssertNil(try JSONDecoder().decode(Sidecar.self, from: json).params.autoExposureMethod)
     }
 
-    func testAFreshFrameStartsBalanced() throws {
-        XCTAssertEqual(FilmParams().autoExposureMethod, "balanced")
-        XCTAssertEqual(Sidecar().params.autoExposureMethod, "balanced")
-        XCTAssertEqual(FilmParams().fullDelta["auto_exposure_method"], .string("balanced"))
+    func testAFreshFrameStartsCenterWeighted() throws {
+        XCTAssertEqual(FilmParams().autoExposureMethod, "center_weighted")
+        XCTAssertEqual(Sidecar().params.autoExposureMethod, "center_weighted")
+        XCTAssertEqual(FilmParams().fullDelta["auto_exposure_method"], .string("center_weighted"))
     }
 
     func testTheMethodSurvivesASidecarRoundTrip() throws {
         var params = try legacySidecar().params
-        params.autoExposureMethod = "protect_shadows"
+        // Previously saved balanced edits retain their chosen meter.
+        params.autoExposureMethod = "balanced"
         var sidecar = Sidecar()
         sidecar.params = params
         let back = try JSONDecoder().decode(Sidecar.self, from: JSONEncoder().encode(sidecar))
-        XCTAssertEqual(back.params.autoExposureMethod, "protect_shadows")
+        XCTAssertEqual(back.params.autoExposureMethod, "balanced")
     }
 
     /// Changing the method is a shoot-layer edit, and it is what the detail
@@ -96,7 +97,9 @@ final class WhiteBalanceTests: XCTestCase {
     func testTheMethodIsAShootLayerEdit() {
         var legacy = FilmParams()
         legacy.autoExposureMethod = nil
-        let toBalanced = FilmParams().delta(from: legacy)
+        var balanced = FilmParams()
+        balanced.autoExposureMethod = "balanced"
+        let toBalanced = balanced.delta(from: legacy)
         XCTAssertEqual(toBalanced.delta["auto_exposure_method"], .string("balanced"))
         XCTAssertEqual(toBalanced.layers, [.shoot])
         // And a legacy frame asked to stay legacy sends nothing at all.
@@ -220,7 +223,11 @@ final class WhiteBalanceTests: XCTestCase {
         session.open(urls: [url])
         try await waitUntil("the frame to decode") { session.decoded != nil }
         try await waitUntil("the engine to warm up") { session.serviceReady }
+        XCTAssertEqual(session.params.autoExposureMethod, "center_weighted", "a new frame starts centre-weighted")
         var p = session.params
+        // This comparison exercises the balanced/highlight-protection pair,
+        // independently of the app's default import strategy.
+        p.autoExposureMethod = "balanced"
         p.grainActive = false
         p.glareActive = false
         session.params = p
@@ -229,7 +236,7 @@ final class WhiteBalanceTests: XCTestCase {
             session.serviceSessionIDForExport != nil && session.frameStates[url] == .processed && !session.busy
         }
 
-        XCTAssertEqual(session.params.autoExposureMethod, "balanced", "a new frame starts balanced")
+        XCTAssertEqual(session.params.autoExposureMethod, "balanced")
         let sid = try XCTUnwrap(session.serviceSessionIDForExport)
         let solved = try await session.client.call(.solve, SolveRequest(sessionID: sid, target: "exposure"),
                                                    as: SolveResponse.self)
@@ -276,6 +283,7 @@ final class WhiteBalanceTests: XCTestCase {
         session.open(urls: [url])
         try await waitUntil("the frame to decode") { session.decoded != nil }
         try await waitUntil("the engine to warm up") { session.serviceReady }
+        session.setAutoExposureMethod("balanced")
         session.solveNow()
         try await waitUntil("the print to land", timeout: 90) {
             session.serviceSessionIDForExport != nil && session.frameStates[url] == .processed && !session.busy

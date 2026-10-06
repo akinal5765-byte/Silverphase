@@ -108,9 +108,9 @@ final class SettingsClipboardSessionTests: XCTestCase {
         // canvas moves follows the newest load (`ensureDeveloped`) and would
         // develop b by itself, which is not what this test is about.
         try await settle(s)
-        s.clipboardGroups = [.filmAndPaper]
+        s.clipboardGroups = [.film, .print]
         s.copySettings()
-        XCTAssertEqual(s.clipboard?.groups, [.filmAndPaper])
+        XCTAssertEqual(s.clipboard?.groups, [.film, .print])
         s.click(b, command: true)
         s.click(c, command: true)
         XCTAssertEqual(Set(s.pasteTargets), Set(urls))
@@ -226,7 +226,7 @@ final class SettingsClipboardSessionTests: XCTestCase {
         let sourceCurve = s.params.sceneLatitude
         XCTAssertNotEqual(sourceCurve.highlightKnee, byHand.highlightKnee,
                           "the two frames fit the same curve, so this test cannot tell a paste from a fit")
-        s.clipboardGroups = [.scenePlacement]
+        s.clipboardGroups = [.camera]
         s.copySettings()
 
         s.click(raw)
@@ -251,7 +251,8 @@ final class SettingsClipboardSessionTests: XCTestCase {
         s.open(urls: urls)
         try await waitUntil("the source to decode") { s.decoded != nil }
         s.sidecar.params.printBrightnessStops = 2
-        s.clipboardGroups = [.exposure]
+        // Print exposure belongs to the Print stage after process-group migration.
+        s.clipboardGroups = [.print]
         s.copySettings()
         for url in urls where url != s.selection { s.click(url, command: true) }
         XCTAssertEqual(s.pasteTargets.count, 3)

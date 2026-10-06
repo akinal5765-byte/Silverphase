@@ -12,10 +12,67 @@ Licence:          CC BY-SA 4.0
 The 28 film and paper profiles  --  UNMODIFIED
 ----------------------------------------------
 
-`Resources/engine/profiles/*.json` are byte-for-byte copies of
+The original 28 profiles (excluding Silverphase experimental additions) are
+byte-for-byte copies of
 `src/spektrafilm/data/profiles/*.json` from the upstream project. Nothing in
 this application edits them; `engine/tools/bake_resources.py` copies them and
 `engine/src/core/profile.cpp` reads them.
+
+PRO160NS experimental profile -- DERIVED, 2026-10-04
+---------------------------------------------------
+
+Added by Silverphase / akinal5765-byte, derived from Andrea Volpato's
+spektrafilm PRO400H dye basis. Licensed CC BY-SA 4.0 with the attribution above.
+Canonical source of the donor: https://github.com/andreavolpato/spektrafilm
+
+PRO160NS manufacturer curves replace sensitivity, response, base density and
+neutral spectral density. No PRO400H Hanatos correction is copied. Dye
+separation, unmeasured shoulder, grain and layer effects remain approximations.
+Source: Fujifilm 163AR109A (04.7-FG), page 8:
+https://asset.fujifilm.com/www/jp/files/2024-04/6b75b1c1cb4253623fb2cd7a56ff7443/datasheet_pro160ns_01.pdf
+Reproducible generator: engine/tools/make_pro160ns.py
+
+Three experimental negative profiles -- DERIVED, 2026-10-04
+-----------------------------------------------------------
+
+Added by Silverphase / akinal5765-byte, derived from Andrea Volpato's
+spektrafilm Gold 200 (Pro Image) and PRO400H (REALA/NATURA) dye bases.
+Derivatives remain CC BY-SA 4.0; original attribution above is retained.
+Each stock replaces characteristic, sensitivity, base and neutral spectra
+with its own manufacturer curves. No donor Hanatos correction is copied.
+Dye separation, unmeasured shoulder, grain and fourth-layer effects remain
+approximations. Not manufacturer-endorsed or validated against real negatives.
+
+Kodak Pro Image 100: Kodak E-4L (July 1997), page 3, archive copy:
+https://vklaboratori.com/wp-content/uploads/2018/07/kodak-pro-image-100.pdf
+Fujifilm SUPERIA REALA 100: AF3-967E (EIGI-00.12-HB), page 4, archive copy:
+https://filmcolors.org/wp-content/uploads/2025/12/Fujicolor-Superia-Reala_AF3-967E.pdf
+Fujifilm NATURA 1600: 013AR313B (06.4-FP), page 4:
+https://asset.fujifilm.com/www/jp/files/2024-04/96b634a89ec6a5abda6b70437f4d75a4/datasheet_natura1600_01.pdf
+Reproducible generator: engine/tools/make_negative_profiles.py
+PDFs are not bundled; saved numerical samples and SHA-256 identify sources.
+
+Four further experimental negative profiles -- DERIVED, 2026-10-04
+-----------------------------------------------------------------
+
+Added by Silverphase / akinal5765-byte; CC BY-SA 4.0 derivatives with Andrea
+Volpato's attribution retained. Each uses its own published characteristic,
+sensitivity, minimum and neutral spectra. No donor Hanatos correction copied.
+Agfa Portrait XPS 160 uses spektrafilm Portra 160 as a dye-separation prior;
+Agfa Optima II 200 and Kodak Elite Color 200 use Gold 200; Fujifilm PRO 160C
+uses PRO400H. This does NOT establish shared emulsion chemistry. Generic grain
+and spatial effects remain unchanged. Colour accuracy needs photographic
+evaluation; curve-fit/runtime tests do not constitute real-film validation.
+
+Agfa Portrait XPS 160 / Optima II 200: Technical Data PF, 09/1998 first edition,
+pages 8 / 7, original manufacturer document in archive:
+https://cacreeks.com/photos/agfaPro.pdf
+Kodak Elite Color 200: E-4039, July 2006, page 7, archive copy:
+https://125px.com/docs/film/kodak/e4039-Elite.pdf
+Fujifilm PRO 160C: Professional Film Data Guide, 2005, printed page 59:
+https://asset.fujifilm.com/www/ca/files/2020-03/d52487c5c6f84e7f935c299491c5c1ff/ProfessionalFilmDataGuide.pdf
+Reproducible generator: engine/tools/make_negative_profiles.py
+Saved numerical samples identify the exact PDF hash. PDFs are not bundled.
 
 
 The 8 baked print-preview LUTs  --  DERIVED
@@ -46,6 +103,40 @@ They are not a scanned reference print. They are this simulation's output.
 Distributed under CC BY-SA 4.0, the same licence as the profiles they derive
 from, as the share-alike condition requires.
 
+
+Eight experimental colour negatives -- REVISION 2, 2026-10-04
+------------------------------------------------------------
+The colour-film derivation descriptions above record historical revision 1.
+Revision 2 supersedes their dye reconstruction and removed-adaptation procedure.
+The original 28 profiles are still unchanged. Each experimental colour film now
+retains its CC BY-SA base film's coherent dye spectra, base absorption, shoulder
+and Hanatos calibration. Manufacturer relative sensitivity contributes 20% of
+a daylight-normalized linear sensitivity mixture; a common contrast multiplier
+is bounded to +/-10%. No Status-M inverse or neutral-spectrum dye rescaling is
+performed. These weights are conservative creative approximations, not measured
+stock properties or verified reproductions. Source samples and attribution are
+preserved; all colour-paper filter packs for these derivatives are rebalanced.
+Modified by Silverphase / akinal5765-byte, retaining Andrea Volpato's attribution
+and CC BY-SA 4.0 terms. See engine/tools/profile_sources/experimental_negatives.md.
+
+Six experimental B&W films and a synthetic neutral print -- DERIVED, 2026-10-04
+-----------------------------------------------------------------------------
+HP5 Plus 400, Tri-X 400, Delta 100, FP4 Plus 125, XP2 Super 400 and Fomapan 100
+Classic use manually estimated manufacturer chart knots. Their neutral density,
+CDF components, unmeasured shoulders and grain are approximations; XP2 is a
+chromogenic C-41 monochrome model. Silverphase Neutral B&W Print is a synthetic
+neutral response, NOT a measured or branded paper. No manufacturer PDFs are
+redistributed. Sources, versions, hashes, processing and limitations are recorded
+in engine/tools/profile_sources/blackwhite_samples.json and blackwhite.md.
+These profile containers derive from Andrea Volpato's spektrafilm CC BY-SA 4.0
+profiles; attribution and share-alike terms remain. Original profiles are unchanged.
+
+B&W revision 2, 2026-10-04: re-digitized HP5, FP4, Delta 100 and XP2 characteristic
+curves from the original ILFORD embedded raster charts; Tri-X characteristic and
+D=1 sensitivity from Kodak PDF vector paths. Source hashes, chart axes and methods
+are recorded. Fomapan remains hand-estimated. Worst local fitting error is checked
+alongside RMS. Neutral density, shoulder, grain and paper assumptions remain
+approximate. Modified by Silverphase / akinal5765-byte, CC BY-SA 4.0 retained.
 
 The constants that are not derived from the profiles
 ----------------------------------------------------

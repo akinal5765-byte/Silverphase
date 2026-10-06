@@ -35,6 +35,7 @@ final class PerformanceStressTests: XCTestCase {
         let batchStart = Date()
         var rows = ["index\tfile\tdevelop_ms\texport_ms\toutput_bytes\tphys_footprint_bytes"]
         for (index, url) in urls.enumerated() {
+            print("batch validation: starting \(index + 1)/\(urls.count) \(url.lastPathComponent)")
             let developStart = Date()
             if session.selection != url { session.select(url) }
             let developedID = await session.ensureDeveloped()
@@ -59,6 +60,7 @@ final class PerformanceStressTests: XCTestCase {
             let bytes = try output.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
             XCTAssertGreaterThan(bytes, 0)
             rows.append("\(index)\t\(url.lastPathComponent)\t\(developMs)\t\(exportMs)\t\(bytes)\t\(MemorySampler.footprintBytes())")
+            print("batch validation: completed \(index + 1)/\(urls.count)")
         }
         rows.append("total_ms\t\(Int(Date().timeIntervalSince(batchStart) * 1000))")
         let fullRendersAfter = Log.shared.records(category: .render).filter {

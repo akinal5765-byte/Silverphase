@@ -1,0 +1,61 @@
+{
+  "fixtures" : [
+    {
+      "bits_per_component" : 16,
+      "bytes" : 77451264,
+      "camera" : "ILCE-7RM5",
+      "height" : 6336,
+      "iso" : [
+        50
+      ],
+      "profile" : "Display P3",
+      "relative_path" : "26-09-19\/DSC05257.ARW",
+      "role" : "raw-high-resolution",
+      "sha256" : "09b7905e9adcd6a7e5a56ee79936806982af4d59c738e3f631112668d487c7d4",
+      "width" : 9504
+    },
+    {
+      "bits_per_component" : 16,
+      "bytes" : 33636352,
+      "camera" : "ILCE-7RM5",
+      "height" : 4160,
+      "iso" : [
+        50
+      ],
+      "profile" : "Display P3",
+      "relative_path" : "26-09-19\/DSC05259.ARW",
+      "role" : "raw-standard",
+      "sha256" : "bb08a3e5710ca7d481b18961ec98a73717544d19f6588e4814e1809d4ec3f5d6",
+      "width" : 6240
+    },
+    {
+      "bits_per_component" : 8,
+      "bytes" : 4796870,
+      "camera" : "ILCE-7RM5",
+      "height" : 3072,
+      "iso" : [
+        50
+      ],
+      "profile" : "sRGB IEC61966-2.1",
+      "relative_path" : "26-09-19\/缩图\/DSC05259-编辑.jpg",
+      "role" : "encoded-jpeg",
+      "sha256" : "6744edf7ec3bfa5d2a70933db4e93c54c25ec19c9f136da29ccd7ab9b3f6d814",
+      "width" : 4096
+    },
+    {
+      "bits_per_component" : 16,
+      "bytes" : 361330808,
+      "camera" : "unknown",
+      "height" : 9504,
+      "iso" : [
+        100
+      ],
+      "profile" : "ROMM RGB: ISO 22028-2:2013",
+      "relative_path" : "26-09-26\/_prints\/DSC05570_fujifilm_pro_400h_fujifilm_crystal_archive_typeii.tif",
+      "role" : "encoded-tiff",
+      "sha256" : "4fff1d34f511263ad6118a10feeeb9b203d799082a47573e5c7a678515bf2c40",
+      "width" : 6336
+    }
+  ],
+  "version" : 1
+}

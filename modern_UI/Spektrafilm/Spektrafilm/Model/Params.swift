@@ -222,7 +222,7 @@ enum AEMethod: Hashable, Identifiable, Sendable {
         switch self {
         case .custom: "Auto exposure off (RAW baseline)"
         case .metered(let m): m.title.capitalizedFirst
-        case .legacy: "Center weighted (original default)"
+        case .legacy: "Center weighted"
         }
     }
 
@@ -424,12 +424,14 @@ struct FilmParams: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case filmStock, printStock, exposureCompensationEV, autoExposureMethod, autoExposure
         case filmFormatMM, filmFrame, filmSide, sideLengthMM, grainActive, grainSizeScale, halationActive
+        case grainSoftness
         case cameraDiffusion, cameraDiffusionStrength, cameraDiffusionRange
         case enlargerDiffusion, enlargerDiffusionStrength, enlargerDiffusionRange
         case halationAmount, antihalationMode, developmentContrast, colorSeparation
         case printBrightnessStops, printContrast, yFilterShift, mFilterShift, preflashExposure, glareActive, scanFilm
         case extendedDynamicRange
         case contrastMask, sceneLatitude, effects, printEffects, digitalIntermediate
+        case scannerSharpeningActive, scannerSharpeningStrength
     }
 
     // --- stock (shoot for film, print for paper) ---
@@ -448,9 +450,9 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// byte for byte as it always did. The four names are the intents:
     /// `balanced`, `center`, `protect_highlights`, `protect_shadows`.
     ///
-    /// The default is for *new* frames, which the user asked to start
-    /// `balanced`.
-    var autoExposureMethod: String? = "balanced"
+    /// New frames use the centre-weighted meter as a portrait-oriented
+    /// starting point. Persisted frames retain their saved method.
+    var autoExposureMethod: String? = "center_weighted"
     /// The engine's `camera.auto_exposure`, and the whole of what the AE
     /// Method pill's `Custom` means: with it false the meter contributes
     /// nothing and Film Exposure is measured from the linearized frame
@@ -476,6 +478,10 @@ struct FilmParams: Codable, Equatable, Sendable {
     var grainActive: Bool = true
     /// Relative particle diameter; 1 retains the existing emulsion model.
     var grainSizeScale: Double = 1
+    /// Relative density smoothing, not particle diameter or dye-cloud size.
+    /// 1 preserves the upstream 0.65 px grain blur; zero disables that blur.
+    var grainSoftness: Double = 1
+    static let grainSoftnessRange: ClosedRange<Double> = 0...2
     var cameraDiffusion: String = DiffusionChoice.off.rawValue
     var cameraDiffusionStrength: Double = 0.5
     /// PSF width multiplier; 1 preserves the selected family's physical scale.
@@ -503,6 +509,12 @@ struct FilmParams: Codable, Equatable, Sendable {
     var mFilterShift: Double = 0                     // -50…50 Kodak CC, magenta ↔ green
     var preflashExposure: Double = 0                 // 0…1, enlarger preflash
     var glareActive: Bool = true
+    /// Scanner USM: keep the original full-resolution radius (0.7 px).
+    /// A relative strength of 1 maps to the historical amount of 0.7.
+    /// The switch preserves the stored strength while sending zero to bypass.
+    var scannerSharpeningActive: Bool = true
+    var scannerSharpeningStrength: Double = 1
+    static let scannerSharpeningRange: ClosedRange<Double> = 0...2
     /// "No print profile": scan the developed film instead of printing it, so
     /// a slide film reads as a positive and a negative film reads as the
     /// negative it is — orange mask and all.
@@ -550,7 +562,10 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// user's preference in the sidecar while making the wire value false for
     /// the Positive / No Print Profile path, so a persisted preference cannot
     /// change direct film scanning.
-    var effectiveExtendedDynamicRange: Bool { extendedDynamicRange && !scanFilm && !digitalIntermediate }
+    var effectiveExtendedDynamicRange: Bool {
+        extendedDynamicRange && !scanFilm && !digitalIntermediate &&
+            StockCatalog.shared.stock(printStock)?.isMonochrome != true
+    }
 
     /// The enlarger's pre-flash: a uniform paper exposure of this many times
     /// the light through the film's clear base, added before development
@@ -574,7 +589,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         filmStock = "kodak_portra_400"
         printStock = "kodak_supra_endura"
         exposureCompensationEV = 0
-        autoExposureMethod = "balanced"
+        autoExposureMethod = "center_weighted"
         autoExposure = true
         filmFormatMM = 36
         filmFrame = "135"
@@ -627,6 +642,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         sideLengthMM = try c.decode(Double.self, forKey: .sideLengthMM)
         grainActive = try c.decode(Bool.self, forKey: .grainActive)
         grainSizeScale = try c.decodeIfPresent(Double.self, forKey: .grainSizeScale) ?? 1
+        grainSoftness = try c.decodeIfPresent(Double.self, forKey: .grainSoftness) ?? 1
         cameraDiffusion = try c.decodeIfPresent(String.self, forKey: .cameraDiffusion) ?? "off"
         cameraDiffusionStrength = try c.decodeIfPresent(Double.self, forKey: .cameraDiffusionStrength) ?? 0.5
         cameraDiffusionRange = try c.decodeIfPresent(Double.self, forKey: .cameraDiffusionRange) ?? 1
@@ -643,6 +659,8 @@ struct FilmParams: Codable, Equatable, Sendable {
         yFilterShift = try c.decode(Double.self, forKey: .yFilterShift)
         mFilterShift = try c.decode(Double.self, forKey: .mFilterShift)
         glareActive = try c.decode(Bool.self, forKey: .glareActive)
+        scannerSharpeningActive = try c.decodeIfPresent(Bool.self, forKey: .scannerSharpeningActive) ?? true
+        scannerSharpeningStrength = try c.decodeIfPresent(Double.self, forKey: .scannerSharpeningStrength) ?? 1
         scanFilm = try c.decode(Bool.self, forKey: .scanFilm)
         // An older sidecar without this key keeps the rendering it had when
         // it was saved; the new default applies only to new/reset photos.
@@ -680,6 +698,7 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("grain_active", .bool(grainActive), .shoot),
             ("grain_sublayers_active", .bool(grainActive && effects.grainLayered), .shoot),
             ("grain_size_scale", .double(grainSizeScale), .shoot),
+            ("grain_softness", .double(0.65 * grainSoftness.clamped(to: Self.grainSoftnessRange)), .shoot),
             ("camera_diffusion_active", .bool(cameraDiffusion != "off"), .shoot),
             ("camera_diffusion_family", .string(DiffusionChoice(rawValue: cameraDiffusion)?.engineFamily ?? "black_pro_mist"), .shoot),
             ("camera_diffusion_strength", .double(cameraDiffusionStrength), .shoot),
@@ -698,6 +717,8 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("y_filter_shift", .double(yFilterShift), .print),
             ("m_filter_shift", .double(mFilterShift), .print),
             ("glare_active", .bool(glareActive && printEffects), .print),
+            ("scanner_sharpening_amount", .double(scannerSharpeningActive
+                ? 0.7 * scannerSharpeningStrength.clamped(to: Self.scannerSharpeningRange) : 0), .print),
             ("scan_film", .bool(scanFilm), .print),
             ("extended_dynamic_range", .bool(effectiveExtendedDynamicRange), .print),
             ("preflash_exposure", .double(printEffects ? preflashExposure : 0), .print),

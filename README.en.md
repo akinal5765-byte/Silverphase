@@ -11,25 +11,31 @@ Silverphase is an independent derivative of [SpektraLab](https://github.com/Jame
 ## From photograph to print
 
 1. Open an image or folder, then choose a frame in the preview and filmstrip.
-2. Choose a film and paper in the left rail. Positive film bypasses the paper-print stage; you can also choose “No Print Profile” to view the developed film without paper.
+2. Choose a film and paper in the bottom material strip. Positive film bypasses the paper-print stage; you can also choose “No Print Profile” to view the developed film without paper.
 3. Use the right rail to adjust camera input, film, development, print, and crop in process order. This is a process-parameter rail, not a separate general-purpose grading layer.
 4. In the export page, choose either a finished image or a film intermediate for further grading.
 
 The main controls are:
 
 - **Camera input:** metering, film exposure, white balance, and lens correction when available. Film exposure acts before the simulated film response; it is not a post-export rescue slider.
-- **Film:** stock, physical frame size, grain, and film halation. Frame size participates in the scale conversion for grain and spatial effects; it is not merely metadata. The halation menu offers profile-based, high, medium, low, and off; when enabled, its amount runs from 1–4×. These describe the simulated visible effect, not a claim about the exact anti-halation construction of a real stock.
-- **Development:** contrast and color separation relative to the stock's profile defaults.
+- **Film:** stock, physical frame size, grain, film halation, emulsion scatter, and independent effect strengths. Frame size participates in the scale conversion for grain and spatial effects; it is not merely metadata. The halation menu offers profile-based, high, medium, low, and off; when enabled, its amount runs from 1–4×. These describe the simulated visible effect, not a claim about the exact anti-halation construction of a real stock.
+- **Development:** contrast and color separation relative to the stock's profile defaults, plus scene-latitude measurement and explicit scene placement.
 - **Print:** paper stock, print exposure, yellow/magenta filtration, preflash, and a separate print/scan glare effect. Print glare is not film halation.
 - **Inspection:** preview, histogram, crop, and export soft proof. The local-mask interaction is still being designed and is not exposed in the current build.
 
 The UI and source are authoritative for exact ranges and defaults. This README does not present every underlying model field as though it were a shipped control.
 
+Eight **experimental negative profiles** are also available: PRO160NS, Pro Image 100, SUPERIA REALA 100, NATURA 1600, Agfa Portrait XPS 160, Agfa Optima II 200, Kodak Elite Color 200, and Fujifilm PRO 160C. They use stable film models as coherent bases, with bounded adjustments informed by manufacturer relative sensitivity and contrast curves. Usable colour takes priority over reconstructing individual dyes from incomplete data. These are creative approximations, not reproductions validated against photographed film. See [sources and limitations](engine/tools/profile_sources/experimental_negatives.md).
+
+Six **experimental B&W negatives** are available in the Experimental tab: HP5 Plus 400, Tri-X 400, Delta 100, FP4 Plus 125, XP2 Super 400 and Fomapan 100 Classic. Distinct spectral responses and tone curves form the image, rather than final-image desaturation. They default to a synthetic Neutral B&W Print (Experimental). XP2 approximates C-41 chromogenic monochrome; the others use neutral silver-image proxies. Grain, unmeasured shoulders and speed calibration are not accurate reproductions. See [B&W sources and limitations](engine/tools/profile_sources/blackwhite.md).
+
 ## Two export paths
 
 **Finished Film Render:** Silverphase completes the film-and-paper process and writes a ready-to-use JPEG, 8-bit PNG, or 16-bit TIFF. Export recipes provide destination color-space and other options; the export page soft-proofs the selected destination. Choose this when the film process is the finished image.
 
-**Gradeable Film Intermediate:** the current export page calls this a `DI package`. It contains an **untagged 16-bit TIFF of normalized film density** and a matching **3D paper `.cube` LUT**. Keep the files together, bring them into Resolve, Baselight, Nuke, or a compatible grading workflow, and apply the LUT to the TIFF. The density TIFF **is not** a normally colored finished photograph when opened alone. This path preserves a pre-print result for downstream grading; it is not simply a flatter RGB render.
+**Gradeable Film Intermediate:** the export page calls this a `DI package`. Its master is an **untagged 16-bit Cineon-log TIFF with ProPhoto RGB primaries**, accompanied by two fixed **DI-view `.cube` LUTs** (to ProPhoto RGB and Rec.709). A second TIFF page provides a view preview. The master preserves film contrast and bypasses paper rendering and output grading. These are viewing transforms, **not the selected paper's print LUT**. Use the supplied view to inspect the master; treat it as Cineon data rather than assigning a display ICC profile. Exporting a DI through the ordinary JPEG/TIFF route writes its display view with the destination profile.
+
+The two view LUTs are shared within each output directory. See the [engineering guide](modern_UI/Spektrafilm/README.md) for the delivered files and color semantics.
 
 The two paths serve different delivery needs. Do not deliver the TIFF inside a DI package as if it were an ordinary finished TIFF. See the current export page for the available format and recipe options.
 
@@ -65,7 +71,7 @@ xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
   -derivedDataPath build/DerivedData test
 ```
 
-Some parity tests need an external checkout of the upstream Python reference or additional fixtures; neither is required to run the app. See the [project notes](modern_UI/Spektrafilm/README.md) and [developer notes](AGENTS.md) for more build details.
+Real-photo validation uses an external manifest and temporary copies; private photographs are not committed. See the [validation guide](modern_UI/Spektrafilm/VALIDATION.md) for reproducible commands, coverage and skips. Historical Python-reference parity scripts remain available, but current acceptance does not depend on the retired frozen reference environment. See the [project notes](modern_UI/Spektrafilm/README.md) and [developer notes](AGENTS.md) for more build details.
 
 ## Origins, licenses, and independence
 

@@ -286,6 +286,15 @@
 			path = "Spektrafilm";
 			sourceTree = "<group>";
 		};
+		5E8D146AD38488E4A8FD26C5 /* validation-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "validation-manifest.json"; sourceTree = "<group>"; };
+		CFA765FDD4598F4EAF769372 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				5E8D146AD38488E4A8FD26C5 /* validation-manifest.json */
+			);
+			path = "Fixtures";
+			sourceTree = "<group>";
+		};
 		52AA7B49AA76968939624751 /* CachePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CachePolicyTests.swift"; sourceTree = "<group>"; };
 		5F3A463963EF5A09D20AC677 /* CanvasViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CanvasViewTests.swift"; sourceTree = "<group>"; };
 		5D0BCE2DDC98DEFB449D8048 /* ColorBalanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorBalanceTests.swift"; sourceTree = "<group>"; };
@@ -325,6 +334,7 @@
 		01CA7776C0EA70DF7CA1038D /* PrintCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintCacheTests.swift"; sourceTree = "<group>"; };
 		A02C1261DEB889B4B7370EFA /* PrintLUTTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintLUTTests.swift"; sourceTree = "<group>"; };
 		E3EB8BA02101A5094E3983D5 /* PrintWritebackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PrintWritebackTests.swift"; sourceTree = "<group>"; };
+		A4BB685E22CF03C057A78540 /* RealPhotoValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealPhotoValidationTests.swift"; sourceTree = "<group>"; };
 		8EB35FC4E4E88A7B96A3A06A /* RendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RendererTests.swift"; sourceTree = "<group>"; };
 		BC561F7613417B67566C6E70 /* SelectionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SelectionModelTests.swift"; sourceTree = "<group>"; };
 		AFC512B7F1A6648AC072A447 /* SessionDisplayCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionDisplayCacheTests.swift"; sourceTree = "<group>"; };
@@ -340,6 +350,7 @@
 		6C750F429B304AF107F89FFD /* SpektrafilmTests */ = {
 			isa = PBXGroup;
 			children = (
+				CFA765FDD4598F4EAF769372 /* Fixtures */,
 				52AA7B49AA76968939624751 /* CachePolicyTests.swift */,
 				5F3A463963EF5A09D20AC677 /* CanvasViewTests.swift */,
 				5D0BCE2DDC98DEFB449D8048 /* ColorBalanceTests.swift */,
@@ -379,6 +390,7 @@
 				01CA7776C0EA70DF7CA1038D /* PrintCacheTests.swift */,
 				A02C1261DEB889B4B7370EFA /* PrintLUTTests.swift */,
 				E3EB8BA02101A5094E3983D5 /* PrintWritebackTests.swift */,
+				A4BB685E22CF03C057A78540 /* RealPhotoValidationTests.swift */,
 				8EB35FC4E4E88A7B96A3A06A /* RendererTests.swift */,
 				BC561F7613417B67566C6E70 /* SelectionModelTests.swift */,
 				AFC512B7F1A6648AC072A447 /* SessionDisplayCacheTests.swift */,
@@ -406,6 +418,7 @@
 		CAC54B5D1A76CDDB8C5B1FC4 /* package.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "package.sh"; sourceTree = "<group>"; };
 		8F4A80183C0335C6FCC96A68 /* render-icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "render-icon.swift"; sourceTree = "<group>"; };
 		1CF4EBBC105C01A3E15AAE22 /* snapshot.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "snapshot.sh"; sourceTree = "<group>"; };
+		BF99F8DD94801AA39016CD67 /* validate.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "validate.py"; sourceTree = "<group>"; };
 		B023CA8F0F68491740229B47 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
@@ -419,7 +432,8 @@
 				C6454FA299ABB90F982C453B /* make-smoke.py */,
 				CAC54B5D1A76CDDB8C5B1FC4 /* package.sh */,
 				8F4A80183C0335C6FCC96A68 /* render-icon.swift */,
-				1CF4EBBC105C01A3E15AAE22 /* snapshot.sh */
+				1CF4EBBC105C01A3E15AAE22 /* snapshot.sh */,
+				BF99F8DD94801AA39016CD67 /* validate.py */
 			);
 			path = "Tools";
 			sourceTree = "<group>";
@@ -774,6 +788,7 @@
 		D9117673191FD5C22C19AC20 /* PrintCacheTests.swift */ = {isa = PBXBuildFile; fileRef = 01CA7776C0EA70DF7CA1038D; };
 		503F68DEA38B3A6A770B76FC /* PrintLUTTests.swift */ = {isa = PBXBuildFile; fileRef = A02C1261DEB889B4B7370EFA; };
 		498EAF27D8FD685268C6725B /* PrintWritebackTests.swift */ = {isa = PBXBuildFile; fileRef = E3EB8BA02101A5094E3983D5; };
+		E0B41D045B95BD10618043A2 /* RealPhotoValidationTests.swift */ = {isa = PBXBuildFile; fileRef = A4BB685E22CF03C057A78540; };
 		9105254BB5E54EE1AFE0A963 /* RendererTests.swift */ = {isa = PBXBuildFile; fileRef = 8EB35FC4E4E88A7B96A3A06A; };
 		FF7F45179CCBADB9810FC282 /* SelectionModelTests.swift */ = {isa = PBXBuildFile; fileRef = BC561F7613417B67566C6E70; };
 		52F3B7B3AF757FDF92B3462E /* SessionDisplayCacheTests.swift */ = {isa = PBXBuildFile; fileRef = AFC512B7F1A6648AC072A447; };
@@ -933,6 +948,7 @@
 				D9117673191FD5C22C19AC20 /* PrintCacheTests.swift */,
 				503F68DEA38B3A6A770B76FC /* PrintLUTTests.swift */,
 				498EAF27D8FD685268C6725B /* PrintWritebackTests.swift */,
+				E0B41D045B95BD10618043A2 /* RealPhotoValidationTests.swift */,
 				9105254BB5E54EE1AFE0A963 /* RendererTests.swift */,
 				FF7F45179CCBADB9810FC282 /* SelectionModelTests.swift */,
 				52F3B7B3AF757FDF92B3462E /* SessionDisplayCacheTests.swift */,

@@ -149,6 +149,10 @@ const SchemaField kFields[] = {
     {"digital_intermediate",     "io.digital_intermediate",               B, PRINT, false, 0, 0, false},
     {"digital_intermediate_blue_compensation", "io.digital_intermediate_blue_compensation",
                                                                           B, PRINT, false, 0, 0, false},
+    // Relative UI strength is mapped to this original scanner USM amount.
+    // Zero bypasses the existing node; 0.7 preserves historical rendering.
+    {"scanner_sharpening_amount", "scanner.unsharp_mask.amount",           F, PRINT, true, 0.0, 1.4, false},
+    {"grain_softness",           "film_render.grain.blur",                F, SHOOT, true, 0.0, 1.3, false},
     // The app's *preview resolution*: the `live` tier's long edge, and so the
     // size every interactive edit renders at. PRINT layer, because it is a
     // decision about the canvas rather than about the film -- but it is one of
@@ -196,6 +200,8 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "print_render.density_curves_morph.gamma_factor")
         return &p.print_render.density_curves_morph.gamma_factor;
     if (path == "scanner.lens_blur") return &p.scanner.lens_blur;
+    if (path == "scanner.unsharp_mask.amount") return &p.scanner.unsharp_mask[1];
+    if (path == "film_render.grain.blur") return &p.film_render.grain.blur;
     if (path == "print_render.contrast_mask.highlights") return &p.print_render.contrast_mask.highlights;
     if (path == "print_render.contrast_mask.shadows") return &p.print_render.contrast_mask.shadows;
     if (path == "print_render.contrast_mask.core") return &p.print_render.contrast_mask.core;

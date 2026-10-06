@@ -194,6 +194,14 @@ struct FilmSection: View {
                                     format: { String(format: "%.1f×", $0) },
                                     disabled: !session.params.grainActive)
                         .help("Changes the modeled particle diameter relative to 1×. Film format still sets its physical scale; this does not alter the stock profile.")
+                        ScrubSlider(label: T("Grain Softness", "颗粒柔化"),
+                                    value: Binding(get: { session.params.grainSoftness },
+                                                   set: { var p = session.params; p.grainSoftness = $0; session.params = p }),
+                                    range: FilmParams.grainSoftnessRange, zero: 1, snap: 0.1,
+                                    format: { String(format: "%.1f×", $0) },
+                                    disabled: !session.params.grainActive || session.params.effects.grain == 0)
+                        .help(T("Smooths the grained density image, separately from particle size. 1× preserves the original softness; 0× disables this smoothing. Fine image texture can also soften.",
+                                "柔化含颗粒的密度影像，与颗粒大小分开控制。1× 保留原有柔化，0× 关闭这一步柔化；细微画面纹理也可能稍微软化。"))
                         PillMenu(label: L(.filmHalation),
                                  options: HalationChoice.allCases,
                                  title: { $0.title },

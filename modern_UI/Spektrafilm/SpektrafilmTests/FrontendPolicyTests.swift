@@ -255,6 +255,24 @@ final class FrontendPolicyTests: XCTestCase {
         XCTAssertFalse(session.leftCollapsed)
     }
 
+    func testBlackWhiteSelectionPairsNeutralPaperWithoutLosingColorSettings() {
+        let session = Session()
+        let previousCouplers = session.params.effects.couplersActive
+        let previousEDR = session.params.extendedDynamicRange
+        session.selectFilmStock("ilford_hp5_plus_400_experimental")
+        XCTAssertTrue(session.filmIsMonochrome && session.paperIsMonochrome)
+        XCTAssertFalse(session.filmIsPositive)
+        XCTAssertEqual(session.params.printStock, "silverphase_neutral_bw_print_experimental")
+        XCTAssertEqual(session.params.effects.couplersActive, previousCouplers)
+        XCTAssertEqual(session.params.extendedDynamicRange, previousEDR)
+        XCTAssertFalse(session.params.effectiveExtendedDynamicRange)
+        XCTAssertEqual(session.params.wire.first { $0.name == "extended_dynamic_range" }?.value, .bool(false))
+        session.selectFilmStock("kodak_portra_400")
+        XCTAssertFalse(session.filmIsMonochrome || session.paperIsMonochrome)
+        XCTAssertEqual(session.params.effects.couplersActive, previousCouplers)
+        XCTAssertEqual(session.params.extendedDynamicRange, previousEDR)
+    }
+
     func testModernFilmChooserAndStockSelectionShareTheRailRules() {
         let session = Session()
         XCTAssertFalse(session.modernFilmChooserActive)

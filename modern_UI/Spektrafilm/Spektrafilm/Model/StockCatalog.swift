@@ -20,6 +20,7 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
     let nominalSpeed: Int?
     let speedUnit: String?
     let speedSource: String?
+    var channelModel: String? = nil
 
     var speedLabel: String? {
         guard isFilm, let nominalSpeed else { return nil }
@@ -28,6 +29,7 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
 
     var isFilm: Bool { stage == "filming" }
     var isPaper: Bool { stage == "printing" }
+    var isMonochrome: Bool { channelModel == "monochrome" || channelModel == "chromogenic_monochrome" }
     var isCine: Bool { use == "cine" }
     /// A reversal (slide) film: Provia, Velvia, Ektachrome, Kodachrome.
     ///
@@ -37,6 +39,8 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
     /// viewable image, so printing one onto a paper stock is an operation the
     /// engine performs happily and nobody wants.
     var isPositive: Bool { type == "positive" }
+    /// Stable catalog identity, independent of localized display names.
+    var isExperimental: Bool { isFilm && id.hasSuffix("_experimental") }
     var brand: String { name.split(separator: " ").first.map(String.init) ?? "" }
     /// Generated packaging artwork, separate from legacy catalog cover metadata.
     var packagingArtworkURL: URL? {
@@ -141,7 +145,10 @@ final class MaterialBrowserLibrary {
 }
 
 enum MaterialBrowserTab: String { case film, paper }
-enum MaterialBrowserFilter: CaseIterable { case all, negative, positive, favorites, recent }
+enum MaterialBrowserFilter: CaseIterable {
+    case all, positive, negative, experimental, blackwhiteExperimental, favorites, recent
+    static let filmTabs: [Self] = [.all, .positive, .negative, .experimental, .blackwhiteExperimental]
+}
 
 @MainActor struct MaterialBrowserChoice: Identifiable {
     static let scanID = "__scan_film__"
@@ -158,8 +165,11 @@ enum MaterialBrowserFilter: CaseIterable { case all, negative, positive, favorit
                 + catalog.papers.map { Self(id: $0.id, stock: $0) }
         switch filter {
         case .all: break
-        case .negative: choices = choices.filter { $0.stock?.isFilm == true && $0.stock?.isPositive == false }
-        case .positive: choices = choices.filter { $0.stock?.isPositive == true }
+        case .negative: choices = choices.filter { $0.stock?.isFilm == true && $0.stock?.isPositive == false && $0.stock?.isExperimental == false }
+        case .positive: choices = choices.filter { $0.stock?.isPositive == true && $0.stock?.isExperimental == false }
+        case .experimental: choices = choices.filter { $0.stock?.isExperimental == true }
+        case .blackwhiteExperimental:
+            choices = choices.filter { $0.stock?.isExperimental == true && $0.stock?.isMonochrome == true }
         case .favorites: choices = choices.filter { favorites.contains($0.id) }
         case .recent:
             let byID = Dictionary(uniqueKeysWithValues: choices.map { ($0.id, $0) })
@@ -175,7 +185,13 @@ enum MaterialBrowserFilter: CaseIterable { case all, negative, positive, favorit
     }
 
     var title: String {
-        if let stock { return stock.name.replacingOccurrences(of: "Professional ", with: "") }
+        if let stock {
+            if stock.id == "silverphase_neutral_bw_print_experimental" {
+                return T("Neutral B&W Print (Experimental)", "中性黑白印相（实验）")
+            }
+            return stock.name.replacingOccurrences(of: "Professional ", with: "")
+                .replacingOccurrences(of: "(Experimental)", with: T("(Experimental)", "（实验）"))
+        }
         return id == Self.scanID ? L(.printNone) : L(.printDigitalIntermediate)
     }
     /// Entity packaging and virtual workflow labels share the same renderer.
@@ -201,7 +217,8 @@ enum MaterialBrowserFilter: CaseIterable { case all, negative, positive, favorit
         guard let stock else {
             return id == Self.scanID ? T("Film scan", "原片扫描") : T("Digital Intermediate", "数字中间片")
         }
-        let type = stock.isFilm ? L(filmGroup: stock.isPositive ? "Positive" : "Negative") : L(.sectionPaper)
+        let type = stock.isMonochrome ? (stock.isFilm ? T("B&W negative", "黑白负片") : T("B&W print", "黑白印相")) :
+            (stock.isFilm ? L(filmGroup: stock.isPositive ? "Positive" : "Negative") : L(.sectionPaper))
         return type + " · " + (stock.speedLabel ?? (stock.isCine ? T("Motion picture", "电影") : T("Still photography", "静态摄影")))
     }
 }

@@ -100,12 +100,12 @@ final class DigitalIntermediateTests: XCTestCase {
     }
 
     func testTheClipboardCarriesTheDIWithFilmAndPaper() {
-        XCTAssertTrue(ClipboardGroup.filmAndPaper.paths.contains("params.digitalIntermediate"))
+        XCTAssertTrue(ClipboardGroup.print.paths.contains("params.digitalIntermediate"))
         var source = Sidecar()
         source.params.digitalIntermediate = true
-        let clip = SettingsClip(groups: [.filmAndPaper], settings: source, sourceName: "a")
+        let clip = SettingsClip(groups: [.film, .print], settings: source, sourceName: "a")
         XCTAssertTrue(clip.applied(to: Sidecar()).params.digitalIntermediate)
-        let exposureOnly = SettingsClip(groups: [.exposure], settings: source, sourceName: "a")
+        let exposureOnly = SettingsClip(groups: [.camera], settings: source, sourceName: "a")
         XCTAssertFalse(exposureOnly.applied(to: Sidecar()).params.digitalIntermediate)
     }
 

@@ -1,472 +1,94 @@
-# Silverphase — the SwiftUI frontend
+# Silverphase macOS 工程
 
-This frontend descends from SpektraLab. Some paths and historical interface
-descriptions below still use the old product name; the current application is
-Silverphase, while the `Spektrafilm` source directory and Xcode target retain
-their internal names for build compatibility.
+本目录是 Silverphase 的 SwiftUI／AppKit 应用工程。Xcode target 和部分
+内部路径仍叫 Spektrafilm；产品名称为 Silverphase。项目保留 Hanze Qiu
+的 SpektraLab 原生移植基础及 Andrea Volpato 的 spektrafilm 模型与配置。
+来源和许可见 [仓库说明](../../README.md)。
 
-> **Read §1, §3, §4 and §7 with this one correction.** This document was
-> written 2026-09-08, when the app talked to a Python render service over
-> stdio. RFC-014 (2026-09-10) deleted that service: the C++ engine is compiled
-> into this target and reached through a hand-written C ABI, with no
-> subprocess, no `.venv` and no Python at run time. **Wherever this document
-> says "the service", read "the engine"; where it says `src/`, read
-> `engine/`.** The layout geometry, the buffer system, the white-balance
-> redesign and the defect table are all still accurate. The current map is
-> `../../ARCHITECTURE.md` §0 and `../../README.md`.
+## 当前结构
 
-| | |
+- `Spektrafilm/Model/Session.swift`：异步解码、引擎会话、参数调度、渲染缓存、
+  多选、剪贴板、撤销及照片状态。
+- `Spektrafilm/Service/EngineClient.swift`：直接调用 C ABI。Service 路径名称
+  是历史命名；没有 Python 服务、stdio 代理或运行时子进程。
+- `Spektrafilm/Canvas/`：Metal 画布、ProPhoto 显示、几何、直方图和分层显影。
+- `Spektrafilm/Panels/`：浮动工艺面板、胶片／相纸条和照片导航条。
+- `Spektrafilm/Export/`：导出配方、软打样、后台纹理读回和 ImageIO 文件写入。
+- `Spektrafilm/Resources/`：引擎资源、目录、包装插画、DI 视图 LUT 和许可。
+- `SpektrafilmTests/`：独立 XCTest target，同时编译应用及引擎源码。
+- `Tools/`：工程生成、资源检查、验证及签名／公证／DMG 打包工具。
+
+界面使用单一现代布局：顶栏、浮动工艺面板、底部胶片选择／照片导航条。
+Metal 画布保持窗口尺寸；浮动控件的遮挡仅改变适合窗口的可见区域。
+没有另一套传统界面或独立的通用调色栏。历史 sidecar 的旧调色信息仍有
+兼容读取路径。当前布局规范见 [UI-SPEC](../design/UI-SPEC.md)。
+
+## 构建
+
+Apple Silicon、macOS 15+、安装了 Metal 工具链的 Xcode。仓库根目录执行：
+
+```sh
+engine/build.sh bundle
+xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
+  -scheme Spektrafilm -configuration Debug \
+  -derivedDataPath build/DerivedData build
+```
+
+输出 `build/DerivedData/Build/Products/Debug/Silverphase.app`。`engine/resources/`
+的烘焙数据受版本管理；engine Metal 库由 `engine/build.sh` 编译，并同步到
+应用 Resources/engine。资源检查拒绝缺失数据，但不自动重新烘焙配置。
+
+添加／删除 Swift、Metal 或 engine C++ 源文件后执行：
+
+```sh
+python3 modern_UI/Spektrafilm/Tools/gen-project.py
+python3 modern_UI/Spektrafilm/Tools/gen-project.py --check
+modern_UI/Spektrafilm/Tools/check-bundle-resources.sh
+```
+
+构建没有 Python 环境依赖，工程／目录生成脚本只使用 Python 标准库。
+`Tools/make-smoke.py` 属于旧 Python fork 的素材生成流程，当前不作为
+验证入口；新素材的选择与隔离由 `Tools/validate.py` 完成。
+
+## 图像与输出边界
+
+RAW 使用 macOS 解码。送入引擎的是场景线性输入，原图对比使用显示解码。
+不同 RAW 解码器的相机配置、色调和镜头处理可能给出不同输入；不能通过
+改写胶片或相纸实测配置来抵消这类差异。
+
+JPEG、带编码的 TIFF 等 RGB 文件在输入边界解码其传递函数。它们可能
+已有外部色调处理，不能据此声称恢复了原始场景辐射。现有验证区分 RAW
+解码与编码 RGB 输入，不将处理过的 TIFF 当作 RAW 参考。
+
+工作空间与普通画布纹理为 ProPhoto RGB。预览与全分辨率使用同一工艺
+参数，颗粒及空间效应按物理画幅换算。缩放不会改变胶片配置。全尺寸
+导出经过同一几何和颜色路径，使用临时文件完成后替换目标。
+
+| 路径 | 当前输出 |
 |---|---|
-| **What this is** | The native macOS app: the drawing in `modern_UI/reference_layout/` built to the pixel, rendering through the C++ engine compiled into it. |
-| **State** | Builds, runs, renders real RAWs end to end **in the actual app** (`design/snapshots/live-window.png`). 139 Swift tests pass. Layout measured within 2 pt of the drawing at 1920×1080; verified at 1512×982 and 3360×1418. |
-| **Governed by** | `../design/UI-SPEC.md` (the interface, and the SwiftUI/AppKit/Metal constraints, §11), `../../API-SPEC-callable-render-service.md` (the method surface). |
-| **Layout of record** | `../design/UI-SPEC.md` §10 (the drawing and its coordinates) and `Theme/Theme.swift` (the values themselves). |
-| **Open work** | `../../HANDOFF-OPEN-PATH.md`, `../../HANDOFF-DISTRIBUTION.md` |
-| **Date** | 2026-09-08 · annotated 2026-09-11 |
-
-```
-open Spektrafilm.xcodeproj                      # or:
-xcodebuild -project Spektrafilm.xcodeproj -scheme Spektrafilm -derivedDataPath build/DerivedData build
-xcodebuild -project Spektrafilm.xcodeproj -scheme SpektrafilmFrontend -derivedDataPath build/DerivedData test   # the non-rendering subset, ~2 s
-xcodebuild -project Spektrafilm.xcodeproj -scheme SpektrafilmTests -derivedDataPath build/DerivedData test      # 139 tests, includes the render
-Tools/snapshot.sh [image.NEF]                  # layout captures at three sizes (offscreen)
-Tools/capture-live.sh [image.NEF]              # the REAL window, through the window server
-SPEKTRAFILM_CANVAS_LOG=1 …                     # one line per draw, and why a render was dropped
-```
-
-**Two test schemes.** `SpektrafilmFrontend` runs the non-rendering subset — UI,
-layout and behaviour — finishing in about two seconds and generating no pixels.
-`SpektrafilmTests` is the full 139, including the classes that open a real
-negative and render it. Run the full one when the change touches
-`Service/Methods.swift`, `Model/Params.swift`'s wire names, or anything in
-`engine/`: a frontend edit can break those silently, and the schema parity
-harness is what catches a renamed field.
-
-The app finds the engine's data in its own bundle, at `Resources/engine/`
-(`EngineClient.defaultResources()`). The environment override is
-`SPEKTRAFILM_ENGINE_RESOURCES`, and a checkout walk-up survives only as a
-developer convenience for a build run out of the tree. `engine/build.sh bundle`
-is what puts the resources there — a pre-build phase fails the build when they
-are missing.
-
----
-
-## 1. Layout — how the drawing became numbers
-
-The current editor has one layout: a window-wide bar, one inspector rail over
-the canvas, and a navigator on the canvas's lower edge. The former three-column
-Traditional layout was removed on 2026-09-26. `design/UI-SPEC.md` records the
-current rules and the earlier drawing's geometry for historical reference.
-
-The drawing is a 3840×2160 canvas — a 1920×1080 window at 2× — so every metric
-in `Theme/Theme.swift` is the drawing's value ÷ 2. The three Traditional
-regions, and the one thing that floated:
-
-| region | SVG rect | points |
-|---|---|---|
-| left rail | −2.6, 0.6, 509.9 × 2160 | x 0, **254** wide, full height |
-| right rail | 3263.9, 0, 576.1 × 2160 | x 1632, **288** wide, full height |
-| filmstrip | 507.4, 1895.3, 2756.5 × 264.7 | y 948, **132** tall, centre column only |
-| tool bar | 529, 9.4, 2721 × 61.8, `rx 28` | y 5, **31** tall, r 14, inset 9 |
-
-Ground `#5f5f5f` — the canvas surround **and** every well, pill and slider
-track — rail `#2c2d2b`, text `#faf8f4`, one accent `#eca650`, and a 1 pt
-`#b5b5b6` hairline where the previous drawing had a gutter. Type: 12 pt bold
-for section titles, 10.5 pt semibold for labels and list rows, 10.5 pt
-monospaced-digit values, 9 pt sublabels.
-
-No outer margin, no gutter, no corner radius: the three regions are flush with
-the window and with each other. The one thing that still floats is the tool
-bar, a rounded pill on the ground over the canvas.
-
-The rails are the **user's** width, between bounds
-(`Controls/PanelResize.swift`), each standard at the drawing's own — so a fresh
-install measures the drawing. A folded rail leaves the `HStack`, so the centre
-grows into its place, and the `sidebar.left` / `sidebar.right` button that
-folded it moves onto the bar, which is the only place left that is always on
-screen. `⌘\` folds both rails; `⇧⌘F` the filmstrip.
-
-The derivation of every token — the rectangle or line it came from, and the
-handful that are a judgement rather than a measurement — is
-`../design/UI-SPEC.md` §10.3.
-
-**The test for this** is `LayoutTests`, and for the Modern layout
-`ModernCalibrationTests`, which check the geometry in a hosted window and the
-rules at the source. The capture tools that used to grade a picture against a
-raster of the drawing were deleted on 2026-09-26 — two of them could not run at
-all — so a number off a capture is now read against `Theme.swift` directly.
-`Tools/snapshot.sh` still takes a fourth capture with both rails folded, which
-is the only way to see the two `sidebar` buttons in the state the PRD is
-actually about.
-
----
-
-## 2. What is on screen, and what it talks to
-
-```
-Windows/EditorWindow      the three regions; CanvasArea with the filmstrip's tab
-Windows/TopBar            select · pan · crop  …  before/after · [100 %] · −· + · fullscreen
-                          flush, 38 pt, no radius (v3)
-Panels/LeftPanel          window buttons · "Develop" · import/export/sidebar.left,
-                          then the sections
-  Sections/Camera         "Input / Camera": Metering (auto_exposure) · Film Exposure ·
-                          Temperature · Tint · Vignetting (client) · Lens Correction (decode)
-  Sections/Film           film list grouped Positive/Negative · Film Format / Side /
-                          Side Length (→ film_format_mm)
-                          Grain · Halation (shoot layer) · Glare (print layer)
-  Sections/PrintProfile   papers grouped Still/Cine/Positive · EDR ·
-                          Developed / Original (a **view** selector; solve is
-                          "Process this frame" in the section's •••)
-  Sections/Crop           Aspect · Straighten · Rotate
-  Sections/Enlarger       Brightness (stops) · Yellow · Magenta — offsets from the solve
-                          (not in the drawing; kept, collapsed, last)
-Panels/RightPanel         "Edit", sidebar.right, then the Layer 2 sections
-  Sections/RightSections  Histogram · White Balance · Exposure · Curve · Color Balance
-Panels/Filmstrip          thumbnails, selection frame, chevrons
-Canvas/MetalCanvasView    MTKView + gestures     Canvas/Renderer   Metal state, Layer 2, histogram
-Model/Session             all state              Service/RenderScheduler   coalesced service calls
-```
-
-### Two layers, kept apart
-
-- **Layer 1** (left panel) is the engine: every control maps to one
-  `params_delta` field in `Model/Params.swift`, which mirrors
-  `service/schema.py` and knows each field's layer. A shoot-layer change
-  re-runs the film side (`preview_render layer=shoot`, ~0.6 s at the live
-  tier); a print-layer change reprints from the cached negative (~200 ms).
-- **Layer 2** (right panel, plus Vignetting) is `Model/Adjustments.swift`,
-  applied in the `layer2` compute kernel in `Shaders.metal` in under a
-  millisecond. Nothing in it reaches the service. The bypass switch (dotted
-  circle in the right header, `⇧⌘B`) shows the pure simulation.
-
-Three things on the left are *not* engine parameters and say so in their
-comments: **Vignetting** (the engine has none; it is the vignette stage of
-Layer 2, placed where a photographer looks for it), the **Temperature / Tint
-pair**, which is a decode setting (§4), and **Lens Correction**, which is
-`CIRAWFilter.isLensCorrectionEnabled` — RAW only, and greyed on a RAW whose
-maker wrote no correction, because Core Image is already doing the standard
-EXIF thing and there is nothing to switch.
-
-**Film Format / Side / Side Length is one engine field seen from the user's
-side.** (`Film Format` is v3's name for what the code still calls
-`filmFrame`; the rename is visual only.) `film_format_mm` means the frame's *long edge*, which cannot tell 645
-from 6×6; the rail asks for a type, a side and a length, and
-`Session.filmFormatMM(side:sideLengthMM:aspect:)` derives the long edge from
-that **and the photograph's own aspect**. Whether a crop re-scales it is a
-Settings toggle, off by default.
-
-### Renamed from the drawing, with reasons
-
-| drawing | built | why |
-|---|---|---|
-| Enlarger: Cyan / Magenta | Brightness / Yellow / Magenta | a dichroic head has Y and M; the engine has `y_filter_shift`, `m_filter_shift` and no cyan. Brightness (print exposure, in stops, brighter positive) is the enlarger's main control and was missing. |
-| Curve tabs 亮度/红色/… | RGB · Luma · Red · Green · Blue | the rest of the UI is English |
-| checkboxes: hollow squares | hollow when off, accent-filled when on | a state, not a decoration |
-| Camera: five rows, no preset pill | the white-balance presets and the neutral picker moved into the section's "•••" | the drawing's Camera is five rows and neither of those is one of them; the menu is where they still are, not gone |
-| no Enlarger section | kept, collapsed, last | the only access to `print_exposure` and the two filter axes, and the PRD does not ask for it to go |
-
----
-
-## 3. The data path
-
-```
-select(frame)
-  ├─ Core Image decode (CIRAWFilter, boost 0, no gamut map, WB from the sidecar)
-  │    ├─ preview texture, Display P3, 1600 px   → canvas immediately, "preview" badge
-  │    └─ half-float linear ProPhoto TIFF        → ~/Library/Caches/com.hanze.spektrafilm/linear/<key>-<wb>.tif
-  ├─ service.open(tiff, full params)             → live-tier negative (film side)
-  ├─ service.solve(exposure)                     → the auto-exposure baseline, per Metering
-  └─ service.reprint(output: rgba16)             → raw 16-bit RGBA → texture → canvas, badge clears
-
-zoom ≥ 100 % / ≥ 200 %
-  └─ service.reprint(tier: preview|full)         → a bigger texture for the same frame, swapped in when it lands
-```
-
-Opening a *folder* or several files stops at the Browse grid instead: no
-decode, no TIFF, no service call until a frame is chosen. One file is a handoff
-and goes straight to Print. The cache is bounded at 4 GB LRU
-(`Import/LinearCache.swift`); the TIFF is written only after a decode has
-settled, never by a superseded white-balance value.
-
-The service detects the half-float TIFF as linear ProPhoto (verified:
-`detected_input.input_color_space == "ProPhoto RGB"`, `input_cctf_decoding ==
-false`, asserted by `ServiceIntegrationTests`). RAW decode is therefore
-Apple's, not LibRaw's; the sidecar records `decoder: coreimage`.
-
-**Colour rule, stated once.** Textures hold Display P3 *encoded* values (the
-engine's `output_cctf_encoding`; the decoder preview is rendered into P3). The
-`CAMetalLayer` colour space is Display P3; the pixel format is `rgba16Unorm`,
-never `_srgb`; the shader applies no transfer curve. A washed-out canvas means
-a second encode crept in — fix it there, not with a slider.
-
-**Orientation.** Row 0 of every texture is the top of the image. The decoder
-preview is rendered with a vertical flip because Core Image's origin is
-bottom-left; the service's `rgba16` dump is numpy row-major, top first; the
-canvas view is `isFlipped`, so mouse points and shader points share the
-top-left origin. `RendererTests.testOffscreenRenderOrientation` and
-`testDecoderPreviewOrientation` fail the moment any of this flips.
-
-### The buffer system (why it feels snappy)
-
-`Canvas/TextureStore.swift`:
-
-| what | source | kept |
-|---|---|---|
-| source preview | Core Image decode | last 8 frames |
-| print (live tier) | `reprint` rgba16 | last 8 frames |
-| detail (preview/full) | `reprint` at the zoom's tier | one frame — a full-res texture is 360 MB |
-| adjusted | Layer 2 kernel output | one, re-run on edit |
-| curve table | CPU, 256×5 r32Float | one |
-
-- Switching frames shows the frame's last print instantly (or its decode
-  preview), flagged **preview** until the service catches up.
-- `Service/RenderScheduler.swift` keeps *sent* vs *wanted* params and one
-  loop: debounce (40 ms print / 220 ms shoot), send one delta for the whole
-  difference, apply the result only if the generation still matches. A slider
-  drag produces a handful of reprints, never one per tick, and a stale reply
-  can never overwrite a newer frame.
-- Layer 2 is a compute pass on the resident texture: no service, no debounce.
-- Zoom and pan are a sampling transform (`ViewportState`), free. At ≥100 % the
-  sampler is nearest so grain is grain, not a smear.
-
-### Keyboard and mouse
-
-| | |
-|---|---|
-| scroll / pinch / ⌘-scroll | pan / zoom about the cursor |
-| double-click, `Z` | fit ↔ 100 % |
-| `⌘+` `⌘−` `⌘0` `⌘1` | zoom steps, fit, 100 % |
-| Space (hold) | show the decode — labelled `original · decode` on the canvas |
-| ← → , `⌘[` `⌘]` | previous / next frame (the canvas claims first responder on window entry) |
-| `V` `H` `C` | select / hand / crop tool |
-| `⌘C` `⌘V` | copy / paste settings (film, print, Layer 2 — offsets only) |
-| `⌘Z` | undo |
-| `⌘\` | fold both side panels |
-| `⇧⌘B` | bypass Layer 2 |
-| `⌥⌘R` | restart the render service |
-| `⌘O` `⌘E` | open, export |
-
----
-
-## 4. White balance at decode (the redesign)
-
-The drawing's two rows ("Color Temp. / As Shot ☐") became one block:
-
-```
-White Bal.   [ As Shot ⌃⌄ ]  ✎
-Color Temp.  ──────●──────  6210 K     blue → amber track
-Color Tint   ──────●──────  +17        green → magenta track
-```
-
-Presets (As Shot · Daylight · Cloudy · Shade · Tungsten · Fluorescent) set the
-sliders; dragging a slider flips the pill to Custom; the eyedropper arms a
-neutral pick on the canvas (`CIRAWFilter.neutralLocation`). The zero tick on
-each track is the camera's as-shot value. A change re-decodes and reopens
-(≈350 ms debounce, then the film side), because white balance is a lens filter,
-not a print control. Flat files dim the block with a one-line reason.
-
----
-
-## 5. Export
-
-`Export/Exporter.swift`, `⌘E`, into `<source dir>/_prints/<name>_<film>_<paper>.<ext>`:
-
-| route | what |
-|---|---|
-| JPEG | Display P3, q 0.95, Layer 2 baked, cropped |
-| PNG 8-bit | same, lossless |
-| TIFF 16-bit | same, 16-bit; headroom is only the scan margin |
-| **DI package** | `<name>_DI.tif` (16-bit: the negative's CMY density normalised 0…1 by the print LUT's own axes) + `<name>_<paper>.cube` (33³, domain 0…1, red fastest) + `<name>_print.tif` check image |
-
-The DI route is the DI-suite workflow: grade the flat negative while viewing
-it through the print LUT, bake at delivery. What the LUT carries is the print
-stock's colour response only — the print+scan chain is pointwise; grain,
-halation and glare are spatial and stay out of it (HANDOFF-PRINT-LUT §2). In
-**Photoshop**: open the DI TIFF, add *Layer › New Adjustment Layer › Color
-Lookup*, load the `.cube`, grade underneath it in 16-bit. **Capture One**
-cannot load `.cube` (verified 2026-09-08); convert to ICC with
-`ociobakelut --format icc` and load it under *Base Characteristics › ICC
-Profile › Other*. The `.cube` is deliberately plain (no `DOMAIN_MIN/MAX`, no
-1D shaper) because Photoshop's support for either is unverified.
-
-Finished routes go: service `export` at full resolution → raw rgba16 → Layer 2
-in Metal at full size → crop → ImageIO with a Display P3 tag.
-
----
-
-## 6. Service changes made for this client (all additive)
-
-In `src/spektrafilm/service/service.py`, marked `[client-added]`:
-
-- `output: "rgba16"` on `reprint`, `preview_render`, `preview_stock_lut`,
-  `export`: writes uint16 RGBA (top row first) and returns `raw_path`,
-  `width`, `height`. The client deletes the file after upload.
-- Output filenames carry a per-process serial; nothing is overwritten.
-- `export_di {session_id, out_dir, base_name}` → `{di_path, cube_path,
-  print_preview_path, warning?}`.
-
-Tests: `tests/test_service.py::test_rgba16_output_is_raw_top_row_first`,
-`::test_export_di_writes_density_tiff_and_cube`. The smoke image the suite
-needs is generated by `Tools/make-smoke.py` into `tests/Test_image/`.
-
----
-
-## 7. Tests — what each one protects
-
-| file | protects |
-|---|---|
-| `ViewportStateTests` | fit, zoom-about-cursor, the pan clamp, 100 % = one device pixel |
-| `CurveMathTests` | monotone spline (no overshoot), point insert/move/remove rules, table layout |
-| `ParamsTests` | wire names match `schema.py`, layer routing, stops → `print_exposure`, sidecar round-trip |
-| `FrontendPolicyTests` | the tier the zoom asks for, sidecar names that cannot collide, LRU eviction order |
-| `RendererTests` | Layer 2 passthrough / bypass / exposure / curves on a 4×2 card; **canvas orientation**; ground outside the image; decoder orientation through Core Image |
-| `LayoutTests` | the current scale, radii and strip heights; the canvas keeps ≥ 500 pt at all three sizes |
-| `ServiceIntegrationTests` | the real Python service over stdio: open, reprint (rgba16), refusal of shoot deltas on reprint, preview_render, export_di. **Skipped by the `SpektrafilmFrontend` scheme** — it is the only class that renders |
-| `CanvasViewTests` | drawable pixel format, the view builds and draws, a redraw reaches the delegate, the zoom readout follows the image |
-| `ModernCalibrationTests` | the Modern layout's rules at the source: no inline type size, every spacing literal on the 4 pt scale, no local glyph-size default |
-| `Tools/capture-live.sh` | the only check that the canvas actually puts pixels on screen |
-
-The test bundle compiles the app's sources directly (no test host): hosting
-tests in the app crashed SwiftUI's environment root on macOS 26.
-
-### 7.1 What running the app found that none of this caught
-
-Four defects, all in the ten lines between "the render is correct" and "the
-render is on screen", all invisible to every test and to `snapshot.sh`:
-
-| defect | symptom | why nothing caught it |
-|---|---|---|
-| `colorPixelFormat = .rgba16Unorm` | **crash on launch**, `CAMetalLayer: invalid pixel format 110` | a valid *texture* format, not a valid *drawable* format. No `MTKView` is ever built offscreen, so no test constructed one. Now: `Renderer.drawableFormat` (rgba16Float) for the drawable, `offscreenFormat` (rgba16Unorm) for captures and export, and two pipeline states. |
-| `needsDisplay = true` on a paused `MTKView` | **blank canvas** while the status bar said "reprint 435 ms" | the documented on-demand recipe does not fire the delegate in the running app. Measured: view in a window, visible, correctly sized, closure firing, zero draws. Now `scheduleDraw()` calls `MTKView.draw()`, coalesced per runloop turn. |
-| the zoom readout | "Fit · 158,000 %" | computed against a 1×1 placeholder before any image, and never recomputed when one arrived. `Renderer.onViewportChanged` now fires when `setBase` refits. |
-| unprefixed `UserDefaults` keys | panels and filmstrip opened folded | the **previous** version of this app shipped under the same bundle id and left `leftCollapsed`, `filmstripCollapsed`, `dock.*`, `panel.*` behind. UI-state keys are now `ui2.`-prefixed. |
-
-The lesson is written into `Tools/capture-live.sh`: `cacheDisplay` cannot see a
-`CAMetalLayer` at all, so the offscreen harness substitutes a render of the
-canvas and is blind to everything between the renderer and the screen. Only a
-window-server capture of the real window closes that gap. Run it before
-believing the canvas works.
-
-**`CanvasViewTests` is honest about its limit.** It asserts the drawable
-format is one `CAMetalLayer` accepts, that the view builds and draws, that a
-redraw request reaches the delegate (this caught a missing `MTKViewDelegate`),
-and that the zoom readout follows the image. It does **not** reproduce the
-`needsDisplay` failure: in-process, bare or inside `NSHostingView`, it fires
-correctly and the test passes against the broken code. That one is guarded by
-the live capture, not by a test.
-
----
-
-## 8. Adding, removing, moving a control
-
-Every section is one view in `Panels/Sections/`. The panel is a list:
-
-```swift
-CameraSection(session: session)
-Hairline()
-FilmSection(session: session)        // ← delete these two lines to remove the section
-Hairline()
-PrintProfileSection(session: session)
-```
-
-A section is `PanelSection(title, key:) { RailRows { … } }`, and its controls
-bind to `session.params` (Layer 1) or `session.adjustments` (Layer 2) through
-`ScrubSlider`, `ToggleRow`, `PillMenu`, `UnitField`. `RailRows` carries the
-rail's inset and row spacing, so a row that forgot it would not look wrong on
-its own — only out of line with the four above it. A `Well` is now only for a
-*choice from a set*: there are two in the whole interface, and both are lists. Sections do not reference each
-other; if two need to agree, that belongs in `Session`.
-
-- **A new engine parameter:** add the field to `FilmParams`, one line in
-  `wire` with its layer, one slider in a section. `ParamsTests.
-  testWireNamesMatchTheServiceSchema` will remind you to add the wire name.
-- **A new Layer 2 control:** add the field to `Adjustments`, map it in
-  `uniforms`, add the uniform to *both* `Layer2Uniforms` (Swift and Metal, same
-  order), apply it in the `layer2` kernel, add a slider.
-- **A new film stock:** drop the profile in the engine, run
-  `Tools/gen-catalog.py` (covers go in `Resources/FilmCovers/<id>.jpg`).
-- **A new file:** run `Tools/gen-project.py`; the project lists files
-  explicitly and the generator is deterministic.
-
-### 8.1 Rebuilding a panel
-
-§8 is about moving *a control*. This is about moving *all of them* — the left
-column is being reorganised from the engine's parameter categories into the
-user's flow (`handoff/HANDOFF-SPEKTRALAB-FRONTEND-RECONSTRUCTION.md`), and a
-rework of that size is exactly where a load-bearing line gets dropped without
-anything going red.
-
-A section is safe to move, split, merge or delete. It takes `session` and
-nothing else, it owns no state another section reads, and the panel is a list
-of them. **What is not safe to drop is the short list below.** Each one fails
-*silently* — the app still builds, still opens a frame and still renders, and
-the only symptom is that the picture or the timing is quietly different from
-the build before it. Each is pinned by a named test, so the way to find out
-you have broken one is to run the suite, not to look at the canvas.
-
-| Contract | Where it lives | What breaks if a rework drops it | Pinned by |
-|---|---|---|---|
-| The open delta carries the frame's sidecar, `preview_long_edge` **and** `product_defaults` | `Session.openDelta` | Without the second, the live tier renders at the engine's default rather than the user's resolution. Without the third, the engine keeps the reference's `print_exposure_compensation` and Camera Film Exposure stops moving the finished print's brightness — every print comes out at a different brightness | `FrontendPolicyTests.testTheOpenDeltaCarriesTheSessionSettingsAndTheProductDefaults` |
-| Cache keys are built only after warm-up has published the engine version | `Session.awaitBoot`, called at the top of `load` | Keys built from the literal `"unknown"`, so every disk-cache lookup misses and every open pays for a decode it had already cached | `SessionDisplayCacheTests`, `PrintCacheTests` |
-| Layer 1 (engine parameters) and Layer 2 (canvas adjustments) stay apart | `session.params` vs `session.adjustments` | A "grade" that needs a film render to preview, or an engine parameter applied twice | §2, "Two layers, kept apart" |
-| Export renders from the same session as the canvas | `Exporter.filePixels(session:recipe:sessionID:)` | Export and canvas drift, which is the one bar the user set as hard | `ExportPreviewChainTests` |
-| Colours come from `Theme`, never literals | `Theme/` | A section that does not follow the theme, found by eye months later | `LayoutTests` |
-| Re-deriving `film_format_mm` when a decode lands does **not** go through the `params` setter | `Session.recomputeFilmFormat(beforeOpen:)` | That setter `requestPrint()`s, and an open is contracted to stop at the decode. The frame still renders — it just develops twice on every open, and nothing says so | `OpenPathTests.testAnOpenStopsAtTheDecode` |
-| A non-selectable control greys as a **row**, through one modifier | `View.rowEnabled(_:)` | Half a row greys and the other half looks live, differently in each section, which is the state the PRD wrote the rule to stop | by eye; `Tools/snapshot.sh` with and without a frame open |
-
-Two habits that made the last rework cheap and are worth keeping:
-
-- **Give a contract a name and a test before you move it.** `openDelta` was six
-  lines in the middle of `load` and the engine inferred the product's defaults
-  from whether one of them was present. Both facts were true, documented and
-  impossible to notice from the panel that fed them.
-- **A guard that cannot fail is not a guard.** Two cache tests here passed for
-  months by winning a race against warm-up; they only failed once enough
-  earlier tests had warmed the engine. If a test would pass with the code it
-  covers deleted, it is not protecting the rework.
-
----
-
-## 9. Known limits, stated
-
-- `cancel` cannot arrive mid-render on stdio; the scheduler supersedes by
-  generation instead. A film-side change while one is running waits its turn.
-  A detail render waits for the scheduler to be idle for the same reason.
-- The live tier's long edge is the user's `Session.previewLongEdge` — one of
-  3840, 2560 (the default), 1920 or 1080, set on the Settings page and sent
-  with the open. Zooming past 100 % asks for a
-  higher tier (preview at 100 %, full at 200 %) and swaps it in when it lands,
-  but that is a **whole-frame** render, not the ROI render frontend SPEC §5.0
-  specifies: the service has no crop parameter, so a full-resolution film side
-  runs and 360 MB crosses the workspace. First full render on a 45 MP frame:
-  17 s cold, 6 s warm.
-- The service cannot report progress. `reprint` does not return until the
-  render is finished and the transport is single-flight, so `progress` cannot
-  be polled while a render runs. The top bar shows elapsed time instead.
-- The decode cache is bounded at 4 GB (about eleven 45 MP frames). Frames
-  evicted from it re-decode in a few seconds. The handoff's §3.1.3 proposal —
-  a 1600 px live-tier TIFF — was not taken, because the service derives every
-  tier including export from the file it opens; see the handoff for why.
-- `preview_stock_lut` is wired in the client types but not used: a reprint at
-  ~200 ms is exact where the LUT is an approximation, and fast enough.
-  Recorded, not changed.
-- Grain is unseeded in the engine; reopening a frame re-draws it. Reproducible
-  exports need `grain_seed` in the shoot layer — a service change.
-- Crop is a one-shot drag; no handles, aspect lock or thirds overlay.
-- Masks (dodge and burn) are not built; the sidecar has no field for them yet.
-- The filmstrip is single-select, with no keyboard navigation or drag-reorder.
-  Intentional, recorded so it is not reported as a bug.
-- Sidecars are written next to the source files (`<name>.spektra.json`).
-  Opening a folder litters it with them. Fine for a personal tool; worth a
-  sentence in any README aimed at anyone else.
-- The zoom pill's `Fit · N %` and the histogram are correct only once a print
-  has landed; before that the decode preview is on screen.
-- Interactive gestures (slider scrub, curve drag, wheels) are exercised by
-  hand, not by tests; the geometry math beneath them is.
-- `capture-live.sh` needs Screen Recording permission for the terminal, and
-  drives the real app, so it is slower and less deterministic than
-  `snapshot.sh`. It is the acceptance check, not the inner loop.
-- The canvas draws on demand. If a future change makes some state fail to
-  reach the screen, `SPEKTRAFILM_CANVAS_LOG=1` prints one line per draw with
-  the base texture, the viewport and whether a drawable was available, and one
-  line for any render dropped before upload.
+| JPEG | 8-bit、所选目标 ICC、JPEG 质量由配方设置 |
+| PNG | 8-bit、所选目标 ICC、无损 |
+| TIFF | 16-bit、所选目标 ICC、当前成片路径使用无压缩 TIFF |
+| DI package | `<name>_DI.tif`：未标记的 16-bit Cineon 主图及视图预览页；旁边共享两个固定 DI 视图 `.cube` |
+
+DI 使用 ProPhoto RGB 原色的 Cineon 对数代码，保留胶片反差并绕过相纸
+印相和后期输出调色。两个 65³ 视图 LUT 是 Cineon → ProPhoto RGB、
+Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
+应用画布使用随包的 ProPhoto 视图 LUT。普通 RGB 导出 DI 时先应用该
+视图，再执行配方的目标颜色变换和 ICC 写入。
+
+不要将 Cineon 主图当作普通带 ICC 的照片。默认查看它可使用配套 LUT，
+避免在已有 Cineon 转换之后重复应用完整 DI 视图。视图包括高光映射，
+因此观看图像不代表对主文件数据的改写。数据来源说明见
+[Resources/DI/README.md](Spektrafilm/Resources/DI/README.md)。
+
+## 验证与分发
+
+可重复的测试命令、真实照片清单、外部素材处理和验收边界见
+[VALIDATION.md](VALIDATION.md)。测试不能替代实际窗口的帧率与视觉验收。
+历史架构／RFC 中的传统布局、Python service 和旧密度 DI 描述应按历史
+记录阅读；这里与当前实现对应。
+
+`Tools/package.sh` 实现 archive、Developer ID 签名、DMG、公证和验证。
+有脚本不等于已完成分发验收。开发构建的临时签名不能当作正式安装包。
+发布状态以仓库首页和实际签名／公证结果为准。

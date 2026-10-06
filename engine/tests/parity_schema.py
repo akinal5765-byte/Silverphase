@@ -252,6 +252,14 @@ NATIVE_ONLY = {
      'default': False,
      'live': False,
      'range': None},
+    "scanner_sharpening_amount": {
+        "path": "scanner.unsharp_mask.amount", "type": "float", "layer": "print",
+        "default": 0.7, "live": False, "range": [0.0, 1.4],
+    },
+    "grain_softness": {
+        "path": "film_render.grain.blur", "type": "float", "layer": "shoot",
+        "default": 0.65, "live": False, "range": [0.0, 1.3],
+    },
 }
 
 

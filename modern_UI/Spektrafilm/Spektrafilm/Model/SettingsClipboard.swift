@@ -26,7 +26,22 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
         allCases.filter { $0 != .masks || FeatureFlags.masks || FeatureFlags.toneMask }
     }
 
-    case filmAndPaper, exposure, whiteBalance, filmEffects, printEffects, scenePlacement, masks
+    case camera, film, development, print, output, masks
+
+    /// Only the remembered checkbox selection uses the old group IDs.
+    /// Map their coverage onto the current process stages; photo sidecars are unchanged.
+    static func fromStored(_ names: [String]) -> Set<ClipboardGroup> {
+        let legacy: [String: Set<ClipboardGroup>] = [
+            "filmAndPaper": [.film, .print, .output],
+            "exposure": [.camera, .print], "whiteBalance": [.camera, .print],
+            "filmEffects": [.camera, .film, .development],
+            "printEffects": [.print, .output], "scenePlacement": [.camera],
+        ]
+        return names.reduce(into: []) { result, name in
+            if let group = Self(rawValue: name) { result.insert(group) }
+            else if let groups = legacy[name] { result.formUnion(groups) }
+        }
+    }
 
     var id: String { rawValue }
 
@@ -38,30 +53,27 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
     /// field fails that test until someone decides which it is.
     var paths: [String] {
         switch self {
-        case .filmAndPaper:
-            ["params.filmStock", "params.printStock", "params.scanFilm", "params.digitalIntermediate",
-             "params.extendedDynamicRange"]
-        case .exposure:
-            // The enlarger's brightness is the print's exposure (user, 2026-09-28).
+        case .camera:
             ["params.autoExposure", "params.autoExposureMethod", "params.exposureCompensationEV",
-             "params.printBrightnessStops"]
-        case .whiteBalance:
-            // The enlarger's filters: in the darkroom, colour *is* the filter pack.
-            ["decode.whiteBalance", "decode.temperature", "decode.tint",
-             "params.yFilterShift", "params.mFilterShift"]
-        case .filmEffects:
-            // The film format sets the physical scale of grain and halation.
-            ["params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
-             "params.grainActive", "params.grainSizeScale", "params.halationActive", "params.halationAmount", "params.antihalationMode",
+             "decode.whiteBalance", "decode.temperature", "decode.tint",
              "params.cameraDiffusion", "params.cameraDiffusionStrength", "params.cameraDiffusionRange",
-             "params.developmentContrast", "params.colorSeparation", "params.effects.grain", "params.effects.grainLayered",
-             "params.effects.scatter", "params.effects.couplersActive"]
-        case .printEffects:
+             "params.sceneLatitude", "placementNeedsFit"]
+        case .film:
+            // The film format sets the physical scale of grain and halation.
+            ["params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
+             "params.grainActive", "params.grainSizeScale", "params.grainSoftness", "params.halationActive", "params.halationAmount", "params.antihalationMode",
+             "params.effects.grain", "params.effects.grainLayered", "params.effects.scatter"]
+        case .development:
+            ["params.developmentContrast", "params.colorSeparation", "params.effects.couplersActive"]
+        case .print:
             // Pre-flash is gated by the Print Effects switch already.
-            ["params.printEffects", "params.preflashExposure", "params.glareActive", "params.effects.glare",
+            ["params.printStock", "params.scanFilm", "params.digitalIntermediate",
+             "params.printBrightnessStops", "params.yFilterShift", "params.mFilterShift",
+             "params.printEffects", "params.preflashExposure",
              "params.printContrast", "params.enlargerDiffusion", "params.enlargerDiffusionStrength", "params.enlargerDiffusionRange"]
-        case .scenePlacement:
-            ["params.sceneLatitude", "placementNeedsFit"]
+        case .output:
+            ["params.extendedDynamicRange", "params.glareActive", "params.effects.glare",
+             "params.scannerSharpeningActive", "params.scannerSharpeningStrength"]
         case .masks:
             ["params.contrastMask", "masks"]
         }
@@ -81,24 +93,22 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
 
     @MainActor var title: String {
         switch self {
-        case .filmAndPaper: L(.clipFilmAndPaper)
-        case .exposure: L(.clipExposure)
-        case .whiteBalance: L(.clipWhiteBalance)
-        case .filmEffects: L(.clipFilmEffects)
-        case .printEffects: L(.clipPrintEffects)
-        case .scenePlacement: L(.clipScenePlacement)
+        case .camera: InspectorStage.camera.title
+        case .film: InspectorStage.film.title
+        case .development: InspectorStage.development.title
+        case .print: InspectorStage.print.title
+        case .output: InspectorStage.output.title
         case .masks: L(.clipMasks)
         }
     }
 
     @MainActor var help: String {
         switch self {
-        case .filmAndPaper: L(.clipFilmAndPaperHelp)
-        case .exposure: L(.clipExposureHelp)
-        case .whiteBalance: L(.clipWhiteBalanceHelp)
-        case .filmEffects: L(.clipFilmEffectsHelp)
-        case .printEffects: L(.clipPrintEffectsHelp)
-        case .scenePlacement: L(.clipScenePlacementHelp)
+        case .camera: T("Metering, film exposure, white balance, lens filters and scene placement. The target fits its own scene.", "测光、胶片曝光、白平衡、镜头滤镜与场景安置；目标照片按自身画面重新拟合。")
+        case .film: T("Film stock, format, grain, halation and scatter.", "胶片型号、画幅、颗粒、光晕与散射。")
+        case .development: T("Development contrast and colour separation.", "显影反差与色彩分离。")
+        case .print: T("Paper/output mode, print exposure, filter pack, preflash and enlarger diffusion.", "相纸与输出模式、印相曝光、滤色、预闪及柔光放大。")
+        case .output: T("Scan sharpening, print glare and highlight expansion.", "扫描锐化、印相眩光与高光层次保留。")
         case .masks: L(.clipMasksHelp)
         }
     }
@@ -115,25 +125,25 @@ struct SettingsClip: Equatable, Sendable {
     func applied(to target: Sidecar) -> Sidecar {
         var out = target
         let s = settings
-        if groups.contains(.filmAndPaper) {
+        if groups.contains(.film) {
             out.params.filmStock = s.params.filmStock
+        }
+        if groups.contains(.print) {
             out.params.printStock = s.params.printStock
             out.params.scanFilm = s.params.scanFilm
             out.params.digitalIntermediate = s.params.digitalIntermediate
-            out.params.extendedDynamicRange = s.params.extendedDynamicRange
         }
-        if groups.contains(.exposure) {
+        if groups.contains(.camera) {
             let meterChanged = out.params.autoExposure != s.params.autoExposure
                 || out.params.autoExposureMethod != s.params.autoExposureMethod
             out.params.autoExposure = s.params.autoExposure
             out.params.autoExposureMethod = s.params.autoExposureMethod
             out.params.exposureCompensationEV = s.params.exposureCompensationEV
-            out.params.printBrightnessStops = s.params.printBrightnessStops
             // The target's report is of the target's old meter. Nil until its
             // develop, or `retargetSolvedEV`, measures the new one.
             if meterChanged { out.solvedEV = nil }
         }
-        if groups.contains(.whiteBalance) {
+        if groups.contains(.camera) {
             out.decode.whiteBalance = s.decode.whiteBalance
             // As Shot is the *target's* camera: its numbers are its own, and
             // the source's Kelvin must not come with the word.
@@ -141,10 +151,11 @@ struct SettingsClip: Equatable, Sendable {
                 out.decode.temperature = s.decode.temperature
                 out.decode.tint = s.decode.tint
             }
-            out.params.yFilterShift = s.params.yFilterShift
-            out.params.mFilterShift = s.params.mFilterShift
+            out.params.cameraDiffusion = s.params.cameraDiffusion
+            out.params.cameraDiffusionStrength = s.params.cameraDiffusionStrength
+            out.params.cameraDiffusionRange = s.params.cameraDiffusionRange
         }
-        if groups.contains(.filmEffects) {
+        if groups.contains(.film) {
             // `filmFormatMM` is derived from these and the target's aspect;
             // the session re-derives it (`recomputeFilmFormat`), and so does
             // the next decode.
@@ -155,29 +166,37 @@ struct SettingsClip: Equatable, Sendable {
             out.params.grainActive = s.params.grainActive
             out.params.halationActive = s.params.halationActive
             out.params.grainSizeScale = s.params.grainSizeScale
+            out.params.grainSoftness = s.params.grainSoftness
             out.params.halationAmount = s.params.halationAmount
             out.params.antihalationMode = s.params.antihalationMode
-            out.params.cameraDiffusion = s.params.cameraDiffusion
-            out.params.cameraDiffusionStrength = s.params.cameraDiffusionStrength
-            out.params.cameraDiffusionRange = s.params.cameraDiffusionRange
-            out.params.developmentContrast = s.params.developmentContrast
-            out.params.colorSeparation = s.params.colorSeparation
             out.params.effects.grain = s.params.effects.grain
             out.params.effects.grainLayered = s.params.effects.grainLayered
             out.params.effects.scatter = s.params.effects.scatter
+        }
+        if groups.contains(.development) {
+            out.params.developmentContrast = s.params.developmentContrast
+            out.params.colorSeparation = s.params.colorSeparation
             out.params.effects.couplersActive = s.params.effects.couplersActive
         }
-        if groups.contains(.printEffects) {
+        if groups.contains(.output) {
+            out.params.extendedDynamicRange = s.params.extendedDynamicRange
+            out.params.glareActive = s.params.glareActive
+            out.params.scannerSharpeningActive = s.params.scannerSharpeningActive
+            out.params.scannerSharpeningStrength = s.params.scannerSharpeningStrength
+            out.params.effects.glare = s.params.effects.glare
+        }
+        if groups.contains(.print) {
+            out.params.printBrightnessStops = s.params.printBrightnessStops
+            out.params.yFilterShift = s.params.yFilterShift
+            out.params.mFilterShift = s.params.mFilterShift
             out.params.printEffects = s.params.printEffects
             out.params.preflashExposure = s.params.preflashExposure
-            out.params.glareActive = s.params.glareActive
-            out.params.effects.glare = s.params.effects.glare
             out.params.printContrast = s.params.printContrast
             out.params.enlargerDiffusion = s.params.enlargerDiffusion
             out.params.enlargerDiffusionStrength = s.params.enlargerDiffusionStrength
             out.params.enlargerDiffusionRange = s.params.enlargerDiffusionRange
         }
-        if groups.contains(.scenePlacement) {
+        if groups.contains(.camera) {
             // The intent and the Fit's inputs; the curve stays the identity
             // until the target's own Fit lands (`resolvePendingPlacement`).
             let from = s.params.sceneLatitude
