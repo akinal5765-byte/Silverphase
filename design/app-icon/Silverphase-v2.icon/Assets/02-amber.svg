@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>Silverphase — 02-amber</title>
+<defs><linearGradient id="color" x1="0" y1="0" x2="0.7" y2="1">
+<stop offset="0" stop-color="#F5C364"/><stop offset="1" stop-color="#E38F41"/>
+</linearGradient></defs>
+<path d="M-242 -210h484a68 68 0 0 1 68 68v284a68 68 0 0 1 -68 68h-484a68 68 0 0 1 -68 -68v-284a68 68 0 0 1 68 -68Z" fill="url(#color)" transform="matrix(.78 .36 -.56 .49 554 434)"/>
+</svg>

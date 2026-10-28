@@ -1,352 +1,129 @@
-# AGENTS.md — working notes for AI sessions on Silverphase
+# AGENTS.md — working notes for Silverphase
 
-Silverphase is an independent derivative of SpektraLab. Preserve the original
-Git history, GPL and CC BY-SA obligations, and visible credit to Hanze Qiu and
-Andrea Volpato. The original `SpektraLab` repository is the `upstream` remote;
-never push changes there. This file and older architecture/RFC documents still
-contain historical SpektraLab assumptions, especially about a separate Layer 2
-grading rail. The current product direction is physical film, development and
-print controls, not a Lightroom/Capture One replacement.
+Current repository guidance, reviewed 2026-10-28. Silverphase is an independent
+derivative of SpektraLab. Preserve Git history, GPL / CC BY-SA obligations,
+and visible credit to Hanze Qiu and Andrea Volpato. `upstream` is the original
+SpektraLab repository: never push there. Commit or push only when asked.
 
-The macOS desktop product built on the **spektrafilm** engine. Extracted from
-the `spektrafilm` fork into its own repository on 2026-09-11; `README.md` says
-what is here and what is deliberately not. This file records conventions and,
-more importantly, the traps that cost real debugging time. Read the traps
-section before touching the pipeline.
+## Start here
 
----
+- [README.md](README.md) / [README.en.md](README.en.md): current product and builds.
+- [docs/README.md](docs/README.md): global documentation index and authority.
+- [ARCHITECTURE.md](ARCHITECTURE.md): desktop, iOS, shared engine and ownership.
+- [macOS guide](modern_UI/Spektrafilm/README.md) and
+  [validation](modern_UI/Spektrafilm/VALIDATION.md).
+- [iOS guide](ios/README.md), [design](ios/DESIGN.md),
+  [control audit](ios/CONTROL-AUDIT.md): mobile behavior and missing features.
+- [API](API-SPEC-callable-render-service.md) and
+  [contract](CONTRACT-frontend-backend.md): native boundary and invalidation.
 
-## What this repo is, in one screen
+The product exposes physical camera, film, development, print and scan controls.
+It has a floating process inspector and material browser; a separate Layer 2
+grading rail is historical. Compatibility structures for old edits are not a
+second shipped interface. Screenshots carry their own dates; use current UI
+specifications and source when older captures differ.
 
 > 不要为了修 rendering problem 去污染 material model。
 >
-> **Do not pollute the material model to fix a rendering problem.** A film or
-> paper profile describes measured capability, not a control surface. Scene
-> placement belongs before the film, output headroom belongs after the print,
-> and the final look belongs in Layer 2. Fix the stage that owns the decision;
-> never rewrite a measured response to hide a limitation in another stage.
+> A profile describes material capability. Scene placement belongs before film;
+> output headroom belongs after print. Fix the stage that owns the decision.
 
-**One binary.** The macOS app under `modern_UI/` has a C++ render engine
-(`engine/`) compiled into it and reached through a hand-written `extern "C"`
-surface; it renders into an `MTLTexture` the canvas draws. There is no Python
-in this repository — no `src/`, no `.venv`, no subprocess, at build time or at
-run time. `ARCHITECTURE.md` §0 is the map and §8 is the engine. RFC-014 §8 is
-the after-the-fact record: what parity measures, why each bar is where it is,
-and the bugs already found.
+## Repository boundaries
 
-**Half of this product is an interface, and it now has a picture.**
-`screenshots/` is the app as it renders — the editor window, the before/after
-split, grain at 1:1 — captured from the *running app*, not from the snapshot
-harness. Look at it before changing anything on the canvas or the rails.
-`ARCHITECTURE.md` §7 says what each row of each rail costs (four different
-things on the left rail alone), `modern_UI/Spektrafilm/README.md` is the
-detail, and `modern_UI/reference_layout/Main/` is the drawing the layout is
-measured against. A capture earns its place by settling arguments: this one is
-what caught §7.3 still describing a tier ladder five days after the ladder was
-deleted — a `full` badge at a 33 % fit is a thing a document cannot talk its
-way out of.
+`modern_UI/Spektrafilm/` is the native macOS application. `ios/Silverphase/` is
+the native iOS/iPadOS editor (iOS 18+); it shares the current C++20/Metal engine,
+`StockCatalogCore.swift`, `ParamValue.swift`, `Geometry.swift` and the production
+`Silverphase.icon`. It does not yet include desktop half-frame pairing or all
+export/proofing features. Follow `ios/CONTROL-AUDIT.md` for the feature boundary.
 
-**The Python reference is not here, and two things need it.** The upstream
-fork's `src/` package is the oracle `engine/tests/parity_*.py` compare against,
-and the only thing that can re-bake `engine/resources/`. Both take it as an
-explicit `PYTHONPATH` — see README, "Parity harnesses" and "Rebaking the engine
-resources". Nothing else in this repository does. `engine/resources/` is
-tracked precisely so that building the app never needs it.
+There is no runtime Python, service, stdio proxy, MLX backend or CPU renderer.
+Python development generators and native test drivers do exist in this repo.
+The frozen Python reference environment has retired; do not recreate it or
+claim historical `parity_*.py` results as current verification. Those tools remain
+for research if an explicitly supplied reference is available.
 
-**There is no CPU fallback and no Python at run time.** If something is slow,
-it is not "falling back" — there is nothing to fall back to. A 45 MP full
-render is 0.87 s; a number near the old numba figures means something else is
-wrong, and three such causes are already recorded (trap 18).
+`engine/resources/` holds tracked base/experimental data. Product B&W profiles,
+paper-grade packs and provenance are in `engine/resources_product/`. Bundle both
+through the platform build script. Preserve `NOTICE.md` verbatim and maintain
+`UPSTREAM.json` plus bundled license/change notices when adopting source/data.
+The engine loads the merged bundle, not `resources_product/` directly. Do not
+rewrite base measured arrays to implement product controls.
 
-**The frontend/backend split is historical.** `CONTRACT-frontend-backend.md` §4
-divided this work between two concurrent sessions — frontend on `modern_UI/**`,
-backend on `src/**`, `tests/**`, `scripts/**`, `rfc/**`. The backend half of
-that split belonged to the Python engine, which stayed behind in the fork. What
-came across is one product with one owner, so §4 no longer routes anything.
-The contract is still worth reading for **§1, the wire**, which has not changed.
-`AGENTS.md`, `ARCHITECTURE.md`, `API-SPEC-*` and `CONTRACT-*` still belong to
-nobody in particular — **say so before editing one.**
+Desktop half-frame pairs are `.spektrapair` JSON documents referencing source
+photos, with pair edits in sidecars. Keep source photographs and personal
+sidecars out of Git. iOS imported copies are session data, not repository assets.
 
-**`native/` is gone.** It was the stdio proxy host, from before the engine
-existed and superseded by it (RFC-014 §6 step 6). It was deliberately not
-carried across, and nothing references it.
+## Build and verify
 
-**The whole method surface is ported** as of 2026-09-10. `export`,
-`export_di` and `preview_stock_lut` were the last three refused by name; they
-are now `spk_reprint` at the full tier, `spk_export_di` +
-`spk_print_lut_table`, and `spk_preview_stock_lut`. **The engine gained no
-file writer**: it returns pixels and the baked table, and `Exporter.swift`
-writes the TIFF, the `.cube` and the print preview through ImageIO. See
-`ARCHITECTURE.md` §8.8 for where the boundary falls and why.
+Use the installed Xcode with its Metal Toolchain. Current local installation is
+Xcode 27.1; pass `DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer`
+when `xcode-select` points at Command Line Tools. Do not change global selection.
+macOS deployment floor is 15.0; iOS deployment floor is 18.0; Apple silicon.
 
-**The engine's data comes from the app bundle**, not from a checkout above it.
-See trap 14.
-
----
-
-## Environment
-
-**No virtualenv, and no Python, for anything this repository builds.** Xcode
-26.6, macOS 15+, Apple silicon:
-
-```bash
-engine/build.sh bundle       # C++ engine + MSL kernels + sync baked resources
+```sh
+engine/build.sh all
+python3 modern_UI/Spektrafilm/Tools/gen-project.py --check
+python3 ios/Silverphase/Tools/gen-project.py --check
+modern_UI/Spektrafilm/Tools/check-bundle-resources.sh
 xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
-           -scheme Spektrafilm -derivedDataPath build/DerivedData build
+  -scheme Spektrafilm -configuration Debug -derivedDataPath build/DerivedData build
+xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
+  -scheme SpektrafilmTests -configuration Debug -derivedDataPath build/DerivedData test
+xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
+  -scheme Silverphase -configuration Debug -sdk iphonesimulator \
+  -derivedDataPath /tmp/silverphase-ios-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
-A `python3` is used only by the `Tools/*.py` generators (`gen-project.py`,
-`gen-catalog.py`), which are standard-library-only.
+Regenerate the relevant project after adding/removing source files, including
+engine C++ files in the desktop project. `--check` must then pass. Python project
+and catalog generators are standard-library-only; native Python test drivers
+need an external interpreter with NumPy. No `.venv` is required by the product.
 
-**The Python reference lives in the fork**, at
-`~/Documents/Summer 2026/spektrafilm`. The parity harnesses and
-`engine/tools/bake_resources.py` reach it through `PYTHONPATH=<fork>/src` and
-that fork's `.venv` — see README. That fork's Environment notes (its venv, its
-two checkouts, `-W ignore`) apply to work done *there*, not here.
+Use focused XCTest gates during implementation; run the full desktop suite once
+at a coherent integration/commit boundary. Report failures AND skips. Missing
+fixtures mean partial coverage regardless of elapsed time. Real-photo validation
+uses an external manifest, hash checks and temporary copies; follow
+`modern_UI/Spektrafilm/VALIDATION.md`. Do not restore `tests/baseline/` or invent
+stand-ins for historical camera fixtures. Private input/output never belongs in Git.
 
-**Trap 14 no longer bites here.** It was about a venv's editable install
-pinning `spektrafilm` to whichever checkout created it, so that two checkouts
-silently ran each other's code. There is no venv in this repository to be
-confused; if you are chasing that class of bug you are in the reference
-checkout, not this one.
+For engine changes run GPU smoke, math guard and relevant native checks:
+`product_blackwhite.py`, `camera_filters.py`, `paper_grades.py`,
+`overscan_checks.py`, `overscan_striped.py`, `strip_executor.py`, `band_purity.py`
+and the accumulator driver as appropriate. Whole/strip equality is an internal
+consistency check, not an independent physical oracle. Device diagnostics in
+`ios/README.md` have separate scopes; an iOS compile does not prove touch,
+Photos permissions, memory entitlement, or full-resolution export on a phone.
 
----
+## Working rules
 
-## Fixed experimental setup
+- Announce edits to AGENTS, ARCHITECTURE, API-SPEC and CONTRACT documents before
+  changing them. The old split between frontend/backend sessions no longer
+  assigns ownership. No delegation or new worktree is required by this file.
+- The schema is `engine/src/core/params.cpp`, the ABI is
+  `engine/include/spektrafilm/spk_engine.h`. `shoot` invalidates film/negative;
+  `print` may reuse it. Update Swift mapping and native tests together.
+- Float32 and safe/precise Metal math are required. Keep per-node flushes and
+  pending-buffer lifetime rules; zero references alone do not prove GPU idle.
+- Disable grain and glare for deterministic image comparisons. Seeded edge
+  geometry is a separate mechanism. Historical reference seed behavior below
+  must not be assumed to describe every current native render mode.
+- Keep timing instruments and `core=native-metal`. Check system load before
+  quoting performance; label device, input, recipe, thermal state and sampling.
+  Historical numbers below are observations, not current acceptance bars.
+- Use current project style (SwiftUI/Observation/actors and C++/Metal). Old
+  Python/Numba/MLX paths in traps and RFCs describe upstream history.
+- `capture-live.sh` sees the real macOS Metal window; `snapshot.sh` and in-process
+  tests have blind spots. Do not claim visual or gesture acceptance from builds.
+- `design/app-icon/` preserves design iterations; the production source lives
+  in `modern_UI/Spektrafilm/Spektrafilm/Silverphase.icon`. Keep both platforms
+  referencing it. Avoid committing Xcode caches, signing profiles or credentials.
 
-Do not change these without a reason; every recorded number assumes them.
+## Reading the traps
 
-| | |
-|---|---|
-| film profile | `kodak_portra_400` |
-| print profile | `kodak_portra_endura` |
-| smoke image | `tests/Test_image/_smoke_1mp.tif` (1 MP, for fast iteration) |
-| 45 MP frame | `tests/Test_image/Nikon Z7ii/_DSC2439.NEF` (5504×8256) |
-| device precision | float32 on macOS (see Traps) |
-| grain sampler | `exact` (RFC-002); `--sampler scipy` for the old stream |
-| working precision | `float32` (the default since RFC-006; `float64` is the validation baseline) |
-
-> **`tests/baseline/` no longer exists.** The user deleted it and
-> `HANDOFF-GPU-WIRING.md` §3.3 says **do not restore it**. Every command this
-> section used to give — `make_baseline.py`, `run_reference.py`,
-> `tests/baseline/compare.py`, and the 16 MP linear ProPhoto TIFF that most
-> recorded numbers in this file and in `ARCHITECTURE.md` were measured against
-> — is gone with it. Those numbers stay as history; you cannot reproduce them
-> as written, and a number you cannot reproduce is not a baseline to compare
-> against. The five `tests/test_regression_baselines.py` cases that need its
-> `.npz` fixtures **skip**, with the regeneration command in the skip message.
->
-> The smoke image survived at a new path, and the suite looks in both places
-> (`tests/test_rfc012_engine_seam.py:24`). Use `tests/Test_image/_smoke_1mp.tif`
-> for anything that needs a small frame, and the Nikon NEF above for anything
-> that needs a real one.
-
-Parity against the numba reference — this is the harness that replaced the
-above, and the one RFC-011 held every ported node to at float32 storage
-epsilon:
-
-```bash
-.venv/bin/python -W ignore scripts/gpu_native/parity.py \
-    tests/Test_image/_smoke_1mp.tif                 # every implemented node
-.venv/bin/python -W ignore scripts/gpu_native/parity.py \
-    tests/Test_image/_smoke_1mp.tif --node filming.expose.upsample --end-to-end
-```
-
-Use the **1 MP** frame, not the 45 MP one: parity is a correctness question, a
-run takes seconds, and a check you can afford on every change is worth more
-than one you run at the end. The rest of `scripts/gpu_native/` —
-`profile_render.py`, `tier_timings.py`, `grain_moments.py`,
-`concurrency_check.py` — is the measurement kit that replaced the deleted
-`run_reference.py`.
-
-Whole-app timings, including the render, come from the frontend's own
-instrument — see "The frontend and the service" above. It is usually the right
-tool even for a backend change, because it measures what the user experiences
-rather than what a script measures.
-
----
-
-## Building and testing
-
-### The engine
-
-```bash
-engine/build.sh all          # metallib + static lib + dylib + test drivers + bundle
-engine/build.sh metallib     # just the kernels (after editing a .metal)
-engine/build.sh bundle       # sync resources into the app's Resources/engine
-engine/build.sh dylib        # what the ctypes parity harnesses load
-```
-
-`engine/resources/` is **tracked here** (15 MB of baked output), so a fresh
-clone can build without baking anything. Re-baking needs the Python reference
-tree and is rare — see README, "Rebaking the engine resources".
-
-**Run the parity harnesses before believing any engine change.** They take
-under a minute together and each one catches a different class of mistake.
-
-⚠️ **The `parity_*.py` commands below run from a checkout that has the Python
-reference** — the fork, not this repository — with `REF` set to that checkout's
-root. They drive this repository's dylib through ctypes, so they must also be
-pointed at *this* `engine/`; the simplest form is to run them from here with
-`PYTHONPATH` naming the fork's `src`. The two that are pure C++ run here.
-
-```bash
-export REF=~/Documents/Summer\ 2026/spektrafilm          # the Python reference
-export PYTHONPATH="$REF/src:engine/tests"
-"$REF/.venv/bin/python" engine/tests/parity_setup.py     # constants
-"$REF/.venv/bin/python" engine/tests/parity_schema.py    # the wire
-"$REF/.venv/bin/python" engine/tests/parity_render.py    # the picture
-"$REF/.venv/bin/python" engine/tests/parity_session.py   # every field, live
-"$REF/.venv/bin/python" engine/tests/parity_grain.py     # distributions
-"$REF/.venv/bin/python" engine/tests/parity_lut.py       # the print tables, bit-exact
-# and these two need nothing but this repository:
-engine/build/gpu_smoke engine/resources/spektrafilm.metallib   # the boundary
-engine/tests/check_math_guard.sh                               # that the guard fires
-```
-
-`parity_render.py --size 180` uses a small synthetic frame and runs in
-seconds; with no `--size` it uses the 1 MP frame RFC-014 §3 prescribes.
-`ARCHITECTURE.md` §8.6 says what each holds and why the bars are where they
-are. There are **six** now; `parity_lut.py` is the newest and holds the print
-tables bit-exact, plus the LUT apply and the DI normalisation at
-`parity_render`'s bars.
-
-To run a harness against the resources **inside a built `.app`** rather than
-the checkout's — the only way to check that what shipped is what was tested,
-since `engine/build.sh bundle` is an rsync that leaves a *stale* bundle rather
-than an empty one when it does not run:
-
-```bash
-SPEKTRAFILM_ENGINE_RESOURCES=/path/to/SpektraLab.app/Contents/Resources/Resources/engine \
-    PYTHONPATH="$REF/src" "$REF/.venv/bin/python" engine/tests/parity_lut.py
-```
-
-### The app
-
-```bash
-cd modern_UI/Spektrafilm
-python3 Tools/gen-project.py        # REGENERATE after adding/removing any source file
-xcodebuild -project Spektrafilm.xcodeproj -scheme Spektrafilm \
-    -configuration Debug -derivedDataPath build/DerivedData build
-xcodebuild -project Spektrafilm.xcodeproj -scheme SpektrafilmTests \
-    -configuration Debug -derivedDataPath build/DerivedData test   # full suite; ~390 s with fixtures
-```
-
-**Test gates.** Do not run the full `SpektrafilmTests` target after every small
-commit. Use the smallest gate that can catch the change, and widen only at a
-real integration boundary:
-
-- While implementing, build the affected target and run only the test classes
-  or cases that cover the change (`-only-testing:SpektrafilmTests/...`). A new
-  regression test should be shown red on the old or deliberately broken
-  behavior before it is shown green.
-- After a coherent group of commits, or before merging/pushing a branch, run
-  the full `SpektrafilmTests` target once. A real run with fixtures is ~390 s;
-  anything under a minute means the fixture-dependent cases were skipped
-  (trap 26), not that the suite became fast.
-- Run the engine parity harnesses only when engine inputs, kernels, resources,
-  or the render boundary changed. Do not pay for them on a UI-only commit.
-- A commit records the narrow gate that ran. The full gate belongs to the
-  integration boundary, not to every worker handoff.
-
-Two more scripts the app target depends on, both idempotent:
-
-```bash
-Tools/bundle-licenses.sh          # the GPL / CC BY-SA / Apache texts into Resources/Licenses
-Tools/check-bundle-resources.sh   # the app's own pre-build phase, runnable alone
-Tools/package.sh [--dry-run]      # archive -> export -> DMG -> notarise -> spctl
-```
-
-`check-bundle-resources.sh` fails the build when either the engine's baked
-resources or the licence texts are missing. The licences are **not optional
-decoration**: the bundle carries CC BY-SA profiles and GPL binaries, and
-`LicensingTests` asserts the texts are present *and readable through the same
-accessor the About panel uses*.
-
-`project.pbxproj` is **generated from the filesystem** by `Tools/gen-project.py`
-(ids are sha1s of the file's path *relative to the project*, so two checkouts
-of the same tree generate the same bytes). The "relative" is load-bearing and
-was not always true: the ids used to hash the absolute path, so a git worktree
-and the main checkout produced files identical in every byte except all 1,400
-ids, and any merge between them conflicted over a change neither side had
-made. It also lists the engine's C++
-translation units, so **a new `engine/src/**/*.cpp` needs the generator too** —
-without it the file simply is not compiled, and the failure is a link error
-about a missing symbol rather than anything pointing at the file. A new
-`.swift` that is not in the project fails with `cannot find X in scope`, which
-reads like a missing import.
-
-The test target is standalone (no TEST_HOST) and compiles the app's sources
-plus the engine's. `EngineClientTests` covers the C ABI boundary from Swift;
-`ParamsTests.testWireNamesMatchTheServiceSchema` still pins the field names
-against `service/schema.py`, which is what catches a rename before it becomes
-a runtime rejection.
-
-**A stale test binary reports a stale result.** `xcodebuild test` piped
-straight into `grep` can report a failure from the previous build; if a
-failure looks impossible, run it once more before investigating it.
-
-Capturing the interface:
-
-```bash
-Tools/snapshot.sh [image.NEF]        # offscreen, three window sizes
-Tools/capture-live.sh [image.NEF]    # the REAL window, via the window server
-SPEKTRAFILM_CANVAS_LOG=1 …           # one line per draw, plus the open-path timings
-```
-
-`snapshot.sh` renders through `cacheDisplay`, which **cannot see a
-`CAMetalLayer`** and substitutes an offscreen render of the canvas. That blind
-spot hid a drawable pixel format `CAMetalLayer` rejects (the app crashed on
-launch) and a redraw that never reached the view (blank canvas, correct
-numbers). `capture-live.sh` is the only capture that proves the canvas draws,
-and it needs a live GUI session — if `CGWindowListCopyWindowInfo` reports
-almost no on-screen windows, the failure is environmental, not a regression.
-
-**An in-process test is a third harness with a third blind spot: it cannot see
-a stall.** Measured 2026-09-12 — a collapse animation that takes 113 ms of dead
-time in the real window finishes in 174–181 ms inside the test process, because
-there is no display link and therefore nothing to starve. Pass counts, layout
-passes, travel and CPU time are what an in-process harness measures honestly;
-"does it stutter for the user" is not, and needs the real window. The reverse
-also holds and is easier to forget: a starved main thread shows up in the *log*
-as a gap in the draw lines, so `SPEKTRAFILM_CANVAS_LOG=1` through a real
-gesture is the cheap way to tell "the layout pass is expensive" from "the
-layout pass asked the canvas to do more" — a burst with no draws in it is the
-first, a burst with draws still ticking is the second.
-
-The app's own timing instrument, which you should not delete:
-
-```
-$ SPEKTRAFILM_CANVAS_LOG=1 …/Spektrafilm --snapshot 1600x900 /tmp/o.png \
-      --open "tests/Test_image/A7m3/DSC03710.ARW" --wait 90 2>&1 >/dev/null \
-  | grep -E "open path|full render"
-session: open path (ms): decode 76 · preview-texture 195 · linear-tiff 51
-         · service.open 1613 · solve 30 · reprint 44 · TOTAL 2011
-         · core=native-metal
-session: full render requested for DSC03710.ARW
-session: full render <w>x<h> landed in <n> ms
-```
-
-**`core=native-metal` is the first thing to check**, and it is now the *only*
-value it can take — if it says anything else the app is not running this
-engine. `service.open` keeps its name for continuity; there is no service, and
-what it measures is Core Image rendering the linear TIFF to a float bitmap plus
-the upload. On a 24 MP RAW that read is most of it.
-
-The `full render … landed` line is the one that says the frame reached the
-canvas at its **own** resolution. It used to read `detail preview 3400x2266
-landed`, from the tier ladder deleted on 2026-09-12 (`ARCHITECTURE.md` §7.3);
-grepping for `detail` finds nothing now. `renderFullRender` drops a result
-whose generation, selection or *session* has moved, so when the render is slow
-the line never appears and the app looks like it never showed full resolution
-— which is what a 13.6 s render did before trap 18 was fixed. The `full` badge
-in the canvas's top-right corner is the same fact, on screen
-(`Session.canvasBadges`).
-
-Snapshot flags for canvas features a test cannot see: `--zoom`, `--geometry`,
-`--mask`, `--compare`.
-
----
+The numbered traps below retain historical measurements and references because
+code and RFCs cite them. Python paths, retired fixtures, the old rail layout,
+old DI density semantics and old durations are historical unless confirmed in
+current source. Current build and acceptance instructions above take precedence.
 
 ## Traps
 
@@ -942,168 +719,12 @@ emulsion did not record the colour and nothing downstream can return it.
 The measurement is cheap and reusable: `rfc/probes/rfc023-slm-probe.py`
 (`probe_medium`, plus the Lab helpers in RFC-023 §16).
 
-## Conventions
-
-- Match surrounding style: the codebase uses NumPy-style docstrings, explicit
-  named parameters, and numba `@njit(parallel=True, cache=True)` for hot loops.
-- New backends go behind a `settings.*_backend` string. The spectral backend
-  default is now `'mlx'` (MLX-first, RFC-001); if MLX is unavailable the
-  render raises loudly rather than silently using the CPU path. Never change
-  a default that alters output without saying so.
-- The GUI (`spektrafilm_gui.params_mapper`) forces `spectral_backend='mlx'`
-  so persisted states cannot revert to a CPU path. MLX launches require real
-  Metal access, so GPU work (and the GUI itself) must run outside the sandbox.
-- RFC-003 pipeline decoupling has landed: `runtime/pipeline.py` builds ~24
-  effect-level `Node`s (e.g. `filming.expose.upsample` ... `scanning.cctf`)
-  instead of the six monoliths, with the monolith methods kept as thin
-  wrappers over the same effect methods. It is a pure refactor (output is
-  bit-identical; `tests/test_rfc003_split.py` guards the structure). The split
-  itself does **not** cut peak memory at float64 (measured 12.38 GB / 275 B/px
-  at 45 MP vs 12.58 GB / 280 B/px pre-split): the biggest temporaries are
-  float64 *inside* the kernels (spectral upsampling colour conversion,
-  halation blurs, grain sublayers, CAM16 gamut compression). Real memory
-  reduction needs kernel-level float32 / per-node precision, which is deferred
-  (measured ΔE max 2.42 / MS-SSIM 0.9955 on the GUI config — fails the strict
-  bar). Effect labels above are also the timing keys `get_timings()` returns.
-- RFC-004 GPU port has landed its P0–P2 kernels: `backends/mlx_ops.py` has the
-  device wrapper/residency primitive plus float32 pointwise kernels
-  (`gpu_scale`/`gpu_log10`/`gpu_boost`/`gpu_cctf_srgb`) and a separable Gaussian
-  Metal kernel (`gpu_separable_gaussian`). They are wired into the pipeline
-  behind `settings.gpu_backend='mlx'` (default `''` = CPU reference, unchanged).
-  Validation (deterministic, ProPhoto→Display P3): GPU vs CPU float64 gives ΔE
-  max 6.1e-5, PSNR 150 dB, MS-SSIM 1.0 — visually identical. The `Node` GPU body
-  is `run_mlx` (single-read/write); per-node GPU runs upload+download, so the
-  P0 residency *grouping* (a device-resident run) is still to be added, and only
-  exposure/boost/log/lens_blur/scanner_blur/cctf are ported (the dominant
-  `upsample`, `halation`, `grain`, `gamut_compress` are P3/P4/P5). Keep grain +
-  glare OFF for any CPU-vs-GPU ΔE comparison (RFC-001 6.0/6.1): the stochastic
-  grain realisation differs once upstream floats to float32.
-- RFC-004 P1 pointwise color stages added: `gpu_xyz_to_rgb` (3x3 matmul; the
-  matrix is `colour.XYZ_to_RGB(np.eye(3), cs, illuminant=...)`, and the node
-  result is `xyz @ matrix`) and `gpu_curve_interp` (a small Metal LUT kernel
-  matching `fast_interp`: endpoint clamp, binary search, right-biased exact
-  match). Curves and XYZ→RGB are now GPU-wired. At 45 MP (deterministic,
-  ProPhoto→Display P3) the GPU path is ΔE max 0.000086 / MS-SSIM 1.0, time
-  ~22.6 s vs ~25.4 s CPU, peak 12.2 GB. The precision map (float64 CPU color
-  reference vs float32 GPU) is the deliberate RFC-004 policy: `upsample` and
-  `gamut_compress` (CAM16) stay float64 for color accuracy; grain/glare stay
-  exact (off in A/B).
-  **Trap:** the curve `x_axis` must be `(K, 3)` — the scalar density-curve
-  gamma must be expanded to 3 channels (`np.repeat(gamma, 3)`), otherwise the
-  axis is `(K, 1)` and the kernel reads 3 columns of garbage (measured 2.05
-  error). Mirror `interpolate_exposure_to_density`'s `gamma_factor` expansion.
-- RFC-005 (dispatch + kernel quality) landed. Four things to know:
-  **(1) A GPU tag was silently a precision decision.** A node with
-  `backend=('mlx',)` returned float32, which propagated into every downstream
-  CPU stage — so removing a tag changed *numerics*, not just placement.
-  `Node.precision` is now honoured by the dispatcher and the float32 taps are
-  declared explicitly. Never add or remove a `backend` tag without checking
-  what it does to the tap dtype.
-  **(2) `prune_identity_nodes` aliases taps.** Dead-node elimination must
-  rewrite downstream `reads` through the dropped node's read tap, or the
-  successor can never fire. Four nodes are pruned at default params (both
-  blurs, diffusion filter, unsharp).
-  **(3) `to_device` passes `mx.array` through.** Calling it on a device array
-  used to round-trip via host (37.5 ms at 45 MP); a single blur did four.
-  **(4) Bare-Metal/metal-cpp was measured and rejected**: a Python →
-  `mx.fast.metal_kernel` launch is 157 µs, ~0.07% of the render.
-  `mx.fast.metal_kernel` already compiles hand-written MSL — those kernels
-  *are* bare Metal.
-- RFC-007 A (CPU fusion) landed: `utils/fused_gamut_cam16.py` and
-  `utils/fused_tc_b.py`. 45 MP interleaved A/B: **18.93 s → 12.93 s (-31.7%)**,
-  dE2000 max 0.000041, 0 of 16.0 M pixels above dE 0.1. `upsample` 3.97 → 0.59 s,
-  `gamut_compress` 4.32 → 1.38 s. The pattern: **colour-science stays at setup
-  time** (matrices via the identity trick, viewing-condition constants, the
-  C_max table), and only per-pixel math is fused. Use `_FORCE_REFERENCE_CAM16` /
-  `_FORCE_REFERENCE_TC_B` to A/B the two paths in one process.
-  **Traps, all of which produced plausible-looking wrong output:**
-  the CIECAM02 inverse (a,b) solve carries 460/1403, 220/1403, 27/1403 and
-  6300/1403 factors (omitting them: dE 33); colour uses a *sign-preserving*
-  power for J, so negative achromatic response gives negative J, not 0;
-  the GUI default sets `lightness_compression`, so a kernel that skips it
-  falls back to the reference and becomes **dead code on every real render**
-  while unit tests pass — the A/B is what caught it; the reference accepts any
-  `(..., 3)` shape, not just `(H, W, 3)`.
-  **Never call a `parallel=True` numba kernel from inside `parallel_pointwise`**
-  — numba's `workqueue` layer is not threadsafe and aborts the process.
-  `_scan_gamut_compress` bypasses the thread pool for the fused path.
-- **RFC-006 landed: `working_precision='float32'` is the default.** The
-  invariant is in `utils/precision.py`: full-resolution buffers follow their
-  input's dtype, per-pixel arithmetic still runs in float64 registers (a
-  float32 load times a float64 constant promotes inside the numba kernel, so
-  CAM16 / Hanatos / the spectral integral do the same arithmetic they always
-  did — only the *stored* result narrows). Measured at 45 MP, grain on
-  (`exact`), glare off: **18.34 s / 12.55 GB at float64 vs 14.25 s / 7.15 GB
-  at float32**, dE2000 max 0.00024, MS-SSIM 1.000000, grain PSD correlation
-  0.999993. Held across five film/print stock pairs.
-  **Trap:** `working_precision='float64'` used to be spelled `precision=None`
-  in `run_topology` — "leave every dtype alone". That was only equivalent to
-  float64 because every kernel promoted internally. Once the kernels stopped
-  promoting, the taps RFC-005 declared `precision='float32'` leaked downstream
-  into `grain`, where a rounded input flips Poisson draws and gives a
-  *different realisation* — dE max 37.9 against the baseline, which looks like
-  a catastrophic colour bug and is actually one node's worth of noise.
-  `run_topology` now widens node inputs to the working precision as well as
-  narrowing outputs. Side effect: the float64 path is now genuinely float64
-  (it previously carried accidental float32 rounding in exposure/boost/
-  halation), which moved the float64 baseline by dE max 0.000188 / PSNR 151 dB.
-- The 45 MP profile after RFC-007 A is **spatial-dominated**: halation 3.30 s
-  (26%), dir_couplers 2.40 s (19%), scan_spectral 1.58 s (12%). Neither of the
-  top two fuses the way the pointwise stages did (halation is `support=inf`).
-  Estimates written against the old pointwise-heavy profile are stale.
-- **Measure interleaved, never sequentially.** This machine drifts: the same
-  unchanged commit measured 23.3 s and 18.9 s hours apart. Stash/pop or use the
-  `_FORCE_REFERENCE_*` switches and alternate arms within one session.
-- **RFC-011 landed: the render core is Metal.** `settings.gpu_backend='metal'`
-  runs the whole topology on `backends/metal/` (45 MP, 14.15 s → 1.03 s), held
-  to float32 storage epsilon against numba. **numba is the reference and stays
-  forever** — it stopped being the runtime, not the truth. Every ported node
-  has a `scripts/gpu_native/parity.py` row. 20 of the 21 default nodes are on
-  Metal; `preprocess.crop_rescale` has no Metal body (ARCHITECTURE §8.2).
-- **RFC-012 landed steps 1, 3 and 4.** The engine is split from the wire
-  (`service/engine.py` vs `service/service.py`, "the engine returns pixels, the
-  service turns pixels into paths", guarded by an AST check in
-  `tests/test_rfc012_engine_seam.py`); the colour constants are baked
-  (`model/colour_baked.py`, 21.9 KiB for ~148 MB of dependencies); and a C++
-  gate proved MLX kernels are byte-identical from `libmlx.dylib`. **Step 5, the
-  native host, is unstarted.** Do not put rendering logic in an RPC handler —
-  that seam is what makes option D a deletion rather than a rewrite.
-- **Re-take `screenshots/` when the interface moves**, and say in the same
-  commit what moved. They are the product's only picture outside the code and
-  they carry a date; a stale one is a false claim about today. Capture the
-  running app (fullscreen, ⌃⌘F), not the snapshot harness —
-  `modern_UI/design/snapshots/` is the *layout* record, measured against the
-  drawing, while `screenshots/` is what a person sees. The 1:1 grain capture
-  must not be resampled or JPEG'd: at and above 100 % the canvas samples
-  nearest, so those pixels are the engine's grain, and resizing the file
-  resizes the evidence. `screenshots/README.md` carries the provenance of each.
-- Anything claiming a speed or memory win must come with a measurement in the
-  same message. `tracemalloc` for allocation, `resource.getrusage` for RSS.
-- Quality claims need a ΔE number from `compare.py`, not an eyeball.
-
 ## Do not
 
-- Do not commit or push unless asked.
-- Do not edit `AGENTS.md`, `ARCHITECTURE.md`, `API-SPEC-*` or `CONTRACT-*`
-  without telling the other session — contract §4 makes them shared, and a
-  unilateral edit makes the other side's context wrong.
-- Do not restore `tests/baseline/`. See "Fixed experimental setup".
-- Do not delete `Session.LoadClock` (the open-path instrument) or the
-  `core=native-metal` line it prints.
-- Do not remove the per-node `flush` in the pipeline's `SPK_NODE` macro, or the
-  one between `Blur::mixture` components, as a batching optimisation — trap 19.
-  They are what makes a freed buffer safe to reuse.
-- Do not drop `-fmetal-math-mode=safe` / `-fmetal-math-fp32-functions=precise`
-  from `engine/build.sh`, and do not move the kernels into the Xcode target
-  (which compiles `MTL_FAST_MATH = YES`). `spk_math_probe` will refuse to start
-  the engine, which is the intended outcome, not a bug to work around.
-- Do not "fix" `kMidgrayProbeColourSpace` to use the input colour space without
-  reading trap 21 first.
-- Do not tighten the render-parity bar to float32 epsilon. It is 3e-5 because
-  that is what the *validated* Metal core measures on the same frame; no GPU
-  path over 21 nodes meets epsilon (`ARCHITECTURE.md` §8.6).
-- Do not add GPL-incompatible dependencies. The code is GPL-3.0-or-later; the
-  profiles under `data/profiles/` are CC BY-SA 4.0 with separate attribution
-  obligations.
-- Do not change `SPECTRAL_SHAPE`, the profile data, or `LOG_EXPOSURE` — every
-  baseline assumes them.
+- Never push `upstream` or erase origin/attribution/license notices.
+- Do not restore deleted baselines or the retired Python runtime.
+- Do not remove safe Metal flags, the math probe, flushes or lifetime guards.
+- Do not change `kMidgrayProbeColourSpace` without understanding trap 21.
+- Do not substitute timing, snapshots or internal equality for physical accuracy.
+- Do not add GPL-incompatible dependencies or alter material data to hide UI,
+  input-decoding or output-rendering errors.

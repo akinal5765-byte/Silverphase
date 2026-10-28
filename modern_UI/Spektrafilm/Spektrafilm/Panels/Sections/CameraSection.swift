@@ -60,23 +60,32 @@ struct CameraSection: View {
                          title: { L($0.key) },
                          selection: Binding(get: { session.aeMethod },
                                             set: { session.aeMethod = $0 }))
+                    .disabled(session.halfFramePair != nil)
                 ScrubSlider(label: L(.cameraFilmExposure),
                             sublabelView: asShotLine,
                             value: Binding(get: { session.params.exposureCompensationEV },
                                            set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
                             range: -4...4, snap: 1 / 3, format: { String(format: "%+.1f", $0) })
             }
+            if session.halfFramePair == nil {
             InspectorSubblock(title: T("White Balance", "白平衡"),
                               menu: { AnyView(whiteBalanceMenu) }) {
                 WhiteBalanceRows(session: session)
+            }
             }
             InspectorSubblock(title: T("Lens & Diffusion", "镜头与柔化")) {
                 RailRows {
                     ToggleRow(label: L(.cameraLensCorrection),
                               isOn: Binding(get: { session.decode.lensCorrection },
                                             set: { session.setLensCorrection($0) }),
-                              enabled: session.lensCorrectionEnabled,
+                              enabled: session.halfFramePair == nil && session.lensCorrectionEnabled,
                               reason: session.lensCorrectionReason)
+                    PillMenu(label: T("Colour Filter", "光谱滤镜"), options: CameraFilterChoice.allCases,
+                             title: { $0.title },
+                             selection: Binding(get: { session.params.cameraFilter },
+                                                set: { var p = session.params; p.cameraFilter = $0; session.params = p }))
+                    .help(T("Wratten lens filters shape the light before film exposure. Exposure loss is compensated automatically; colour films retain the filter's colour cast.",
+                            "Wratten 镜头滤镜在胶片曝光前改变入射光谱，并自动补偿曝光损失；彩色胶片会保留滤镜色偏。"))
                     PillMenu(label: L(.cameraDiffusion), options: DiffusionChoice.allCases,
                              title: { $0.title },
                              selection: Binding(

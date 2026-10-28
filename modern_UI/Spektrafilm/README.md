@@ -25,7 +25,7 @@ Metal 画布保持窗口尺寸；浮动控件的遮挡仅改变适合窗口的�
 
 ## 构建
 
-Apple Silicon、macOS 15+、安装了 Metal 工具链的 Xcode。仓库根目录执行：
+Apple Silicon、macOS 15+、安装了 Metal 工具链的 Xcode（本机 27.1）。若选中的是 Command Line Tools，给以下命令设置 `DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer`。仓库根目录执行：
 
 ```sh
 engine/build.sh bundle
@@ -35,7 +35,8 @@ xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
 ```
 
 输出 `build/DerivedData/Build/Products/Debug/Silverphase.app`。`engine/resources/`
-的烘焙数据受版本管理；engine Metal 库由 `engine/build.sh` 编译，并同步到
+和 `engine/resources_product/` 的配置及来源受版本管理；产品配置在打包时覆盖到同一 profile 目录，纸等级表及原始声明一并随包。
+Metal 库由 `engine/build.sh` 编译，并同步到
 应用 Resources/engine。资源检查拒绝缺失数据，但不自动重新烘焙配置。
 
 添加／删除 Swift、Metal 或 engine C++ 源文件后执行：
@@ -92,3 +93,26 @@ Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
 `Tools/package.sh` 实现 archive、Developer ID 签名、DMG、公证和验证。
 有脚本不等于已完成分发验收。开发构建的临时签名不能当作正式安装包。
 发布状态以仓库首页和实际签名／公证结果为准。
+
+## 共享平台与胶片呈现
+
+`StockCatalogCore.swift`、`ParamValue.swift` 和 `Geometry.swift` 由 iOS 工程
+直接引用，不另行复制。`MobileDesktopContractTests` 核对移动端捕获的桌面
+默认值；修改共享文件后检查两个工程生成器。iOS 的原生界面、操作状态、
+内存限制与导出策略单独实现，详见 [iOS 指南](../../ios/README.md)。
+
+片边／日期后背由 `FilmEdge.swift`、`ShootingData.swift`、
+`Session+FilmPresentation.swift` 和引擎 overscan 共同处理；
+`FilmCanvasInput.swift` 负责片门输入。镜头滤镜改变胶片感光，片边与
+日期曝光不经过镜头滤镜。修改这些参数需要重显影，不复用旧负片。
+
+`HalfFramePair.swift` 定义 `.spektrapair` 源照片引用文档；
+`PairComposer.swift` 在线性空间组片，组合自身 sidecar 保存共享印相与
+片边设置，保留源照片自己的拍摄状态。不要将用户配对文件或源照片加入 Git。
+
+黑白胶片及 Multigrade 纸等级见配置来源说明；`PaperGrade.swift` 把等级
+转换为滤色及曝光补偿，补偿只应用一次。所有平台使用同一个生产
+`Silverphase.icon`，历史版本在 [图标设计目录](../../design/app-icon/README.md)。
+
+全局结构见 [ARCHITECTURE](../../ARCHITECTURE.md)，本轮门禁见
+[2026-10-28 验证记录](../../performance/VALIDATION-REPORT-2026-10-28.md)。

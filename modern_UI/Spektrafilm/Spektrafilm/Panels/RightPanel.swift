@@ -24,7 +24,7 @@
 import SwiftUI
 
 enum InspectorStage: String, CaseIterable, Identifiable {
-    case camera, film, development, print, output, geometry
+    case camera, film, development, print, output, geometry, filmEdge
 
     var id: String { rawValue }
 
@@ -35,6 +35,7 @@ enum InspectorStage: String, CaseIterable, Identifiable {
         case .development: L(.sectionDevelopment)
         case .print: L(.sectionPrint)
         case .output: L(.sectionOutput)
+        case .filmEdge: T("Film Edge", "片边")
         case .geometry: T("Geometry", "构图")
         }
     }
@@ -46,6 +47,7 @@ enum InspectorStage: String, CaseIterable, Identifiable {
         case .development: "drop.fill"
         case .print: "photo.on.rectangle.angled"
         case .output: "scanner"
+        case .filmEdge: "rectangle.dashed"
         case .geometry: "aspectratio"
         }
     }
@@ -63,14 +65,15 @@ struct RightPanel: View {
                     switch session.inspectorStage {
                     case .camera:
                         LatitudeSection(session: session)
-                        ScenePlacementSection(session: session)
+                        if session.halfFramePair == nil { ScenePlacementSection(session: session) } else { HalfFramePairSection(session: session) }
                         CameraSection(session: session)
                     case .film: FilmSection(session: session, part: .params)
                     case .development: DevelopmentSection(session: session)
                     case .print: PrintProfileSection(session: session, part: .params)
                     case .output: ScanOutputSection(session: session)
+                    case .filmEdge: FilmEdgeSection(session: session)
                     case .geometry:
-                        CropSection(session: session)
+                        if session.halfFramePair == nil { CropSection(session: session) } else { HalfFramePairSection(session: session) }
                         if FeatureFlags.masks {
                             Hairline()
                             MasksSection(session: session)

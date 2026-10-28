@@ -2,11 +2,11 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-**Silverphase 是一款面向 macOS 的胶片与相纸工艺模拟器。** 它把照片送入相机输入、胶片、显影、印相与扫描这条流程，让你通过摄影语言决定画面，而不是面对一整排科研模型参数。它不是 Lightroom 或 Capture One 的替代品；通用调色、资产管理和复杂局部修图应留给更擅长这些工作的软件。
+**Silverphase 是一款面向 macOS、iPhone 和 iPad 的胶片与相纸工艺模拟器。** 它把照片送入相机输入、胶片、显影、印相与扫描这条流程，让你通过摄影语言决定画面，而不是面对一整排科研模型参数。它不是 Lightroom 或 Capture One 的替代品；通用调色、资产管理和复杂局部修图应留给更擅长这些工作的软件。
 
 Silverphase 是 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目，保留了原项目的 Git 历史和原生 macOS／C++／Metal 基础。胶片与相纸模型、实测配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。Silverphase 的产品方向和界面与两者独立；这两个上游项目均未参与或背书 Silverphase。
 
-> 当前仓库是开发中的源码，不代表已经发布经过签名与公证的 macOS 安装包。仓库内部分目录、Xcode target 和命令仍叫 `Spektrafilm`，这是内部工程名称；应用显示名为 `Silverphase`。
+> 当前仓库是开发中的源码，不代表已经发布经过签名与公证的 macOS 安装包。仓库内部分目录、Xcode target 和命令仍叫 `Spektrafilm`，这是内部工程名称；应用显示名为 `Silverphase`。iOS 编辑器已接入同一引擎，但仍有桌面功能未移植，详见 [iOS 工程说明](ios/README.md)。
 
 ## 从照片到成片
 
@@ -27,7 +27,9 @@ Silverphase 是 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独�
 
 另提供八个**实验负片配置**：PRO160NS、Pro Image 100、SUPERIA REALA 100、NATURA 1600、Agfa Portrait XPS 160、Agfa Optima II 200、Kodak Elite Color 200 和 Fujifilm PRO 160C。当前采用可靠胶片模型为基础，让各自厂商的相对感度与反差曲线参与受限调整，优先保证颜色可用；不是仅凭不完整数据重建染料，也不是经过实拍标定的胶片复刻。详见[配置来源与限制](engine/tools/profile_sources/experimental_negatives.md)。
 
-另有六款**实验黑白负片**：HP5 Plus 400、Tri-X 400、Delta 100、FP4 Plus 125、XP2 Super 400 和 Fomapan 100 Classic，位于「实验」分类。它们用不同的光谱响应与灰阶曲线成像，而非成片后去色；默认配对合成的「中性黑白印相（实验）」。XP2 为 C-41 染料成像黑白近似，其余采用中性银影近似；颗粒、高光肩部和感度标定不代表精确复刻。详见[黑白配置来源与限制](engine/tools/profile_sources/blackwhite.md)。
+黑白材料包括来自 SpektraLab 的 **Tri-X 400、HP5 Plus 400、T-Max 100、Acros II 与 Ilford Multigrade IV RC 相纸**，以及保留的 Delta 100、FP4 Plus 125、XP2 Super 400、Fomapan 100 实验配置。它们通过光谱响应与密度曲线成像。多反差纸提供 00–5 级滤色及曝光补偿；镜头提供八种 Wratten 滤镜。来源、化学工艺、拟合及颗粒等限制见[黑白配置说明](engine/tools/profile_sources/blackwhite.md)，采用记录见[上游来源清单](engine/resources_product/UPSTREAM.json)。
+
+片边与日期后背在胶片流程内形成：支持 135、半格、多种 120 和全景片门、片孔、边印、灰雾及漏光。日期是否可用取决于画幅；120 使用边缘，全景画幅不提供日期后背。桌面另可将两张源照片保存为 `.spektrapair` 半格组合，iOS 暂未移植双照片配对。片边建模限制见[来源说明](engine/tools/profile_sources/film_edge.md)。
 
 ## 两种导出路径
 
@@ -42,17 +44,18 @@ Silverphase 是 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独�
 ## 技术结构
 
 - `modern_UI/Spektrafilm/Spektrafilm/`：SwiftUI 界面、会话、预览与导出。
+- `ios/Silverphase/`：iOS／iPadOS 原生编辑器，共用当前引擎、目录、几何与图标；功能差异见 [控制审计](ios/CONTROL-AUDIT.md)。
 - `engine/`：C++20 渲染引擎、Metal kernels、胶片／相纸配置及测试工具。
 - `modern_UI/Spektrafilm/Tools/`：Xcode 工程生成、资源与许可文件检查。
 - `modern_UI/design/UI-SPEC.md`：界面规范；`ARCHITECTURE.md` 和 `rfc/`：架构与历史设计记录。旧文档可能仍描述已移除的通用调色层，遇到不一致时以当前代码为准。
 
-引擎被编入 macOS 应用，运行时不需要 Python 服务、子进程或虚拟环境。应用通过 C 接口调用 C++／Metal 引擎；Metal 负责渲染，macOS 的图像与色彩管理组件负责文件解码及导出。构建用到的 Python 脚本仅是开发工具，不是应用运行时依赖。
+引擎被编入两个平台的应用，运行时不需要 Python 服务、子进程或虚拟环境。应用通过 C 接口调用 C++／Metal 引擎；Metal 负责渲染，Apple 平台的图像与色彩管理组件负责文件解码及导出。构建用到的 Python 脚本仅是开发工具，不是应用运行时依赖。
 
 ## 本地构建
 
-需要 Apple Silicon Mac、macOS 15 或更新版本，以及带 Metal 工具链的 Xcode。当前工程面向 Xcode 26.6；Xcode 工程文件已提交，日常构建不必重新生成。
+需要 Apple Silicon Mac、macOS 15 或更新版本，以及带 Metal 工具链的 Xcode。当前本机使用 Xcode 27.1；Xcode 工程文件已提交，日常构建不必重新生成。
 
-从仓库根目录执行：
+若系统选择的是 Command Line Tools，请先在当前终端设置 `export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer`（按实际安装路径调整）。从仓库根目录执行：
 
 ```bash
 engine/build.sh bundle
@@ -72,6 +75,8 @@ xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
 ```
 
 真实照片验证使用外部素材清单和临时副本，不将私人照片放入仓库。可重复执行的命令、覆盖范围及跳过项见 [验证说明](modern_UI/Spektrafilm/VALIDATION.md)。旧 Python-reference parity 脚本仅保留作历史验证工具，当前验收不依赖已不保留的冻结参考环境。构建细节见 [工程说明](modern_UI/Spektrafilm/README.md) 与 [开发备注](AGENTS.md)。
+
+iOS／iPadOS 18+ 的模拟器构建、设备签名、自动预览和诊断流程见 [iOS 指南](ios/README.md)。完整文档入口见 [docs/README.md](docs/README.md)，本轮验证及未覆盖范围见 [2026-10-28 验证记录](performance/VALIDATION-REPORT-2026-10-28.md)。
 
 ## 来源、许可与独立性
 

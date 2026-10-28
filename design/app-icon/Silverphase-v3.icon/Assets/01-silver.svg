@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>Silverphase — 01-silver</title>
+<defs><linearGradient id="color" x1="0" y1="0" x2="0.7" y2="1">
+<stop offset="0" stop-color="#B6BDC5"/><stop offset="1" stop-color="#66717D"/>
+</linearGradient></defs>
+<path d="M512 228 C478 228 456 238 428 254 L242 366 C190 398 190 438 242 470 L428 582 C477 612 547 612 596 582 L782 470 C834 438 834 398 782 366 L596 254 C568 238 546 228 512 228Z" fill="url(#color)" transform="translate(0 156)"/>
+</svg>

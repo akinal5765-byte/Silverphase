@@ -47,10 +47,10 @@ from pool_invariants import frame  # noqa: E402
 # The table's classes, pinned. A stage whose class moves is a code change, and
 # it has to move here with it -- this is the pin the resolved value cannot give.
 WANT_CLASS = {
-    "film": {"film_scale_and_expose": "pointwise", "film_boost": "whole",
+    "film": {"film_scale_and_expose": "pointwise", "film_boost": "whole", "film_overscan": "whole",
              "film_blurs": "neighbourhood", "film_log_and_curves": "pointwise",
              "film_couplers": "neighbourhood", "film_grain": "whole"},
-    "print": {"print_expose": "pointwise", "print_diffusion": "neighbourhood",
+    "print": {"print_film_present": "whole", "print_edge_light": "whole", "print_expose": "pointwise", "print_diffusion": "neighbourhood",
               "print_develop_and_scan": "pointwise", "print_glare": "whole",
               "print_linear": "pointwise", "print_scan_finish": "neighbourhood",
               "print_output": "pointwise"},
@@ -61,7 +61,7 @@ WANT_CLASS = {
 # frame this size, so the stage asks for the escape hatch rather than a halo.
 WANT_BAND = {
     "film": {"film_scale_and_expose", "film_blurs", "film_log_and_curves"},
-    "print": {"print_expose", "print_diffusion", "print_develop_and_scan",
+    "print": {"print_film_present", "print_edge_light", "print_expose", "print_diffusion", "print_develop_and_scan",
               "print_linear", "print_scan_finish", "print_output"},
 }
 

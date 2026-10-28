@@ -69,7 +69,7 @@ SINKS = {
     "exposure_sample_y": "reads the plane's luma to the host",
 }
 
-EXPECTED_TABLE_ROWS = 11  # six film stages -- the `boost` split made one more -- and five print
+EXPECTED_TABLE_ROWS = 16  # seven film, nine print; canvas-only operations own whole-frame boundaries
 
 # `if (cond) {` and its relatives have the shape of a definition -- a name, a
 # parenthesised something, then a brace -- and are skipped by name so a call

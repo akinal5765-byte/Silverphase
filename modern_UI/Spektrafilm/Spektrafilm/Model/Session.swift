@@ -108,6 +108,7 @@ final class Session: CanvasHost {
             status = "Could not back up the legacy grade: \(error.localizedDescription)"
         }
     }
+    var halfFramePair: HalfFramePair?
     var params: FilmParams {
         get { sidecar.params }
         set { guard newValue != sidecar.params else { return }
@@ -118,7 +119,18 @@ final class Session: CanvasHost {
                   ceremonyArmed = false
                   renderer.cancelFilmDevelopment()
               }
-              sidecar.params = newValue; requestPrint(); markStale(); scheduleSave() }
+              let old = sidecar.params
+              var p = newValue
+              resolveFilmPresentation(&p)
+              let inputChanged = old.filmEdge.effective != p.filmEdge.effective || old.filmEdge.format != p.filmEdge.format || old.filmPresentationActive != p.filmPresentationActive || (halfFramePair != nil && p.delta(from: old).layers.contains(.shoot))
+              sidecar.params = p
+              if p.filmPresentationActive { comparing = false; toggledOriginal(false) }
+              renderer.geometry = p.filmPresentationActive ? .default : sidecar.geometry
+              if inputChanged {
+                  if var pair = halfFramePair, let url = selection { pair.onStrip = p.filmEdge.effective; try? pair.save(to: url); halfFramePair = pair }
+                  scheduleReopen()
+              } else { requestPrint() }
+              markStale(); scheduleSave() }
     }
     var adjustments: Adjustments {
         get { sidecar.adjustments }
@@ -143,10 +155,14 @@ final class Session: CanvasHost {
     /// assigned here can put a corner outside the frame.
     var geometry: Geometry {
         get { sidecar.geometry }
-        set { guard newValue != sidecar.geometry else { return }
+        set { guard halfFramePair == nil, newValue != sidecar.geometry else { return }
               pushUndo()
               sidecar.geometry = newValue
-              renderer.geometry = newValue
+              renderer.geometry = params.filmPresentationActive ? .default : newValue
+              if params.filmPresentationActive {
+                  sidecar.params.filmEdge.framing = (try? JSONEncoder().encode(newValue).base64EncodedString()) ?? ""
+                  scheduleReopen()
+              }
               // A crop changes the physical scale only if the user has said
               // it should (`physicalAspect`). Off — the default — this is a
               // no-op, and the check is here rather than inside so that the
@@ -657,7 +673,7 @@ final class Session: CanvasHost {
     }
     /// There has to be something to compare against: the decode preview, which
     /// arrives with the frame.
-    var canCompare: Bool { selection != nil && renderer.canCompare }
+    var canCompare: Bool { selection != nil && renderer.canCompare && !params.filmPresentationActive }
     var histogram: [Float] = Array(repeating: 0, count: 1024)
     var hoverValue: SIMD3<Float>?      // encoded RGB under the cursor, for the curve readout
     var status = "Open a folder or an image to begin."
@@ -897,6 +913,7 @@ final class Session: CanvasHost {
     // MARK: undo and the work clock
 
     private var undoStack: [Sidecar] = []
+    private var undoPairs: [HalfFramePair?] = []
     private var lastUndoAt = Date.distantPast
     private(set) var workSeconds: Double = 0
     private var workStarted: Date?
@@ -1030,7 +1047,7 @@ final class Session: CanvasHost {
     private(set) var nativeOriginalInFlight = false
     private var nativeOriginalToken = 0
     private var decodedGeneration = 0
-    private var displaySourceSize: CGSize?
+    var displaySourceSize: CGSize?
     /// Testable counters for the two paths Q5 separates. A display-cache hit
     /// must leave `decodeCount` unchanged.
     private(set) var displayCacheHitCount = 0
@@ -1379,6 +1396,7 @@ final class Session: CanvasHost {
         exifGeneration &+= 1
         if let selection { enqueuePrintWriteback(for: selection) }
         selection = nil
+        halfFramePair = nil
         renderer.store.dropIdleScratch()
         decodeResidency.clear()
         displaySourceSize = nil
@@ -1433,6 +1451,7 @@ final class Session: CanvasHost {
         renderer.store.invalidatePrint(for: url)
         if frames.isEmpty {
             selection = nil
+        halfFramePair = nil
             renderer.setLive(nil)
             status = "Open a folder or an image to begin."
         } else if selection == url {
@@ -1554,7 +1573,9 @@ final class Session: CanvasHost {
             enqueuePrintWriteback(for: leaving)
         }
         loadTask?.cancel()
+        if selection != url { undoStack.removeAll(); undoPairs.removeAll(); lastUndoAt = .distantPast }
         selection = url
+        halfFramePair = HalfFramePair.load(url)
         latitude.clear()
         previewSoft = false
         sourceLongEdge = 0
@@ -1586,7 +1607,7 @@ final class Session: CanvasHost {
         renderer.layer2 = sidecar.adjustments.uniforms
         renderer.legacyGradeActive = usesLegacyGrade
         renderer.setCurves(sidecar.adjustments.curves)
-        renderer.geometry = sidecar.geometry
+        renderer.geometry = params.filmPresentationActive ? .default : sidecar.geometry
         selectedMaskID = sidecar.masks.first?.id
         syncMasks()
         decodeResidency.clear()
@@ -1627,7 +1648,7 @@ final class Session: CanvasHost {
         // against what is on screen, and `load` corrects it when the decode
         // lands (`refreshLogicalSize` refits, because the view was fitted).
         if let cached = renderer.store.print(for: url) {
-            renderer.setLive(cached, logical: nativeSourceSize ?? CGSize(width: cached.width, height: cached.height)); previewSoft = true
+            renderer.setLive(cached, logical: filmCanvasLogicalSize(cached)); previewSoft = true
         } else {
             // **A decode is not the picture.** This branch used to put the
             // frame's cached *source* — Apple's decode, with no film in it —
@@ -2138,7 +2159,7 @@ final class Session: CanvasHost {
                 sourceWidth: Int(picture.sourceSize.width.rounded()),
                 sourceHeight: Int(picture.sourceSize.height.rounded())
             )
-            renderer.setLive(picture.texture, logical: picture.sourceSize)
+            renderer.setLive(picture.texture, logical: filmCanvasLogicalSize(picture.texture))
             previewSoft = false
             clock.lap("print-cache")
             noteOpen(clock, url: url, mode: "print-cache", pixels: picture.sourceSize)
@@ -2467,6 +2488,9 @@ final class Session: CanvasHost {
             // was being handed the frame is not on the engine, and recording it
             // as sent is how a paste showed the new film over the old print
             // (RFC-027 §5.1). The `request` at the end of the develop sends it.
+            var resolved = sidecar.params
+            resolveFilmPresentation(&resolved)
+            sidecar.params = resolved
             var opened = sidecar.params
             do {
                 // Its own scope, so the 727 MB buffer is gone before the solve
@@ -2474,15 +2498,26 @@ final class Session: CanvasHost {
                 // otherwise kept to the end of the function. The engine keeps
                 // nothing of it (`spk_open_device` borrows for the call).
                 let device = renderer.device
+                let p = sidecar.params, g = sidecar.geometry, pair = halfFramePair
                 let frame = try await Task.detached(priority: .userInitiated) {
-                    try ImageDecoder.engineFrame(from: d, device: device)
+                    var image = FilmCanvasInput.image(d, params: p, geometry: g)
+                    var prepared = p
+                    if let pair {
+                        let result = try await FilmCanvasInput.exposePair(d, pair: pair, params: p, device: device)
+                        image = result.image
+                        prepared.sceneLatitude = result.first ?? SceneLatitudeSettings()
+                        prepared.pairSceneLatitude = result.second
+                    }
+                    return (frame: try ImageDecoder.engineFrame(from: image, device: device), params: prepared)
+
                 }.value
                 clock.lap("frame")
                 guard selection == url, !Task.isCancelled else { return nil }
+                if pair != nil { sidecar.params.sceneLatitude = frame.params.sceneLatitude; sidecar.params.pairSceneLatitude = frame.params.pairSceneLatitude }
                 opened = sidecar.params
                 let delta = Self.openDelta(sidecar: sidecar, previewLongEdge: previewLongEdge)
                 afterOpenDeltaForTesting?()
-                r = try await client.open(frame, paramsDelta: delta)
+                r = try await client.open(frame.frame, paramsDelta: delta)
             }
             // The client holds one session; open replaces it. The handle follows
             // the session, not the develop, so an open only ever replaces this
@@ -2621,7 +2656,7 @@ final class Session: CanvasHost {
         )
         // The frame's own size, and only when it is known: passing nil leaves
         // whatever the decode established (D4).
-        renderer.setLive(tex, logical: nativeSourceSize)
+        renderer.setLive(tex, logical: filmCanvasLogicalSize(tex))
         // This print is at the **preview resolution**. For a frame bigger than
         // that it is interpolated at 100 %, so it is not the finished picture
         // yet — the native render that follows is, and this flag is what says
@@ -2800,6 +2835,8 @@ final class Session: CanvasHost {
             try? FileManager.default.removeItem(at: dir)
         }
     }
+
+    func reloadFilmPresentation() { scheduleReopen() }
 
     private func scheduleReopen() {
         restoredPrintTask?.cancel(); restoredPrintTask = nil
@@ -3012,7 +3049,7 @@ final class Session: CanvasHost {
         materialLibrary.recordUse(stock)
         let returningFromPositive = filmIsPositive && catalog.stock(stock)?.isPositive == false
         var p = params
-        p.filmStock = stock
+        p.filmStock = StockCatalog.canonicalID(stock)
         if returningFromPositive { p.scanFilm = false }
         if let target = catalog.stock(stock)?.targetPrint,
            catalog.stock(target) != nil,
@@ -3082,7 +3119,7 @@ final class Session: CanvasHost {
         materialLibrary.recordUse(stock)
         if fastStockPreview, printLUTStocks[stock] != nil { startStockPreview(stock) }
         var p = params
-        p.printStock = stock
+        p.printStock = StockCatalog.canonicalID(stock)
         p.scanFilm = false
         p.digitalIntermediate = false
         params = p
@@ -3436,6 +3473,7 @@ final class Session: CanvasHost {
         }
     }
     func toggledOriginal(_ on: Bool) {
+        if on && (params.filmPresentationActive) { return }
         if on { leaveCropTool() }
         // A person asking for the original now, like Compare: an idle native
         // original still waiting for the canvas to settle is run at once.
@@ -3814,12 +3852,13 @@ final class Session: CanvasHost {
 
     /// Snapshot before a mutation, coalesced. A slider drag sets its value
     /// dozens of times and only the state before the drag is worth keeping.
-    private func pushUndo() {
+    func pushUndo() {
         let now = Date()
         guard now.timeIntervalSince(lastUndoAt) > 0.5 else { return }
         lastUndoAt = now
+        undoPairs.append(halfFramePair)
         undoStack.append(sidecar)
-        if undoStack.count > 60 { undoStack.removeFirst() }
+        if undoStack.count > 60 { undoStack.removeFirst(); undoPairs.removeFirst() }
     }
 
     var canUndo: Bool { !undoStack.isEmpty }
@@ -3829,15 +3868,18 @@ final class Session: CanvasHost {
     /// negative so a reprint is stable (HANDOFF §5).
     func undo() {
         guard !batchExporting, selection != nil, let previous = undoStack.popLast() else { return }
+        let priorPair = undoPairs.popLast() ?? nil
+        let changedPair = halfFramePair != priorPair
+        if changedPair, let pair = priorPair, let url = selection { try? pair.save(to: url); halfFramePair = pair }
         let current = sidecar
         sidecar = previous
         renderer.layer2 = previous.adjustments.uniforms
         renderer.legacyGradeActive = usesLegacyGrade
         renderer.setCurves(previous.adjustments.curves)
-        renderer.geometry = previous.geometry
+        renderer.geometry = params.filmPresentationActive ? .default : previous.geometry
         selectedMaskID = previous.masks.first { $0.id == selectedMaskID }?.id ?? previous.masks.last?.id
         syncMasks()
-        if current.decode != previous.decode {
+        if current.decode != previous.decode || changedPair || current.params.filmEdge.effective != previous.params.filmEdge.effective || current.params.filmEdge.format != previous.params.filmEdge.format || current.params.filmPresentationActive != previous.params.filmPresentationActive || ((previous.params.filmPresentationActive) && current.geometry != previous.geometry) {
             previewSoft = true
             scheduleReopen()
         } else {

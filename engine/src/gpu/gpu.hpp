@@ -348,8 +348,9 @@ public:
     // memory-pressure handler (§3.2: the frame's live high-water for `warn`,
     // everything for `critical`).
     //
-    // Unlike `alloc`, this is not on any render path and takes no encoder:
-    // `pool_lock_` is taken here, so a caller holding it must not call this.
+    // Takes no encoder: `pool_lock_` is taken here, so a caller holding it
+    // must not call this. Expanded-canvas strip runs also trim at completed
+    // stage boundaries, after flush, before growing the next working set.
     //
     // Returns the bytes actually freed, so a caller can tell a trim that gave
     // something back from one that found an empty pool -- which is what the

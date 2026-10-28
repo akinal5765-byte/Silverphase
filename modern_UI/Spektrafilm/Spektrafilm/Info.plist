@@ -32,8 +32,18 @@
 				<string>public.jpeg</string>
 				<string>public.heic</string>
 				<string>public.folder</string>
+				<string>com.silverphase.half-frame-pair</string>
 			</array>
 		</dict>
 	</array>
+	<key>UTExportedTypeDeclarations</key>
+    <array><dict>
+        <key>UTTypeIdentifier</key><string>com.silverphase.half-frame-pair</string>
+        <key>UTTypeDescription</key><string>Silverphase Half-frame Pair</string>
+        <key>UTTypeConformsTo</key><array><string>public.json</string></array>
+        <key>UTTypeTagSpecification</key><dict>
+            <key>public.filename-extension</key><array><string>spektrapair</string></array>
+        </dict>
+    </dict></array>
 </dict>
 </plist>

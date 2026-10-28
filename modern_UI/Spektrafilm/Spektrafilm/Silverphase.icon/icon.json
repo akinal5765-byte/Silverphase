@@ -3,111 +3,92 @@
   "features": [
     "refractivity"
   ],
+  "fill": {
+    "linear-gradient": [
+      "srgb:0.98039,0.97647,0.95294,1",
+      "srgb:0.93333,0.95686,0.96078,1"
+    ]
+  },
   "fill-specializations": [
     {
       "value": {
         "linear-gradient": [
-          "srgb:1.00000,1.00000,1.00000,1.00000",
-          "srgb:0.92549,0.93725,0.95686,1.00000"
+          "srgb:0.98039,0.97647,0.95294,1",
+          "srgb:0.93333,0.95686,0.96078,1"
         ]
       }
     },
     {
       "appearance": "dark",
-      "value": "system-dark"
+      "value": {
+        "linear-gradient": [
+          "srgb:0.13,0.15,0.18,1",
+          "srgb:0.055,0.07,0.095,1"
+        ]
+      }
     }
   ],
   "groups": [
     {
-      "blur-material": 0.0,
+      "name": "02 \u00b7 Silver print",
       "layers": [
         {
+          "image-name": "02-paper.svg",
+          "name": "02 \u00b7 Silver print",
+          "fill": "automatic",
           "glass": true,
-          "image-name": "2-orange-strip.svg",
-          "name": "Orange frame",
-          "opacity": 1.0
-        },
-        {
-          "glass": false,
-          "image-name": "2-orange-strip-base.svg",
-          "name": "Clear base",
-          "opacity": 1.0
+          "opacity": 0.84
         }
       ],
       "lighting": "individual",
-      "name": "Orange strip",
-      "position": {
-        "scale": 1,
-        "translation-in-points": [
-          84,
-          78
-        ]
-      },
-      "refractivity": {
-        "depth": 0.3,
-        "enabled": true,
-        "strength": 0.35
-      },
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 0.55
-      },
       "specular": true,
-      "translucency-specializations": [
-        {
-          "value": {
-            "enabled": true,
-            "value": 0.25
-          }
-        },
-        {
-          "appearance": "dark",
-          "value": {
-            "enabled": true,
-            "value": 0.2
-          }
-        }
-      ]
-    },
-    {
-      "blur-material": 0.4,
-      "layers": [
-        {
-          "glass": true,
-          "image-name": "1-silver-strip.svg",
-          "name": "Silver strip",
-          "opacity": 1.0
-        }
-      ],
-      "lighting": "individual",
-      "name": "Silver strip",
-      "position": {
-        "scale": 1,
-        "translation-in-points": [
-          -84,
-          -78
-        ]
-      },
-      "refractivity": {
-        "depth": 0.4,
-        "enabled": true,
-        "strength": 0.5
-      },
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 0.5
-      },
-      "specular": true,
+      "specular-highlight-placement": "outside",
       "translucency": {
         "enabled": true,
-        "value": 0.2
+        "value": 0.45
+      },
+      "blur-material": 0.08,
+      "refractivity": {
+        "enabled": true,
+        "strength": 0.5,
+        "depth": 0.18
+      },
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.12
+      }
+    },
+    {
+      "name": "01 \u00b7 Orange film",
+      "layers": [
+        {
+          "image-name": "01-film.svg",
+          "name": "01 \u00b7 Orange film",
+          "fill": "automatic",
+          "glass": true,
+          "opacity": 1
+        }
+      ],
+      "lighting": "individual",
+      "specular": true,
+      "specular-highlight-placement": "outside",
+      "translucency": {
+        "enabled": true,
+        "value": 0.06
+      },
+      "blur-material": 0.025,
+      "refractivity": {
+        "enabled": true,
+        "strength": 0.18,
+        "depth": 0.1
+      },
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.28
       }
     }
   ],
   "supported-platforms": {
-    "circles": [
-      "watchOS"
-    ],
     "squares": "shared"
   }
 }

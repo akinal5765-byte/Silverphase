@@ -43,7 +43,7 @@ struct ScanOutputSection: View {
                                         set: { var p = session.params; p.extendedDynamicRange = $0; session.params = p }),
                           labelFont: Theme.Font.edrLabel,
                           enabled: !session.params.scanFilm && !session.digitalIntermediateActive && !session.paperIsMonochrome,
-                          reason: session.paperIsMonochrome ? T("The experimental B&W print has no calibrated highlight expansion.", "实验黑白印相没有标定的高光扩展曲线。") : L(.reasonEDRDisabledInScanFilm),
+                          reason: session.paperIsMonochrome ? T("The B&W paper has no calibrated highlight expansion.", "黑白相纸没有标定的高光扩展曲线。") : L(.reasonEDRDisabledInScanFilm),
                           sublabel: L(.statusEDRScope),
                           help: L(.highlightExpansionHelp))
             }

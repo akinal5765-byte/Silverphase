@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 enum CacheKind: String, Codable, Hashable, Sendable {
     case decode
@@ -42,6 +43,11 @@ struct CacheKey: Codable, Hashable, Sendable {
     /// File identity without the path, so a rename is a hit and modification
     /// elsewhere is a miss.
     static func sourceIdentity(for url: URL) -> String {
+        if let pair = HalfFramePair.load(url) {
+            let data = (try? Data(contentsOf: url)) ?? Data()
+            let dependencies = [pair.left, pair.right].compactMap { $0 }.map { sourceIdentity(for: $0.url) }
+            return SHA256.hash(data: data + Data(dependencies.joined(separator: "|").utf8)).map { String(format: "%02x", $0) }.joined()
+        }
         let keys: Set<URLResourceKey> = [
             .volumeIdentifierKey, .fileResourceIdentifierKey,
             .fileSizeKey, .contentModificationDateKey,

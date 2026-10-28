@@ -142,6 +142,16 @@ struct PrintProfileSection: View {
                                 range: -3...3, snap: 0.25,
                                 format: { String(format: "%+.2f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
+                    if StockCatalog.canonicalID(session.params.printStock) == "ilford_multigrade_iv_rc" {
+                        PillMenu(label: T("Paper Grade", "相纸等级"),
+                                 options: PaperGrade.allCases,
+                                 title: { $0.rawValue },
+                                 selection: Binding(get: { session.params.paperGrade },
+                                                    set: { var p = session.params; p.paperGrade = $0; session.params = p }))
+                            .disabled(session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
+                            .help(T("00 is softest; 5 is hardest. Exposure compensation is applied automatically. Default: 2.",
+                                    "00 最柔和，5 反差最高；自动补偿等级对应的曝光。默认 2 级。"))
+                    }
                     ScrubSlider(label: L(.printContrast),
                                 value: Binding(get: { session.params.printContrast },
                                                set: { var p = session.params; p.printContrast = $0; session.params = p }),
@@ -155,14 +165,14 @@ struct PrintProfileSection: View {
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive || session.paperIsMonochrome)
-                        .help(T("Colour filtration is not available for the synthetic neutral B&W print; this is not a calibrated variable-contrast paper model.", "合成的中性黑白印相不使用彩色滤色控制，也不是经过标定的多反差相纸模型。"))
+                        .help(T("Use Paper Grade to control Multigrade filtration.", "使用相纸等级控制 Multigrade 滤色。"))
                     ScrubSlider(label: L(.printMagenta), sublabel: "Kodak CC",
                                 value: Binding(get: { session.params.mFilterShift },
                                                set: { var p = session.params; p.mFilterShift = $0; session.params = p }),
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive || session.paperIsMonochrome)
-                        .help(T("Colour filtration is not available for the synthetic neutral B&W print; use print contrast.", "合成的中性黑白印相不使用彩色滤色控制；请调整印相反差。"))
+                        .help(T("Use Paper Grade to control Multigrade filtration.", "使用相纸等级控制 Multigrade 滤色。"))
                     ScrubSlider(label: L(.printPreflash),
                                 value: Binding(get: { session.params.preflashExposure },
                                                set: { var p = session.params; p.preflashExposure = $0; session.params = p }),

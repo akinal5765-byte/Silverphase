@@ -129,8 +129,67 @@ struct PrintCurvesMorphParams {
     double developer_exhaustion = 0.0;
 };
 
+struct OverscanParams {
+    bool active = false;
+    std::string format = "135";      // 135 | 135_half | 120_645 | 120_6x6 | 120_6x7 | 120_6x8 | 120_6x9
+    std::string mode = "strip";      // strip (the whole film width) | filed (a sliver of rebate)
+    int camera_seed = 1;
+    int frame_seed = 1;
+    double fog = 1.0;                // edge fog from the spool, 0 = none
+    double leaks = 0.0;              // spool light leaks, 0 = none
+    std::string edge_text;           // the manufacturer's edge print; the app decides real vs display names
+    double f_number = 0.0;           // EXIF; sets the gate penumbra. 0 = unknown (f/5.6 assumed)
+    // RFC-032 §29: the gate's shape family (auto = the camera seed picks one
+    // that the format's real cameras have), and what the scan sees through
+    // the perforations and past the film's edge: white (a scan's light) or
+    // black (a black backing, or a darkroom print of the strip).
+    std::string gate = "auto";       // auto | square | rounded | eared | shouldered | kicked
+    std::string holes = "white";     // white (a scan: its light) | black (a black backing, or a print)
+    // The frame's number as the edge print carries it (owner, 2026-10-03):
+    // 0 = the frame seed's draw, as before; 1..99 = this number, on every
+    // mark that is the frame's (135: "N" and "NA"; 120: the digit by the
+    // triangle, Fujifilm's number). The roll's own counts (Kodak 120's
+    // "51/52") are not the frame's and stay seeded.
+    int frame_number = 0;
+    // What a strip scan shows past the film's long edges: none (nothing --
+    // the canvas ends at the film's edge) | black (a carrier, 0.40 mm of it)
+    // | open (the scan's light there). `none` is the default since 1.3.1: the
+    // black band read as a defect ("some random ... pure black strip part
+    // that I clearly don't want", the owner, 2026-10-04).
+    std::string carrier = "none";
+    // A half-frame pair (135_half, held level): the input carries both
+    // pictures, the second starting one advance (19.00 mm) along the film,
+    // and the gate is exposed twice on one strip.
+    bool pair = false;
+};
+
+// RFC-031: the date back, exposed onto the negative from behind. 135 only by
+// the owner's rule; `placement` = frame (lower right, in the picture) or
+// rebate (between frames on 135, the lower rebate on 120 -- needs overscan).
+struct DateImprintParams {
+    bool active = false;
+    std::string text;                // already formatted, e.g. "'26 9 28"
+    std::string text_b;              // a pair's second frame's date; empty = none on it
+    // The shooting data, printed *as well as* the date (1.3.1): between frames
+    // on 135, in the margin on 120. Empty = none. `style = data` still prints
+    // `text` there alone, as before.
+    std::string data_text;
+    std::string placement = "frame";
+    double exposure_ev = 3.5;        // red-layer exposure above 18 % grey (RFC-031 §3.3)
+    // RFC-031 §8 (2026-10-01): three faces of one mechanism. lcd = seven
+    // segments, slanted; dots = a dot-matrix date, upright; data = shooting
+    // data in a 5x7 face between frames (135) or in the margin (645).
+    std::string style = "lcd";       // lcd | dots | data
+    double size = 1.0;               // scale on the style's own character height
+    std::string corner = "br";       // frame placement: br | bl | tr | tl, in the film's frame (the camera held level)
+    double inset_x = 3.0;            // mm from the gate's side to the text (frame placement)
+    double inset_y = 2.4;            // mm from the gate's top/bottom to the text (frame placement)
+};
+
 struct FilmRenderParams {
     double density_curve_gamma = 1.0;
+    OverscanParams overscan;
+    DateImprintParams date_imprint;
     GrainParams grain;
     HalationParams halation;
     DirCouplersParams dir_couplers;
@@ -193,11 +252,17 @@ struct SceneLatitudeParams {
     double shadow_room = 0.0;       ///< H_s, stops; 0 = the shadow side is off
     double rolloff = 2.0;           ///< m, the roll-off order (§5.5)
     double max_lift = 4.0;          ///< L_max, stops: the smooth bound on the shadow lift (§15.5)
+    double split = 0;
+    bool b_active = false;
+    double b_highlight_knee = 2, b_highlight_room = 0;
+    double b_shadow_knee = -2, b_shadow_room = 0;
 };
 
 bool is_known_scene_latitude_norm(const std::string& norm);
 
 struct CameraParams {
+    // Wratten lens filter; empty means none. Exposure factor is compensated.
+    std::string filter;
     double exposure_compensation_ev = 0.0;
     bool auto_exposure = true;
     /// Which exposure intent the meter follows (RFC-015 §2.3). The default is

@@ -26,7 +26,7 @@ root=${SRCROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
 res="$root/Spektrafilm/Resources"
 
 missing=""
-for f in spektrafilm_constants.bin spektrafilm.metallib neutral_print_filters.json print_luts.json; do
+for f in spektrafilm_constants.bin spektrafilm.metallib neutral_print_filters.json print_luts.json paper_grades.json; do
   [ -f "$res/engine/$f" ] || missing="$missing engine/$f"
 done
 [ -d "$res/engine/profiles" ] || missing="$missing engine/profiles/"
@@ -41,7 +41,7 @@ fi
 
 licences=""
 for f in README.txt Silverphase-GPL-3.0.txt Profiles-and-LUTs-CC-BY-SA-4.0.txt \
-         Profiles-and-LUTs-CHANGELOG.txt metal-cpp-Apache-2.0.txt; do
+         Profiles-and-LUTs-CHANGELOG.txt SpektraLab-BW-PROFILES-NOTICE.md metal-cpp-Apache-2.0.txt; do
   [ -f "$res/Licenses/$f" ] || licences="$licences $f"
 done
 
@@ -56,4 +56,9 @@ fi
 # The DI canvas and export use the same shipped viewing tables.
 for f in "SpektraLab DI view, Cineon to ProPhoto RGB.cube" "SpektraLab DI view, Cineon to Rec709.cube"; do
   [ -s "$res/DI/$f" ] || { echo "error: missing Digital Intermediate viewing LUT: $f" >&2; exit 1; }
+done
+
+# The product overlay is mandatory; an old bundle must not silently omit it.
+for stock in kodak_tri_x_400 ilford_hp5_plus_400 kodak_tmax_100 fujifilm_neopan_acros_100_ii ilford_multigrade_iv_rc; do
+  [ -s "$res/engine/profiles/$stock.json" ] || { echo "error: missing B&W profile: $stock; run engine/build.sh bundle" >&2; exit 1; }
 done

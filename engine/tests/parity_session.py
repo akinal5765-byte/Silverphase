@@ -38,6 +38,21 @@ sys.path.insert(0, str(ENGINE / "tests"))
 # A value that differs from the default for every declared field, so each one
 # actually changes something. Stock fields get a real alternative stock.
 OVERRIDES: dict[str, object] = {
+    'overscan_format': '120_6x9',
+    'overscan_mode': 'filed',
+    'overscan_edge_text': 'KODA 400',
+    'overscan_gate': 'square',
+    'overscan_holes': 'black',
+    'date_imprint_text': "'26 10 2",
+    'date_imprint_placement': 'rebate',
+    'date_imprint_style': 'dots',
+    'date_imprint_corner': 'tl',
+    'overscan_carrier': 'open',
+    'date_imprint_text_b': "'26 10 3",
+    'date_imprint_data_text': '1/125 F2.8 A 50mm',
+    'scene_latitude_b_highlight_knee': 4.0,
+    'scene_latitude_b_shadow_knee': -12.0,
+
     "film_stock": "kodak_gold_200",
     "print_stock": "kodak_endura_premier",
     "input_color_space": "sRGB",
@@ -45,6 +60,7 @@ OVERRIDES: dict[str, object] = {
     "enlarger_illuminant": "D65",
     # Not the default, and one of RFC-015 §2.3's four intents. A str field with
     # no strategy used to stop the walk before the exposure comparison below.
+    "camera_filter": "w8",
     "auto_exposure_method": "balanced",
     "scene_latitude_norm": "y",
     "contrast_mask_scheme": "gaussian",

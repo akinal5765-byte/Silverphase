@@ -62,6 +62,7 @@ struct AboutWindow: View {
         Licence(id: "Silverphase-GPL-3.0.txt", title: "GNU GPL v3 — the application and the engine"),
         Licence(id: "Profiles-and-LUTs-CC-BY-SA-4.0.txt", title: "CC BY-SA 4.0 — the profiles and the print LUTs"),
         Licence(id: "Profiles-and-LUTs-CHANGELOG.txt", title: "What this build changed about the profiles and LUTs"),
+        Licence(id: "SpektraLab-BW-PROFILES-NOTICE.md", title: "Hanze Qiu — black-and-white profiles"),
         Licence(id: "metal-cpp-Apache-2.0.txt", title: "Apache 2.0 — metal-cpp"),
     ]
 
@@ -133,7 +134,7 @@ struct AboutWindow: View {
                      AboutWindow.upstreamURL)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("SpektraLab — original macOS application and engine port")
+                Text("Hanze Qiu — SpektraLab, engine port and B&W profiles")
                     .font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
                 link(AboutWindow.predecessorURL.replacingOccurrences(of: "https://", with: ""),
                      AboutWindow.predecessorURL)

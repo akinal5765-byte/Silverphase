@@ -182,6 +182,13 @@ if ! $dry; then
   echo "  $dmg ($(du -h "$dmg" | cut -f1))"
 fi
 
+# Sign the disk image itself before notarisation. A signed app inside a
+# notarised, stapled but unsigned DMG can still yield "no usable signature".
+# Adopted from SpektraLab 1.3.3's release fix.
+if $signed; then
+  run codesign --force --sign "$identity" --timestamp "$dmg"
+fi
+
 # --- 6. notarise and staple -----------------------------------------------
 # The DMG is notarised rather than the app: it is what a user downloads, and
 # stapling the ticket to it means the first launch works offline.
@@ -200,12 +207,14 @@ fi
 # first: everything above can succeed and this still say "rejected".
 say "gatekeeper"
 if $dry; then
-  echo "  would run: spctl -a -vv -t install $dmg"
+  echo "  would run: spctl -a -vv -t open --context context:primary-signature $dmg"
 else
   # Captured and then printed, rather than piped straight into `grep -q`:
   # the whole point of this step is that a human reads Gatekeeper's answer,
   # and `grep -q` eats it.
-  verdict=$(spctl -a -vv -t install "$dmg" 2>&1 || true)
+  # Disk images use the open assessment with their primary signature;
+  # the install assessment is for installer packages.
+  verdict=$(spctl -a -vv -t open --context context:primary-signature "$dmg" 2>&1 || true)
   printf '%s\n' "$verdict" | sed 's/^/  /'
   if printf '%s' "$verdict" | grep -q accepted; then
     echo "  ACCEPTED -- this will open on a Mac that has never seen the source."

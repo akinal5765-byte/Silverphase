@@ -396,6 +396,8 @@ const char* spk_last_error(spk_engine* engine);
  * compiled with, and whether the fast-math probe agreed with it. */
 const char* spk_build_info(void);
 
+spk_status spk_overscan_geometry(spk_session* session, char** out_json);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

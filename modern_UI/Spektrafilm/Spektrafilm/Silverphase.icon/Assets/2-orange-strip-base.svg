@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Drawn by Tools/make-icon.py. The clear base under the frame windows. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"
-     width="1024" height="1024">
-  <title>Orange strip base</title>
-  <g transform="translate(312 222)"
-     fill="#F4BB61" opacity="0.9"><path d="M116.0 43.0h168a16 16 0 0 1 16 16v114a16 16 0 0 1 -16 16h-168a16 16 0 0 1 -16 -16v-114a16 16 0 0 1 16 -16Z"/><path d="M116.0 217.0h168a16 16 0 0 1 16 16v114a16 16 0 0 1 -16 16h-168a16 16 0 0 1 -16 -16v-114a16 16 0 0 1 16 -16Z"/><path d="M116.0 391.0h168a16 16 0 0 1 16 16v114a16 16 0 0 1 -16 16h-168a16 16 0 0 1 -16 -16v-114a16 16 0 0 1 16 -16Z"/></g>
-</svg>

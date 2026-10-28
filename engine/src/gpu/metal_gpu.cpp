@@ -13,6 +13,7 @@
 #include "gpu.hpp"
 
 #include <Metal/Metal.hpp>
+#include <TargetConditionals.h>
 
 // For the memory-pressure source (§3.2) and nothing else. Dispatch is in
 // libSystem, so this adds a header and no link step; the `_f` variants below
@@ -53,6 +54,7 @@ struct Buffer {
     // Persistent *and* backed by a file rather than by this process's ledger,
     // so `release` knows to keep `file_backed_bytes_` honest (RFC-020 §4.7).
     bool file_backed = false;
+    bool borrowed = false;
     // Queued in `pending_` and not yet reclaimed. A second `release` for the
     // same buffer would otherwise queue it twice, and the duplicate is what
     // turns a caller's mistake into a use-after-free: `trim_pool` frees the
@@ -74,6 +76,21 @@ struct Buffer {
 };
 
 namespace {
+
+#if TARGET_OS_SIMULATOR
+// iOS simulators cannot make linear textures over shared buffers. Keep the
+// CPU result alive beside an ordinary texture, as in the existing iOS PoC.
+std::mutex simulator_result_mutex;
+std::unordered_map<void*, MTL::Buffer*> simulator_result_buffers;
+void release_simulator_result_buffer(void* texture) {
+    std::lock_guard<std::mutex> guard(simulator_result_mutex);
+    auto it = simulator_result_buffers.find(texture);
+    if (it != simulator_result_buffers.end()) {
+        it->second->release();
+        simulator_result_buffers.erase(it);
+    }
+}
+#endif
 
 constexpr size_t kThreadgroup = 256;
 // How long the engine waits, with no frame in flight, before giving the pool
@@ -293,8 +310,10 @@ public:
         if (was_live && !buffer->persistent) sub_live_locked(buffer->bytes);
         else if (!was_live) ++audit_.over_releases;   // a release of a buffer nobody holds
         if (buffer->persistent) {
-            persistent_bytes_ -= buffer->bytes;
-            --persistent_buffers_;
+            if (!buffer->borrowed) {
+                persistent_bytes_ -= buffer->bytes;
+                --persistent_buffers_;
+            }
             if (buffer->file_backed) {
                 file_backed_bytes_ -= buffer->bytes;
                 --file_backed_buffers_;
@@ -601,7 +620,9 @@ public:
         // holding the only *other* reference to them for the length of one
         // call is not a holding of its own, and counting it would double the
         // decode in every report.
-        return BufferRef(this, new Buffer{mtl, bytes, 1, false, true});
+        auto* wrapper = new Buffer{mtl, bytes, 1, false, true};
+        wrapper->borrowed = true;
+        return BufferRef(this, wrapper);
     }
 
     void* contents(Buffer* b) override { return b->mtl->contents(); }
@@ -682,16 +703,30 @@ public:
         desc->setHeight(height);
         desc->setUsage(MTL::TextureUsageShaderRead);
         desc->setStorageMode(MTL::StorageModeShared);
+#if TARGET_OS_SIMULATOR
+        MTL::Texture* tex = device_->newTexture(desc);
+        desc->release();
+        if (!tex) { error = "could not create simulator result texture"; return nullptr; }
+        tex->replaceRegion(MTL::Region::Make2D(0, 0, width, height), 0,
+                           b->mtl->contents(), size_t(row_stride_px) * 8);
+        b->mtl->retain();
+        {
+            std::lock_guard<std::mutex> guard(simulator_result_mutex);
+            simulator_result_buffers.emplace(tex, b->mtl);
+        }
+        return tex;
+#else
         MTL::Texture* tex = b->mtl->newTexture(desc, 0, size_t(row_stride_px) * 8);
         desc->release();
         if (!tex) { error = "could not create a texture over the result buffer"; return nullptr; }
         // `newTexture` is already +1 and the texture retains `b->mtl`, so the
         // caller now holds the only reference it needs. Not tracked here.
         return tex;
+#endif
     }
 
     void release_texture(void* texture) override {
-        if (texture) static_cast<MTL::Texture*>(texture)->release();
+        Gpu::release_texture_static(texture);
     }
 
     uint32_t texture_row_alignment_px() const override {
@@ -1005,6 +1040,20 @@ private:
         for (Buffer* b : pool_)
             if (b->refs == 0 && b->reusable && b->bytes >= bytes &&
                 (!best || b->bytes < best->bytes)) best = b;
+#if TARGET_OS_IOS && !TARGET_OS_SIMULATOR
+        // A film/grain whole-plane buffer can be hundreds of MB while the
+        // following strip asks for ~20 MB. Promoting several such free planes
+        // to live strip temporaries defeats striping's footprint bound. Only
+        // completed, reusable, zero-reference buffers are eligible here. Retire
+        // an excessively oversized one instead of pinning it for a tiny band;
+        // the caller allocates the requested size and later bands reuse that.
+        if (best && best->bytes >= (64u << 20) && best->bytes / bytes >= 4) {
+            pool_.erase(std::find(pool_.begin(), pool_.end(), best));
+            if (best->mtl) best->mtl->release();
+            delete best;
+            return nullptr;
+        }
+#endif
         if (best) {
             ++audit_.reuses;
             audit_.reuse_bytes_requested += bytes;
@@ -1159,7 +1208,11 @@ private:
 }  // namespace
 
 void Gpu::release_texture_static(void* texture) {
-    if (texture) static_cast<MTL::Texture*>(texture)->release();
+    if (!texture) return;
+#if TARGET_OS_SIMULATOR
+    release_simulator_result_buffer(texture);
+#endif
+    static_cast<MTL::Texture*>(texture)->release();
 }
 
 Gpu* Gpu::create_metal(void* device_handle, const std::string& metallib_path, std::string& error) {

@@ -383,7 +383,7 @@ enum Exporter {
         // transform written a second time. The old path cropped with
         // `CGImage.cropping` and could not rotate at all, so a straightened
         // frame exported unstraightened and nothing in the app said so.
-        if !session.geometry.isIdentity {
+        if !session.geometry.isIdentity && !session.params.filmPresentationActive {
             let out = session.geometry.outputSize(for: CGSize(width: current.width,
                                                               height: current.height))
             let (framedDestination, framedScratch) = try destination(width: Int(out.width),

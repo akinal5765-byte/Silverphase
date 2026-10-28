@@ -28,7 +28,7 @@ bool Blur::alloc_like(const Image& img, Image& out, std::string& error) {
 }
 
 bool Blur::fir(const Image& img, const double sigmas[3], double truncate, const bool active[3],
-               Image& out, std::string& error, const Image* acc, const double* weight) {
+               Image& out, std::string& error, const Image* acc, const double* weight, bool reuse_accumulator) {
     // (3, 2R+1) weights, a delta for every inactive channel, so one kernel
     // handles a mix of blurred and pass-through channels in one pass.
     Vec kernels[3];
@@ -59,7 +59,11 @@ bool Blur::fir(const Image& img, const double sigmas[3], double truncate, const 
     // rides on the second pass.
     Image tmp;
     if (!alloc_like(img, tmp, error)) return false;
-    if (!alloc_like(img, out, error)) return false;
+    // Opt-in only: the caller relinquishes the old accumulator. The final
+    // pass reads acc[i] and writes that same i; neighbourhood reads use tmp.
+    // No thread reads another thread's accumulator, so arithmetic is identical.
+    if (acc && reuse_accumulator) out = *acc;
+    else if (!alloc_like(img, out, error)) return false;
     const gpu::BufferRef& dummy = acc ? acc->buf : img.buf;
     const uint32_t meta_v[6] = {img.h, img.w, uint32_t(R), 0, 0, 0};
     const uint32_t meta_h[6] = {img.h, img.w, uint32_t(R), 1, acc ? 1u : 0u, 0};
@@ -186,7 +190,7 @@ Blur::Demand Blur::merge(const Demand& a, const Demand& b) {
 }
 
 bool Blur::gaussian(const Image& img, const double sigma[3], Image& out, std::string& error,
-                    double truncate, const Image* acc, const double* weight) {
+                    double truncate, const Image* acc, const double* weight, bool reuse_accumulator) {
     bool use_fir[3], use_iir[3];
     bool any_fir = false, any_iir = false;
     for (int c = 0; c < 3; ++c) {
@@ -210,7 +214,7 @@ bool Blur::gaussian(const Image& img, const double sigma[3], Image& out, std::st
         out = cur;
         return true;
     }
-    if (!any_iir) return fir(img, sigma, truncate, use_fir, out, error, acc, weight);
+    if (!any_iir) return fir(img, sigma, truncate, use_fir, out, error, acc, weight, reuse_accumulator);
     if (!any_fir) return iir(img, sigma, use_iir, out, error, acc, weight);
     // Mixed FIR / IIR channels: blur fully, then one fused multiply-add.
     Image blurred;

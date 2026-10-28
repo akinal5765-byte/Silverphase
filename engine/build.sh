@@ -35,7 +35,7 @@ mkdir -p "$out"
 CXX=${CXX:-clang++}
 cxxflags=(-std=c++20 -O2 -Wall -Wextra)
 includes=(-I"$here/include" -I"$here/src" -I"$here/src/core" -I"$here/third_party/metal-cpp")
-frameworks=(-framework Metal -framework Foundation -framework QuartzCore)
+frameworks=(-framework Metal -framework Foundation -framework QuartzCore -framework Accelerate -framework CoreText -framework CoreGraphics)
 math_flags=(-fmetal-math-mode=safe -fmetal-math-fp32-functions=precise)
 # The app's floor is macOS 15 (LSMinimumSystemVersion, MACOSX_DEPLOYMENT_TARGET
 # in gen-project.py). Without this the metal compiler targets the *host* OS, and
@@ -153,6 +153,11 @@ bundle_resources() {
   fi
   mkdir -p "$app"
   rsync -a --delete "$here/resources/" "$app/"
+  cp "$here/resources_product/profiles/"*.json "$app/profiles/"
+  cp "$here/resources_product/paper_grades.json" "$app/paper_grades.json"
+  cp "$here/resources_product/NOTICE.md" "$app/PRODUCT_PROFILES_NOTICE.md"
+  cp "$here/resources_product/UPSTREAM.json" "$app/PRODUCT_PROFILES_UPSTREAM.json"
+
   local size
   size=$(du -sh "$app" | cut -f1)
   echo "bundle     -> $app ($size)"

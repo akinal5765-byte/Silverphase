@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>Silverphase — 01-film</title>
+<defs><linearGradient id="color" x1="0" y1="0" x2="0.7" y2="1">
+<stop offset="0" stop-color="#F3B143"/><stop offset="1" stop-color="#E17F32"/>
+</linearGradient></defs>
+<path d="M512 220 C478 220 460 230 432 247 L244 356 C192 386 192 424 244 454 L432 563 C480 591 544 591 592 563 L780 454 C832 424 832 386 780 356 L592 247 C564 230 546 220 512 220Z" fill="url(#color)" transform="translate(0 180)"/>
+</svg>

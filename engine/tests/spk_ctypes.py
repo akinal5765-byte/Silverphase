@@ -232,6 +232,24 @@ class Session:
             raise EngineError(self._engine._last_error())
         return self._engine._take_json(out)
 
+    def overscan_geometry(self) -> dict:
+        out = ctypes.c_char_p()
+        self._engine._lib.spk_overscan_geometry.restype = ctypes.c_int32
+        self._engine._lib.spk_overscan_geometry.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p)]
+        if self._engine._lib.spk_overscan_geometry(self._handle, ctypes.byref(out)) != SPK_OK:
+            raise EngineError(self._engine._last_error())
+        return self._engine._take_json(out)
+
+    def scene_latitude(self, request: dict | None = None) -> dict:
+        self._engine._lib.spk_scene_latitude.restype = ctypes.c_int32
+        self._engine._lib.spk_scene_latitude.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
+        out = ctypes.c_char_p()
+        body = json.dumps(request).encode() if request else None
+        if self._engine._lib.spk_scene_latitude(self._handle, body, ctypes.byref(out)) != SPK_OK:
+            raise EngineError(self._engine._last_error())
+        return self._engine._take_json(out)
+
+
     def get_params(self) -> dict:
         out = ctypes.c_char_p()
         if self._engine._lib.spk_get_params(self._handle, ctypes.byref(out)) != SPK_OK:

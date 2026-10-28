@@ -54,13 +54,13 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
     var paths: [String] {
         switch self {
         case .camera:
-            ["params.autoExposure", "params.autoExposureMethod", "params.exposureCompensationEV",
+            ["params.cameraFilter", "params.autoExposure", "params.autoExposureMethod", "params.exposureCompensationEV",
              "decode.whiteBalance", "decode.temperature", "decode.tint",
              "params.cameraDiffusion", "params.cameraDiffusionStrength", "params.cameraDiffusionRange",
              "params.sceneLatitude", "placementNeedsFit"]
         case .film:
             // The film format sets the physical scale of grain and halation.
-            ["params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
+            ["params.filmEdge", "params.dateBack", "params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
              "params.grainActive", "params.grainSizeScale", "params.grainSoftness", "params.halationActive", "params.halationAmount", "params.antihalationMode",
              "params.effects.grain", "params.effects.grainLayered", "params.effects.scatter"]
         case .development:
@@ -68,7 +68,7 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
         case .print:
             // Pre-flash is gated by the Print Effects switch already.
             ["params.printStock", "params.scanFilm", "params.digitalIntermediate",
-             "params.printBrightnessStops", "params.yFilterShift", "params.mFilterShift",
+             "params.paperGrade", "params.printBrightnessStops", "params.yFilterShift", "params.mFilterShift",
              "params.printEffects", "params.preflashExposure",
              "params.printContrast", "params.enlargerDiffusion", "params.enlargerDiffusionStrength", "params.enlargerDiffusionRange"]
         case .output:
@@ -81,6 +81,8 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
 
     /// Stored fields no group owns, and why.
     static let notCopied: [String: String] = [
+        "params.pairSceneLatitude": "resolved from each pair hole, fitted again on reopen",
+        "params.pairSceneLatitudeSplit": "derived from pair spacing, resolved again on reopen",
         "decode.lensCorrection": "a property of the lens, not of the look",
         "adjustments": "the Post-Dev grade, outside the 2026-09-23 positioning",
         "geometry": "crop and framing belong to the photograph (PRD §7)",
@@ -126,6 +128,8 @@ struct SettingsClip: Equatable, Sendable {
         var out = target
         let s = settings
         if groups.contains(.film) {
+            out.params.filmEdge = s.params.filmEdge
+            out.params.dateBack = s.params.dateBack
             out.params.filmStock = s.params.filmStock
         }
         if groups.contains(.print) {
@@ -134,6 +138,7 @@ struct SettingsClip: Equatable, Sendable {
             out.params.digitalIntermediate = s.params.digitalIntermediate
         }
         if groups.contains(.camera) {
+            out.params.cameraFilter = s.params.cameraFilter
             let meterChanged = out.params.autoExposure != s.params.autoExposure
                 || out.params.autoExposureMethod != s.params.autoExposureMethod
             out.params.autoExposure = s.params.autoExposure
@@ -186,6 +191,7 @@ struct SettingsClip: Equatable, Sendable {
             out.params.effects.glare = s.params.effects.glare
         }
         if groups.contains(.print) {
+            out.params.paperGrade = s.params.paperGrade
             out.params.printBrightnessStops = s.params.printBrightnessStops
             out.params.yFilterShift = s.params.yFilterShift
             out.params.mFilterShift = s.params.mFilterShift

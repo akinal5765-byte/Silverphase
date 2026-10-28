@@ -183,6 +183,13 @@ in engine/tools/profile_sources/blackwhite_samples.json and blackwhite.md.
 These profile containers derive from Andrea Volpato's spektrafilm CC BY-SA 4.0
 profiles; attribution and share-alike terms remain. Original profiles are unchanged.
 
+B&W revision 2, 2026-10-04: re-digitized HP5, FP4, Delta 100 and XP2 characteristic
+curves from the original ILFORD embedded raster charts; Tri-X characteristic and
+D=1 sensitivity from Kodak PDF vector paths. Source hashes, chart axes and methods
+are recorded. Fomapan remains hand-estimated. Worst local fitting error is checked
+alongside RMS. Neutral density, shoulder, grain and paper assumptions remain
+approximate. Modified by Silverphase / akinal5765-byte, CC BY-SA 4.0 retained.
+
 The constants that are not derived from the profiles
 ----------------------------------------------------
 
@@ -191,6 +198,14 @@ illuminant SDs, the colourspace primaries and matrices, the CAT cone
 matrices, the Mallett basis, the Hanatos irradiance spectra, and the measured
 KG3 and lens filter curves -- is published colour-science data, not Andrea
 Volpato's profile work, and is not covered by this file.
+Film edges, date backs and half-frame composition -- ADOPTED, 2026-10-12
+------------------------------------------------------------------------
+Native film-edge and date-back rendering, brand markings, paired-frame regional
+curves and scene-linear pair composition adopted from Hanze Qiu's SpektraLab
+commit 01d32a2b767fbdb447bbc3ab156dfa1f2388580c, GPL-3.0-or-later.
+Silverphase adapts the controls, input framing, session cache and document UI.
+Source provenance is recorded in engine/resources_product/UPSTREAM.json.
+
 CHANGELOG
 
 cat > "$out/README.txt" <<README
@@ -228,6 +243,23 @@ simulation, measured profiles and print+scan model originate in Andrea
 Volpato's spektrafilm at the second link. Silverphase is not affiliated with
 or endorsed by either original project.
 README
+
+# Preserve Hanze Qiu's notice verbatim; expose it through About's licence reader.
+cp "$here/../../../engine/resources_product/NOTICE.md" "$out/SpektraLab-BW-PROFILES-NOTICE.md"
+cat >> "$out/Profiles-and-LUTs-CHANGELOG.txt" <<'BWNOTICE'
+
+B&W adoption, 2026-10-12
+------------------------
+Tri-X 400 and HP5 Plus 400 now use SpektraLab 1.3.3's profiles by Hanze Qiu;
+T-Max 100, Acros II and Ilford Multigrade IV RC are added from the same source.
+These product profiles are copied unchanged and are separate from Andrea
+Volpato's original 28 CC BY-SA profiles. See SpektraLab-BW-PROFILES-NOTICE.md.
+Delta, FP4, XP2 and Fomapan retain Silverphase's experimental models.
+The Wratten lens filter table and exposure weighting are adopted from the same
+SpektraLab commit, with Hanze Qiu's source attribution retained. The table
+transcribes Kodak B-3 data; No. 58 has the factor uncertainty recorded in its
+source header. No original measured film or paper profile is altered for it.
+BWNOTICE
 
 printf 'licences   -> %s\n' "$out"
 ls -1 "$out" | sed 's/^/             /'

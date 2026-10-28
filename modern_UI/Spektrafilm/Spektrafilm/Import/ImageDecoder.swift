@@ -111,7 +111,7 @@ enum ImageDecoder {
     static let rawExtensions: Set<String> =
         ["nef", "arw", "dng", "cr2", "cr3", "raf", "rw2", "orf", "pef", "srw", "3fr", "iiq"]
     static let flatExtensions: Set<String> = ["tif", "tiff", "png", "jpg", "jpeg", "heic", "exr"]
-    static var openable: Set<String> { rawExtensions.union(flatExtensions) }
+    static var openable: Set<String> { rawExtensions.union(flatExtensions).union([HalfFramePair.fileExtension]) }
 
     enum Failure: Error, LocalizedError {
         case unsupported(URL), rawFilterUnavailable(URL), noColorSpace, emptyFrame, noFrameBuffer(Int)
@@ -180,6 +180,7 @@ enum ImageDecoder {
                        checkpoint: () throws -> Void = {}) throws -> DecodedImage {
         let trace = PerformanceTrace.begin("Image Decode")
         defer { PerformanceTrace.end("Image Decode", trace) }
+        if url.pathExtension.lowercased() == HalfFramePair.fileExtension { return try PairComposer.decode(url, checkpoint: checkpoint) }
         let metadata = sourceMetadata(from: url)
         return rawExtensions.contains(url.pathExtension.lowercased())
             ? try decodeRAW(url, settings: settings, sourceMetadata: metadata, checkpoint: checkpoint)

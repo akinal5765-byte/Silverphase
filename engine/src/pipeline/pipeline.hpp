@@ -168,6 +168,8 @@ struct Progress {
             /// mode saved nothing because the code cannot" and "because these
             /// parameters cannot", which is what a user's report needs.
             bool band_able = false;
+            // Disabled overscan-only whole stages resolve to "identity" and
+            // can fuse with a band run: no canvas kernel is dispatched there.
             /// **Why**, in one word, because `band_able == false` cannot tell
             /// two very different things apart:
             ///
@@ -247,6 +249,55 @@ void transposed(const Mat3& m, double out[9]);
 // decoded with one curve and encoded with another.
 uint32_t cctf_mode_for(const std::string& colour_space);
 
+struct OverscanLayout {
+    bool valid = false;
+    std::string format;
+    double px = 0.0;                      // mm per pixel (the frame's pitch)
+    uint32_t frame_w = 0, frame_h = 0;
+    uint32_t canvas_w = 0, canvas_h = 0;
+    bool vertical = false;                // the film runs along the image's y axis
+    double gate_s0 = 0, gate_t0 = 0, gate_along = 0, gate_across = 0;
+    double pair_adv = 0;                  // > 0: a half-frame pair, the same gate again this far along
+    double corner = 0, penumbra = 0;
+    double wob_a[4][3] = {{0}}, wob_ph[4][3] = {{0}};
+    double film_w = 0;
+    double A[4] = {1, 0, 0, 1};           // canvas mm (about its centre) -> film mm
+    double cu = 0, cv = 0, cs = 0, ct = 0;
+    double scan_rot = 0;
+    bool perforated = false;
+    double perf_pitch = 0, perf_w = 0, perf_h = 0, perf_edge = 0, perf_r = 0, perf_phase = 0;
+    double fog_amp = 0, fog_width = 0.5, fog_period = 8.0;
+    uint32_t fog_seed = 0;
+    struct Leak { double s = 0; int side = 0; double amp = 0, sig_s = 1, sig_t = 1; };
+    std::vector<Leak> leaks;
+    double fog_rgb[3] = {1, 1, 1}, date_rgb[3] = {1, 1, 0}, edge_rgb[3] = {1, 1, 0};
+    double hole_cmy[3] = {0, 0, 0};
+    double flare_amp = 0, flare_width = 0.05;
+    // RFC-032 §29: the gate's own shape -- corner radii (s-,t-), (s+,t-),
+    // (s+,t+), (s-,t+); convex quads added to (+1) or cut from (-1) the
+    // opening, film mm; the machined edge's roughness.
+    std::string gate_family;
+    double gate_r[4] = {0, 0, 0, 0};
+    struct Quad { double pts[8] = {0}; double round = 0; double sign = 1; };
+    std::vector<Quad> quads;
+    double rough_amp = 0, rough_period = 0.15;
+    uint32_t rough_seed = 0;
+    double top_recess = 0;                // how far the t- side's middle sits back from its ears (shouldered)
+    bool holes_light = false;
+    bool carrier_open = false;            // past the film's long edges: the scan's light, not a black carrier
+    bool carrier_none = false;            // no carrier: the canvas ends at the film's edge
+    double light_rgb[3] = {1, 1, 1};      // the backlight through the scan, linear output RGB
+    double light_fall = 0, light_dir = 0; // the light panel's falloff across the canvas
+    uint32_t perf_seed = 0;               // per-hole punch tolerances, burrs, wall slant
+    // RFC-032 §31: the base's thickness at a perforation's cut wall
+    double wall_t = 0.13;                 // base thickness, mm
+    double wall_tilt[2] = {0, 0};         // the scan's viewing tilt, tan(angle) along (s, t)
+    double wall_parallax = 0;             // 1 / the scan's viewing distance, 1/mm
+    double base_rgb[3] = {1, 1, 1};       // the base's transmittance colour, linear output RGB
+    double wall_glow = 0;                 // black holes: the wall's rim brightness
+    double wall_scatter = 0.02;           // light scattered in the base widens the wall, mm
+};
+
 class Pipeline {
 public:
     Pipeline(gpu::Gpu* gpu, const Colour* colour, const Blob* blob, SetupCache* cache)
@@ -257,6 +308,9 @@ public:
     // Expensive: the tc_lut is a 192x192x81 contraction and the C_max table is
     // 46,080 bisections, which is why `warm_up` exists to pay it early.
     bool build(const Params& params, std::string& error);
+    void overscan_frame(uint32_t& frame_w, uint32_t& frame_h) const;
+    std::string overscan_geometry_json() const;
+    bool set_overscan_frame(uint32_t frame_w, uint32_t frame_h, std::string& error);
 
     // The film's pixel pitch, from the frame this pipeline is about to render.
     //
@@ -305,7 +359,7 @@ public:
     // and the auto-exposure gain `ev`. Leaves the pipeline's pitch as it was,
     // as `measure_meter_evs` does.
     bool scene_latitude_sample(const Image& in, double ev, std::vector<double>& E,
-                               std::string& error);
+                               std::string& error, const double* region = nullptr);
 
     // The EV the auto-exposure node applies instead of metering its own
     // input. The session sets it before every film render, so every tier is
@@ -408,12 +462,15 @@ public:
     // `strip_executor.py` exist because they are still two encodings of one
     // order.
     bool film_scale_and_expose(const Chain& in, Chain& out, std::string& error);
+    bool film_overscan(const Chain& in, Chain& out, std::string& error);
     bool film_boost(const Chain& in, Chain& out, std::string& error);
     bool film_blurs(const Chain& in, Chain& out, std::string& error);
     bool film_log_and_curves(const Chain& in, Chain& out, std::string& error);
     bool film_couplers(const Chain& in, Chain& out, std::string& error);
     bool film_grain(const Chain& in, Chain& out, std::string& error);
     bool print_expose(const Chain& in, Chain& out, std::string& error);
+    bool print_film_present(const Chain& in, Chain& out, std::string& error);
+    bool print_edge_light(const Chain& in, Chain& out, std::string& error);
     bool print_diffusion(const Chain& in, Chain& out, std::string& error);
     bool print_develop_and_scan(const Chain& in, Chain& out, std::string& error);
     bool print_glare(const Chain& in, Chain& out, std::string& error);
@@ -583,6 +640,13 @@ private:
     bool node_upsample(const Image& in, Image& out, std::string& error);
     bool node_exposure(const Image& in, Image& out, std::string& error);
     bool node_boost(const Image& in, Image& out, std::string& error);
+    bool overscan_wanted() const;
+    double overscan_gate_long_mm() const;
+    bool overscan_layout(uint32_t frame_w, uint32_t frame_h, std::string& error);
+    void overscan_params_block(std::vector<float>& P) const;
+    bool node_overscan(const Image& in, Image& out, std::string& error);
+    bool node_overscan_film_present(const Image& in, Image& out, std::string& error);
+    bool node_overscan_light(const Image& in, Image& out, std::string& error);
     bool node_lens_blur(const Image& in, Image& out, std::string& error);
     bool node_diffusion(const Image& in, const DiffusionFilterParams& filter,
                         bool log_encoded, Image& out, std::string& error);
@@ -712,6 +776,9 @@ private:
     DiConstants di_;
 
     // --- derived on the host, refreshed per run --------------------------
+    OverscanLayout overscan_;
+    double frame_w_mm_ = 0, frame_h_mm_ = 0;
+    Vec film_sensitivity_edge_;
     Vec film_sensitivity_;
     // The tc_lut and its matrix are kept on the host as well as on device:
     // the print exposure's midgray probe runs one pixel of grey through the
@@ -743,6 +810,7 @@ private:
     // node that needs a frame coordinate reads it rather than every stage
     // growing a `Strip` argument.
     uint32_t band_row0_ = 0;
+    uint32_t strip_plane_h_ = 0;
 
     // black/white references
     bool bw_active_ = false;

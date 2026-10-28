@@ -1,6 +1,126 @@
 import XCTest
 
 final class ParamsTests: XCTestCase {
+    func testRetiredPrintCompensationSettingDoesNotAffectSavedPhotos() throws {
+        let original = FilmParams.default
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        json["printExposureCompensation"] = true
+        let restored = try JSONDecoder().decode(FilmParams.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(restored, original)
+        XCTAssertNil(restored.fullDelta["print_exposure_compensation"])
+    }
+
+    func testCameraFiltersSaveAndInvalidateNegative() throws {
+        var p = FilmParams.default
+        XCTAssertEqual(p.cameraFilter, .off)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        json.removeValue(forKey: "cameraFilter")
+        XCTAssertEqual(try JSONDecoder().decode(FilmParams.self, from: JSONSerialization.data(withJSONObject: json)).cameraFilter, .off)
+        json["cameraFilter"] = "w99"
+        XCTAssertEqual(try JSONDecoder().decode(FilmParams.self, from: JSONSerialization.data(withJSONObject: json)).cameraFilter, .off)
+        for filter in CameraFilterChoice.allCases {
+            p.cameraFilter = filter
+            XCTAssertEqual(p.fullDelta["camera_filter"], .string(filter.rawValue))
+            XCTAssertEqual(try JSONDecoder().decode(FilmParams.self, from: JSONEncoder().encode(p)), p)
+            if filter != .off { XCTAssertEqual(p.delta(from: .default).layers, [.shoot]) }
+        }
+        XCTAssertEqual(CameraFilterChoice.allCases.count, 9)
+    }
+
+
+    func testMultigradeSelectionUsesPackAndExposureCompensation() throws {
+        var p = FilmParams.default
+        p.filmStock = "kodak_tri_x_400"
+        p.printStock = "ilford_multigrade_iv_rc"
+        p.printBrightnessStops = 1
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        json["paperGrade"] = "5"
+        let selected = try JSONDecoder().decode(FilmParams.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(selected.fullDelta["m_filter_neutral"], .double(151.7))
+        XCTAssertEqual(selected.fullDelta["y_filter_neutral"], .double(0))
+        XCTAssertEqual(selected.fullDelta["print_exposure"]?.doubleValue ?? 0, 0.5 * 1.3507, accuracy: 1e-10)
+        XCTAssertEqual(selected.delta(from: p).layers, [.print])
+    }
+
+    func testPaperGradeDefaultsRoundTripsAndKeepsColorSettings() throws {
+        var p = FilmParams.default
+        XCTAssertEqual(p.paperGrade, .two)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        json.removeValue(forKey: "paperGrade")
+        XCTAssertEqual(try JSONDecoder().decode(FilmParams.self, from: JSONSerialization.data(withJSONObject: json)).paperGrade, .two)
+        json["paperGrade"] = "unknown"
+        XCTAssertEqual(try JSONDecoder().decode(FilmParams.self, from: JSONSerialization.data(withJSONObject: json)).paperGrade, .two)
+        for grade in PaperGrade.allCases {
+            p.paperGrade = grade
+            let restored = try JSONDecoder().decode(FilmParams.self, from: JSONEncoder().encode(p))
+            XCTAssertEqual(restored, p)
+            XCTAssertTrue(p.delta(from: .default).delta.isEmpty, "grade has no effect on a colour paper")
+        }
+        p.paperGrade = .five
+        p.printStock = "ilford_multigrade_iv_rc"
+        p.mFilterShift = 21
+        p.yFilterShift = -13
+        XCTAssertEqual(p.fullDelta["m_filter_shift"], .double(0))
+        XCTAssertEqual(p.fullDelta["y_filter_shift"], .double(0))
+        p.scanFilm = true
+        var other = p; other.paperGrade = .softest
+        XCTAssertTrue(p.delta(from: other).delta.isEmpty)
+        p.scanFilm = false; p.digitalIntermediate = true
+        other = p; other.paperGrade = .softest
+        XCTAssertTrue(p.delta(from: other).delta.isEmpty)
+        p.digitalIntermediate = false; p.printStock = "kodak_supra_endura"
+        XCTAssertEqual(p.fullDelta["m_filter_shift"], .double(21))
+        XCTAssertEqual(p.fullDelta["y_filter_shift"], .double(-13))
+        XCTAssertEqual(p.paperGrade, .five)
+    }
+
+    func testEveryMultigradePackMatchesTheShippedTable() throws {
+        let url = try XCTUnwrap(StockCatalog.bundle.url(forResource: "paper_grades", withExtension: "json", subdirectory: "Resources/engine"))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let grades = try XCTUnwrap(json["grades"] as? [String: [String: Double]])
+        XCTAssertEqual(Set(grades.keys), Set(PaperGrade.allCases.map(\.rawValue)))
+        for grade in PaperGrade.allCases {
+            var p = FilmParams.default
+            p.printStock = "ilford_multigrade_iv_rc"; p.paperGrade = grade
+            let row = try XCTUnwrap(grades[grade.rawValue])
+            XCTAssertEqual(p.fullDelta["m_filter_neutral"], .double(row["m_filter_neutral"]!))
+            XCTAssertEqual(p.fullDelta["y_filter_neutral"], .double(row["y_filter_neutral"]!))
+            XCTAssertEqual(p.fullDelta["print_exposure"], .double(row["print_exposure"]!))
+            p.printBrightnessStops = -100
+            XCTAssertLessThanOrEqual(p.effectivePrintExposure, 20)
+        }
+    }
+
+    func testUpstreamBlackWhiteWireAndLegacySidecars() throws {
+        for (stock, grain) in [("kodak_tri_x_400", 1.70), ("ilford_hp5_plus_400", 1.49),
+                               ("kodak_tmax_100", 0.74), ("fujifilm_neopan_acros_100_ii", 0.64)] {
+            var p = FilmParams.default
+            p.filmStock = stock
+            p.printStock = "ilford_multigrade_iv_rc"
+            p.effects.grain = 1
+            p.effects.grainLayered = true
+            XCTAssertEqual(p.fullDelta["grain_amount"], .double(grain))
+            XCTAssertEqual(p.fullDelta["grain_sublayers_active"], .bool(false))
+            XCTAssertEqual(p.fullDelta["extended_dynamic_range"], .bool(false))
+            XCTAssertEqual(p.fullDelta["y_filter_neutral"], .double(68))
+            p.effects.grain = 2
+            XCTAssertEqual(p.fullDelta["grain_amount"], .double(min(2, 2 * grain)))
+        }
+        for stock in ["kodak_tri_x_400", "ilford_hp5_plus_400"] {
+            var old = FilmParams.default
+            old.filmStock = stock + "_experimental"
+            old.printStock = "silverphase_neutral_bw_print_experimental"
+            let restored = try JSONDecoder().decode(FilmParams.self, from: JSONEncoder().encode(old))
+            XCTAssertEqual(restored.filmStock, stock)
+            XCTAssertEqual(restored.printStock, "ilford_multigrade_iv_rc")
+            XCTAssertEqual(restored.fullDelta, old.fullDelta)
+        }
+        var local = FilmParams.default
+        local.filmStock = "ilford_xp2_super_400_experimental"
+        XCTAssertEqual(local.fullDelta["grain_amount"], .double(1))
+        XCTAssertEqual(local.fullDelta["grain_sublayers_active"], .bool(true))
+    }
+
     func testGrainSoftnessRoutesToFilmWithoutChangingParticleSize() {
         var p = FilmParams.default
         XCTAssertEqual(p.fullDelta["grain_softness"], .double(0.65))
@@ -264,7 +384,7 @@ final class ParamsTests: XCTestCase {
     func testWireNamesMatchTheServiceSchema() {
         // The names the Python schema declares (service/schema.py). A rename
         // there must be mirrored here or the delta is rejected at runtime.
-        let known: Set<String> = ["film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
+        let known: Set<String> = ["overscan_active", "date_imprint_active", "scene_latitude_split", "scene_latitude_b_active", "camera_filter", "film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
                                   "grain_active", "grain_sublayers_active", "grain_size_scale", "grain_softness",
                                   "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range",
                                   "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range",

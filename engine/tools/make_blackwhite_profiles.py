@@ -110,7 +110,10 @@ def build(source=None):
 
 if __name__ == "__main__":
     profiles = build()
+    retired = {"kodak_tri_x_400_experimental", "ilford_hp5_plus_400_experimental", PAPER}
     for stock, profile in profiles.items():
+        if stock in retired:
+            continue
         (ENGINE / f"resources/profiles/{stock}.json").write_text(json.dumps(profile, indent=2, allow_nan=False) + "\n")
         print(stock, "curve-fit RMS", profile["metadata"]["fit_rms_density"])
     path = ENGINE / "resources/neutral_print_filters.json"

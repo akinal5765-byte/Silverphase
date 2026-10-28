@@ -1,4 +1,5 @@
 #include "params.hpp"
+#include "camera_filters.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -153,6 +154,39 @@ const SchemaField kFields[] = {
     // Zero bypasses the existing node; 0.7 preserves historical rendering.
     {"scanner_sharpening_amount", "scanner.unsharp_mask.amount",           F, PRINT, true, 0.0, 1.4, false},
     {"grain_softness",           "film_render.grain.blur",                F, SHOOT, true, 0.0, 1.3, false},
+    // Lens filtration changes exposure and therefore rebuilds the negative.
+    {"overscan_active",          "film_render.overscan.active",           B, SHOOT, false, 0, 0, false},
+    {"overscan_format",          "film_render.overscan.format",           S, SHOOT, false, 0, 0, false},
+    {"overscan_mode",            "film_render.overscan.mode",             S, SHOOT, false, 0, 0, false},
+    {"overscan_camera_seed",     "film_render.overscan.camera_seed",      I, SHOOT, true, 0.0, 2147483647.0, false},
+    {"overscan_frame_seed",      "film_render.overscan.frame_seed",       I, SHOOT, true, 0.0, 2147483647.0, false},
+    {"overscan_fog",             "film_render.overscan.fog",              F, SHOOT, true, 0.0, 4.0, false},
+    {"overscan_leaks",           "film_render.overscan.leaks",            F, SHOOT, true, 0.0, 4.0, false},
+    {"overscan_edge_text",       "film_render.overscan.edge_text",        S, SHOOT, false, 0, 0, false},
+    {"overscan_f_number",        "film_render.overscan.f_number",         F, SHOOT, true, 0.0, 64.0, false},
+    {"overscan_gate",            "film_render.overscan.gate",             S, SHOOT, false, 0, 0, false},
+    {"overscan_holes",           "film_render.overscan.holes",            S, SHOOT, false, 0, 0, false},
+    {"date_imprint_active",      "film_render.date_imprint.active",       B, SHOOT, false, 0, 0, false},
+    {"date_imprint_text",        "film_render.date_imprint.text",         S, SHOOT, false, 0, 0, false},
+    {"date_imprint_placement",   "film_render.date_imprint.placement",    S, SHOOT, false, 0, 0, false},
+    {"date_imprint_ev",          "film_render.date_imprint.exposure_ev",  F, SHOOT, true, -2.0, 8.0, false},
+    {"date_imprint_style",       "film_render.date_imprint.style",        S, SHOOT, false, 0, 0, false},
+    {"date_imprint_size",        "film_render.date_imprint.size",         F, SHOOT, true, 0.4, 3.0, false},
+    {"date_imprint_corner",      "film_render.date_imprint.corner",       S, SHOOT, false, 0, 0, false},
+    {"date_imprint_inset_x",     "film_render.date_imprint.inset_x",      F, SHOOT, true, 0.0, 30.0, false},
+    {"date_imprint_inset_y",     "film_render.date_imprint.inset_y",      F, SHOOT, true, 0.0, 30.0, false},
+    {"overscan_frame_number",    "film_render.overscan.frame_number",     I, SHOOT, true, 0.0, 99.0, false},
+    {"overscan_carrier",         "film_render.overscan.carrier",          S, SHOOT, false, 0, 0, false},
+    {"overscan_pair",            "film_render.overscan.pair",             B, SHOOT, false, 0, 0, false},
+    {"date_imprint_text_b",      "film_render.date_imprint.text_b",       S, SHOOT, false, 0, 0, false},
+    {"date_imprint_data_text",   "film_render.date_imprint.data_text",    S, SHOOT, false, 0, 0, false},
+    {"scene_latitude_split",            "camera.scene_latitude.split",            F, SHOOT, true, 0.0, 1.0, false},
+    {"scene_latitude_b_active",         "camera.scene_latitude.b_active",         B, SHOOT, false, 0, 0, false},
+    {"scene_latitude_b_highlight_knee", "camera.scene_latitude.b_highlight_knee", F, SHOOT, true, -24.0, 24.0, false},
+    {"scene_latitude_b_highlight_room", "camera.scene_latitude.b_highlight_room", F, SHOOT, true, 0.0, 24.0, false},
+    {"scene_latitude_b_shadow_knee",    "camera.scene_latitude.b_shadow_knee",    F, SHOOT, true, -24.0, 24.0, false},
+    {"scene_latitude_b_shadow_room",    "camera.scene_latitude.b_shadow_room",    F, SHOOT, true, 0.0, 24.0, false},
+    {"camera_filter", "camera.filter", S, SHOOT, false, 0, 0, false},
     // The app's *preview resolution*: the `live` tier's long edge, and so the
     // size every interactive edit renders at. PRINT layer, because it is a
     // decision about the canvas rather than about the film -- but it is one of
@@ -215,6 +249,18 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "film_render.halation.scatter_amount") return &p.film_render.halation.scatter_amount;
     if (path == "film_render.grain.amount") return &p.film_render.grain.amount;
     if (path == "print_render.glare.amount") return &p.print_render.glare.amount;
+    if (path == "film_render.overscan.fog") return &p.film_render.overscan.fog;
+    if (path == "film_render.overscan.leaks") return &p.film_render.overscan.leaks;
+    if (path == "film_render.overscan.f_number") return &p.film_render.overscan.f_number;
+    if (path == "film_render.date_imprint.exposure_ev") return &p.film_render.date_imprint.exposure_ev;
+    if (path == "film_render.date_imprint.size") return &p.film_render.date_imprint.size;
+    if (path == "film_render.date_imprint.inset_x") return &p.film_render.date_imprint.inset_x;
+    if (path == "film_render.date_imprint.inset_y") return &p.film_render.date_imprint.inset_y;
+    if (path == "camera.scene_latitude.split") return &p.camera.scene_latitude.split;
+    if (path == "camera.scene_latitude.b_highlight_knee") return &p.camera.scene_latitude.b_highlight_knee;
+    if (path == "camera.scene_latitude.b_highlight_room") return &p.camera.scene_latitude.b_highlight_room;
+    if (path == "camera.scene_latitude.b_shadow_knee") return &p.camera.scene_latitude.b_shadow_knee;
+    if (path == "camera.scene_latitude.b_shadow_room") return &p.camera.scene_latitude.b_shadow_room;
     return nullptr;
 }
 
@@ -241,6 +287,10 @@ bool* bool_slot(Params& p, const std::string& path) {
     if (path == "settings.striped") return &p.settings.striped;
     if (path == "print_render.contrast_mask.active") return &p.print_render.contrast_mask.active;
     if (path == "camera.scene_latitude.active") return &p.camera.scene_latitude.active;
+    if (path == "film_render.overscan.active") return &p.film_render.overscan.active;
+    if (path == "film_render.overscan.pair") return &p.film_render.overscan.pair;
+    if (path == "film_render.date_imprint.active") return &p.film_render.date_imprint.active;
+    if (path == "camera.scene_latitude.b_active") return &p.camera.scene_latitude.b_active;
     return nullptr;
 }
 
@@ -250,12 +300,25 @@ std::string* str_slot(Params& p, const std::string& path) {
     if (path == "io.input_color_space") return &p.io.input_color_space;
     if (path == "enlarger.illuminant") return &p.enlarger.illuminant;
     if (path == "io.output_color_space") return &p.io.output_color_space;
+    if (path == "camera.filter") return &p.camera.filter;
     if (path == "camera.auto_exposure_method") return &p.camera.auto_exposure_method;
     if (path == "camera.diffusion_filter.filter_family") return &p.camera.diffusion_filter.filter_family;
     if (path == "enlarger.diffusion_filter.filter_family") return &p.enlarger.diffusion_filter.filter_family;
     if (path == "film_render.halation.antihalation_mode") return &p.film_render.halation.antihalation_mode;
     if (path == "camera.scene_latitude.norm") return &p.camera.scene_latitude.norm;
     if (path == "print_render.contrast_mask.scheme") return &p.print_render.contrast_mask.scheme;
+    if (path == "film_render.overscan.format") return &p.film_render.overscan.format;
+    if (path == "film_render.overscan.mode") return &p.film_render.overscan.mode;
+    if (path == "film_render.overscan.edge_text") return &p.film_render.overscan.edge_text;
+    if (path == "film_render.date_imprint.text") return &p.film_render.date_imprint.text;
+    if (path == "film_render.date_imprint.text_b") return &p.film_render.date_imprint.text_b;
+    if (path == "film_render.date_imprint.data_text") return &p.film_render.date_imprint.data_text;
+    if (path == "film_render.date_imprint.placement") return &p.film_render.date_imprint.placement;
+    if (path == "film_render.date_imprint.style") return &p.film_render.date_imprint.style;
+    if (path == "film_render.date_imprint.corner") return &p.film_render.date_imprint.corner;
+    if (path == "film_render.overscan.gate") return &p.film_render.overscan.gate;
+    if (path == "film_render.overscan.holes") return &p.film_render.overscan.holes;
+    if (path == "film_render.overscan.carrier") return &p.film_render.overscan.carrier;
     return nullptr;
 }
 
@@ -264,6 +327,9 @@ int* int_slot(Params& p, const std::string& path) {
     if (path == "io.preview_long_edge") return &p.io.preview_long_edge;
     if (path == "settings.strip_rows") return &p.settings.strip_rows;
     if (path == "settings.strip_budget_bytes") return &p.settings.strip_budget_bytes;
+    if (path == "film_render.overscan.camera_seed") return &p.film_render.overscan.camera_seed;
+    if (path == "film_render.overscan.frame_seed") return &p.film_render.overscan.frame_seed;
+    if (path == "film_render.overscan.frame_number") return &p.film_render.overscan.frame_number;
     return nullptr;
 }
 
@@ -350,6 +416,16 @@ bool validate_delta(const Json& delta, std::string& error, std::string& param) {
         }
         // A closed set of names is not a range, so `has_range` cannot express
         // it; this, `contrast_mask_scheme` and `scene_latitude_norm` are the enumerated strings.
+        if (kv.first == "camera_filter") {
+            bool known = v.as_string().empty();
+            for (const CameraFilter& filter : kCameraFilters)
+                known = known || v.as_string() == filter.name;
+            if (!known) {
+                error = "unknown camera_filter '" + v.as_string() + "'";
+                param = kv.first;
+                return false;
+            }
+        }
         if (kv.first == "auto_exposure_method" && !is_known_exposure_method(v.as_string())) {
             error = "'auto_exposure_method' = '" + v.as_string() +
                     "' is not an exposure method (balanced, center, protect_highlights, "
@@ -528,6 +604,9 @@ bool digest(Params& p, const Json& neutral_filters, std::string& error) {
     apply_film_specifics(p);
 
     if (p.debug.lut_mode) {
+        p.film_render.overscan.active = false;
+        p.film_render.overscan.pair = false;
+        p.film_render.date_imprint.active = false;
         p.debug.deactivate_spatial_effects = true;
         p.debug.deactivate_stochastic_effects = true;
         p.camera.auto_exposure = false;

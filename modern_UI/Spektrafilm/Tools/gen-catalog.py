@@ -48,6 +48,8 @@ KODAK_STILL_SPEED_SOURCE = "https://www.kodakprofessional.com/en-gb/node/133"
 FUJI_SPEED_SOURCE = "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
 KODAK_CINE_SPEED_SOURCE = "https://www.kodak.com/en/motion/products/camera-films/"
 NOMINAL_SPEEDS = {
+    "kodak_tri_x_400": 400, "ilford_hp5_plus_400": 400,
+    "kodak_tmax_100": 100, "fujifilm_neopan_acros_100_ii": 100,
     "ilford_hp5_plus_400_experimental": 400, "kodak_tri_x_400_experimental": 400,
     "ilford_delta_100_experimental": 100, "ilford_fp4_plus_125_experimental": 125,
     "ilford_xp2_super_400_experimental": 400, "foma_fomapan_100_experimental": 100,
@@ -73,6 +75,9 @@ NOMINAL_SPEEDS = {
 }
 
 EXPERIMENTAL_SPEED_SOURCES = {
+    "ilford_hp5_plus_400": "https://www.ilfordphoto.com/amfile/file/download/file/1903/product/691/",
+    "kodak_tri_x_400": "https://www.kodakprofessional.com/sites/default/files/wysiwyg/film/f4017_trix_320400.pdf",
+    "kodak_tmax_100": "https://www.kodakprofessional.com/sites/default/files/wysiwyg/film/f4016.pdf",
     "ilford_hp5_plus_400_experimental": "https://www.ilfordphoto.com/amfile/file/download/file/1903/product/691/",
     "ilford_delta_100_experimental": "https://www.ilfordphoto.com/amfile/file/download/file/3/product/680/",
     "ilford_fp4_plus_125_experimental": "https://www.ilfordphoto.com/amfile/file/download/file/1919/product/686/",
@@ -94,7 +99,12 @@ def main() -> None:
     (OUT / "FilmCovers").mkdir(parents=True, exist_ok=True)
     luts = json.loads(PRINT_LUTS.read_text())
     stocks = []
-    for path in sorted(PROFILES.glob("*.json")):
+    retired = {"kodak_tri_x_400_experimental", "ilford_hp5_plus_400_experimental",
+               "silverphase_neutral_bw_print_experimental"}
+    paths = list(PROFILES.glob("*.json")) + list((REPO / "engine/resources_product/profiles").glob("*.json"))
+    for path in sorted(paths, key=lambda p: p.stem):
+        if path.stem in retired:
+            continue
         info = json.loads(path.read_text())["info"]
         sid = path.stem
         cover = None
@@ -113,7 +123,7 @@ def main() -> None:
             "use": info.get("use", "still"),       # still | cine
             "type": info.get("type"),
             "channelModel": info.get("channel_model", "color"),
-            "targetPrint": info.get("target_print"),
+            "targetPrint": ("ilford_multigrade_iv_rc" if info.get("stage") == "filming" and info.get("channel_model") in ("bw", "monochrome", "chromogenic_monochrome") else info.get("target_print")),
             "hasPreviewLUT": sid in luts,
             "pairedFilm": luts[sid]["paired_film"] if sid in luts else None,
             "cover": cover,

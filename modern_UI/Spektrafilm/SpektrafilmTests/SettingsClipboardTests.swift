@@ -106,6 +106,10 @@ final class SettingsClipboardTests: XCTestCase {
         p.developmentContrast = 1.2
         p.colorSeparation = 0.8
         p.effects.couplersActive = false
+        p.paperGrade = .five
+        p.cameraFilter = .red
+        p.filmEdge.active = true; p.filmEdge.frameNumber = 17
+        p.dateBack.active = true; p.dateBack.customText = "26 10 12"
         p.printBrightnessStops = 0.5
         p.yFilterShift = 0.2
         p.mFilterShift = -0.1

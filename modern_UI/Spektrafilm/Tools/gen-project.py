@@ -245,7 +245,7 @@ def build() -> str:
             for sub in ("include", "src", "src/core", "third_party/metal-cpp")
         ) + "\t\t\t\t)",
         "SWIFT_OBJC_BRIDGING_HEADER": f'"{APP}/Service/{APP}-Bridging-Header.h"',
-        "OTHER_LDFLAGS": '"-framework Metal -framework QuartzCore"',
+        "OTHER_LDFLAGS": '"-framework Metal -framework QuartzCore -framework Accelerate -framework CoreText -framework CoreGraphics"',
         # metal-cpp's headers use `objc_msgSend` directly and manage their own
         # retain/release; ARC must not be applied to them. The Swift side is
         # unaffected -- Swift's memory management is not this setting.

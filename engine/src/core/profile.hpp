@@ -41,8 +41,12 @@ struct ProfileInfo {
     std::string reference_illuminant = "D55", viewing_illuminant = "D50";
 
     bool is_positive() const { return type == "positive"; }
-    bool is_monochrome() const {
+    bool is_legacy_monochrome() const {
         return channel_model == "monochrome" || channel_model == "chromogenic_monochrome";
+    }
+
+    bool is_monochrome() const {
+        return channel_model == "bw" || is_legacy_monochrome();
     }
 };
 

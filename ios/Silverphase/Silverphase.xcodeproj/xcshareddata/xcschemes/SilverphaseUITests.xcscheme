@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="2710" version="1.3">
+<BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries>
+<BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="0E8A3AD980EC179856012B7E" BuildableName="Silverphase.app" BlueprintName="Silverphase" ReferencedContainer="container:Silverphase.xcodeproj"/></BuildActionEntry>
+<BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="95F9FC6E252E44B94B26FF0C" BuildableName="SilverphaseUITests.xctest" BlueprintName="SilverphaseUITests" ReferencedContainer="container:Silverphase.xcodeproj"/></BuildActionEntry>
+</BuildActionEntries></BuildAction>
+<TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables><TestableReference skipped="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="95F9FC6E252E44B94B26FF0C" BuildableName="SilverphaseUITests.xctest" BlueprintName="SilverphaseUITests" ReferencedContainer="container:Silverphase.xcodeproj"/></TestableReference></Testables></TestAction>
+</Scheme>

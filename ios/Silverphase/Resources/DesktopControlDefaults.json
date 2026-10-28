@@ -1,0 +1,135 @@
+{
+  "ui" : {
+    "dateOrder" : "japan",
+    "dateWithData" : false,
+    "filmFrame" : "135",
+    "filmSide" : "short",
+    "frames" : [
+      {
+        "id" : "Super 8",
+        "long" : 5.79,
+        "short" : 4.0099999999999998
+      },
+      {
+        "id" : "16mm",
+        "long" : 10.26,
+        "short" : 7.4900000000000002
+      },
+      {
+        "id" : "Super 16",
+        "long" : 12.52,
+        "short" : 7.4100000000000001
+      },
+      {
+        "id" : "Super 35",
+        "long" : 24.890000000000001,
+        "short" : 14
+      },
+      {
+        "id" : "65mm",
+        "long" : 52.630000000000003,
+        "short" : 23.010000000000002
+      },
+      {
+        "id" : "110",
+        "long" : 17,
+        "short" : 13
+      },
+      {
+        "id" : "APS",
+        "long" : 30.199999999999999,
+        "short" : 16.699999999999999
+      },
+      {
+        "id" : "135",
+        "long" : 36,
+        "short" : 24
+      },
+      {
+        "id" : "120",
+        "long" : 56,
+        "short" : 56
+      },
+      {
+        "id" : "Custom",
+        "long" : 36,
+        "short" : 24
+      }
+    ],
+    "grainSoftness" : 1,
+    "grainSoftnessRange" : [
+      0,
+      2
+    ],
+    "scannerSharpeningActive" : true,
+    "scannerSharpeningRange" : [
+      0,
+      2
+    ],
+    "scannerSharpeningStrength" : 1,
+    "scatterRange" : [
+      0,
+      1
+    ],
+    "sideLengthMM" : 24
+  },
+  "wire" : {
+    "antihalation_mode" : "profile",
+    "auto_exposure" : true,
+    "auto_exposure_method" : "center_weighted",
+    "camera_diffusion_active" : false,
+    "camera_diffusion_family" : "black_pro_mist",
+    "camera_diffusion_range" : 1,
+    "camera_diffusion_strength" : 0.5,
+    "camera_filter" : "",
+    "contrast_mask_active" : false,
+    "contrast_mask_core" : 1,
+    "contrast_mask_highlights" : 0,
+    "contrast_mask_scale" : 0.029999999999999999,
+    "contrast_mask_scheme" : "gaussian",
+    "contrast_mask_shadows" : 0,
+    "date_imprint_active" : false,
+    "density_curve_gamma" : 1,
+    "digital_intermediate" : false,
+    "digital_intermediate_blue_compensation" : false,
+    "dir_couplers_active" : true,
+    "dir_couplers_amount" : 1,
+    "enlarger_diffusion_active" : false,
+    "enlarger_diffusion_family" : "black_pro_mist",
+    "enlarger_diffusion_range" : 1,
+    "enlarger_diffusion_strength" : 0.5,
+    "exposure_compensation_ev" : 0,
+    "extended_dynamic_range" : true,
+    "film_format_mm" : 36,
+    "film_stock" : "kodak_portra_400",
+    "glare_active" : true,
+    "glare_amount" : 1,
+    "grain_active" : true,
+    "grain_amount" : 1,
+    "grain_size_scale" : 1,
+    "grain_softness" : 0.65000000000000002,
+    "grain_sublayers_active" : true,
+    "halation_active" : true,
+    "halation_amount" : 1,
+    "halation_scatter_amount" : 1,
+    "m_filter_shift" : 0,
+    "overscan_active" : false,
+    "preflash_exposure" : 0,
+    "print_contrast" : 1,
+    "print_exposure" : 1,
+    "print_stock" : "kodak_supra_endura",
+    "scan_film" : false,
+    "scanner_sharpening_amount" : 0.69999999999999996,
+    "scene_latitude_active" : false,
+    "scene_latitude_b_active" : false,
+    "scene_latitude_highlight_knee" : 2,
+    "scene_latitude_highlight_room" : 0,
+    "scene_latitude_max_lift" : 4,
+    "scene_latitude_norm" : "power",
+    "scene_latitude_rolloff" : 2,
+    "scene_latitude_shadow_knee" : -2,
+    "scene_latitude_shadow_room" : 0,
+    "scene_latitude_split" : 0,
+    "y_filter_shift" : 0
+  }
+}

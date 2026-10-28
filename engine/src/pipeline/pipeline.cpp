@@ -258,7 +258,7 @@ void Pipeline::set_source_long_edge(uint32_t long_edge, uint32_t frame_long_edge
     if (long_edge == 0) return;
     source_long_edge_ = long_edge;
     if (frame_long_edge > 0) frame_long_edge_ = frame_long_edge;
-    pixel_size_um_ = params_.camera.film_format_mm * 1000.0 / double(long_edge);
+    pixel_size_um_ = (overscan_wanted() ? overscan_gate_long_mm() : params_.camera.film_format_mm) * 1000.0 / double(long_edge);
 }
 
 bool Pipeline::alloc_like(const Image& img, Image& out, std::string& error) {
@@ -284,9 +284,10 @@ bool Pipeline::build(const Params& params, std::string& error) {
             for (int c = 0; c < 3; ++c) a[c] = mean;
         }
     }
-    // The synthetic B&W paper has no calibrated EDR map. Never borrow a
+    // Silver papers have no calibrated EDR map. Never borrow a
     // colour paper's highlight mapping and present it as measured B&W data.
     if (params_.print.info.is_monochrome()) params_.print_render.edr_enabled = false;
+    if (params_.film.info.channel_model == "bw") params_.film_render.grain.sublayers_active = false;
     const Profile& film = params_.film;
     const Profile& print = params_.print;
 
@@ -353,6 +354,13 @@ bool Pipeline::build(const Params& params, std::string& error) {
 
     // --- the spectral upsampling LUT -------------------------------------
     if (!film_sensitivity(*colour_, *blob_, film, params_.camera, film_sensitivity_, error)) return false;
+    {
+        // What the film's edge sees: the edge printer, the fog and the date
+        // back never pass the lens, so not its colour filter either.
+        CameraParams bare = params_.camera;
+        bare.filter.clear();
+        if (!film_sensitivity(*colour_, *blob_, film, bare, film_sensitivity_edge_, error)) return false;
+    }
     {
         const Vec* lut = nullptr;
         size_t side = 0;
@@ -440,7 +448,7 @@ bool Pipeline::build(const Params& params, std::string& error) {
         const uint32_t base_seed[3] = {0, 1, 2};
         for (uint32_t ch = 0; ch < 3; ++ch)
             for (uint32_t sl = 0; sl < 3; ++sl)
-                streams[ch * 3 + sl] = (film.info.is_monochrome() ? 0 : base_seed[ch]) + sl * 10;
+                streams[ch * 3 + sl] = (film.info.is_legacy_monochrome() ? 0 : base_seed[ch]) + sl * 10;
         baked_.grain_streams = gpu_->upload_persistent_u32(streams, 9, error);
         if (!baked_.grain_xa || !baked_.grain_inv || !baked_.grain_ylay || !baked_.grain_streams)
             return false;
@@ -637,6 +645,8 @@ bool Pipeline::build(const Params& params, std::string& error) {
     }
 
     built_ = true;
+    node_count_ += (params_.film_render.overscan.active || params_.film_render.date_imprint.active) ? 1 : 0;
+    node_count_ += params_.film_render.overscan.active ? 2 : 0;
     return true;
 }
 
@@ -1458,7 +1468,7 @@ bool Pipeline::node_grain(const Image& in, Image& out, std::string& error) {
 
 bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
     GrainParams g = params_.film_render.grain;
-    if (params_.film.info.is_monochrome()) {
+    if (params_.film.info.is_legacy_monochrome()) {
         g.size_scale *= params_.film.info.grain_size_scale;
         for (int c = 0; c < 3; ++c) {
             g.particle_scale[c] = 1.6;
@@ -1552,7 +1562,8 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
                 double one[3];
                 fill3(one, 1.0);
                 Image accumulated;
-                if (!blur_.gaussian(layer, sigma, accumulated, error, 3.0, &grain, one)) return false;
+                if (!blur_.gaussian(layer, sigma, accumulated, error, 3.0, &grain, one,
+                                    params_.settings.striped && overscan_wanted())) return false;
                 grain = accumulated;
             }
         }
@@ -1571,8 +1582,8 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
             lp[4 * ch + 3] = float(g.uniformity[ch]);
         }
         gpu::BufferRef lp_buf = gpu_->upload(lp, sizeof lp, error);
-        const uint32_t streams[3] = {0, params_.film.info.is_monochrome() ? 0u : 1u,
-                                      params_.film.info.is_monochrome() ? 0u : 2u};
+        const uint32_t streams[3] = {0, params_.film.info.is_legacy_monochrome() ? 0u : 1u,
+                                      params_.film.info.is_legacy_monochrome() ? 0u : 2u};
         gpu::BufferRef streams_buf = gpu_->upload_u32(streams, 3, error);
         if (!lp_buf || !streams_buf) return false;
         if (!alloc_like(in, grain, error)) return false;
@@ -1586,6 +1597,8 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
         for (int c = 0; c < 3; ++c) t0[c] = -g.density_min[c];
         Image scaled;
         if (!blur_.affine(grain, s, t0, scaled, error)) return false;
+        grain = Image{}; // no later read; pending GPU work retains/reclaims safely
+        if (params_.settings.striped && overscan_wanted() && !gpu_->flush(error)) return false;
         if (g.blur > kMinEffectiveBlurSigma) {
             double sigma[3];
             fill3(sigma, g.blur);
@@ -1623,6 +1636,10 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
     for (int c = 0; c < 3; ++c) t0[c] = -g.density_min[c];
     Image shifted;
     if (!blur_.affine(grain, s, t0, shifted, error)) return false;
+    grain = Image{}; // release the pre-shift plane before the final blur
+    // The last affine still names it until submission completes. Complete
+    // that work now so the final blur can reuse it instead of another canvas.
+    if (params_.settings.striped && overscan_wanted() && !gpu_->flush(error)) return false;
     if (g.blur > 0.0) {
         double sigma[3];
         fill3(sigma, g.blur);
@@ -1990,7 +2007,7 @@ bool Pipeline::film_prefix(const Image& in, const FrameShape& frame, Image& cur,
     {
         Timer t(this, "preprocess.crop_rescale");
         if (source_long_edge_ == 0) source_long_edge_ = frame.long_edge();
-        pixel_size_um_ = params_.camera.film_format_mm * 1000.0 / double(source_long_edge_);
+        pixel_size_um_ = (overscan_wanted() ? overscan_gate_long_mm() : params_.camera.film_format_mm) * 1000.0 / double(source_long_edge_);
     }
 
     // The film side's one seed for this run (RFC-020 §4.3, trap 4), drawn here
@@ -2066,6 +2083,17 @@ bool Pipeline::film_boost(const Chain& in, Chain& out, std::string& error) {
     return true;
 }
 
+bool Pipeline::film_overscan(const Chain& in, Chain& out, std::string& error) {
+    // RFC-032 §27: whole-frame, and after `boost` for the same reason `boost`
+    // is its own stage -- metering and the highlight lift are statistics of
+    // the *frame*, so they are taken before the canvas exists.
+    Image cur = in.cur, next;
+    SPK_NODE(node_overscan(cur, next, error)); cur = next;
+    out = in;
+    out.cur = cur;
+    return true;
+}
+
 bool Pipeline::film_blurs(const Chain& in, Chain& out, std::string& error) {
     // Class F, resolved per run: `lens_blur` is one sigma on three channels,
     // halation's two mixtures are where a channel can straddle the crossover,
@@ -2097,6 +2125,9 @@ bool Pipeline::film_couplers(const Chain& in, Chain& out, std::string& error) {
     SPK_NODE(node_dir_couplers(in.cur, in.log_e_film, next, error));
     out = in;
     out.cur = next;
+    // The coupler correction is the last consumer of log exposure. Carrying
+    // this full plane into grain needlessly pins ~720 MB at 60 MP.
+    out.log_e_film = Image{};
     return true;
 }
 
@@ -2106,6 +2137,12 @@ bool Pipeline::film_grain(const Chain& in, Chain& out, std::string& error) {
     // step 6 with F and R. See the §9 note in the commit.
     SPK_NODE(node_grain(in.cur, out.cur, error));
     out.log_e_film = Image{};
+    return true;
+}
+
+bool Pipeline::print_film_present(const Chain& in, Chain& out, std::string& error) {
+    out = in;
+    if (overscan_wanted()) { SPK_NODE(node_overscan_film_present(in.cur, out.cur, error)); }
     return true;
 }
 
@@ -2173,6 +2210,12 @@ bool Pipeline::print_scan_finish(const Chain& in, Chain& out, std::string& error
     return true;
 }
 
+bool Pipeline::print_edge_light(const Chain& in, Chain& out, std::string& error) {
+    out = in;
+    if (!di_active_ && overscan_wanted()) { SPK_NODE(node_overscan_light(in.cur, out.cur, error)); }
+    return true;
+}
+
 bool Pipeline::print_output(const Chain& in, Chain& out, std::string& error) {
     if (di_active_) { out = in; return true; }   // the DI is already its own encoded output
     // Calibrations observe the completed linear print scan. Apply EDR after
@@ -2195,6 +2238,7 @@ bool Pipeline::print_output(const Chain& in, Chain& out, std::string& error) {
 const Pipeline::Stage Pipeline::kFilmStages[] = {
     {"film_scale_and_expose", StageClass::Pointwise,     &Pipeline::film_scale_and_expose, nullptr},
     {"film_boost",            StageClass::Whole,         &Pipeline::film_boost,            nullptr},
+    {"film_overscan", StageClass::Whole, &Pipeline::film_overscan, nullptr},
     {"film_blurs",            StageClass::Neighbourhood, &Pipeline::film_blurs,            &Pipeline::film_blurs_demand},
     {"film_log_and_curves",   StageClass::Pointwise,     &Pipeline::film_log_and_curves,   nullptr},
     {"film_couplers",         StageClass::Neighbourhood, &Pipeline::film_couplers,         &Pipeline::film_couplers_demand},
@@ -2202,6 +2246,7 @@ const Pipeline::Stage Pipeline::kFilmStages[] = {
 };
 const size_t Pipeline::kFilmStageCount = sizeof(kFilmStages) / sizeof(kFilmStages[0]);
 const Pipeline::Stage Pipeline::kPrintStages[] = {
+    {"print_film_present", StageClass::Whole, &Pipeline::print_film_present, nullptr},
     {"print_expose",      StageClass::Pointwise,     &Pipeline::print_expose, nullptr},
     {"print_diffusion",   StageClass::Neighbourhood, &Pipeline::print_diffusion,
                           &Pipeline::print_diffusion_demand},
@@ -2209,6 +2254,7 @@ const Pipeline::Stage Pipeline::kPrintStages[] = {
     {"print_glare",       StageClass::Whole,         &Pipeline::print_glare,       nullptr},
     {"print_linear",      StageClass::Pointwise,     &Pipeline::print_linear,      nullptr},
     {"print_scan_finish", StageClass::Neighbourhood, &Pipeline::print_scan_finish, &Pipeline::print_scan_finish_demand},
+    {"print_edge_light", StageClass::Whole, &Pipeline::print_edge_light, nullptr},
     {"print_output",      StageClass::Pointwise,     &Pipeline::print_output,      nullptr},
 };
 
@@ -2281,8 +2327,9 @@ bool Pipeline::run_film(const Image& in, Image& out, Progress* progress, std::st
 // so no second place decides a size and `choose_strip_height` stays §7's only
 // call site.
 bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chain,
-                                  const std::vector<StripSpan>& plan, Progress::StripRun& report,
+                                  const std::vector<StripSpan>& initial_plan, Progress::StripRun& report,
                                   std::string& error) {
+    auto plan = initial_plan;
     // **Every stage is resolved for this run before anything is walked.** The
     // class in the table is what the code can do -- a property of the code, the
     // same on every frame -- and the demand is what *these parameters* let it
@@ -2293,7 +2340,14 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
     for (size_t i = 0; i < count; ++i) {
         const Stage& st = stages[i];
         const char* resolution = "whole";
-        if (st.klass == StageClass::Pointwise) {
+        const bool identity = !overscan_wanted() &&
+            (st.run == &Pipeline::print_film_present || st.run == &Pipeline::print_edge_light);
+        if (identity) {
+            // A disabled canvas operation is an identity, not a whole-frame
+            // kernel. Fuse it without adding copies to ordinary photographs.
+            band_able[i] = true;
+            resolution = "identity";
+        } else if (st.klass == StageClass::Pointwise) {
             band_able[i] = true;
             resolution = "banded";
         } else if (st.klass == StageClass::Neighbourhood) {
@@ -2345,6 +2399,7 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
 
                 Chain cur = band_in;
                 band_row0_ = read.y0;
+                strip_plane_h_ = frame_h;
                 for (size_t k = i; k < j; ++k) {
                     Chain next;
                     if (!(this->*stages[k].run)(cur, next, error)) return false;
@@ -2369,7 +2424,9 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
                     plane_out.cur.h = frame_h;
                     plane_out.cur.w = cur.cur.w;
                     plane_out.cur.c = cur.cur.c;
-                    plane_out.cur.buf = gpu_->alloc(plane_out.cur.bytes(), error);
+                    plane_out.cur.buf = overscan_wanted()
+                        ? gpu_->alloc_file_backed(plane_out.cur.bytes(), error)
+                        : gpu_->alloc(plane_out.cur.bytes(), error);
                     if (!plane_out.cur.buf) return false;
                 }
                 if (!band_into(cur.cur, read, plane_out.cur, error)) return false;
@@ -2378,14 +2435,23 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
                         plane_out.log_e_film.h = frame_h;
                         plane_out.log_e_film.w = cur.log_e_film.w;
                         plane_out.log_e_film.c = cur.log_e_film.c;
-                        plane_out.log_e_film.buf = gpu_->alloc(plane_out.log_e_film.bytes(), error);
+                        plane_out.log_e_film.buf = overscan_wanted()
+                            ? gpu_->alloc_file_backed(plane_out.log_e_film.bytes(), error)
+                            : gpu_->alloc(plane_out.log_e_film.bytes(), error);
                         if (!plane_out.log_e_film.buf) return false;
                     }
                     if (!band_into(cur.log_e_film, read, plane_out.log_e_film, error)) return false;
                 }
             }
             band_row0_ = 0;
+            strip_plane_h_ = 0;
             chain = plane_out;
+            if (overscan_wanted()) {
+                // A larger canvas must not carry source-sized scratch into
+                // the next whole operation. Only reclaim after GPU completion.
+                if (!gpu_->flush(error)) return false;
+                gpu_->trim_pool(0);
+            }
             i = j;
         } else {
             // A stage that resolves `"swept"` still runs whole here -- what it
@@ -2401,9 +2467,19 @@ bool Pipeline::run_stages_striped(const Stage* stages, size_t count, Chain& chai
             if (report_sweep) blur_.set_sweep_report(nullptr);
             if (!ok) return false;
             chain = next;
+            // Overscan expands the plane at a whole-stage boundary. Every
+            // later band, including the final partial band, uses that canvas.
+            if (!plan.empty() && plan.back().y0 + plan.back().rows != chain.cur.h) {
+                plan = strip_plan(chain.cur.h);
+                report.plan = plan;
+            }
             if (report_sweep) {
                 report.stages[i].swept = std::move(sweep.bands);
                 report.stages[i].launches = sweep.launches;
+            }
+            if (overscan_wanted()) {
+                if (!gpu_->flush(error)) return false;
+                gpu_->trim_pool(0);
             }
             ++i;
         }
@@ -2476,7 +2552,9 @@ bool Pipeline::run_film_striped(const Image& in, Image& out, Progress* progress,
     if (!film_prefix(in, FrameShape{in.h, in.w}, cur, error)) return false;
 
     Chain chain;
-    chain.cur = cur;
+    // Do not pin the pre-exposure plane for the entire film run. Once the
+    // first band run replaces it, the chain must be its only transient owner.
+    chain.cur = std::move(cur);
     Progress::StripRun report;
     report.stage = "film";
     report.plan = strip_plan(cur.h);

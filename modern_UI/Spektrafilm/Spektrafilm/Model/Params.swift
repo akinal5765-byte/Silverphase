@@ -28,36 +28,6 @@ enum DiffusionChoice: String, CaseIterable, Identifiable, Sendable {
     var engineFamily: String { self == .off ? "black_pro_mist" : rawValue }
 }
 
-/// A JSON scalar for `params_delta`.
-enum ParamValue: Codable, Equatable, Sendable, CustomStringConvertible {
-    case double(Double), bool(Bool), string(String)
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
-        if let b = try? c.decode(Bool.self) { self = .bool(b) }
-        else if let d = try? c.decode(Double.self) { self = .double(d) }
-        else { self = .string(try c.decode(String.self)) }
-    }
-    func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
-        switch self {
-        case .double(let d): try c.encode(d)
-        case .bool(let b): try c.encode(b)
-        case .string(let s): try c.encode(s)
-        }
-    }
-    var description: String {
-        switch self {
-        case .double(let d): String(format: "%.4g", d)
-        case .bool(let b): b ? "true" : "false"
-        case .string(let s): s
-        }
-    }
-    var doubleValue: Double? { if case .double(let d) = self { d } else { nil } }
-    var boolValue: Bool? { if case .bool(let b) = self { b } else { nil } }
-    var stringValue: String? { if case .string(let s) = self { s } else { nil } }
-}
-
 /// The physical frame a photograph is recorded on, as **both** of its sides.
 ///
 /// The engine's `film_format_mm` is a single number and means the frame's
@@ -428,6 +398,9 @@ struct FilmParams: Codable, Equatable, Sendable {
         case cameraDiffusion, cameraDiffusionStrength, cameraDiffusionRange
         case enlargerDiffusion, enlargerDiffusionStrength, enlargerDiffusionRange
         case halationAmount, antihalationMode, developmentContrast, colorSeparation
+        case filmEdge, dateBack, pairSceneLatitude, pairSceneLatitudeSplit
+        case cameraFilter
+        case paperGrade
         case printBrightnessStops, printContrast, yFilterShift, mFilterShift, preflashExposure, glareActive, scanFilm
         case extendedDynamicRange
         case contrastMask, sceneLatitude, effects, printEffects, digitalIntermediate
@@ -437,6 +410,19 @@ struct FilmParams: Codable, Equatable, Sendable {
     // --- stock (shoot for film, print for paper) ---
     var filmStock: String = "kodak_portra_400"
     var printStock: String = "kodak_supra_endura"
+    var pairSceneLatitude: SceneLatitudeSettings?
+    var pairSceneLatitudeSplit: Double = 19.0 / 37.0
+    var filmEdge = FilmEdgeSettings.default
+    var dateBack = DateBackSettings()
+    var cameraFilter: CameraFilterChoice = .off
+    var paperGrade: PaperGrade = .two
+    var multigradePrinting: Bool {
+        StockCatalog.canonicalID(printStock) == "ilford_multigrade_iv_rc" && !scanFilm && !digitalIntermediate
+    }
+    var effectivePrintExposure: Double {
+        let compensation = multigradePrinting ? paperGrade.filtration.exposure : 1
+        return (Self.printExposure(stops: printBrightnessStops) * compensation).clamped(to: 0.05...20)
+    }
     // --- shoot ---
     var exposureCompensationEV: Double = 0          // -8…8
     /// Which exposure intent the engine's meter follows (RFC-015 §2.3),
@@ -567,6 +553,21 @@ struct FilmParams: Codable, Equatable, Sendable {
             StockCatalog.shared.stock(printStock)?.isMonochrome != true
     }
 
+    /// Defaults adopted from SpektraLab 1.3.3 (Hanze Qiu). These stocks use
+    /// the upstream particle path; our retained experimental films keep theirs.
+    nonisolated static func ownGrain(of stock: String) -> Double {
+        switch StockCatalog.canonicalID(stock) {
+        case "kodak_tri_x_400": 1.70
+        case "ilford_hp5_plus_400": 1.49
+        case "kodak_tmax_100": 0.74
+        case "fujifilm_neopan_acros_100_ii": 0.64
+        default: 1
+        }
+    }
+    var usesUpstreamBlackWhite: Bool {
+        ["kodak_tri_x_400", "ilford_hp5_plus_400", "kodak_tmax_100", "fujifilm_neopan_acros_100_ii"].contains(StockCatalog.canonicalID(filmStock))
+    }
+
     /// The enlarger's pre-flash: a uniform paper exposure of this many times
     /// the light through the film's clear base, added before development
     /// (`printing.cpp`). **Not in EV** -- measured on `_DSC2663`, 0.01 is ~9 %
@@ -631,8 +632,14 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// wire state. New physical controls default to their identity values.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        filmStock = try c.decode(String.self, forKey: .filmStock)
-        printStock = try c.decode(String.self, forKey: .printStock)
+        filmStock = StockCatalog.canonicalID(try c.decode(String.self, forKey: .filmStock))
+        printStock = StockCatalog.canonicalID(try c.decode(String.self, forKey: .printStock))
+        pairSceneLatitude = try c.decodeIfPresent(SceneLatitudeSettings.self, forKey: .pairSceneLatitude)
+        pairSceneLatitudeSplit = try c.decodeIfPresent(Double.self, forKey: .pairSceneLatitudeSplit) ?? 19.0 / 37.0
+        filmEdge = try c.decodeIfPresent(FilmEdgeSettings.self, forKey: .filmEdge) ?? .default
+        dateBack = try c.decodeIfPresent(DateBackSettings.self, forKey: .dateBack) ?? DateBackSettings()
+        cameraFilter = CameraFilterChoice(rawValue: try c.decodeIfPresent(String.self, forKey: .cameraFilter) ?? "") ?? .off
+        paperGrade = PaperGrade(rawValue: try c.decodeIfPresent(String.self, forKey: .paperGrade) ?? "2") ?? .two
         exposureCompensationEV = try c.decode(Double.self, forKey: .exposureCompensationEV)
         autoExposureMethod = try c.decodeIfPresent(String.self, forKey: .autoExposureMethod)
         autoExposure = try c.decode(Bool.self, forKey: .autoExposure)
@@ -680,8 +687,9 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// Wire representation of every field. Order is stable for tests.
     var wire: [(name: String, value: ParamValue, layer: ParamLayer)] {
         var fields: [(name: String, value: ParamValue, layer: ParamLayer)] = [
-            ("film_stock", .string(filmStock), .shoot),
-            ("print_stock", .string(printStock), .print),
+            ("camera_filter", .string(cameraFilter.rawValue), .shoot),
+            ("film_stock", .string(StockCatalog.canonicalID(filmStock)), .shoot),
+            ("print_stock", .string(StockCatalog.canonicalID(printStock)), .print),
             ("exposure_compensation_ev", .double(exposureCompensationEV), .shoot),
         ]
         // Only when set. A legacy sidecar has no method, and sending one would
@@ -694,9 +702,9 @@ struct FilmParams: Codable, Equatable, Sendable {
             // Sent always, unlike the method: it has a default here and the
             // default is the engine's, so a legacy frame is unchanged by it.
             ("auto_exposure", .bool(autoExposure), .shoot),
-            ("film_format_mm", .double(filmFormatMM), .shoot),
+            ("film_format_mm", .double(wireFilmFormatMM), .shoot),
             ("grain_active", .bool(grainActive), .shoot),
-            ("grain_sublayers_active", .bool(grainActive && effects.grainLayered), .shoot),
+            ("grain_sublayers_active", .bool(grainActive && effects.grainLayered && !usesUpstreamBlackWhite), .shoot),
             ("grain_size_scale", .double(grainSizeScale), .shoot),
             ("grain_softness", .double(0.65 * grainSoftness.clamped(to: Self.grainSoftnessRange)), .shoot),
             ("camera_diffusion_active", .bool(cameraDiffusion != "off"), .shoot),
@@ -708,14 +716,14 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("antihalation_mode", .string(antihalationMode), .shoot),
             ("density_curve_gamma", .double(developmentContrast), .shoot),
             ("dir_couplers_amount", .double(colorSeparation), .shoot),
-            ("print_exposure", .double(FilmParams.printExposure(stops: printBrightnessStops)), .print),
+            ("print_exposure", .double(effectivePrintExposure), .print),
             ("print_contrast", .double(printContrast), .print),
             ("enlarger_diffusion_active", .bool(!scanFilm && enlargerDiffusion != "off"), .print),
             ("enlarger_diffusion_family", .string(DiffusionChoice(rawValue: enlargerDiffusion)?.engineFamily ?? "black_pro_mist"), .print),
             ("enlarger_diffusion_strength", .double(enlargerDiffusionStrength), .print),
             ("enlarger_diffusion_range", .double(enlargerDiffusionRange), .print),
-            ("y_filter_shift", .double(yFilterShift), .print),
-            ("m_filter_shift", .double(mFilterShift), .print),
+            ("y_filter_shift", .double(multigradePrinting ? 0 : yFilterShift), .print),
+            ("m_filter_shift", .double(multigradePrinting ? 0 : mFilterShift), .print),
             ("glare_active", .bool(glareActive && printEffects), .print),
             ("scanner_sharpening_amount", .double(scannerSharpeningActive
                 ? 0.7 * scannerSharpeningStrength.clamped(to: Self.scannerSharpeningRange) : 0), .print),
@@ -748,7 +756,7 @@ struct FilmParams: Codable, Equatable, Sendable {
             // engine's and 1 is a bypass, so the picture of a legacy frame is
             // unchanged (its stamp is not -- new fields miss the cache once).
             ("halation_scatter_amount", .double(effects.scatter.clamped(to: EffectStrengths.scatterRange)), .shoot),
-            ("grain_amount", .double(effects.grain.clamped(to: EffectStrengths.grainRange)), .shoot),
+            ("grain_amount", .double((effects.grain * Self.ownGrain(of: filmStock)).clamped(to: EffectStrengths.grainRange)), .shoot),
             ("dir_couplers_active", .bool(effects.couplersActive), .shoot),
             ("glare_amount", .double(effects.glare.clamped(to: EffectStrengths.glareRange)), .print),
             // RFC-028. The DI is sent always, like the rest (off is the
@@ -758,6 +766,24 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("digital_intermediate_blue_compensation",
              .bool(digitalIntermediate && FilmParams.diBlueCompensation), .print),
         ]
+        // The selected Multigrade pack; supplied by the caller, not the profile.
+        // The four local films retain experimental pairing/calibration status.
+        if multigradePrinting {
+            let filtration = paperGrade.filtration
+            fields += [("c_filter_neutral", .double(0), .print),
+                       ("m_filter_neutral", .double(filtration.magenta), .print),
+                       ("y_filter_neutral", .double(filtration.yellow), .print)]
+        }
+        fields += [("scene_latitude_split", .double(filmEdge.pair ? pairSceneLatitudeSplit : 0), .shoot),
+                   ("scene_latitude_b_active", .bool(filmEdge.pair && pairSceneLatitude?.active == true), .shoot)]
+        if filmEdge.pair, let second = pairSceneLatitude {
+            fields += [("scene_latitude_b_highlight_knee", .double(second.highlightKnee), .shoot),
+                       ("scene_latitude_b_highlight_room", .double(second.highlightRoom), .shoot),
+                       ("scene_latitude_b_shadow_knee", .double(second.shadowKnee), .shoot),
+                       ("scene_latitude_b_shadow_room", .double(second.shadowRoom), .shoot)]
+        }
+        fields += filmEdge.wire
+        fields += dateBack.wire(filmEdge: filmEdge, scale: dateScale)
         return fields
     }
 

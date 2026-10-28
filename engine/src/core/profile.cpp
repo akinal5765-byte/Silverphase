@@ -199,7 +199,15 @@ bool load_profile(const std::string& resources_dir, const std::string& stock,
                         (c >= '0' && c <= '9') || c == '_' || c == '-';
         if (!ok) { error = "bad stock name '" + stock + "'"; return false; }
     }
-    if (!out.load(resources_dir + "/profiles/" + stock + ".json", error)) {
+    // Old Silverphase IDs select the upstream replacement, including native callers.
+    std::string canonical = stock;
+    if (stock == "kodak_tri_x_400_experimental") canonical = "kodak_tri_x_400";
+    if (stock == "ilford_hp5_plus_400_experimental") canonical = "ilford_hp5_plus_400";
+    if (stock == "silverphase_neutral_bw_print_experimental") canonical = "ilford_multigrade_iv_rc";
+    std::string path = resources_dir + "/profiles/" + canonical + ".json";
+    // Checkout-only companion data. Bundled profiles are copied into profiles/.
+    if (!std::ifstream(path)) path = resources_dir + "/../resources_product/profiles/" + canonical + ".json";
+    if (!out.load(path, error)) {
         error = "no profile '" + stock + "' (" + error + ")";
         return false;
     }

@@ -1,0 +1,51 @@
+{
+  "repository": "https://github.com/JamesQiu2005/SpektraLab",
+  "commit": "01d32a2b767fbdb447bbc3ab156dfa1f2388580c",
+  "author": "Hanze Qiu",
+  "sha256": {
+    "NOTICE.md": "c66d8348372bc71b03270245baa8f9c5d2ab6dc83eb7d2da57b1c6b43523e750",
+    "paper_grades.json": "a6a2f689c73b104880d965519586db7c0976027aad05b6103872537f81b76ce9",
+    "neutral_print_filters.json": "320f92b0608d599a1affb6231fcabd3d0df8f79a87514e34bf27c5b8e622be69",
+    "profiles/fujifilm_neopan_acros_100_ii.json": "4429b45664a06c7ee8d16687bcc7adf656403e534fba584f83762e160abdc4f9",
+    "profiles/ilford_hp5_plus_400.json": "a09ccdb57816f220ab598e534318a743ef79e16a300f8bd2de7453d451fe8ec5",
+    "profiles/ilford_multigrade_iv_rc.json": "0f776f1f26f04aca4ec438ed377dc1acf4073dc1a8ae32c51607a6cb1a02521d",
+    "profiles/kodak_tmax_100.json": "c9160236872034b86fb42b67be3a9252088bfa7bdbb450148b0c20ad83e3033a",
+    "profiles/kodak_tri_x_400.json": "a54be071c6a055a9a49acb7072d10bf0b1bcddf9c0a459b0800a9b14bb66b1f1"
+  },
+  "code_sources": {
+    "engine/src/core/camera_filters.hpp": {
+      "sha256": "b75a5bac5db906924432ebc69b1c28d858e8b97cd7c6f0566ef215e35addca08",
+      "adoption": "unchanged"
+    },
+    "engine/src/core/hanatos.cpp": {
+      "adoption": "film_sensitivity lens-filter block unchanged; remaining Silverphase implementation retained"
+    },
+    "engine/src/pipeline/overscan.cpp": {
+      "sha256": "ac6c548a293151096691b9a1fdb2f3b7f018cabcfa16c55f86e1e74242ec334c",
+      "adoption": "adapted from upstream; Silverphase dimension-changing striped execution, file-backed intermediate storage and GPU memory lifetime handling",
+      "local_sha256": "48399a5058ba4d4d1bcd142456f299dd72936bcd2fc941fd3b225634f540c301"
+    },
+    "engine/src/shaders/overscan.metal": {
+      "sha256": "56cbe1f8d6d25cc91fdf013180aff1a2d1a59d4f342cd483399381c37bf2c62b",
+      "adoption": "unchanged"
+    },
+    "engine/src/pipeline/scene_latitude.cpp": {
+      "adoption": "upstream paired-frame regional curve support; existing Silverphase pipeline retained"
+    },
+    "engine/src/shaders/scene_latitude.metal": {
+      "adoption": "upstream paired-frame regional curve support; existing Silverphase pipeline retained"
+    },
+    "modern_UI/Spektrafilm/Spektrafilm/Model/FilmEdge.swift": {
+      "adoption": "upstream model adapted for Silverphase controls, sidecars and pair workflow"
+    },
+    "modern_UI/Spektrafilm/Spektrafilm/Model/HalfFramePair.swift": {
+      "adoption": "upstream model adapted for Silverphase controls, sidecars and pair workflow"
+    },
+    "modern_UI/Spektrafilm/Spektrafilm/Model/ShootingData.swift": {
+      "adoption": "upstream model adapted for Silverphase controls, sidecars and pair workflow"
+    },
+    "modern_UI/Spektrafilm/Spektrafilm/Import/PairComposer.swift": {
+      "adoption": "upstream scene-linear pair compositor adapted to native Silverphase input framing"
+    }
+  }
+}

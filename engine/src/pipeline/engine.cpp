@@ -204,6 +204,7 @@ struct spk_session {
         uint32_t image_long_edge = 0;
         Image negative;   // Tap.CMY_FILM
         bool has_negative = false;
+        uint32_t overscan_frame_w = 0, overscan_frame_h = 0;
         std::optional<double> applied_ev;   // what the node applied to `negative`
     };
     std::unordered_map<std::string, TierState> tiers;
@@ -1051,6 +1052,7 @@ bool negative_for(spk_session* session, const Tier& tier, Progress* progress, Im
                   std::string& error) {
     spk_session::TierState& state = session->tiers[tier.name];
     if (state.has_negative) {
+        if (!session->pipeline->set_overscan_frame(state.overscan_frame_w, state.overscan_frame_h, error)) return false;
         if (progress) progress->auto_exposure_ev = state.applied_ev;
         out = state.negative;
         return true;
@@ -1065,6 +1067,7 @@ bool negative_for(spk_session* session, const Tier& tier, Progress* progress, Im
                              : std::nullopt);
     Image negative;
     if (!run_film_for(session, source, negative, progress, error)) return false;
+    session->pipeline->overscan_frame(state.overscan_frame_w, state.overscan_frame_h);
     state.applied_ev = session->pipeline->last_auto_exposure_ev();
     if (progress) progress->auto_exposure_ev = state.applied_ev;
     // The negative is what every subsequent slider drag reprints from, so it
@@ -1676,6 +1679,10 @@ spk_status spk_render_digital_intermediate(spk_session* session, spk_result* out
              pipeline.build(params, error);
         if (ok) {
             pipeline.set_source_long_edge(edge, frame);
+            const auto& state = session->tiers[kTiers[2].name];
+            ok = pipeline.set_overscan_frame(state.overscan_frame_w, state.overscan_frame_h, error);
+        }
+        if (ok) {
             ok = (params.settings.striped ? pipeline.run_print_striped(negative, rgb, nullptr, error)
                                           : pipeline.run_print(negative, rgb, nullptr, error)) &&
                  gpu->flush(error);
@@ -1831,12 +1838,17 @@ Params medium_probe_params(const Params& session) {
     Params p = session;
     p.camera.auto_exposure = false;
     p.camera.scene_latitude.active = false;
+    p.camera.scene_latitude.split = 0;
+    p.camera.scene_latitude.b_active = false;
     p.film_render.grain.active = false;
     p.film_render.grain.sublayers_active = false;
     p.film_render.halation.active = false;
     p.print_render.glare.active = false;
     p.print_render.contrast_mask.active = false;
     p.print_render.edr_enabled = false;
+    p.film_render.overscan.active = false;
+    p.film_render.overscan.pair = false;
+    p.film_render.date_imprint.active = false;
     p.io.geometry = GeometryParams{};
     p.io.input_cctf_decoding = false;
     p.io.output_cctf_encoding = false;
@@ -2007,13 +2019,24 @@ spk_status spk_scene_latitude(spk_session* session, const char* request_json, ch
         const double ev = cam.auto_exposure ? session->meter.evs.of(cam.auto_exposure_method) : 0.0;
         char ev_text[64];
         std::snprintf(ev_text, sizeof ev_text, "%.17g", ev);
-        const std::string scene_key = meter_key(session->params) + base.norm + "|" + ev_text;
+        // One frame of a pair: the scene is measured inside `region` only
+        // (x0, y0, x1, y1, normalised to the frame the engine was handed).
+        double region[4] = {0, 0, 1, 1};
+        bool has_region = false;
+        if (request.at("region").is_array() && request.at("region").items().size() == 4) {
+            has_region = true;
+            for (size_t k = 0; k < 4; ++k) region[k] = request.at("region").items()[k].as_double(k < 2 ? 0.0 : 1.0);
+        }
+        char region_text[160];
+        std::snprintf(region_text, sizeof region_text, "|%.6f,%.6f,%.6f,%.6f", region[0], region[1], region[2], region[3]);
+        const std::string scene_key = meter_key(session->params) + base.norm + "|" + ev_text +
+                                      (has_region ? region_text : "");
         if (cache.scene_key != scene_key) {
             Image small;
             std::vector<double> E;
             ok = meter_frame(session, small, error);
             if (ok && base.norm == session->params.camera.scene_latitude.norm) {
-                ok = session->pipeline->scene_latitude_sample(small, ev, E, error);
+                ok = session->pipeline->scene_latitude_sample(small, ev, E, error, has_region ? region : nullptr);
             } else if (ok) {
                 // The sample reads the norm from its pipeline's params, so a
                 // "what if" on another norm gets a pipeline of its own rather
@@ -2022,7 +2045,7 @@ spk_status spk_scene_latitude(spk_session* session, const char* request_json, ch
                 p.camera.scene_latitude.norm = base.norm;
                 Pipeline sampler(gpu, &session->engine->colour, &session->engine->blob,
                                  &session->engine->setup_cache);
-                ok = sampler.build(p, error) && sampler.scene_latitude_sample(small, ev, E, error);
+                ok = sampler.build(p, error) && sampler.scene_latitude_sample(small, ev, E, error, has_region ? region : nullptr);
             }
             if (ok) {
                 cache.scene = slm::scene_stats(std::move(E));
@@ -2305,6 +2328,18 @@ void spk_session_release(spk_session* session) {
     // Every buffer the session held is a counted handle, so destroying it is
     // all the releasing there is.
     delete session;
+}
+
+spk_status spk_overscan_geometry(spk_session* session, char** out_json) {
+    if (!session || !out_json) { g_error = "session or out_json is null"; return SPK_ERR_INVALID_ARG; }
+    std::lock_guard<std::mutex> guard(session->lock);
+    g_error.clear();
+    Json reply;
+    std::string parse_error;
+    const std::string text = session->pipeline ? session->pipeline->overscan_geometry_json() : std::string("{\"valid\":false}");
+    if (!Json::parse(text, reply, parse_error)) { g_error = "overscan geometry: " + parse_error; return SPK_ERR_INTERNAL; }
+    *out_json = dup_json(reply);
+    return SPK_OK;
 }
 
 }  // extern "C"

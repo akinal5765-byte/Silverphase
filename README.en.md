@@ -2,11 +2,11 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-**Silverphase is a film-and-paper process simulator for macOS.** It takes a photograph through camera input, film, development, print, and scan, exposing controls in photographic terms instead of presenting every research-model parameter. It is not intended to replace Lightroom or Capture One: general grading, asset management, and extensive local retouching belong in tools built for those jobs.
+**Silverphase is a film-and-paper process simulator for macOS, iPhone, and iPad.** It takes a photograph through camera input, film, development, print, and scan, exposing controls in photographic terms instead of presenting every research-model parameter. It is not intended to replace Lightroom or Capture One: general grading, asset management, and extensive local retouching belong in tools built for those jobs.
 
 Silverphase is an independent derivative of [SpektraLab](https://github.com/JamesQiu2005/SpektraLab), retaining its Git history and native macOS/C++/Metal foundation. The film and paper model and measured profiles originate in Andrea Volpato's [spektrafilm](https://github.com/andreavolpato/spektrafilm). Silverphase's product direction and interface are independent of both projects; neither upstream project is affiliated with or endorses Silverphase.
 
-> This repository contains work-in-progress source, not a signed and notarized macOS release. Some directories, Xcode targets, and commands still use the internal engineering name `Spektrafilm`; the app's displayed name is `Silverphase`.
+> This repository contains work-in-progress source, not a signed and notarized macOS release. Some directories, Xcode targets, and commands still use the internal engineering name `Spektrafilm`; the app's displayed name is `Silverphase`. The iOS editor uses the same engine but has not reached full desktop feature parity; see the [iOS guide](ios/README.md).
 
 ## From photograph to print
 
@@ -27,7 +27,9 @@ The UI and source are authoritative for exact ranges and defaults. This README d
 
 Eight **experimental negative profiles** are also available: PRO160NS, Pro Image 100, SUPERIA REALA 100, NATURA 1600, Agfa Portrait XPS 160, Agfa Optima II 200, Kodak Elite Color 200, and Fujifilm PRO 160C. They use stable film models as coherent bases, with bounded adjustments informed by manufacturer relative sensitivity and contrast curves. Usable colour takes priority over reconstructing individual dyes from incomplete data. These are creative approximations, not reproductions validated against photographed film. See [sources and limitations](engine/tools/profile_sources/experimental_negatives.md).
 
-Six **experimental B&W negatives** are available in the Experimental tab: HP5 Plus 400, Tri-X 400, Delta 100, FP4 Plus 125, XP2 Super 400 and Fomapan 100 Classic. Distinct spectral responses and tone curves form the image, rather than final-image desaturation. They default to a synthetic Neutral B&W Print (Experimental). XP2 approximates C-41 chromogenic monochrome; the others use neutral silver-image proxies. Grain, unmeasured shoulders and speed calibration are not accurate reproductions. See [B&W sources and limitations](engine/tools/profile_sources/blackwhite.md).
+B&W materials include SpektraLab's **Tri-X 400, HP5 Plus 400, T-Max 100, Acros II and Ilford Multigrade IV RC paper**, alongside the retained experimental Delta 100, FP4 Plus 125, XP2 Super 400 and Fomapan 100 profiles. Spectral response and density curves form the image. Multigrade provides grades 00–5 with filtration/exposure compensation; eight Wratten lens filters are available. See [B&W sources and limitations](engine/tools/profile_sources/blackwhite.md) and [adoption provenance](engine/resources_product/UPSTREAM.json) for chemistry, fitting and grain assumptions.
+
+Film edges and date backs form within the film pipeline: 135, half-frame, multiple 120 and panoramic gates, perforations, markings, fog and leaks. Date availability depends on format: 120 uses the margin; panoramic formats have no date back. Desktop also saves two source photos as a `.spektrapair` half-frame composition; iOS has not yet adopted two-photo pairing. See [film-edge modeling notes](engine/tools/profile_sources/film_edge.md).
 
 ## Two export paths
 
@@ -42,17 +44,18 @@ The two paths serve different delivery needs. Do not deliver the TIFF inside a D
 ## Architecture
 
 - `modern_UI/Spektrafilm/Spektrafilm/`: SwiftUI interface, session, preview, and export.
+- `ios/Silverphase/`: native iOS/iPadOS editor sharing the current engine, catalogue, geometry and icon; see the [control audit](ios/CONTROL-AUDIT.md) for differences.
 - `engine/`: C++20 render engine, Metal kernels, film/paper resources, and test tools.
 - `modern_UI/Spektrafilm/Tools/`: Xcode project generation and bundled-resource/license checks.
 - `modern_UI/design/UI-SPEC.md`: UI specification; `ARCHITECTURE.md` and `rfc/`: architecture and historical design records. Older documents may still describe the removed general grading layer; the current source takes precedence.
 
-The engine is compiled into the macOS app. Running the app requires no Python service, subprocess, or virtual environment. The app calls the C++/Metal engine through a C interface; Metal renders the image, while macOS imaging and color-management components handle file decoding and delivery. Python scripts used for development are not runtime dependencies.
+The engine is compiled into both platform apps. Running the app requires no Python service, subprocess, or virtual environment. The app calls the C++/Metal engine through a C interface; Metal renders the image, while Apple imaging and color-management components handle file decoding and delivery. Python scripts used for development are not runtime dependencies.
 
 ## Build locally
 
-You need an Apple-silicon Mac, macOS 15 or later, and Xcode with the Metal toolchain. The project currently targets Xcode 26.6. Its Xcode project file is committed, so a normal build does not require regenerating it.
+You need an Apple-silicon Mac, macOS 15 or later, and Xcode with the Metal toolchain. The current local toolchain is Xcode 27.1. Its Xcode project file is committed, so a normal build does not require regenerating it.
 
-From the repository root:
+If Command Line Tools is selected, first set `export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer` in the current shell (adjust for the installed Xcode). From the repository root:
 
 ```bash
 engine/build.sh bundle
@@ -72,6 +75,8 @@ xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
 ```
 
 Real-photo validation uses an external manifest and temporary copies; private photographs are not committed. See the [validation guide](modern_UI/Spektrafilm/VALIDATION.md) for reproducible commands, coverage and skips. Historical Python-reference parity scripts remain available, but current acceptance does not depend on the retired frozen reference environment. See the [project notes](modern_UI/Spektrafilm/README.md) and [developer notes](AGENTS.md) for more build details.
+
+For iOS/iPadOS 18+ simulator builds, device signing, adaptive preview and diagnostic scopes, see the [iOS guide](ios/README.md). The [documentation index](docs/README.md) maps current guides; the [2026-10-28 validation report](performance/VALIDATION-REPORT-2026-10-28.md) records this integration and its unverified areas.
 
 ## Origins, licenses, and independence
 

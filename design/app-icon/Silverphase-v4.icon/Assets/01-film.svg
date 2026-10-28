@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<title>Silverphase — 01-film</title>
+<defs><linearGradient id="color" x1="0" y1="0" x2="0.7" y2="1">
+<stop offset="0" stop-color="#F3AE41"/><stop offset="1" stop-color="#E0722F"/>
+</linearGradient></defs>
+<path d="M-210 -196h420a68 68 0 0 1 68 68v256a68 68 0 0 1 -68 68h-420a68 68 0 0 1 -68 -68v-256a68 68 0 0 1 68 -68Z" fill="url(#color)" transform="translate(512 574) rotate(-12)"/>
+</svg>
