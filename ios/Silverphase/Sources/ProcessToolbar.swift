@@ -39,7 +39,7 @@ struct ProcessToolbar: ViewModifier {
     }
 }
 
-private struct NativeEditorMenu: View {
+struct NativeEditorMenu: View {
     @Bindable var document: MobileDocument
     @Binding var inspector: Bool
     @Binding var materials: Bool
@@ -115,7 +115,7 @@ struct ProcessNavigation<Content: View>: View {
                     Tab(value: item) {
                         // Inactive tab canvases must not publish stale/zero
                         // geometry into the selected photo's detail request.
-                        if stage == item { content() } else { Color.clear }
+                        if stage == item { content().tint(.primary) } else { Color.clear }
                     } label: {
                         Label {
                             Text(item.rawValue)

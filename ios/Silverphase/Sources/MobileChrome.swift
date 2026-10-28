@@ -7,10 +7,11 @@ struct ChromeButton: View {
     let symbol: String
     var selected = false
     var enabled = true
+    var glyphSize: CGFloat = EditorDesign.glyphSize
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            ToolbarGlyph(symbol: symbol)
+            ToolbarGlyph(symbol: symbol, size: glyphSize)
                 .foregroundStyle(!enabled ? MobileStyle.muted : selected ? MobileStyle.accent : .white.opacity(0.85))
                  .contentShape(Rectangle())
         }.buttonStyle(.plain).disabled(!enabled).accessibilityLabel(title)
@@ -23,11 +24,7 @@ struct ChromeSurface: ViewModifier {
     var topBar = false
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            let shape = ConcentricRectangle(
-                topLeadingCorner: .concentric(minimum: .fixed(radius)),
-                topTrailingCorner: .concentric(minimum: .fixed(radius)),
-                bottomLeadingCorner: topBar ? .fixed(0) : .concentric(minimum: .fixed(radius)),
-                bottomTrailingCorner: topBar ? .fixed(0) : .concentric(minimum: .fixed(radius)))
+            let shape = Self.boundary(radius: radius, topBar: topBar)
             if reduceTransparency {
                 content.clipShape(shape).background(MobileStyle.surface, in: shape)
             } else {
@@ -38,6 +35,15 @@ struct ChromeSurface: ViewModifier {
             content.clipShape(RoundedRectangle(cornerRadius: topBar ? 0 : radius)).background(.regularMaterial, in: RoundedRectangle(cornerRadius: topBar ? 0 : radius))
         }
     }
+    @available(iOS 26.0, *)
+    static func boundary(radius: CGFloat = MobileStyle.radius, topBar: Bool) -> ConcentricRectangle {
+        ConcentricRectangle(
+            topLeadingCorner: .concentric(minimum: .fixed(radius)),
+            topTrailingCorner: .concentric(minimum: .fixed(radius)),
+            bottomLeadingCorner: topBar ? .fixed(0) : .concentric(minimum: .fixed(radius)),
+            bottomTrailingCorner: topBar ? .fixed(0) : .concentric(minimum: .fixed(radius)))
+    }
+
 }
 
 struct MobileOption: Identifiable {
@@ -83,7 +89,7 @@ struct ChoiceOverlay: View {
                                         HStack(spacing: 8) {
                                             if let symbol = option.symbol { Image(systemName: symbol).frame(width: 18) }
                                             Text(option.title).frame(maxWidth: .infinity, alignment: .leading)
-                                            if choice.selected == option.id { Image(systemName: "checkmark").foregroundStyle(MobileStyle.accent) }
+                                            if choice.selected == option.id { Image(systemName: "checkmark").foregroundStyle(.primary) }
                                         }
                                         .font(.system(size: 13)).foregroundStyle(option.enabled ? .white : MobileStyle.muted)
                                         .frame(minHeight: 44).padding(.horizontal, 12).contentShape(Rectangle())

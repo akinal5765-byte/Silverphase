@@ -185,6 +185,133 @@ enum MobileSmokeChecks {
         }
     }
 
+    @MainActor static func clipboardRegression() {
+        let report = URL.documentsDirectory.appendingPathComponent("clipboard-report.json")
+        let directory = URL.temporaryDirectory.appendingPathComponent("Clipboard-Regression-" + UUID().uuidString)
+        let document = MobileDocument(directory: directory)
+        document.active = false
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var checks: [String] = []
+        do {
+            func require(_ condition: Bool, _ message: String) throws {
+                guard condition else { throw MobileFailure.message(message) }
+                checks.append(message)
+            }
+            var source = MobilePhoto(name: "Source", filename: "source.tif")
+            source.recipe = ["exposure_compensation_ev": .double(1), "film_stock": .string("kodak_gold_200"),
+                             "_placementHighlight": .double(2), "_whiteBalancePreset": .string("asShot"),
+                             "_temperature": .double(8000), "_lens": .bool(true)]
+            source.geometry = MobileGeometry(quarterTurns: 1, aspect: 1)
+            var first = MobilePhoto(name: "Target A", filename: "a.tif")
+            first.recipe = ["exposure_compensation_ev": .double(-1), "density_curve_gamma": .double(1.2),
+                            "_temperature": .double(3200), "_tint": .double(25), "_whiteBalancePreset": .string("custom"),
+                            "_lens": .bool(false), "_raw": .bool(true), "camera_filter": .string("w25")]
+            var second = MobilePhoto(name: "Target B", filename: "b.tif")
+            second.recipe = ["exposure_compensation_ev": .double(-2), "film_stock": .string("kodak_portra_400")]
+            let untouched = MobilePhoto(name: "Unselected", filename: "c.tif")
+            document.photos = [source, first, second, untouched]; document.selection = first.id
+            document.copySettings(source); document.pasteSettings()
+            try require(document.current?.geometry == first.geometry, "default clipboard preserves target geometry")
+            document.undo()
+            try require(document.current?.recipe == first.recipe, "single paste undo restores sparse overrides")
+            document.copySettings(source, groups: [.camera])
+            document.photos[0].recipe["exposure_compensation_ev"] = .double(3)
+            document.photos[0].name = "Renamed Source"
+            document.beginPhotoSelection(first.id); document.togglePhotoSelection(second.id)
+            let preview = document.selection
+            try require(document.selectedPhotoIDs == [first.id, second.id] && document.selection == preview, "multi-selection does not change preview")
+            let count = document.pasteSettings()
+            try require(count == 2 && document.selectedPhotoIDs.count == 2 && document.isSelectingPhotos, "paste targets selected photos and retains selection")
+            try require(document.photos[1].recipe["exposure_compensation_ev"]?.doubleValue == 1 && document.photos[2].recipe["exposure_compensation_ev"]?.doubleValue == 1, "clipboard is a copy-time snapshot across targets")
+            try require(document.settingsClipboard?.sourceName == "Source" && document.settingsClipboard?.groups == [.camera], "clipboard retains source label and confirmed groups")
+            try require(document.photos[1].recipe["density_curve_gamma"]?.doubleValue == 1.2 && document.photos[2].recipe["film_stock"] == second.recipe["film_stock"], "unselected parameter groups remain intact")
+            try require(document.photos[1].recipe["camera_filter"] == nil && document.photos[1].recipe["_temperature"] == nil && document.photos[1].recipe["_tint"] == nil, "source defaults remove old overrides and As Shot uses target camera")
+            try require(document.photos[1].recipe["_lens"] == .bool(false) && document.photos[1].recipe["_raw"] == .bool(true), "lens calibration and decode metadata are not pasted")
+            try require(document.photos[1].recipe["_placementHighlight"] == .double(2) && document.photos[1].recipe["scene_latitude_highlight_knee"] == nil, "scene placement copies intent rather than fitted curve")
+            try require(document.photos[3].recipe == untouched.recipe && document.photos[0].recipe["exposure_compensation_ev"] == .double(3), "unselected source and photo remain unchanged")
+            document.mark(first.id, rating: 5, flag: "pick")
+            document.select(untouched.id)
+            document.undo()
+            try require(document.photos[1].recipe == first.recipe && document.photos[2].recipe == second.recipe, "one undo restores the entire batch after switching preview")
+            try require(document.photos[1].rating == 5 && document.photos[1].flag == "pick", "undo preserves later ratings and flags")
+            document.redo()
+            try require(document.photos[1].recipe["exposure_compensation_ev"] == .double(1) && document.photos[2].recipe["exposure_compensation_ev"] == .double(1), "one redo reapplies the entire batch")
+            document.pasteSettings()
+            document.undo()
+            try require(document.photos[1].recipe == first.recipe && document.photos[2].recipe == second.recipe, "repeating an identical paste adds no empty undo step")
+            document.redo()
+            document.restrictPhotoSelection(to: [second.id, untouched.id])
+            try require(document.selectedPhotoIDs == [second.id], "filter changes remove hidden paste targets")
+            document.selectAllPhotos([second.id, untouched.id, UUID()])
+            try require(document.selectedPhotoIDs == [second.id, untouched.id], "select all uses supplied visible existing photos only")
+            document.clearPhotoSelection()
+            try require(document.pasteSettings() == 0, "empty multi-selection never falls back to current photo")
+            document.endPhotoSelection()
+            try require(!document.isSelectingPhotos && document.selectedPhotoIDs.isEmpty, "done exits and clears multi-selection")
+            let clip = document.settingsClipboard
+            document.copySettings(source, groups: [])
+            try require(document.settingsClipboard?.summary == clip?.summary, "empty copy leaves confirmed clipboard untouched")
+            document.copySettings(source, groups: [.geometry])
+            document.pasteSettings(to: [second.id])
+            try require(document.photos[2].geometry != second.geometry && document.photos[2].recipe["exposure_compensation_ev"] == .double(1), "geometry is opt-in and does not replace recipe")
+            document.undo()
+            try require(document.photos[2].geometry == second.geometry, "geometry paste is undoable")
+            var manual = source
+            manual.name = "Manual WB"
+            manual.recipe = ["_whiteBalancePreset": .string("custom"), "_temperature": .double(5100)]
+            document.copySettings(manual, groups: [.camera]); document.pasteSettings(to: [first.id])
+            try require(document.photos[1].recipe["_temperature"] == .double(5100) && document.photos[1].recipe["_tint"] == nil, "custom white balance copies only explicit axes")
+            let allKeys = MobileClipboardGroup.allCases.flatMap { Array($0.keys) }
+            try require(Set(allKeys).count == allKeys.count, "clipboard parameter groups have unique ownership")
+            let lockedRecipe = document.photos[1].recipe
+            _ = document.beginPhotoImport(total: 1)
+            document.beginPhotoSelection(first.id); document.copySettings(source); document.pasteSettings(to: [first.id]); document.undo()
+            try require(document.photos[1].recipe == lockedRecipe && document.settingsClipboard?.sourceName == manual.name && !document.isSelectingPhotos, "import lock blocks copy selection paste and history mutations")
+            document.finishPhotoImportWithoutFiles()
+            document.undo() // undo last camera paste, revealing the preceding batch history
+            document.remove(second.id)
+            while document.canUndo { document.undo() }
+            try require(!document.photos.contains { $0.id == second.id }, "history never resurrects a removed target")
+            document.select(first.id)
+            let beforeDrag = document.current?.recipe
+            document.beginParameterInteraction()
+            document.set("exposure_compensation_ev", .double(0.33))
+            document.set("exposure_compensation_ev", .double(0.66))
+            document.setDiscrete("camera_filter", .string("w8"))
+            document.undo()
+            try require(document.current?.recipe["camera_filter"] == beforeDrag?["camera_filter"] && document.current?.recipe["exposure_compensation_ev"] == .double(0.66), "discrete edit after a ruler drag has its own undo step")
+            document.undo()
+            try require(document.current?.recipe == beforeDrag, "continuous ruler edits still undo as one transaction")
+            document.redo()
+            try require(document.current?.recipe["exposure_compensation_ev"] == .double(0.66), "continuous ruler edits still redo as one transaction")
+            let result: [String: Any] = ["passed": true, "checks": checks]
+            try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
+        } catch {
+            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": error.localizedDescription], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
+        }
+    }
+
+    @MainActor static func prepareIPadChromeUI(_ document: MobileDocument) {
+        document.active = false
+        let color = CIImage(color: CIColor(red: 1, green: 0.25, blue: 0.05)).cropped(to: CGRect(x: 0, y: 0, width: 128, height: 128))
+        guard let image = CIContext().createCGImage(color, from: color.extent) else { return }
+        var photo = MobilePhoto(name: "Chrome boundary fixture", filename: "chrome-fixture.tif")
+        photo.sourceMegapixels = 0.016384; photo.sourceAspect = 1
+        document.photos = [photo]; document.selection = photo.id
+        document.image = image; document.original = image
+        document.canvasState.scale = 12
+    }
+
+    @MainActor static func prepareClipboardUI(_ document: MobileDocument) {
+        document.active = false
+        document.photos = ["来源", "目标 A", "目标 B"].enumerated().map { index, name in
+            var photo = MobilePhoto(name: name, filename: "clipboard-ui-\(index).tif")
+            photo.recipe["exposure_compensation_ev"] = .double(index == 0 ? 1 : -Double(index))
+            return photo
+        }
+        document.selection = document.photos.first?.id
+    }
+
     @MainActor static func run() async throws -> URL {
         let previousIdle = UIApplication.shared.isIdleTimerDisabled
         UIApplication.shared.isIdleTimerDisabled = true
@@ -515,7 +642,11 @@ enum MobileSmokeChecks {
         let stocks = StockCatalog.shared.films
         return stocks.filter { MobileMaterialFilter.positive.includes($0, favorites: [], recent: []) }.allSatisfy(\.isPositive) &&
             stocks.filter { MobileMaterialFilter.monochrome.includes($0, favorites: [], recent: []) }.allSatisfy(\.isMonochrome) &&
-            stocks.filter { MobileMaterialFilter.experimental.includes($0, favorites: [], recent: []) }.allSatisfy(\.isExperimental)
+            MobileMaterialFilter.allCases.allSatisfy { filter in
+                stocks.filter(\.isExperimental).allSatisfy { stock in
+                    !filter.includes(stock, favorites: [stock.id], recent: [stock.id])
+                }
+            } && stocks.contains { !$0.isExperimental && MobileMaterialFilter.all.includes($0, favorites: [], recent: []) }
     }
     @MainActor private static func importInteractionCheck(source: URL) async throws {
         let folder = URL.temporaryDirectory.appendingPathComponent("DocumentSmoke-" + UUID().uuidString)

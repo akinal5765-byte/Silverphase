@@ -8,6 +8,7 @@ enum EditorDesign {
     static let canvasInfoInset: CGFloat = 28
     static let hitSize: CGFloat = 44
     static let glyphSize: CGFloat = 20
+    static let filmstripGlyphSize: CGFloat = 18
     static let panelHeader: CGFloat = 44
     static let cardInset: CGFloat = 6
     static let cardRadius: CGFloat = 12
@@ -22,14 +23,25 @@ enum EditorDesign {
     static let valueWidth: CGFloat = 48
     static let label = Font.system(size: 12)
     static let caption = Font.system(size: 11)
+
+    // Inspector roles: keep parameter rows consistent across ruler/menu/toggle controls.
+    static let panelTitle = Font.system(size: 17, weight: .semibold)
+    static let sectionTitle = Font.system(size: 14, weight: .semibold)
+    static let parameter = Font.system(size: 13)
+    static let selectedValue = Font.system(size: 14, weight: .medium)
+    static let numericValue = Font.system(size: 15, weight: .medium)
+    static let panelSummary = Font.system(size: 12)
+    static let help = Font.system(size: 11)
+    static let instrument = Font.system(size: 10).monospacedDigit()
 }
 
 struct ToolbarGlyph: View {
     let symbol: String
+    var size: CGFloat = EditorDesign.glyphSize
     var body: some View {
-        Image(systemName: symbol).resizable().scaledToFit()
+        Image(systemName: symbol).resizable().font(.system(size: size, weight: .regular)).scaledToFit()
             .symbolRenderingMode(.monochrome)
-            .frame(width: EditorDesign.glyphSize, height: EditorDesign.glyphSize)
+            .frame(width: size, height: size)
             // The arrow raises the export glyph's bounds above its square body.
             // Align the visual mass with the comparison rectangle, not its bounds.
             .offset(y: symbol == "square.and.arrow.up" ? -2 : 0)
@@ -76,5 +88,16 @@ struct BrowserCard<Artwork: View>: View {
         .padding(EditorDesign.cardInset)
         .frame(width: width, height: EditorDesign.cardHeight, alignment: .topLeading)
         .modifier(BrowserSelection(selected: selected))
+    }
+}
+
+/// Shared heading rhythm for process and export inspectors.
+struct ToolSectionTitle: View {
+    let title: String
+    var body: some View {
+        Text(title).font(EditorDesign.sectionTitle).foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 24).padding(.bottom, 10)
+            .accessibilityAddTraits(.isHeader)
     }
 }

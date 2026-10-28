@@ -32,14 +32,14 @@ struct RulerParameterRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center) {
-                Text(title).font(.system(size: 13)).foregroundStyle(.secondary)
+                Text(title).font(EditorDesign.parameter).foregroundStyle(.secondary)
                     .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
                 Button {
                     onInteraction?(false)
                     entry = String(format: "%.*f", fractionDigits, value); entering = true
                 } label: {
                     Text(String(format: "%.*f", fractionDigits, shown))
-                        .font(.system(size: 14, weight: .medium))
+                        .font(EditorDesign.numericValue)
                         .modifier(AdjustmentNumberTransition(value: shown, fractionDigits: fractionDigits))
                         .foregroundStyle(.primary)
                         .frame(minWidth: EditorDesign.hitSize, minHeight: EditorDesign.hitSize, alignment: .trailing)

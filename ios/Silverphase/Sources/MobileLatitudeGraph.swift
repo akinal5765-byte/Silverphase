@@ -44,12 +44,12 @@ struct MobileLatitudeGraph: View {
                 for ev in [latitude.shadow, latitude.highlight] where (-8...8).contains(ev) {
                     var boundary = Path(); boundary.move(to: CGPoint(x: x(ev), y: 1)); boundary.addLine(to: CGPoint(x: x(ev), y: bandY + 6))
                     context.stroke(boundary, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.75, dash: [2, 2]))
-                    let label = Text(String(format: "%+.2f", ev)).font(.system(size: 10)).foregroundStyle(.secondary)
+                    let label = Text(String(format: "%+.2f", ev)).font(EditorDesign.instrument).foregroundStyle(.secondary)
                     let anchor: UnitPoint = x(ev) < 42 ? .topLeading : x(ev) > size.width - 42 ? .topTrailing : .top
                     context.draw(label, at: CGPoint(x: min(size.width - 2, max(2, x(ev))), y: 2), anchor: anchor)
                 }
                 for ev in stride(from: -8, through: 8, by: 2) {
-                    context.draw(Text(ev > 0 ? "+\(ev)" : "\(ev)").font(.system(size: 9)).foregroundStyle(.secondary),
+                    context.draw(Text(ev > 0 ? "+\(ev)" : "\(ev)").font(EditorDesign.instrument).foregroundStyle(.secondary),
                                  at: CGPoint(x: x(Double(ev)), y: 94), anchor: ev == -8 ? .topLeading : ev == 8 ? .topTrailing : .top)
                 }
             }.frame(height: 108).clipped()
@@ -61,14 +61,14 @@ struct MobileLatitudeGraph: View {
                 share("高于", latitude.above, warns: true)
             }
             Text(String(format: "%.2f 档保留 · %+.2f → %+.2f EV", latitude.highlight - latitude.shadow, latitude.shadow, latitude.highlight))
-                .font(EditorDesign.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                .font(EditorDesign.help).foregroundStyle(.secondary).frame(maxWidth: .infinity)
             Text("统计完整输入场景；裁切不改变测光。")
-                .font(.system(size: 10)).foregroundStyle(.tertiary).frame(maxWidth: .infinity, alignment: .leading)
+                .font(EditorDesign.instrument).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
         }.accessibilityElement(children: .combine).accessibilityLabel("场景分布与胶片相纸宽容度")
     }
     private func share(_ title: String, _ value: Double, warns: Bool) -> some View {
         Text(title + String(format: " %.1f%%", value * 100))
-            .font(.system(size: 10).monospacedDigit())
+            .font(EditorDesign.instrument)
             .foregroundStyle(warns && value >= 0.005 ? MobileStyle.accent : .secondary)
     }
 }

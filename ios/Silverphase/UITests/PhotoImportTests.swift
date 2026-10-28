@@ -1,6 +1,95 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testIPadGlobalMenuAndRoundedViewport() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ipad-chrome-regression"]
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        app.launch()
+        let navigation = app.descendants(matching: .any).matching(identifier: "editor.primary-navigation").firstMatch
+        XCTAssertTrue(navigation.waitForExistence(timeout: 10))
+        let screenshot = app.screenshot()
+        let image = try XCTUnwrap(screenshot.image.cgImage)
+        func red(at point: CGPoint) throws -> UInt8 {
+            let scale = CGFloat(image.width) / app.frame.width
+            let crop = try XCTUnwrap(image.cropping(to: CGRect(x: (point.x - app.frame.minX) * scale, y: (point.y - app.frame.minY) * scale, width: 1, height: 1)))
+            var pixel = [UInt8](repeating: 0, count: 4)
+            let context = try XCTUnwrap(CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+            return pixel[0]
+        }
+        XCTAssertGreaterThan(try red(at: CGPoint(x: navigation.frame.midX, y: navigation.frame.maxY + 20)), 200, "The zoomed orange fixture must actually cover the viewport")
+        XCTAssertLessThan(try red(at: CGPoint(x: navigation.frame.minX + 1, y: navigation.frame.minY + 1)), 180, "Zoomed pixels leak outside the top-left glass corner")
+        XCTAssertLessThan(try red(at: CGPoint(x: navigation.frame.maxX - 2, y: navigation.frame.minY + 1)), 180, "Zoomed pixels leak outside the top-right glass corner")
+        let chrome = XCTAttachment(screenshot: screenshot); chrome.name = "iPad rounded viewport"; chrome.lifetime = .keepAlways; add(chrome)
+        let menu = app.buttons["editor.menu"]
+        XCTAssertTrue(menu.exists, "iPad needs the shared global menu")
+        menu.tap()
+        XCTAssertTrue(app.buttons["设置"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["从照片导入"].exists)
+        XCTAssertTrue(app.buttons["从文件导入"].exists)
+        XCTAssertTrue(app.buttons["重置当前照片"].exists)
+        app.buttons["设置"].tap()
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 3))
+        app.buttons["完成"].tap()
+        XCTAssertTrue(menu.exists)
+        app.terminate()
+    }
+
+    @MainActor func testSelectiveCopyAndMultiPhotoPaste() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--clipboard-ui-regression"]
+        app.launch()
+        let source = app.buttons["filmstrip.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 10))
+        let toolbar = XCTAttachment(screenshot: app.screenshot()); toolbar.name = "Photo toolbar icons"; toolbar.lifetime = .keepAlways; add(toolbar)
+        app.buttons["clipboard.copy"].tap()
+        XCTAssertTrue(app.buttons["clipboard.confirm-copy"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.switches["clipboard.group.camera"].value as? String, "1")
+        app.buttons["清除"].tap()
+        XCTAssertFalse(app.buttons["clipboard.confirm-copy"].isEnabled)
+        app.switches["clipboard.group.camera"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(app.switches["clipboard.group.camera"].value as? String, "1")
+        XCTAssertTrue(app.buttons["clipboard.confirm-copy"].isEnabled)
+        let copySheet = XCTAttachment(screenshot: app.screenshot()); copySheet.name = "Copy parameter scope"; copySheet.lifetime = .keepAlways; add(copySheet)
+        app.buttons["clipboard.confirm-copy"].tap()
+        XCTAssertTrue(app.buttons["clipboard.confirm-copy"].waitForNonExistence(timeout: 3))
+        let first = app.buttons["filmstrip.photo.目标 A"]
+        let second = app.buttons["filmstrip.photo.目标 B"]
+        first.press(forDuration: 1)
+        let menu = XCTAttachment(screenshot: app.screenshot()); menu.name = "Photo context menu"; menu.lifetime = .keepAlways; add(menu)
+        app.buttons["选择多张"].tap()
+        XCTAssertEqual(first.value as? String, "已选择")
+        XCTAssertEqual(second.value as? String, "未选择")
+        second.tap()
+        XCTAssertEqual(second.value as? String, "已选择")
+        XCTAssertEqual(app.buttons["clipboard.paste-selected"].label, "粘贴到 2 张")
+        let selected = XCTAttachment(screenshot: app.screenshot()); selected.name = "Multi-photo paste selection"; selected.lifetime = .keepAlways; add(selected)
+        app.buttons["clipboard.paste-selected"].tap()
+        XCTAssertTrue(app.buttons["clipboard.paste-selected"].exists, "Paste must not open another range sheet or exit selection")
+        XCTAssertFalse(app.buttons["clipboard.confirm-copy"].exists)
+        app.buttons["filmstrip.done"].tap()
+        first.tap()
+        let ruler = app.descendants(matching: .any).matching(identifier: "ruler.曝光补偿 · EV").firstMatch
+        for _ in 0..<5 { if ruler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
+        XCTAssertEqual(ruler.value as? String, "1.00")
+        if app.buttons["editor.undo"].exists { app.buttons["editor.undo"].tap() }
+        else { app.buttons["editor.menu"].tap(); app.buttons["撤销"].tap() }
+        XCTAssertEqual(ruler.value as? String, "-1.00", "A single undo must reverse batch paste after changing preview")
+        second.tap()
+        XCTAssertEqual(ruler.value as? String, "-2.00", "The same undo must also restore the second target")
+        if app.buttons["editor.redo"].exists { app.buttons["editor.redo"].tap() }
+        else { app.buttons["editor.menu"].tap(); app.buttons["重做"].tap() }
+        XCTAssertEqual(ruler.value as? String, "1.00")
+        app.buttons["filmstrip.select"].tap()
+        XCTAssertFalse(app.buttons["clipboard.paste-selected"].isEnabled)
+        first.tap()
+        XCTAssertEqual(app.buttons["clipboard.paste-selected"].label, "粘贴到 1 张")
+        app.buttons["filmstrip.done"].tap()
+        app.terminate()
+    }
+
     @MainActor func testRulerDoubleTapResetsWithoutContextMenu() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--smoke-test"]

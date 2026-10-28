@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Window geometry, not a device model or orientation, decides the workspace.
 /// All frames are in the root GeometryReader's local coordinate space.
@@ -95,5 +96,45 @@ struct WorkspaceGlassGroup: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26.0, *) { GlassEffectContainer(spacing: 12) { content } }
         else { content }
+    }
+}
+
+
+/// The photograph and glass header share the same outer corner boundary.
+/// Clipping only the glass leaves bright enlarged pixels in its cut-out corners.
+struct WorkspaceViewportClip: ViewModifier {
+    var roundedHeader: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), roundedHeader {
+            content.clipShape(ChromeSurface.boundary(topBar: true))
+        } else { content.clipped() }
+    }
+}
+
+/// Glass and the photograph reach both window edges. Controls independently
+/// respect the window's actual safe area, including the home-indicator region.
+struct WindowSafeAreaProbe: UIViewRepresentable {
+    var update: (EdgeInsets) -> Void
+    func makeUIView(context: Context) -> Probe { Probe(update: update) }
+    func updateUIView(_ view: Probe, context: Context) { view.update = update; view.setNeedsLayout() }
+    final class Probe: UIView {
+        var update: (EdgeInsets) -> Void
+        private var last: EdgeInsets?
+        init(update: @escaping (EdgeInsets) -> Void) { self.update = update; super.init(frame: .zero); isUserInteractionEnabled = false }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func didMoveToWindow() { super.didMoveToWindow(); report() }
+        override func safeAreaInsetsDidChange() { super.safeAreaInsetsDidChange(); report() }
+        override func layoutSubviews() { super.layoutSubviews(); report() }
+        private func report() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.window else { return }
+                let frame = self.convert(self.bounds, to: window)
+                let insets = EdgeInsets(
+                    top: max(0, window.safeAreaInsets.top - frame.minY), leading: 0,
+                    bottom: max(0, window.safeAreaInsets.bottom - max(0, window.bounds.maxY - frame.maxY)), trailing: 0)
+                guard self.last != insets else { return }
+                self.last = insets; self.update(insets)
+            }
+        }
     }
 }

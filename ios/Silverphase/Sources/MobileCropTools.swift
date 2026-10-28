@@ -16,7 +16,7 @@ struct MobileCropControls: View {
                     ForEach(CropAspect.pickerCases) { aspect in
                         Text(aspect == .free ? "自由" : aspect == .original ? "原始比例" : aspect.label).tag(aspect)
                     }
-                }.labelsHidden().pickerStyle(.menu)
+                }.labelsHidden().pickerStyle(.menu).font(EditorDesign.selectedValue)
                 Button {
                     var next = g; next.aspect = g.aspect.transposed
                     document.setGeometry(next.constrained(in: size))
@@ -40,17 +40,17 @@ struct MobileCropControls: View {
                 Spacer(minLength: 0)
             }
             let output = g.outputSize(for: size)
-            Text(String(format: "%d × %d · %.1f MP", Int(output.width), Int(output.height), output.width * output.height / 1e6))
+            Text(String(format: "%d × %d · %.1f MP", Int(output.width), Int(output.height), output.width * output.height / 1e6)).font(EditorDesign.panelSummary)
                 .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                 .modifier(AdjustmentNumberTransition(value: output.width * output.height / 1e6, fractionDigits: 1))
             Text("拖动框内移动裁切；拖动边缘或四角调整范围。空白处拖动可重新框选。")
-                .font(EditorDesign.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Button("恢复完整画面") { document.setGeometry(Geometry()) }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        }.font(EditorDesign.label).buttonStyle(.plain)
+        }.font(EditorDesign.parameter).buttonStyle(.plain)
         if MobileFilmGate.presents(document.current?.recipe ?? [:]) {
             Text("当前使用原始画面编辑裁切，完成后再装入胶片画幅并应用片边／日期背。")
-                .font(EditorDesign.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     private func tool(_ symbol: String, _ title: String, active: Bool = false, action: @escaping () -> Void) -> some View {

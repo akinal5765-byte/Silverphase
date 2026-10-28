@@ -32,9 +32,9 @@ struct MobileSettingsView: View {
             Form {
                 Section("渲染") {
                     Text("预览清晰度随窗口和缩放自动调整，1:1 查看原始像素。").font(.caption).foregroundStyle(.secondary)
-                    Toggle("低电量模式优先流畅", isOn: $preferences.values.lowerPreviewInLowPower)
-                    Toggle("裁切后重新计算物理效果尺度", isOn: $preferences.values.cropRemapsEffects)
-                    Toggle("数字中间片蓝色补偿", isOn: $preferences.values.diBlueCompensation)
+                    Toggle("低电量模式优先流畅", isOn: $preferences.values.lowerPreviewInLowPower).tint(MobileStyle.accent)
+                    Toggle("裁切后重新计算物理效果尺度", isOn: $preferences.values.cropRemapsEffects).tint(MobileStyle.accent)
+                    Toggle("数字中间片蓝色补偿", isOn: $preferences.values.diBlueCompensation).tint(MobileStyle.accent)
                     Text("蓝色补偿仅作用于数字中间片；默认关闭。").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("会话与内存") {

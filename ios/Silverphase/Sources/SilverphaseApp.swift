@@ -11,10 +11,16 @@ import PhotosUI
         WindowGroup {
             MobileEditor(document: document)
                 .preferredColorScheme(.dark)
-                .tint(MobileStyle.accent)
+                .tint(.primary)
                 .task {
 #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--interaction-ui-regression") {
+                    if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") {
+                        MobileSmokeChecks.prepareIPadChromeUI(document)
+                    } else if ProcessInfo.processInfo.arguments.contains("--clipboard-ui-regression") {
+                        MobileSmokeChecks.prepareClipboardUI(document)
+                    } else if ProcessInfo.processInfo.arguments.contains("--clipboard-regression") {
+                        MobileSmokeChecks.clipboardRegression()
+                    } else if ProcessInfo.processInfo.arguments.contains("--interaction-ui-regression") {
                         UIApplication.shared.isIdleTimerDisabled = true
                         document.importFiles([URL.documentsDirectory.appendingPathComponent("DeviceAuditInput.ARW")])
                     } else if ProcessInfo.processInfo.arguments.contains("--device-audit") {
@@ -35,7 +41,12 @@ import PhotosUI
 #endif
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in document.releaseMemory() }
-                .onChange(of: scenePhase) { _, phase in document.setActive(phase == .active, background: phase == .background) }
+                .onChange(of: scenePhase) { _, phase in
+#if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") { return }
+#endif
+                    document.setActive(phase == .active, background: phase == .background)
+                }
         }
     }
 }
@@ -100,11 +111,14 @@ struct MobileEditor: View {
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
+    @State private var iPadSafeInsets = EdgeInsets()
 
     private var verticalSystemBar: Bool {
         guard systemProcessToolbar, let frame = systemBarFrame else { return false }
         return frame.height > frame.width
     }
+
+    private var usesIPadToolbar: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     private var systemProcessToolbar: Bool {
         if #available(iOS 27.1, *) { UIDevice.current.userInterfaceIdiom == .phone }
@@ -115,7 +129,7 @@ struct MobileEditor: View {
             ProcessNavigation(document: document, stage: $stage, inspector: $inspector,
                               materials: $materials, exporting: $exporting, enabled: systemProcessToolbar) {
             GeometryReader { geometry in
-                let plan = WorkspaceLayout(size: geometry.size, safe: EdgeInsets(),
+                let plan = WorkspaceLayout(size: geometry.size, safe: usesIPadToolbar ? iPadSafeInsets : EdgeInsets(),
                                            exclusions: workspaceExclusions(geometry),
                                            showsMedia: materials || !document.photos.isEmpty,
                                            systemBars: systemProcessToolbar,
@@ -202,14 +216,16 @@ struct MobileEditor: View {
                 .animation(reduceMotion ? nil : .smooth(duration: 0.28), value: materials)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: stage)
                 .modifier(WorkspaceGlassGroup())
-                .clipped()
+                .modifier(WorkspaceViewportClip(roundedHeader: usesIPadToolbar))
             }
             .background {
                 if systemProcessToolbar {
                     ProcessBarGeometryProbe { systemBarFrame = $0 }.allowsHitTesting(false)
+                } else if usesIPadToolbar {
+                    WindowSafeAreaProbe { iPadSafeInsets = $0 }.allowsHitTesting(false)
                 }
             }
-            .ignoresSafeArea(.container, edges: verticalSystemBar ? [.top, .trailing, .bottom] : [])
+            .ignoresSafeArea(.container, edges: usesIPadToolbar ? [.top, .bottom] : verticalSystemBar ? [.top, .trailing, .bottom] : [])
             .auditEditorBounds("viewport")
             .auditEditorBounds("safeViewport")
             .background(MobileStyle.canvas.ignoresSafeArea())
@@ -316,6 +332,10 @@ struct MobileEditor: View {
             ChromeButton(title: "导出", symbol: "square.and.arrow.up", selected: exporting, enabled: document.image != nil && !document.delivering) {
                 exporting.toggle(); inspector = true; materials = false
             }
+            NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
+                             exporting: $exporting, about: $about, settings: $settings,
+                             importing: $importing, pickingPhotos: $pickingPhotos)
+                .labelStyle(.iconOnly).frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
         }.auditEditorBounds("top.trailing-actions")
     }
     private func stageNavigation(expands: Bool, vertical: Bool = false) -> some View {
@@ -367,11 +387,11 @@ struct MobileEditor: View {
                     })
             }
             HStack {
-                Text(exporting ? "导出成片" : stage.rawValue).font(.system(size: 14, weight: .semibold)).accessibilityIdentifier("inspector.title")
+                Text(exporting ? "导出成片" : stage.rawValue).font(EditorDesign.panelTitle).accessibilityIdentifier("inspector.title")
                 Spacer()
                 if !exporting {
                     Text(document.value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0)?.name.replacingOccurrences(of: "Kodak ", with: "") } ?? "")
-                        .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                        .font(EditorDesign.help).foregroundStyle(.secondary).lineLimit(1)
                 }
                 if !exporting {
                     Menu { Button("重置本工艺", systemImage: "arrow.counterclockwise") { document.resetStage(stage) } } label: {
@@ -396,68 +416,7 @@ struct MobileEditor: View {
         document.photos.filter { $0.rating >= minimumRating && (flagFilter == "all" || $0.flag == flagFilter) }
     }
     private var filmstrip: some View {
-        VStack(spacing: EditorDesign.browserGap) {
-            HStack(spacing: 4) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        Text(document.current?.name ?? "照片").font(.system(size: 11, weight: .medium)).fixedSize()
-                        if let summary = document.current?.exifSummary, !summary.isEmpty {
-                            Text(summary).font(.system(size: 10)).foregroundStyle(.secondary).fixedSize()
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(document.current?.name ?? "照片").font(.system(size: 11, weight: .medium)).lineLimit(1).truncationMode(.middle)
-                        if let summary = document.current?.exifSummary, !summary.isEmpty {
-                            Text(summary).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                Spacer(minLength: 0)
-                Menu {
-                    Button("全部星级") { minimumRating = 0 }
-                    ForEach(1...5, id: \.self) { rating in Button("至少 \(rating) 星") { minimumRating = rating } }
-                } label: { Image(systemName: "star.fill").foregroundStyle(minimumRating > 0 ? MobileStyle.accent : .white.opacity(0.75)).frame(width: 44, height: 44) }
-                .accessibilityLabel("按星级筛选")
-                Menu {
-                    Button("全部旗标") { flagFilter = "all" }
-                    Button("无旗标") { flagFilter = "none" }
-                    Button("保留") { flagFilter = "pick" }
-                    Button("淘汰") { flagFilter = "reject" }
-                } label: { Image(systemName: "flag").foregroundStyle(flagFilter != "all" ? MobileStyle.accent : .white.opacity(0.75)).frame(width: 44, height: 44) }
-                .accessibilityLabel("按旗标筛选")
-                ChromeButton(title: "复制设置", symbol: "doc.on.doc", enabled: document.current != nil) {
-                    if let photo = document.current { document.copySettings(photo) }
-                }
-                ChromeButton(title: "粘贴设置", symbol: "doc.on.clipboard", enabled: document.settingsClipboard != nil && document.current != nil) { document.pasteSettings() }
-            }.padding(.leading, 12).padding(.trailing, 4).frame(height: 44)
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
-                    ForEach(filteredPhotos) { photo in
-                        Button { document.select(photo.id) } label: {
-                            BrowserCard(title: nil,
-                                        subtitle: (photo.rating > 0 ? String(repeating: "★", count: photo.rating) : "未评分") + (photo.flag == "pick" ? " · 保留" : photo.flag == "reject" ? " · 淘汰" : ""),
-                                        width: 80, selected: photo.id == document.selection) {
-                                FilmstripThumbnail(url: document.url(for: photo)).frame(maxWidth: .infinity, maxHeight: .infinity).background(.black.opacity(0.15))
-                            }
-
-                        }.buttonStyle(.plain).accessibilityLabel(photo.name)
-                        .contextMenu {
-                            Menu("评分", systemImage: "star") {
-                                ForEach(0...5, id: \.self) { rating in Button(rating == 0 ? "清除评分" : "\(rating) 星") { document.mark(photo.id, rating: rating) } }
-                            }
-                            Button("保留", systemImage: "flag.fill") { document.mark(photo.id, flag: "pick") }
-                            Button("淘汰", systemImage: "flag.slash") { document.mark(photo.id, flag: "reject") }
-                            Button("清除旗标") { document.mark(photo.id, flag: "none") }
-                            Divider()
-                            Button("复制设置", systemImage: "doc.on.doc") { document.copySettings(photo) }
-                            Button("粘贴设置", systemImage: "doc.on.clipboard") { document.select(photo.id); document.pasteSettings() }.disabled(document.settingsClipboard == nil)
-                            Button("从本次会话移除", systemImage: "minus.circle", role: .destructive) { document.remove(photo.id) }
-                        }
-                    }
-                    if filteredPhotos.isEmpty { Text("没有符合筛选条件的照片").font(.system(size: 12)).foregroundStyle(.secondary).padding() }
-                }.padding(.horizontal, EditorDesign.cardInset)
-            }.frame(height: EditorDesign.cardHeight).clipped()
-        }.padding(.vertical, EditorDesign.cardInset).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        MobileFilmstrip(document: document, photos: filteredPhotos, minimumRating: $minimumRating, flagFilter: $flagFilter)
     }
 
 }

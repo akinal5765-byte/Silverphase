@@ -1,14 +1,15 @@
 import SwiftUI
 
 enum MobileMaterialFilter: String, CaseIterable, Identifiable {
-    case all = "全部", positive = "正片", negative = "负片", experimental = "实验", monochrome = "黑白", favorites = "收藏", recent = "最近"
+    case all = "全部", positive = "正片", negative = "负片", monochrome = "黑白", favorites = "收藏", recent = "最近"
     var id: String { rawValue }
     func includes(_ stock: Stock, favorites: Set<String>, recent: [String]) -> Bool {
-        switch self {
+        // Availability is independent of category, search, favorites and history.
+        guard !stock.isExperimental else { return false }
+        return switch self {
         case .all: true
         case .positive: stock.isPositive
         case .negative: stock.isFilm && !stock.isPositive
-        case .experimental: stock.isExperimental
         case .monochrome: stock.isMonochrome
         case .favorites: favorites.contains(stock.id)
         case .recent: recent.contains(stock.id)

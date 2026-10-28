@@ -31,6 +31,14 @@ team and signing identity in Xcode. The new bundle ID `com.silverphase.editor`
 does not replace the earlier FTP demo. No device provisioning or installation
 is performed by the build script.
 
+When signing a device build produced with `CODE_SIGNING_ALLOWED=NO`, sign embedded
+Mach-O libraries (including `Silverphase.debug.dylib` and `__preview.dylib`) before
+signing the app bundle with its provisioning profile and entitlements. Verify the
+whole bundle with `codesign --verify --deep --strict` before installing. Signing
+only the outer app can install successfully yet terminate at launch with a DYLD
+“missing code signature” error. Confirm both launch and a surviving device process;
+an installation success alone does not verify startup.
+
 The build phase compiles all current engine translation units, separately
 compiles engine kernels with safe/precise float32 math, and bundles current
 constants, base/product profiles, catalogue, packaging artwork and licences.
@@ -98,3 +106,22 @@ The [2026-10-28 integration report](../performance/VALIDATION-REPORT-2026-10-28.
 records a fresh simulator build and desktop/native gates. Existing device results
 above retain their original scope; this integration does not repeat phone,
 Photos-write, external-sharing or signing/provisioning acceptance.
+
+## Selective settings clipboard
+
+Use “复制参数” on the current photo or its context menu to choose process groups
+at copy time. Crop/geometry is initially unchecked. Confirmed groups and the
+source snapshot form the clipboard; cancelling keeps the previous clipboard.
+“选择” starts empty multi-selection, while the context menu's “选择多张” starts
+with that photo checked. Photo taps then change checkmarks while the orange
+border continues to identify the preview. Select all applies to the visible
+filter result. Paste applies directly to the selected photos without another
+range sheet, keeps the selection, and supports one undo/redo for the whole batch,
+even after changing the preview. Single-photo paste uses the same clipboard.
+
+Only editable intent is copied: each target retains its own metadata, lens
+calibration and As Shot decode, and refits scene placement. Normal session edits
+are still temporary; this clipboard does not add document/sidecar persistence.
+The Debug `--clipboard-regression` flag writes `Documents/clipboard-report.json`
+from synthetic in-memory photo states without importing personal images. The
+focused UI test is `PhotoImportTests.testSelectiveCopyAndMultiPhotoPaste`.

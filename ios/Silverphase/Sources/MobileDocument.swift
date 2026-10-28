@@ -100,8 +100,8 @@ struct MobilePhoto: Codable, Identifiable {
     var pickingNeutral = false { didSet { if oldValue && !pickingNeutral { queueDetailReconciliation() } } }
     var neutralPreview: CGImage?
     var revision = 0
-    private var undoStack: [MobilePhoto] = []
-    private var redoStack: [MobilePhoto] = []
+    private var undoStack: [MobileEditTransaction] = []
+    private var redoStack: [MobileEditTransaction] = []
     private let engine = MobileEngine()
     private let detailRenderer = MobileDetailRenderer()
     var detailTile: MobileDetailTile?
@@ -210,7 +210,7 @@ struct MobilePhoto: Codable, Identifiable {
         guard !isInteractionLocked, id != selection else { return }
         endParameterInteraction(); cancelDetail(); viewport = nil; nativeCanvasSize = .zero; nativeCanvasSizeIsExact = false; lastFinalRequestedEdge = 0
         selection = id; image = nil; original = nil; cropSourceImage = nil; resolved = [:]; latitude = nil; neutralPreview = nil; pickingNeutral = false
-        undoStack = []; redoStack = []; showOriginal = false
+        showOriginal = false
         schedule()
     }
     @discardableResult func beginPhotoImport(total: Int) -> Bool {
@@ -463,32 +463,104 @@ struct MobilePhoto: Codable, Identifiable {
         if interactionStart?.id == selection {
             interactionVersion += 1; scheduleInteraction(); return
         }
-        undoStack.append(before)
+        undoStack.append([before.id: MobileEditSnapshot(before)])
         if undoStack.count > 100 { undoStack.removeFirst() }
         redoStack = []; save(); schedule()
+    }
+    private func restore(_ transaction: MobileEditTransaction) -> MobileEditTransaction {
+        var inverse: MobileEditTransaction = [:]
+        for index in photos.indices {
+            guard let state = transaction[photos[index].id] else { continue }
+            let before = photos[index]
+            inverse[before.id] = MobileEditSnapshot(before)
+            photos[index] = state.applied(to: before)
+            if before.id == selection { invalidateNativeGeometry(from: before, to: photos[index]) }
+        }
+        save()
+        if let selection, inverse[selection] != nil {
+            pendingDefaultValues = [:]; resolved = [:]; pickingNeutral = false; neutralPreview = nil
+            schedule()
+        }
+        return inverse
     }
     func undo() {
         guard !isInteractionLocked else { return }
         endParameterInteraction()
-        guard let index = photos.firstIndex(where: { $0.id == selection }), let previous = undoStack.popLast() else { return }
-        invalidateNativeGeometry(from: photos[index], to: previous)
-        redoStack.append(photos[index]); photos[index] = previous; save(); schedule()
+        guard let previous = undoStack.popLast() else { return }
+        redoStack.append(restore(previous))
     }
     func redo() {
         guard !isInteractionLocked else { return }
         endParameterInteraction()
-        guard let index = photos.firstIndex(where: { $0.id == selection }), let next = redoStack.popLast() else { return }
-        invalidateNativeGeometry(from: photos[index], to: next)
-        undoStack.append(photos[index]); photos[index] = next; save(); schedule()
+        guard let next = redoStack.popLast() else { return }
+        undoStack.append(restore(next))
     }
     // Retained as an in-memory change hook; no library or recipe sidecars.
     func save() { }
-    var settingsClipboard: MobilePhoto?
-    func copySettings(_ photo: MobilePhoto) { if !isInteractionLocked { settingsClipboard = photo } }
-    func pasteSettings() {
-        guard let settingsClipboard else { return }
-        let geometry = MobileGeometry(value: settingsClipboard.geometry.value.fitted(in: geometrySourceSize))
-        edit { $0.recipe = settingsClipboard.recipe; $0.geometry = geometry }
+    private(set) var settingsClipboard: MobileSettingsClip?
+    private(set) var copyGroups = MobileClipboardGroup.defaults
+    private(set) var isSelectingPhotos = false
+    private(set) var selectedPhotoIDs: Set<UUID> = []
+
+    func beginPhotoSelection(_ id: UUID? = nil) {
+        guard !isInteractionLocked else { return }
+        endParameterInteraction()
+        isSelectingPhotos = true
+        selectedPhotoIDs = id.flatMap { id in photos.contains(where: { $0.id == id }) ? Set([id]) : nil } ?? []
+    }
+    func endPhotoSelection() {
+        guard !isInteractionLocked else { return }
+        isSelectingPhotos = false; selectedPhotoIDs = []
+    }
+    func togglePhotoSelection(_ id: UUID) {
+        guard !isInteractionLocked, isSelectingPhotos, photos.contains(where: { $0.id == id }) else { return }
+        if selectedPhotoIDs.contains(id) { selectedPhotoIDs.remove(id) } else { selectedPhotoIDs.insert(id) }
+    }
+    func selectAllPhotos(_ ids: [UUID]) {
+        guard !isInteractionLocked, isSelectingPhotos else { return }
+        selectedPhotoIDs = Set(ids).intersection(photos.map(\.id))
+    }
+    func restrictPhotoSelection(to ids: [UUID]) {
+        guard !isInteractionLocked else { return }
+        selectedPhotoIDs.formIntersection(ids)
+    }
+    func clearPhotoSelection() {
+        guard !isInteractionLocked else { return }
+        selectedPhotoIDs = []
+    }
+    func copySettings(_ photo: MobilePhoto, groups: Set<MobileClipboardGroup> = MobileClipboardGroup.defaults) {
+        guard !isInteractionLocked, !groups.isEmpty else { return }
+        endParameterInteraction()
+        copyGroups = groups
+        settingsClipboard = MobileSettingsClip(source: photo, groups: groups)
+        postNotification("已复制参数", detail: settingsClipboard?.summary ?? "", style: .success)
+    }
+    @discardableResult func pasteSettings(to ids: Set<UUID>? = nil) -> Int {
+        guard !isInteractionLocked, let clip = settingsClipboard else { return 0 }
+        endParameterInteraction()
+        let targets = ids ?? (isSelectingPhotos ? selectedPhotoIDs : Set(selection.map { [$0] } ?? []))
+        var transaction: MobileEditTransaction = [:]
+        var count = 0
+        for index in photos.indices where targets.contains(photos[index].id) {
+            let before = photos[index]
+            let after = clip.applied(to: before)
+            count += 1
+            guard !MobileEditSnapshot(before).matches(after) else { continue }
+            transaction[before.id] = MobileEditSnapshot(before)
+            photos[index] = after
+            if before.id == selection { invalidateNativeGeometry(from: before, to: after) }
+        }
+        if !transaction.isEmpty {
+            undoStack.append(transaction)
+            if undoStack.count > 100 { undoStack.removeFirst() }
+            redoStack = []; save()
+            if let selection, transaction[selection] != nil {
+                pendingDefaultValues = [:]; resolved = [:]; pickingNeutral = false; neutralPreview = nil
+                schedule()
+            }
+        }
+        if count > 0 { postNotification("已粘贴到 \(count) 张照片", detail: clip.summary, style: .success) }
+        return count
     }
     func mark(_ id: UUID, rating: Int? = nil, flag: String? = nil) {
         guard !isInteractionLocked else { return }
@@ -500,12 +572,15 @@ struct MobilePhoto: Codable, Identifiable {
         guard !isInteractionLocked, !delivering, let index = photos.firstIndex(where: { $0.id == id }) else { return }
         endParameterInteraction()
         let removed = photos.remove(at: index)
+        selectedPhotoIDs.remove(id)
+        undoStack = undoStack.compactMap { entry in let kept = entry.filter { $0.key != id }; return kept.isEmpty ? nil : kept }
+        redoStack = redoStack.compactMap { entry in let kept = entry.filter { $0.key != id }; return kept.isEmpty ? nil : kept }
         if selection == id {
             finishDevelopment(); cancelDetail(); viewport = nil
             nativeCanvasSize = .zero; nativeCanvasSizeIsExact = false
             revision += 1; renderTask?.cancel(); engine.workGate.cancel()
             selection = nil; image = nil; original = nil; resolved = [:]; latitude = nil
-            undoStack = []; redoStack = []; busy = false
+            busy = false
             queuePreviewClose()
             if let next = photos.first { select(next.id) }
         }
@@ -543,7 +618,7 @@ struct MobilePhoto: Codable, Identifiable {
         interactionStart = nil; interactionGeneration += 1
         interactionTask?.cancel(); interactionTask = nil; engine.workGate.cancel()
         if let photo = current, photo.id == start.id, photo.recipe != start.recipe || photo.geometry != start.geometry {
-            undoStack.append(start); if undoStack.count > 100 { undoStack.removeFirst() }
+            undoStack.append([start.id: MobileEditSnapshot(start)]); if undoStack.count > 100 { undoStack.removeFirst() }
             redoStack = []; save()
         }
         schedule()
