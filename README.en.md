@@ -80,7 +80,7 @@ All captures show actual macOS windows on 2026-10-31. Settings, sources, and per
 | iPhone | iOS 18+ | Native touch editor, Photos/Files import, shared process controls, crop and export |
 | iPad | iPadOS 18+ | The same mobile editor with adapted canvas, inspector, and material-browser layouts |
 
-Release builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS IPA requires user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS has not adopted desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md). Local masks are not yet exposed.
+Current builds are distributed through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS IPA requires user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS does not include desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 
 iOS currently uses editing sessions: a cold start clears app-owned imported copies, while settings and export recipes persist independently. Keep original photographs and exported images for long-term storage; consult the platform guides for workflow details.
 

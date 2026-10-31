@@ -67,5 +67,6 @@ before making the IPA. Only curated assets, installation notes, entitlement
 request, build records and checksums belong in a release; do not upload the
 build work directory or logs.
 
-For a future Developer ID-signed and notarized macOS distribution, the desktop
-`Tools/package.sh` retains the separate archive/export/notarization workflow.
+The desktop `Tools/package.sh` separately supports a Developer ID archive,
+export and notarization workflow when the required credentials are supplied.
+No store distribution, Developer ID signing or notarization schedule is promised.
