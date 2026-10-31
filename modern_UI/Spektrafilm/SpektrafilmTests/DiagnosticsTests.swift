@@ -1161,7 +1161,8 @@ final class DiagnosticsTests: XCTestCase {
     /// Two cache entries that each fit individually must not both publish
     /// through a stale admission reading. The barrier holds both callers at
     /// the pre-publication seam so the result is deterministic.
-    func testConcurrentAdmissionsCannotOversubscribeTheSameRoom() {
+    func testConcurrentAdmissionsCannotOversubscribeTheSameRoom() throws {
+#if DEBUG
         let barrier = AdmissionPublicationBarrier()
         let arena = MemoryArena(admissionPublicationProbe: { barrier.arrive() })
         arena.observe(sample: MemorySample(seq: 1, at: Date(), footprintBytes: 1,
@@ -1195,6 +1196,9 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertLessThanOrEqual(
             arena.evictableBytes, 100,
             "concurrent admissions published against the same stale room")
+#else
+        throw XCTSkip("The deterministic admission-publication probe is available only in Debug builds")
+#endif
     }
 
     /// The session, renderer, store, and diagnostics must all account against
