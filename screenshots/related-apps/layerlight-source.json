@@ -1,0 +1,25 @@
+{
+  "app": "Layerlight",
+  "app_store_id": 6756343255,
+  "store_page": "https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255",
+  "developer_site": "https://akinal5765-byte.github.io/Layerlight/",
+  "source_repository": "https://github.com/akinal5765-byte/Layerlight",
+  "source_file_blob": "59215935da58dbeb4d333d57e8b60c7f76ee8a19",
+  "retrieved": "2026-10-31",
+  "file": "layerlight-icon.png",
+  "sha256": "6b1b614719f3634f2eac9ac96b8abaac3f4fbe2b28b01b9d224ef7252e041a2b",
+  "rights_scope": "Layerlight remains proprietary. Icon reproduced at the owner's request solely to identify and promote the related app; excluded from Silverphase GPL and CC BY-SA artwork grants.",
+  "source_project": "Layerlight (local Lumina-HDR checkout)",
+  "icon_source": "Lumina HDR MVP/Lumina HDR MVP/AppIcon.icon",
+  "export_method": "Apple Icon Composer ictool, iOS Default, design generation 27, 1024x1024, scale 1; no source modification",
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "icon_source_sha256": {
+    "Assets/01-base.svg": "8b0b8b3ad25019dfbbc0e15f22d9b6cb89a55ce0edeb72e5f303040d9073e4cf",
+    "Assets/02-light.svg": "e67a9275415f1d8299fe107ae8f9d39b7c6ba4e2e5fb7c20c95dee65745a4fd5",
+    "Assets/03-glass.svg": "54f95c39a2586cf9eec4f6e6f92a80986c3e8e0a091cbcd31acabe08d6f51915",
+    "icon.json": "1c28f9c7b3be6f1820f188293b3437cee10138f4f4027710f5545b6f4551b410"
+  }
+}

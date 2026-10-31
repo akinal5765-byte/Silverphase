@@ -1,7 +1,15 @@
 # screenshots/
 
 Current Silverphase examples: [2026-10-31 real-window captures and detail views](current/README.md).
-The files directly in this directory described below remain historical upstream captures.
+Application artwork:
+
+- [Silverphase icon](app-icon.png): current macOS-rendered icon, with orange film
+  beneath a silver-white photographic print. Production source and design notes:
+  [app icon](../design/app-icon/README.md).
+- [Layerlight icon](related-apps/README.md): owner-supplied native rendering for
+  README promotion of the separate proprietary App Store application.
+
+The photo-bearing UI files described below remain historical upstream captures.
 
 > These dated UI screenshots were inherited from Hanze Qiu's SpektraLab. They
 > are not current Silverphase screenshots. The current README does not present
@@ -24,7 +32,6 @@ offscreen at a stated size so a layout can be *measured* against the drawing in
 | `spektralab-main_new.png` | the editor in a window: `_DSC0897.NEF` (Nikon Z7 II, 8256×5504), Lower Manhattan at dusk, on **Kodak Portra 400**, printed on **Kodak Professional Portra Endura**; 135 film; grain, halation, glare and EDR on; straightened −0.6°; `28 %` with the `full` badge up. Taken before the Print section's buttons became Solve / Original | 2048 px wide, from 3824 |
 | `natural_halation.png` | the before/after split on a San Francisco frame — left of the line is Apple's decode of the RAW, right is the same pixels through film and paper | 1386 px wide, from 1798 |
 | `physically_accurate_grain.png` | the canvas at 1:1 on the Yosemite frame: the engine's grain at the render's own pixels | **native, 1226 px, unresampled** |
-| `app-icon.png` | the app icon as macOS draws it, read back out of the built bundle: two film strips, the silver one behind and the orange one in front, composed by `Spektrafilm/Silverphase.icon` (layers + materials, no baked glass — the system adds the specular, the refraction and the shadow) | 1024 px, from a 2048 px rendition |
 
 **The 1:1 capture must not be resized.** At and above 100 % the canvas samples
 nearest (`canvasFragment` in `Canvas/Shaders.metal`), so the pixels in that

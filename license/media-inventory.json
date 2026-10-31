@@ -815,6 +815,13 @@
       "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
     },
     {
+      "path": "screenshots/related-apps/layerlight-icon.png",
+      "sha256": "6b1b614719f3634f2eac9ac96b8abaac3f4fbe2b28b01b9d224ef7252e041a2b",
+      "kind": "related-app-promotional-icon",
+      "evidence": "screenshots/related-apps/layerlight-source.json; app-owner request, 2026-10-31.",
+      "rights_scope": "Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants."
+    },
+    {
       "path": "screenshots/spektralab-main_new.png",
       "sha256": "118d9c920cf0299b1bcb37f54200c090efba75a16c16a2de0fa9d9eea0e80916",
       "kind": "historical-ui-reference",

@@ -1,71 +1,177 @@
-# Silverphase
+<p align="center">
+  <img src="screenshots/app-icon.png" width="128" height="128" alt="Silverphase 应用图标">
+</p>
 
-[简体中文](README.md) · [English](README.en.md)
+<h1 align="center">Silverphase</h1>
 
-**Silverphase 是一款面向 macOS、iPhone 和 iPad 的胶片与相纸工艺模拟器。** 它把照片送入相机输入、胶片、显影、印相与扫描这条流程，让你通过摄影语言决定画面，而不是面对一整排科研模型参数。它不是 Lightroom 或 Capture One 的替代品；通用调色、资产管理和复杂局部修图应留给更擅长这些工作的软件。
+<p align="center">
+  <strong>从胶片曝光，到相纸成像。</strong><br>
+  面向 macOS、iPhone 与 iPad 的原生胶片工艺模拟器
+</p>
 
-Silverphase 是 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目，保留了原项目的 Git 历史和原生 macOS／C++／Metal 基础。胶片与相纸模型、实测配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。Silverphase 的产品方向和界面与两者独立；这两个上游项目均未参与或背书 Silverphase。
+<p align="center">
+  <a href="README.md">简体中文</a> · <a href="README.en.md">English</a> ·
+  <a href="#安装与构建">安装与构建</a> · <a href="screenshots/current/README.md">界面案例</a> ·
+  <a href="docs/README.md">文档</a> · <a href="CONTRIBUTING.md">参与开发</a> · <a href="#也试试-layerlight">Layerlight</a>
+</p>
 
-> 当前仓库是开发中的源码，不代表已经发布经过签名与公证的 macOS 安装包。仓库内部分目录、Xcode target 和命令仍叫 `Spektrafilm`，这是内部工程名称；应用显示名为 `Silverphase`。iOS 编辑器已接入同一引擎，但仍有桌面功能未移植，详见 [iOS 工程说明](ios/README.md)。
+![Silverphase macOS 编辑器：Portra 400 荷花案例](screenshots/current/silverphase-lotus-2026-10-31.jpg)
 
-## 从照片到成片
+Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → 扫描**的流程。选择胶片与相纸，再通过曝光、显影反差、滤色和物理画幅塑造画面；颗粒、光晕与片边在同一条成像流程中形成。你可以交付完成的照片，也可以导出保留胶片反差的中间文件，继续在其他软件中调色。
 
-1. 打开照片或文件夹，在预览与胶片条中选择画面。
-2. 在底部胶片条选择胶片和相纸。正片没有相纸印相阶段；也可以选择“不使用相纸”查看冲洗后的胶片。
-3. 在右侧按工艺顺序调整相机输入、胶片、显影、印相及裁切。右侧是工艺参数面板，不是额外的通用调色层。
-4. 在导出页选择成片，或导出可继续调色的胶片中间文件。
+应用采用 SwiftUI 与共享的 C++20／Metal 引擎，在设备上处理照片，运行时不需要 Python 服务或虚拟环境。Silverphase 是 Hanze Qiu 的 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目，物理模型与原始实测胶片／相纸配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。
 
-主要控制包括：
+## 可以做什么
 
-- **相机输入：** 测光方式、胶片曝光、白平衡，以及可用时的镜头校正。这里的曝光作用于胶片输入，不是导出后的补救滑杆。
-- **胶片：** 胶片型号与物理画幅、颗粒、胶片晕光、乳剂散射和独立效果强度。画幅尺寸参与颗粒与空间效应的尺度换算，不只是照片元数据。晕光菜单提供“跟随配置／强／中／弱／关闭”，强度滑杆在启用时为 1–4×。这里调的是模拟出的晕光，不是在宣称某卷真实胶片的防晕层规格。
-- **显影：** 相对胶片配置默认值的显影反差和色彩分离，以及场景宽容度测量与显式场景置放。
-- **印相：** 相纸型号、印相曝光、黄／品红滤光、预闪及独立的印相／扫描眩光。印相眩光不同于胶片晕光。
-- **画面检查：** 预览、直方图、裁切及导出前的软打样。局部蒙版的交互方案尚未定稿，当前构建没有开放该功能。
+- **选择胶片与相纸。** 公开目录包含 24 款胶片配置（含 Push 变体）和 9 款相纸，覆盖彩色负片、正片、电影负片与黑白材料。
+- **控制曝光与显影。** 使用测光、胶片曝光、RAW 白平衡、显影反差、色彩分离及场景宽容度置放，调整照片如何落到胶片响应范围内。
+- **塑造颗粒与光晕。** 物理画幅参与颗粒及空间效果的尺度换算；颗粒强度、尺度、柔化、胶片光晕与乳剂散射分别可调。
+- **完成彩色或黑白印相。** 调整相纸、印相曝光、黄／品红滤色、预闪与印相眩光；Ilford Multigrade IV RC 支持 00–5 级纸号及曝光补偿，镜头提供八种 Wratten 滤镜。
+- **加入片边与日期。** 支持 135、半格、多种 120 和全景片门，以及片孔、边印、灰雾和漏光；日期后背按所选画幅提供相应位置与样式。
+- **检查并交付成片。** 使用裁切、旋转、直方图、对比预览、批量导出及导出配方；桌面另提供软打样和双照片半格组合。
 
-具体范围与默认值以应用内控件及代码为准；README 不把内部物理模型的所有可调字段都冒充为已经开放的 UI。
+### 胶片与相纸
 
+| 材料类别 | 代表配置 |
+|---|---|
+| 彩色负片 | Portra 160／400／800、Gold 200、Ektar 100、Ultramax 400、Fujifilm C200、Pro 400H、X-Tra 400 |
+| 正片 | Ektachrome 100、Kodachrome 64、Provia 100F、Velvia 100 |
+| 电影负片 | Vision3 50D、200T、250D、500T |
+| 黑白负片 | Tri-X 400、HP5 Plus 400、T-Max 100、Acros II |
+| 彩色相纸与电影印片 | Endura 系列、Ektacolor Edge、Crystal Archive Type II、Vision 2383、Vision Premier 2393 |
+| 黑白相纸 | Ilford Multigrade IV RC |
 
-黑白材料包括来自 SpektraLab 的 **Tri-X 400、HP5 Plus 400、T-Max 100、Acros II 与 Ilford Multigrade IV RC 相纸**。它们通过光谱响应与密度曲线成像。多反差纸提供 00–5 级滤色及曝光补偿；镜头提供八种 Wratten 滤镜。来源、化学工艺、拟合及颗粒等限制见[黑白配置说明](engine/tools/profile_sources/blackwhite.md)，采用记录见[上游来源清单](engine/resources_product/UPSTREAM.json)。
+完整列表见[材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json)。黑白配置沿用 SpektraLab 的独立建模及拟合；其化学工艺、颗粒与拟合限制见[黑白配置说明](engine/tools/profile_sources/blackwhite.md)。
 
-片边与日期后背在胶片流程内形成：支持 135、半格、多种 120 和全景片门、片孔、边印、灰雾及漏光。日期是否可用取决于画幅；120 使用边缘，全景画幅不提供日期后背。桌面另可将两张源照片保存为 `.spektrapair` 半格组合，iOS 暂未移植双照片配对。片边建模限制见[来源说明](engine/tools/profile_sources/film_edge.md)。
+### 界面与细节
 
-## 两种导出路径
+<table>
+  <tr>
+    <td width="50%"><img src="screenshots/current/silverphase-bird-acros-2026-10-31.jpg" alt="Acros II 黑白白鸟案例"></td>
+    <td width="50%"><img src="screenshots/current/silverphase-records-gold-2026-10-31.jpg" alt="Gold 200 磁带与唱片陈列案例"></td>
+  </tr>
+  <tr><td align="center">Acros II · 黑白印相</td><td align="center">Gold 200 · 磁带与唱片陈列</td></tr>
+</table>
 
-**Finished Film Render（完成的胶片成片）**：让 Silverphase 完成胶片与相纸流程，输出可直接使用的 JPEG、8-bit PNG 或 16-bit TIFF。导出配方可选择目标色彩空间等设置；导出页的软打样用于查看所选目标的结果。适合把胶片工艺作为最终成片。
+<details>
+<summary>展开查看：100% 颗粒细节与光晕开关对比</summary>
 
-**Gradeable Film Intermediate（可调色胶片中间文件）**：导出页称为 `DI package`。它包含一个**未附 ICC 标签的 16-bit Cineon 对数 TIFF，使用 ProPhoto RGB 原色**，以及两个固定的 **DI 视图 `.cube` LUT**（转 ProPhoto RGB、转 Rec.709）。TIFF 的第二页是便于查看的视图预览。中间文件保留胶片反差，不经过相纸印相或后期输出调色；这些 LUT 用于观看中间文件，**不是所选相纸的印相 LUT**。单独按普通 RGB 打开主图可能显示不正常，应使用配套视图。应用里把 DI 导出为普通 JPEG/TIFF 时，导出的是带目标色彩配置的显示视图。
+**颗粒细节：** Acros II、135 画幅，应用缩放 100%，颗粒强度、尺度及柔化均为 1×。
 
-两个视图 LUT 每个导出目录共享一份。`_DI.tif` 主图保持未标记的 Cineon 数据，不应给它直接指定普通显示 ICC；具体交付文件和颜色语义见 [工程说明](modern_UI/Spektrafilm/README.md)。
+![Acros II 在 100% 缩放下的颗粒](screenshots/current/silverphase-grain-100pct-2026-10-31.jpg)
 
-两条路径服务不同交付目的；请勿把 DI 文件夹中的 TIFF 当作普通 TIFF 成片交付。导出格式与具体选项以当前导出页为准。
+**光晕对比：** Vision3 500T，同一曝光与视角，仅切换光晕。开启图使用强／4×，乳剂散射为 0×，颗粒关闭。
 
-## 技术结构
+| 光晕开启 | 光晕关闭 |
+|---|---|
+| ![光晕开启](screenshots/current/silverphase-halation-on-100pct-2026-10-31.jpg) | ![光晕关闭](screenshots/current/silverphase-halation-off-100pct-2026-10-31.jpg) |
 
-- `modern_UI/Spektrafilm/Spektrafilm/`：SwiftUI 界面、会话、预览与导出。
-- `ios/Silverphase/`：iOS／iPadOS 原生编辑器，共用当前引擎、目录、几何与图标；功能差异见 [控制审计](ios/CONTROL-AUDIT.md)。
-- `engine/`：C++20 渲染引擎、Metal kernels、胶片／相纸配置及测试工具。
-- `modern_UI/Spektrafilm/Tools/`：Xcode 工程生成、资源与许可文件检查。
-- `modern_UI/design/UI-SPEC.md`：界面规范；`ARCHITECTURE.md` 和 `rfc/`：架构与历史设计记录。旧文档可能仍描述已移除的通用调色层，遇到不一致时以当前代码为准。
+请打开原图查看细节。页面缩放和 JPEG 压缩会影响细小纹理；这组截图用于展示视觉效果，不是无损测量样本。
 
-引擎被编入两个平台的应用，运行时不需要 Python 服务、子进程或虚拟环境。应用通过 C 接口调用 C++／Metal 引擎；Metal 负责渲染，Apple 平台的图像与色彩管理组件负责文件解码及导出。构建用到的 Python 脚本仅是开发工具，不是应用运行时依赖。
+</details>
 
-## 本地构建
+以上均为 2026-10-31 的真实 macOS 窗口截图。案例设置、来源及使用范围见[完整案例页](screenshots/current/README.md)。
 
-需要 Apple Silicon Mac、macOS 15 或更新版本，以及带 Metal 工具链的 Xcode。当前本机使用 Xcode 27.1；Xcode 工程文件已提交，日常构建不必重新生成。
+## 平台与当前状态
 
-若系统选择的是 Command Line Tools，请先在当前终端设置 `export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer`（按实际安装路径调整）。从仓库根目录执行：
+| 平台 | 系统要求 | 当前范围 |
+|---|---|---|
+| macOS | Apple Silicon，macOS 15+ | 原生编辑器、共享成像引擎、批量导出、软打样、双照片半格组合 |
+| iPhone | iOS 18+ | 原生触控编辑器、照片／文件导入、共享工艺控制、裁切与导出 |
+| iPad | iPadOS 18+ | 同一移动编辑器，适配画布、检查器及材料浏览器布局 |
+
+当前以**源码构建**方式使用。macOS 的签名、公证安装包与移动端商店分发属于后续发布工作。iOS 尚未覆盖桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。局部蒙版尚未开放。
+
+iOS 当前采用会话编辑：冷启动会清理应用内导入副本，设置和导出配方独立保留。请保留原始照片与导出成片；长期归档工作流见各平台说明。
+
+## 也试试 Layerlight
+
+<table>
+  <tr>
+    <td width="112" align="center"><a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight 应用图标"></a></td>
+    <td>
+      <strong>Layerlight · HDR 图片编辑器</strong><br>
+      同一作者开发的独立闭源应用，已在 App Store 上架，支持 iPhone 与 iPad。
+      <p>调整 HDR 高光与 Gain Map 光影层，控制光感、反差和柔和度；支持 HEIC 摄影风格工作流，并提供裁切、画框、水印与批量导出等功能。摄影风格编辑需要受支持的设备和系统；部分功能需 Pro。</p>
+      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a> · <a href="https://akinal5765-byte.github.io/Layerlight/">官方网站</a>
+    </td>
+  </tr>
+</table>
+
+Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的开源许可。图标来源见[相关应用素材说明](screenshots/related-apps/README.md)。
+
+## 安装与构建
+
+### macOS
+
+需要 Apple Silicon Mac、Xcode 及其 Metal 工具链，并有可用的 `python3` 运行开发脚本。当前验证使用 Xcode 27.1。Xcode 工程已提交，无需安装 Python 运行环境或重新生成工程。
 
 ```bash
+git clone https://github.com/akinal5765-byte/Silverphase.git
+cd Silverphase
+
+# 按实际 Xcode 安装路径调整；无需更改全局 xcode-select。
+export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
+
 engine/build.sh bundle
 xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
   -scheme Spektrafilm -configuration Debug \
   -derivedDataPath build/DerivedData build
+
+open build/DerivedData/Build/Products/Debug/Silverphase.app
 ```
 
-应用位于 `build/DerivedData/Build/Products/Debug/Silverphase.app`。修改引擎资源或 Metal shader 后，应先重新运行 `engine/build.sh bundle`；Xcode 的预构建检查会拒绝缺失资源，但不会替你生成它们。当前构建默认是开发用临时签名，不等于可分发版本。
+目录与 target 中的 `Spektrafilm` 是保留的内部工程名称，应用显示名为 **Silverphase**。修改引擎资源或 Metal shader 后，请重新运行 `engine/build.sh bundle`。默认本地构建使用开发用签名。
 
-运行测试：
+### iPhone 与 iPad
+
+用 Xcode 打开 `ios/Silverphase/Silverphase.xcodeproj`，选择 `Silverphase` scheme 和设备，在 Signing & Capabilities 中设置自己的开发团队后构建运行。真机描述文件需包含项目请求的 Increased Memory Limit 能力。模拟器构建无需开发者签名：
+
+```bash
+xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
+  -scheme Silverphase -configuration Debug -sdk iphonesimulator \
+  -derivedDataPath /tmp/silverphase-ios-derived CODE_SIGNING_ALLOWED=NO build
+```
+
+设备签名、构建缓存与诊断说明见 [iOS 构建指南](ios/README.md)。
+
+公开 checkout 默认只含正式材料。维护者若有私人实验素材，本地构建可另外加载；对外打包时设置 `SILVERPHASE_LOCAL_MATERIALS=0`。详见[本地素材与公开构建](docs/LOCAL-MATERIALS.md)。
+
+## 第一次使用
+
+1. **导入照片。** 桌面打开照片或文件夹；移动端从系统照片或文件导入。支持 RAW、JPEG、HEIC／HEIF、PNG 和 TIFF；RAW 兼容性取决于系统的 Apple RAW 解码器。
+2. **选择胶片与相纸。** 从材料浏览器选胶片，再选择印相相纸；正片或“不使用相纸”可查看直扫结果。
+3. **按工艺调整。** 先处理输入曝光与白平衡，再调显影、颗粒、光晕和印相。裁切与片边一起预览。
+4. **选择交付方式。** 导出可直接使用的成片，或输出供后续调色的胶片中间文件。
+
+### 导出方式
+
+| 路径 | 输出 | 适合用途 |
+|---|---|---|
+| Finished Film Render | JPEG、8-bit PNG、16-bit TIFF；按配方写入目标色彩配置 | 完成胶片／相纸流程，直接查看、分享或交付 |
+| Gradeable Film Intermediate / DI package | 16-bit Cineon 对数 TIFF 与配套 DI 视图 LUT | 保留胶片反差，继续进行颜色处理 |
+
+<details>
+<summary>DI 文件的颜色语义</summary>
+
+DI 主图是**未附 ICC 标签、使用 ProPhoto RGB 原色的 16-bit Cineon 对数 TIFF**，绕过相纸印相及后期输出调色。第二页为视图预览；目录附带转 ProPhoto RGB 与 Rec.709 的两个 `.cube` 视图 LUT，每个导出目录共享一份。
+
+使用配套视图解释主图，不要直接给对数数据指定普通显示 ICC。这些是 DI 观看变换，不是所选相纸的印相 LUT。通过普通 JPEG／TIFF 路径导出 DI 时，得到的是带目标配置的显示视图。文件约定见[桌面工程说明](modern_UI/Spektrafilm/README.md)。
+
+</details>
+
+## 文档与开发
+
+| 想了解什么 | 入口 |
+|---|---|
+| 全部文档及当前规范 | [文档索引](docs/README.md) |
+| macOS 结构、构建与导出 | [桌面工程说明](modern_UI/Spektrafilm/README.md) |
+| iOS 行为、构建与功能差异 | [iOS 指南](ios/README.md) · [控制对照](ios/CONTROL-AUDIT.md) |
+| 共享引擎与原生调用边界 | [架构](ARCHITECTURE.md) · [API](API-SPEC-callable-render-service.md) · [契约](CONTRACT-frontend-backend.md) |
+| 测试、固定照片与跳过项 | [验证指南](modern_UI/Spektrafilm/VALIDATION.md) · [发布审查](docs/OPEN-SOURCE-RELEASE.md) |
+| 问题反馈与贡献 | [Issues](https://github.com/akinal5765-byte/Silverphase/issues) · [贡献指南](CONTRIBUTING.md) |
+
+运行桌面测试：
 
 ```bash
 xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
@@ -73,22 +179,15 @@ xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
   -derivedDataPath build/DerivedData test
 ```
 
-真实照片验证使用外部素材清单和临时副本，不将私人照片放入仓库。可重复执行的命令、覆盖范围及跳过项见 [验证说明](modern_UI/Spektrafilm/VALIDATION.md)。旧 Python-reference parity 脚本仅保留作历史验证工具，当前验收不依赖已不保留的冻结参考环境。构建细节见 [工程说明](modern_UI/Spektrafilm/README.md) 与 [开发备注](AGENTS.md)。
+当前验收使用原生引擎检查和应用工作流；真实照片按外部清单验证，不进入 Git。缺少历史素材时部分测试会跳过，报告需同时记录通过、失败与跳过项。历史 Python 参考脚本保留作研究记录，当前构建和验收不需要重建其运行环境。
 
-iOS／iPadOS 18+ 的模拟器构建、设备签名、自动预览和诊断流程见 [iOS 指南](ios/README.md)。完整文档入口见 [docs/README.md](docs/README.md)，本轮验证及未覆盖范围见 [2026-10-28 验证记录](performance/VALIDATION-REPORT-2026-10-28.md)。
+## 来源与许可
 
-## 来源、许可与独立性
+感谢 **Hanze Qiu** 创建 SpektraLab 的原生 macOS 应用与 C++／Metal 移植，感谢 **Andrea Volpato** 创建 spektrafilm 的物理模型及原始实测配置。Silverphase 保留上游 Git 历史、署名和许可证，在此基础上独立开发；上游项目未参与或背书 Silverphase。
 
-Silverphase 保留 SpektraLab 的项目历史，并在此基础上继续开发。SpektraLab 的原生 macOS 应用及 C++／Metal 移植由 Hanze Qiu 创建；spektrafilm 的物理模型和实测配置由 Andrea Volpato 创建。感谢两位作者公开这些工作。名称与界面上的变化不抹去来源，也不表示上游作者认可本项目的设计选择。
+- 应用、引擎与开发工具：**GPL-3.0-or-later**。
+- 胶片／相纸配置、衍生 LUT 与相关拟合包：沿用上游 **CC BY-SA 4.0**。
+- Apple metal-cpp：**Apache-2.0**；Colour 数据保留 **BSD-3-Clause** 声明。
+- Silverphase 自有封面与图标：权利范围及第三方包装例外见[素材声明](license/ARTWORK.md)。案例照片及 Layerlight 图标单独说明，不适用该素材授权。
 
-应用与 C++ 引擎按 **GPL-3.0-or-later** 授权；胶片／相纸配置及其衍生的印相预览 LUT 按 **CC BY-SA 4.0** 授权；使用的 Apple metal-cpp 按 **Apache 2.0** 授权。完整许可文本、配置与 LUT 的变更说明见 [许可目录](modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/)。分发二进制时，应一并遵守对应源码、署名与许可文本义务。
-
-Silverphase 与 SpektraLab、spektrafilm 均为独立项目；“基于”不等于官方续作或合作。
-
-开源许可边界见 [LICENSES.md](LICENSES.md)，参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)；公开发布前的素材来源与检查事项见 [发布审查](docs/OPEN-SOURCE-RELEASE.md)。本地实验材料的保留方式与公开构建开关见 [本地素材说明](docs/LOCAL-MATERIALS.md)。
-
-## 当前界面案例
-
-![Silverphase 当前编辑器：荷花案例](screenshots/current/silverphase-lotus-2026-10-31.jpg)
-
-2026-10-31 真实窗口截图；截图中的实验材料选项仅在带私人素材的本地构建中显示。更多[磁带案例、100% 颗粒和光晕开关对比](screenshots/current/README.md)，以及[固定照片测试流程](modern_UI/Spektrafilm/VALIDATION.md)。原始 RAW 只保留在本地。
+完整条款、数据来源及分发要求见 [LICENSES.md](LICENSES.md)、[许可目录](modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/)及[来源记录](license/DATA-SOURCES.md)。

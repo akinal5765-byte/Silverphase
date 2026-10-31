@@ -62,3 +62,12 @@ record-display case. Their manifest records sources and permitted use. This
 permission does not authorize distributing RAW originals or granting a general
 photo-reuse licence. Earlier dated UI captures are historical material inherited
 from upstream, distinct from the current Silverphase examples.
+
+## Related application icon
+
+`screenshots/related-apps/layerlight-icon.png` identifies the maintainer's separate
+proprietary App Store application, Layerlight. The app owner authorized its
+README promotion; it is excluded from Silverphase's GPL and CC BY-SA grants.
+The owner-supplied production source hashes and native export settings are in
+`screenshots/related-apps/layerlight-source.json`. No Layerlight application
+source code is included or relicensed here.

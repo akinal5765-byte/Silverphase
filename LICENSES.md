@@ -18,6 +18,7 @@ a blanket grant for every image in the repository.
 | Colour-derived colour-science data | BSD-3-Clause notice now preserved in [license/Colour-BSD-3-Clause.txt](license/Colour-BSD-3-Clause.txt) and both app bundles. Exact historical bake inputs remain partly unidentified; see [data sources](license/DATA-SOURCES.md) and [array inventory](license/data-inventory.json). |
 | Silverphase-controlled AI cover artwork and newly authored icon artwork | CC BY-SA 4.0 to the extent of contributor-held copyright. Attribution, exact scope and third-party exclusions: [artwork notice](license/ARTWORK.md); full legal text: [CC BY-SA 4.0](license/CC-BY-SA-4.0.txt). |
 | Other inherited engine data, including Hanatos spectra and filter curves | Follow spektrafilm’s published repository GPL terms and retain upstream credits. Exact input comparisons and missing standalone contributor notices are recorded in [data sources](license/DATA-SOURCES.md); no new standalone grant is claimed. |
+| Layerlight promotional icon | Separate proprietary app artwork, reproduced at the owner’s request for README identification and promotion only. Excluded from Silverphase GPL and CC BY-SA grants; see [related-app artwork](screenshots/related-apps/README.md). |
 | Photographs, inherited screenshots and third-party designs | No new blanket grant. Historical UI captures are inherited reference material, not current product screenshots. See the [release review](docs/OPEN-SOURCE-RELEASE.md). |
 
 The maintainer confirms (2026-10-31) that film covers were generated using AI

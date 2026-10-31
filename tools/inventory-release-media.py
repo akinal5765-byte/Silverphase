@@ -36,6 +36,9 @@ for name in names:
     elif name.startswith('screenshots/current/'):
         kind, evidence = 'approved-current-ui-case', 'screenshots/current/manifest.json and maintainer authorization, 2026-10-31.'
         terms = 'Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed.'
+    elif name.startswith('screenshots/related-apps/'):
+        kind, evidence = 'related-app-promotional-icon', 'screenshots/related-apps/layerlight-source.json; app-owner request, 2026-10-31.'
+        terms = 'Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants.'
     elif name.startswith(('modern_UI/design/snapshots/', 'modern_UI/reference_layout/', 'screenshots/', 'PRD/')):
         kind, evidence = 'historical-ui-reference', 'Inherited upstream UI/design history; some later typography captures reuse historical material.'
         terms = 'No new Silverphase photograph or third-party UI licence grant. Not a current product example.'
