@@ -12,6 +12,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | Working rules and debugging traps | [AGENTS.md](../AGENTS.md) |
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
+| Downloads, unsigned IPA and unnotarized DMG | [Binary releases](BINARY-RELEASES.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |

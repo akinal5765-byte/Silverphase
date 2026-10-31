@@ -80,7 +80,7 @@ All captures show actual macOS windows on 2026-10-31. Settings, sources, and per
 | iPhone | iOS 18+ | Native touch editor, Photos/Files import, shared process controls, crop and export |
 | iPad | iPadOS 18+ | The same mobile editor with adapted canvas, inspector, and material-browser layouts |
 
-Silverphase is currently used through **source builds**. Signed/notarized macOS installers and mobile store distribution are separate release work. iOS has not adopted desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md). Local masks are not yet exposed.
+Preview builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS IPA requires user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS has not adopted desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md). Local masks are not yet exposed.
 
 iOS currently uses editing sessions: a cold start clears app-owned imported copies, while settings and export recipes persist independently. Keep original photographs and exported images for long-term storage; consult the platform guides for workflow details.
 
@@ -101,6 +101,8 @@ iOS currently uses editing sessions: a cold start clears app-owned imported copi
 Layerlight and its icon retain their separate rights and are outside Silverphase's open-source licences. See the [related-app artwork notice](screenshots/related-apps/README.md) for the icon's provenance.
 
 ## Installation and builds
+
+For a prebuilt version, download the platform assets from [Releases](https://github.com/akinal5765-byte/Silverphase/releases) and follow the [installation guide](docs/BINARY-RELEASES.md). Source-build instructions follow.
 
 ### macOS
 

@@ -90,9 +90,10 @@ Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
 历史架构／RFC 中的传统布局、Python service 和旧密度 DI 描述应按历史
 记录阅读；这里与当前实现对应。
 
-`Tools/package.sh` 实现 archive、Developer ID 签名、DMG、公证和验证。
-有脚本不等于已完成分发验收。开发构建的临时签名不能当作正式安装包。
-发布状态以仓库首页和实际签名／公证结果为准。
+`Tools/package.sh` 保留 archive、Developer ID 签名、DMG、公证和验证流程。
+不使用 Developer ID 的预发布包通过 `tools/package-public-release.py` 构建，
+明确标注临时签名和未公证状态，并排除私人素材；它不宣称通过 Gatekeeper 的
+默认信任检查。下载与安装方式见[二进制发布说明](../../docs/BINARY-RELEASES.md)。
 
 ## 共享平台与胶片呈现
 
