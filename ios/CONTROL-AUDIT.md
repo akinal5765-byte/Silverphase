@@ -2,6 +2,10 @@
 
 参考为本仓库当前 `modern_UI/Spektrafilm/Spektrafilm` 源码，不是上游截图。默认标量记录于 `Silverphase/Resources/DesktopControlDefaults.json`；桌面 `MobileDesktopContractTests.testExportDesktopControlContract` 检查 wire 是否漂移。以下“对齐”指选项与传参语义，不代表每种组合已经逐一在真机点击验收。
 
+## 当前设备体验
+
+移动端当前更推荐 iPhone Duo 和 iPad。普通 iPhone 虽能运行同一编辑器，但工艺控件较多，小屏布局与交互仍需优化。下表的「对齐」表示控件和传参语义，不代表普通 iPhone 的使用体验已完成优化。
+
 ## 工艺
 
 | 项目 | 桌面默认 / 范围 / 语义 | iOS |

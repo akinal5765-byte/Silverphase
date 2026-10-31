@@ -77,8 +77,11 @@ All captures show actual macOS windows on 2026-10-31. Settings, sources, and per
 | Platform | Requirements | Current scope |
 |---|---|---|
 | macOS | Apple silicon, macOS 15+ | Native editor, shared imaging engine, batch export, soft proofing, two-photo half-frame compositions |
-| iPhone | iOS 18+ | Native touch editor, Photos/Files import, shared process controls, crop and export |
+| iPhone Duo | iOS 18+ | Larger editing workspace; one of the currently recommended mobile devices |
+| Conventional iPhone | iOS 18+ | Runs the mobile editor, but dense process controls feel cramped and need further small-screen usability work |
 | iPad | iPadOS 18+ | The same mobile editor with adapted canvas, inspector, and material-browser layouts |
+
+**iPhone Duo and iPad are currently recommended for mobile editing.** On conventional iPhones, the main limitation is fitting the complex interface and interactions onto a smaller screen. OS compatibility does not imply equally comfortable use on every device.
 
 Current builds are distributed through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS IPA requires user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS does not include desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 

@@ -12,6 +12,14 @@ licences, catalogue and JSON scalar type. The earlier iOS PoC's build approach
 and simulator texture compatibility fix have been brought forward; its older
 engine and receiver have not been copied into this product.
 
+## Device usability
+
+The current mobile UI is best suited to **iPhone Duo and iPad**. Conventional
+iPhones can run the editor, but the large number of process controls makes the
+layout cramped and interactions less comfortable on smaller screens. Their
+layout and interaction design still need optimization. The iOS 18 deployment
+floor describes compatibility, not equal usability across display sizes.
+
 ## Release downloads
 
 Unsigned device IPA builds are published through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).

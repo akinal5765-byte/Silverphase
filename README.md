@@ -77,10 +77,13 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 | 平台 | 系统要求 | 当前范围 |
 |---|---|---|
 | macOS | Apple Silicon，macOS 15+ | 原生编辑器、共享成像引擎、批量导出、软打样、双照片半格组合 |
-| iPhone | iOS 18+ | 原生触控编辑器、照片／文件导入、共享工艺控制、裁切与导出 |
+| iPhone Duo | iOS 18+ | 较大的编辑空间，当前推荐的移动端使用设备之一 |
+| 普通 iPhone | iOS 18+ | 可运行移动编辑器，但复杂工艺控件在小屏上较为拥挤，操作体验仍需优化 |
 | iPad | iPadOS 18+ | 同一移动编辑器，适配画布、检查器及材料浏览器布局 |
 
-当前下载入口为 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 获取：macOS DMG 无 Developer ID 签名且未公证；iOS IPA 需自行重新签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
+**移动端当前更推荐 iPhone Duo 和 iPad。** 普通 iPhone 的主要限制是复杂界面在小屏上的布局与操作体验；系统兼容不代表各设备的易用性一致。
+
+当前构建从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 下载：macOS DMG 无 Developer ID 签名且未公证；iOS IPA 需自行重新签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
 
 iOS 当前采用会话编辑：冷启动会清理应用内导入副本，设置和导出配方独立保留。请保留原始照片与导出成片；长期归档工作流见各平台说明。
 
