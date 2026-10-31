@@ -1,16 +1,15 @@
 import SwiftUI
 
 enum MobileMaterialFilter: String, CaseIterable, Identifiable {
-    case all = "全部", positive = "正片", negative = "负片", monochrome = "黑白", favorites = "收藏", recent = "最近"
+    case all = "全部", positive = "正片", negative = "负片", monochrome = "黑白", experimental = "实验", favorites = "收藏", recent = "最近"
     var id: String { rawValue }
     func includes(_ stock: Stock, favorites: Set<String>, recent: [String]) -> Bool {
-        // Availability is independent of category, search, favorites and history.
-        guard !stock.isExperimental else { return false }
         return switch self {
         case .all: true
-        case .positive: stock.isPositive
-        case .negative: stock.isFilm && !stock.isPositive
+        case .positive: stock.isPositive && !stock.isExperimental
+        case .negative: stock.isFilm && !stock.isPositive && !stock.isExperimental
         case .monochrome: stock.isMonochrome
+        case .experimental: stock.isExperimental
         case .favorites: favorites.contains(stock.id)
         case .recent: recent.contains(stock.id)
         }
@@ -34,7 +33,9 @@ struct MaterialChooser: View {
         return filter == .recent ? choices.sorted { (recent.firstIndex(of: $0.id) ?? 999) < (recent.firstIndex(of: $1.id) ?? 999) } : choices
     }
     private var filters: [MobileMaterialFilter] {
-        paper ? [.all, .monochrome, .favorites, .recent] : MobileMaterialFilter.allCases
+        paper ? [.all, .monochrome, .favorites, .recent] : MobileMaterialFilter.allCases.filter {
+            $0 != .experimental || catalog.films.contains(where: \.isExperimental)
+        }
     }
     var body: some View {
         VStack(spacing: EditorDesign.browserGap) {

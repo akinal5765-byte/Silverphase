@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import XCTest
 
 @MainActor
@@ -20,6 +21,7 @@ final class PerformanceStressTests: XCTestCase {
         let count = Int(ProcessInfo.processInfo.environment["SILVERPHASE_PERF_BATCH_COUNT"] ?? "10") ?? 10
         let urls = Array(session.frames.map(\.id).prefix(count))
         XCTAssertFalse(urls.isEmpty)
+        XCTAssertEqual(urls.count, count, "the pinned batch must not silently run fewer inputs")
         let legacy = ProcessInfo.processInfo.environment["SILVERPHASE_PERF_BATCH_LEGACY"] == "1"
         if !legacy { session.beginBatchExport() }
         defer { if !legacy { session.endBatchExport() } }
@@ -59,6 +61,16 @@ final class PerformanceStressTests: XCTestCase {
             }
             let bytes = try output.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
             XCTAssertGreaterThan(bytes, 0)
+            let exported = try XCTUnwrap(CGImageSourceCreateWithURL(output as CFURL, nil))
+            let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(exported, 0, nil) as? [CFString: Any])
+            XCTAssertEqual(properties[kCGImagePropertyPixelWidth] as? Int, Int(size.width))
+            XCTAssertEqual(properties[kCGImagePropertyPixelHeight] as? Int, Int(size.height))
+            XCTAssertNotNil(properties[kCGImagePropertyProfileName], "finished RGB exports must carry an ICC profile")
+            XCTAssertEqual(properties[kCGImagePropertyDepth] as? Int, recipe.format == .jpeg ? 8 : 16)
+            XCTAssertNotNil(CGImageSourceCreateThumbnailAtIndex(exported, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 64,
+            ] as CFDictionary), "export must decode as an image")
             rows.append("\(index)\t\(url.lastPathComponent)\t\(developMs)\t\(exportMs)\t\(bytes)\t\(MemorySampler.footprintBytes())")
             print("batch validation: completed \(index + 1)/\(urls.count)")
         }

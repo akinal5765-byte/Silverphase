@@ -310,10 +310,12 @@
 			path = "Spektrafilm";
 			sourceTree = "<group>";
 		};
+		4F42944AB6DAF7A01E16E51C /* release-case-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "release-case-manifest.json"; sourceTree = "<group>"; };
 		5E8D146AD38488E4A8FD26C5 /* validation-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "validation-manifest.json"; sourceTree = "<group>"; };
 		CFA765FDD4598F4EAF769372 /* Fixtures */ = {
 			isa = PBXGroup;
 			children = (
+				4F42944AB6DAF7A01E16E51C /* release-case-manifest.json */,
 				5E8D146AD38488E4A8FD26C5 /* validation-manifest.json */
 			);
 			path = "Fixtures";

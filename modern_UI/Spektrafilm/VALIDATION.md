@@ -49,6 +49,35 @@ python3 modern_UI/Spektrafilm/Tools/validate.py \
 内存采样；结束采样不是峰值，耗时也不是平台性能保证。TIFF 会占用更多
 临时磁盘，请按预计全分辨率输出大小选择批次规模。
 
+## 维护者固定案例集（2026-10-31）
+
+[案例清单](SpektrafilmTests/Fixtures/release-case-manifest.json) 固定十张
+Sony ILCE-7CM2 RAW：7008×4672 的 ImageIO 元数据，含横竖方向与不同 ISO。
+本机副本位于 `private-fixtures/release-cases/`，整个目录被 Git 忽略。
+Git 只保存相对文件名、SHA-256、尺寸、方向和场景说明；不保存 RAW、预览、
+私人 sidecar 或导出文件。移动硬盘断开后可继续使用这套本地副本。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer \
+python3 modern_UI/Spektrafilm/Tools/validate.py \
+  --photos-root private-fixtures/release-cases \
+  --scope cases --batch-format jpeg \
+  --output /tmp/new-silverphase-case-run
+```
+
+`cases` 仅导出清单里的十张不同 RAW，不递归挑选目录中的其他照片。它执行
+画布契约、真实 RAW 的 DI 流程，以及逐张全尺寸批次导出；检查实际照片数量、
+导出尺寸、位深、ICC、图像可解码性和完整渲染次数。缺文件、哈希错误、失败
+或跳过都会拒绝本次门禁。也可用 `--batch-format tiff` 跑同一固定集合。
+验证使用临时副本，源码镜像明确排除 `private-fixtures/` 和 `output/`。
+
+此模式与下方四角色 `photos` 门禁不同：十张都是真实 RAW，不冒充外部开发器
+导出的 encoded-JPEG/TIFF，也不补足历史 Nikon、A7 III 等特定相机素材。
+新门禁本轮 16 项通过、0 失败、0 跳过；十张均成功全尺寸 JPEG 导出。
+结果不等于物理模型的独立准确性验证。详见
+[本轮案例记录](../../performance/VALIDATION-CASES-2026-10-31.md)。
+当前界面及 100% 颗粒／光晕开关截图见[案例页](../../screenshots/current/README.md)。
+
 ## 外部素材与隔离
 
 [素材清单](SpektrafilmTests/Fixtures/validation-manifest.json)

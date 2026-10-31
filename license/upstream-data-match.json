@@ -1,0 +1,36 @@
+{
+  "repository": "https://github.com/andreavolpato/spektrafilm",
+  "commit": "3bb2c2d2801ff68b92019cf1dbcbb133d60832bc",
+  "comparison_scope": "Data provenance only; not render parity or a physical oracle. Existing external NumPy/SciPy used without installing spektrafilm or recreating its runtime.",
+  "numpy": "1.23.3",
+  "scipy": "1.10.1",
+  "results": [
+    {
+      "entry": "hanatos/spectra_lut",
+      "source_path": "src/spektrafilm/data/luts/spectral_upsampling/irradiance_xy_tc.npy",
+      "source_file_sha256": "52f90c724811f5fab80769f8548bf24d08a521eb09e65ab6e016893258d2a783",
+      "source_git_blob": "7b81b9d23f8f4c599c6b2ae3d949e9a2d6f3c38a",
+      "method": "NPY payload retained as little-endian float16; no numeric processing",
+      "exact_match": true,
+      "payload_sha256": "46f9b945ae486c0369a978df59a355ad8734537bc48c9e0ee68039185ba690d8"
+    },
+    {
+      "entry": "filters/kg3",
+      "source_path": "src/spektrafilm/data/filters/heat_absorbing/schott/KG3.csv",
+      "source_file_sha256": "7654aa57fa8e42ae280e8d679ae9ebf8cef48ed5cbe6c2ab43eba1c6608f3d1f",
+      "source_git_blob": "83e70275273ac0b9466d2a9d97dd52facc264b26",
+      "method": "Original loader: first sample at each unique wavelength, divide by 1, Akima interpolation to stored wavelength grid",
+      "exact_match": false,
+      "max_abs_difference": 1.1102230246251565e-16
+    },
+    {
+      "entry": "filters/lens_canon",
+      "source_path": "src/spektrafilm/data/filters/lens_transmission/canon/canon_24_f28_is.csv",
+      "source_file_sha256": "6edc1be37bc22ef4e36b98981c09c45ff0e9b3a3ce80e00c62906d8ec941df3a",
+      "source_git_blob": "1900f0961cf9c1d9675c52bf17f2543248eddc0b",
+      "method": "Original loader: first sample at each unique wavelength, divide by 100, Akima interpolation to stored wavelength grid",
+      "exact_match": true,
+      "max_abs_difference": 0.0
+    }
+  ]
+}

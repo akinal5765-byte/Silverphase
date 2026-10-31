@@ -1,8 +1,18 @@
 # screenshots/
 
+Current Silverphase examples: [2026-10-31 real-window captures and detail views](current/README.md).
+The files directly in this directory described below remain historical upstream captures.
+
+> These dated UI screenshots were inherited from Hanze Qiu's SpektraLab. They
+> are not current Silverphase screenshots. The current README does not present
+> them as current product examples. Their presence in Git history does not grant
+> a new licence to the embedded photographs. Private test inputs stay external;
+> any new example must use an approved non-portrait test image and record its
+> date, source and permitted use. See [artwork scope](../license/ARTWORK.md).
+
+
 The product as it renders, on real photographs. These are captures of the
-**running app**, taken 2026-09-17 and 2026-09-19, and they are what `README.md` shows a
-reader who has not built it.
+**running app**, taken 2026-09-17 and 2026-09-19, and were used by the upstream README at that time.
 
 They are not the same thing as `modern_UI/design/snapshots/`. Those come from
 the snapshot harness (`--snapshot WxH out.png`), which draws the canvas

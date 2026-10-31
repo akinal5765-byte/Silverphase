@@ -1,0 +1,825 @@
+{
+  "scope": "Current tracked and nonignored candidate visual assets; no RAW originals or private input folders copied.",
+  "policy": "license/ARTWORK.md",
+  "entries": [
+    {
+      "path": "PRD/capture_one_crop_reference.png",
+      "sha256": "438ca67fd221240d82a6e55593c8d17ff9026032bc3827276352eb98fff8ef04",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "PRD/export_page_reference_capture_one.png",
+      "sha256": "c13a5a8f6b7e5e261f1a5dc38298a9927360e6062cfb785e5a9a84876794ec0c",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "PRD/new_frontend_top_layout.png",
+      "sha256": "b0dd022f1b00bdbb056f6c0a6be713d4f711840b319b0905980df1554822aca5",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v2.icon/Assets/01-silver.svg",
+      "sha256": "4229f2fb2cd8ab7279fb49f091363e768ba37ef186511290e11fe37a7822a846",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v2.icon/Assets/02-amber.svg",
+      "sha256": "9cbc8adf193f842a4882e5814e58efe343404f0c715dbce84f1fac9aa7a544f7",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v3.icon/Assets/01-silver.svg",
+      "sha256": "d82aa3919eef95adcd6f22f130bea0fcb23ecdfb886af12928c75ae23cf14879",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v3.icon/Assets/02-amber.svg",
+      "sha256": "14779def617f0f6ae2c4292927e98beb6b3640ef34dc949533dacd808df1de12",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v4.icon/Assets/01-film.svg",
+      "sha256": "15c756d4369950f1285ba3449ce7470e0747bee923a37ec3c8f9d4442b0de961",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v4.icon/Assets/02-paper.svg",
+      "sha256": "384fa6ff894fdf1e192b688a5df71c5cb868197921657b0910eb93268423d03c",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v5.icon/Assets/01-film.svg",
+      "sha256": "c58f6f1c1c1198997fe0cd2edc6cb024123f6444192d372a46b1c3ef653e4173",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v5.icon/Assets/02-paper.svg",
+      "sha256": "4d263107b7fa361b33ba724eb9c1e5da2879940c9f64b6f4dbd945b24f13b200",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v6.icon/Assets/01-film.svg",
+      "sha256": "889fc2162f07df6300758445adeb665223a054182bf7ed6652373ea6a09f6c0e",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/Silverphase-v6.icon/Assets/02-paper.svg",
+      "sha256": "96b52cb9cc4406a3b7e9824acc3d185d5ce84478f5ae55e4b0d5b2c46a69b6df",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/default.png",
+      "sha256": "1f6449c44c2d3875115ca08f1b83ddef26fd60529f29b290c3dd5bf72884c346",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/macos-default.png",
+      "sha256": "58e2fe2b860e41d741039d850094fca22bbd644a8c1ebc1270e12bdee285c76b",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v2-dark.png",
+      "sha256": "527f5701ed5653183c85ab649a1cc554063080d1f4e785a040494ac2cb8b8b00",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v2-default.png",
+      "sha256": "337b990d41bbd723ec60d759c57e96db26a9ce8a193c2704ecd20d4963813d9c",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v3-dark.png",
+      "sha256": "06e40bf91e2aca673def21ea4a0551c686b037c3ff733df4aee4f8545025ca4d",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v3-default.png",
+      "sha256": "55556175562d654e02fb8025cfed537c4d62e362ea8bf483d743fd7c25ba70c2",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v4-dark.png",
+      "sha256": "d3e6863728de13ad0a3eaf31d953434d28ea9b50c70aebe3b74794d58c276402",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v4-default.png",
+      "sha256": "d693ce41ca4e26c6a7a4cf5ee5b6a637f8a50d9fd01a6528653e644ec6a23e12",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v5-dark.png",
+      "sha256": "4890a014b361ce7c04bcbcef786d984c4a76c9d006c255dda4e1df216d402327",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v5-default.png",
+      "sha256": "f8a4151131bf1dec6f714f10fd47518bb67d2fdda7d0671dfbee013ca019dd90",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v6-dark.png",
+      "sha256": "2032e13b9fe18e5b436beed25f119ff3d801b56d052a8d21704158a01ca84817",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "design/app-icon/previews/v6-default.png",
+      "sha256": "58e2fe2b860e41d741039d850094fca22bbd644a8c1ebc1270e12bdee285c76b",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_c200-packaging-v1.png",
+      "sha256": "c1d9263dc4960a00f9a2d32472e70a839650aa55f288360eed6fe5a386922a0e",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_crystal_archive_typeii-packaging-v1.png",
+      "sha256": "b21150c3c6227b97812f445c0aef6c0098149758468139d65a4c9503905e9270",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_neopan_acros_100_ii-packaging-v1.png",
+      "sha256": "5d2f23f6d55b17dbbc941c80b567717954c5c80c937375f0ede0aee25dcc151b",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-product-blackwhite-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_pro_400h-packaging-v1.png",
+      "sha256": "31e2c033303dbde6b227328e6adb5cfac8013dbb2f97f3c442a4f22114c372be",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_provia_100f-packaging-v1.png",
+      "sha256": "aea636214b6d546cfa06d4fc24365cc4214fe7b42795f09ca2614c099b1eaf9d",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_provia_100f.jpg",
+      "sha256": "8cfa5b8deb2f9453980df65b3a56d440660ea632767ca23842bca642242b88f2",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_velvia_100-packaging-v1.png",
+      "sha256": "d48f2fd79e6a55b818a96c6d985321f458d00212f1fb8040b8ad426c7559377a",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_velvia_100.jpg",
+      "sha256": "f64db420fb4d9ef953711d3385592e4b067c8c91dd20ace540ab3c05d3b7c8e1",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_xtra_400-packaging-v1.png",
+      "sha256": "2fab32d228d4d7a32029ff3a29b978c43bdb0ae3f8e29a8a7ff29b2df93b1680",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_xtra_400.jpg",
+      "sha256": "fa62e716c9df700606197051f5ccd2bd116df68c962b9f1ef3924662161f86f2",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/ilford_hp5_plus_400-packaging-v1.png",
+      "sha256": "e90a768d84f4a3c8ae6ad6287f4cf61aadb5992058664f9d30677ae0f7b5d0b4",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-product-blackwhite-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/ilford_multigrade_iv_rc-packaging-v1.png",
+      "sha256": "340d60586b8a2a39db78e50fc761fbf69eaa5909f441ecadb79f93e8983148e3",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-product-blackwhite-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_2383-packaging-v1.png",
+      "sha256": "d3298b536feff1d9e27c9e964e6b451a750278d1e8efb059e1c4446acc39768c",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_2393-packaging-v1.png",
+      "sha256": "db9f4c2adcd5fe96b13c9858f85ada8509b6fb940cf093da5370eb2b1762dfc4",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ektachrome_100-packaging-v1.png",
+      "sha256": "ac4451d8debfbb8478005765a93071ead4dea1e3a35dabd4317eb98dc0afcb76",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ektachrome_100.jpg",
+      "sha256": "21045ee75844751f4579adfebd1e9809cef0666c21ac83338b56ed80ca6a2627",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ektacolor_edge-packaging-v1.png",
+      "sha256": "54b33db0da88380bde1b32b15c8197527b1a3cf88745864f8618e52baceaa118",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ektar_100-packaging-v1.png",
+      "sha256": "78ece57c41dbc56f2faa40f7bc0c8b047d8abe6a2fcb64f5bdaf3e785519aa7c",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_endura_premier-packaging-v1.png",
+      "sha256": "aa0237de8ba9b80cac421721617a1dbb7533921e7ff87e32b465f7b46d097ca6",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_gold_200-packaging-v1.png",
+      "sha256": "41c07941546ec258a474055211b2ed4dbfeaa3dae3738f82e4bae0a954d6a06b",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_gold_200.jpg",
+      "sha256": "0cd832fa4f223b53d830ea49bcddc67dbc3d97e269acb4e3d28d41eedf2364c0",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_kodachrome_64-packaging-v1.png",
+      "sha256": "54e85a7cd93de32e7243f926d0f90431c0e92bd190779c778e0596189f16b586",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_160-packaging-v1.png",
+      "sha256": "e034539ad7778d8be3956093c5e55035fe518886a5b26259730a27f6f1295951",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_160.jpg",
+      "sha256": "9bc6806e976c05ed636672f32b90cbaca5b8c2a0bffac88d71bae2a35e023704",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_400-packaging-v2.png",
+      "sha256": "fbe7afa832816dd2cbd4ee21e45569d7e23cb3fcaa87e8835cca7b1bcce3a190",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_400.jpg",
+      "sha256": "0cd832fa4f223b53d830ea49bcddc67dbc3d97e269acb4e3d28d41eedf2364c0",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_800-packaging-v1.png",
+      "sha256": "0eccad0baba0cbc7c16fe28eee1409cc892a9b7b2f3a5088e8bf70a69fa3a816",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_800.jpg",
+      "sha256": "230fc30c6370465989f39a97830cc5f8233febbc8b87dbfaedd51965ba3e9ada",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_800_push1.jpg",
+      "sha256": "230fc30c6370465989f39a97830cc5f8233febbc8b87dbfaedd51965ba3e9ada",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_800_push2.jpg",
+      "sha256": "230fc30c6370465989f39a97830cc5f8233febbc8b87dbfaedd51965ba3e9ada",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_endura-packaging-v1.png",
+      "sha256": "6eb79e64ea3b566a9825b979c1e925779416babb8fe2a7edf4d4687fbc75d975",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_supra_endura-packaging-v1.png",
+      "sha256": "ba88894e4e286b4e9fcab6eb90a0e7050af73a1c0be63fc0af4fd87f0c9dda16",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_tmax_100-packaging-v1.png",
+      "sha256": "51eabc6808b8747f5e42c0ad82cd44b3e90995cbecf1e9b0a8b518e28fd84d4b",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-product-blackwhite-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_tri_x_400-packaging-v1.png",
+      "sha256": "1472d1c80445de8929ed2f350a6849ec8cc727747e0be2de69fe96ec5acbebc3",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-product-blackwhite-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ultra_endura-packaging-v1.png",
+      "sha256": "69b9c0666955c4048e45b6756e01a8151bb1cf73634e471f697a698cbd04485b",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ultramax_400-packaging-v1.png",
+      "sha256": "f512ff9c0b93bb48197968e656a5e75828d27a88b738ca06d4c2d9a16c2b0518",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_ultramax_400.jpg",
+      "sha256": "86f5fd5e50898cf61a09a81522ceb69a23991550c66e3189c764465a0e4c6a06",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_verita_200d-packaging-v1.png",
+      "sha256": "25508bc58b04da7cb2a4091a30a7428bedfd71da00adfd2db126125d8b855116",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_vision3_200t-packaging-v1.png",
+      "sha256": "87fd89e09caf4eca32aeca9110fac17d96349f3831c9552d98fcfe9644f6838c",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_vision3_250d-packaging-v1.png",
+      "sha256": "62964721cf62f889b1948144860e362ed38aeb6c8c98a496743497d70ef39e53",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_vision3_500t-packaging-v1.png",
+      "sha256": "f497ac1c2adf78748d705a383ca1bc7ed33fe8b4d3b4ac2b644a72063ad2c133",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_vision3_50d-packaging-v1.png",
+      "sha256": "402905973f7ff0b0d48a8edacafa879cbec16b155ef4a4475645db7cdc6e6f6a",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/workflow_digital_intermediate-v1.png",
+      "sha256": "ed8999cf1fdc4a1403309ce55ef25b7208192ac566050c2cf75555028eb006e6",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-workflow-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/workflow_film_scan-v1.png",
+      "sha256": "caf6ff69786b1b64c6b2a9f36794a1737d88c57f625c48ec6f3fb39ec9ffeda6",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-workflow-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Silverphase.icon/Assets/01-film.svg",
+      "sha256": "77977cef985663ba9d0c5bb5dd25f1f1e4360218ba0991ab3dfdba518b04c142",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Silverphase.icon/Assets/02-paper.svg",
+      "sha256": "9447cc3eba3c3dc37dadd5e3bd5f7011f2c270854670fd358b70aa909bb0c89d",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "modern_UI/control_asset/SVG/资源 1.svg",
+      "sha256": "e87a1ed2ea8f4010169f0ddcb0cb8f3e4a32403cb69fc5a3f4df02a51dc452f2",
+      "kind": "inherited-ui-vector",
+      "evidence": "Upstream design resource retained in repository history.",
+      "rights_scope": "Retain upstream notices; no new Silverphase artwork grant for inherited source."
+    },
+    {
+      "path": "modern_UI/design/snapshots/boot-ready.png",
+      "sha256": "5cd5e72cee89509ef8d2441d8a3e7ea3dda40dbf274010aa2cf5d187de78eb8d",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/boot-starting.png",
+      "sha256": "4baee56c494c884ca8db327419d1a990bd18a20ff64d64ce1b461cf95b1933c1",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/boot-warming-en.png",
+      "sha256": "b5b04aa3edecb30a71924bc9c6156e7ebd58a02fdfb3de077796823063b13fcf",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/boot-warming.png",
+      "sha256": "a85fbe53823c101507c4d44e1782fc06313eee4f9c4b216022a7dbad673c6b33",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/camera-section-flat.png",
+      "sha256": "d3925153acaf17fc092c0260d4e20568c0dd2fb04d97583f9a9fa22d92e96f73",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/camera-section-raw.png",
+      "sha256": "052938dd8e9df75b3aa464d58cd427a932454e82d0bd2144d7ea033a0ca58c3b",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/live-window.png",
+      "sha256": "490467f6730355d55658d8a38add33f5abc37ab53d2aee42eb7976f3060bc6ab",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/typeface-installed-rail.png",
+      "sha256": "a3ccbd4f8d45de94eaf99dae572307d2e4b86fee0cb72b4f8fe277f85a714d63",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/typeface-installed-settings.png",
+      "sha256": "81403394c61b4e21a97cec5c77721387c3762e9790a8d18e4da5da3a9fc26be4",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/typeface-system-fallback-rail.png",
+      "sha256": "161db2f9fd7175feca744ee78ee4e47d11b352a28dd3d31d917a4170255afd2f",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/typeface-system-fallback.png",
+      "sha256": "2a8d88931a5c9a295af4deb87dd3e3bba3b17e91285e01c3b75ec6b4d38943fe",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/window-16x9-image.png",
+      "sha256": "ef4fbbaeef2b3d1b367623f7a68013c99c30be70cd5c3118ea9963dc95e35bca",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/window-16x9.png",
+      "sha256": "dbca9970ef3905276a9ff0c74f1619aa43871d19e2f36d0b65c72fa33c6b96e5",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/window-21x9.png",
+      "sha256": "6055c79a8f6b006bedcc4e543ca1c44756c104b6f0fe580ebbb17e3a1511de88",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/window-folded-both.png",
+      "sha256": "83177b7ec0af0ebdbc2352ca3953e18399424205d4f73c54e1f3d8a17297e005",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/design/snapshots/window-macbook-pro-14.png",
+      "sha256": "04b35f2c2dbe340539993f2039f36a5a3ea74f4a06bdd14d352528966c5464eb",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635676376_Kodak_Gold_200_cover.jpg",
+      "sha256": "12cdd18acad5051dbc56b932ffd6759b6b90b45525391a0e67d6b0325d9adffa",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635713057_Kodak_Ektachrome_100_cover.jpg",
+      "sha256": "10b1770b52b38f95d303ce32253b74bb7a1ce3285fd760576cba3da124bfda42",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635729793_Kodak_Portra_800_cover.jpg",
+      "sha256": "41e332385779db35a010e8dcce36c9c9a9ff92160ce0cd80d5dd70ec0674a0f8",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635745070_Fujifilm_Velvia_50_cover.jpg",
+      "sha256": "7eb89ef8570d52cdd23c9a4a41c40b018efbced74abc3698678d6f114d574168",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635763648_Kodak_Portra_400_cover.jpg",
+      "sha256": "12cdd18acad5051dbc56b932ffd6759b6b90b45525391a0e67d6b0325d9adffa",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635862665_Fujifilm_Provia_100F_cover.jpg",
+      "sha256": "eefb4035af693261e03e89f9e3e700f4e8ff4f828ab0367b3d3d8d4cca756fec",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635884198_Fujifilm_Acros_100_II_cover.jpg",
+      "sha256": "684aa81c6b31f67f11f793aa5b0a4957d7503844cff706a0f4f8fe6e8728c0c6",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635902470_Ilford_HP5_Plus_cover.jpg",
+      "sha256": "7662e8e1a30d703de0b9c1236dcf3610ccbc273d212eac0c9a253b97647c2e28",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635915201_CineStill_50D_cover.jpg",
+      "sha256": "46e19dc6c3c1c3255d7c5086aac80c433d9d6dbef16a52d12308626c96d8f5bb",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635923298_CineStill_400D_cover.jpg",
+      "sha256": "08c9ef80b282f703c6cb15213df494c5e6034e6d3ab9521f59c155a950f4ec6e",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635930134_CineStill_800T_cover.jpg",
+      "sha256": "4259a14fe6e7813f12df996469f038847eb4bc7a219fe03abeb22b977eb19eda",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635946665_Kodak_UltraMax_400_cover.jpg",
+      "sha256": "9a52bcbe66f4f937e13b54fd7b7059044527b48bd4d6a4cd2a405075bd72c5d7",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635957717_Fujifilm_Velvia_100_cover.jpg",
+      "sha256": "2bd5d5eef1dfa128b64148b06fccadb46fe220646093a2185900dda4828fe64b",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760635975772_Kodak_Portra_160_cover.jpg",
+      "sha256": "3d51854a22fe370eed1068d36d5566919bebf7ee2e7394941804d99f12dc6ae0",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760637327106_Kodak_Tri-X_400_cover.jpg",
+      "sha256": "af0466fdf4b077043a7e5e06746e63c46a71b22c691c1638c5648f51808ef496",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/film_covers/1760637507605_Fujifilm_Color_400_cover.jpg",
+      "sha256": "f2627536bdac384fff236f8a07dd8efe2463093aef5d7fb7794035f5af39a91c",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/reference_layout/Export_Page/export_page.svg",
+      "sha256": "58bf22755608c5e15790c88156c45c671ea3889821d324376abad0601fd05feb",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/reference_layout/Main/layout_screenshot.png",
+      "sha256": "5d0f70e8925f97b8780d6c5d61b0c38f768cae0c9ffdeb9104e14f69c0ddd5f8",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "modern_UI/reference_layout/traffic_light_bug.png",
+      "sha256": "9d9946682e4fbf77c50cef3b80a9405a2882ae1ca6d09bdbdb7d673325856707",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "screenshots/app-icon.png",
+      "sha256": "4f7ee869078315e237ba38e656c95c719eb69ff47e4ff12b29fd30b71ffea591",
+      "kind": "icon-artwork",
+      "evidence": "design/app-icon/README.md and local vector generators; Git history retains authorship.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
+      "path": "screenshots/current/silverphase-bird-acros-2026-10-31.jpg",
+      "sha256": "aa4926293404047549f9b03dee4290835987183f03dffb17212f112366554e8a",
+      "kind": "approved-current-ui-case",
+      "evidence": "screenshots/current/manifest.json and maintainer authorization, 2026-10-31.",
+      "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
+    },
+    {
+      "path": "screenshots/current/silverphase-grain-100pct-2026-10-31.jpg",
+      "sha256": "8420b49158641960c7ad367dca72f796e9d6bcdc0e5f244f3b6c46d633ab1f36",
+      "kind": "approved-current-ui-case",
+      "evidence": "screenshots/current/manifest.json and maintainer authorization, 2026-10-31.",
+      "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
+    },
+    {
+      "path": "screenshots/current/silverphase-halation-off-100pct-2026-10-31.jpg",
+      "sha256": "c77dbf2b407a07ecf1a782cd55f60ef0c212e303928cc1173824a4ff4f1f8a7f",
+      "kind": "approved-current-ui-case",
+      "evidence": "screenshots/current/manifest.json and maintainer authorization, 2026-10-31.",
+      "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
+    },
+    {
+      "path": "screenshots/current/silverphase-halation-on-100pct-2026-10-31.jpg",
+      "sha256": "a6bd1148a80c3c30158737b959b8c388849206f35aa09794febf06d776157cdb",
+      "kind": "approved-current-ui-case",
+      "evidence": "screenshots/current/manifest.json and maintainer authorization, 2026-10-31.",
+      "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
+    },
+    {
+      "path": "screenshots/current/silverphase-lotus-2026-10-31.jpg",
+      "sha256": "43b4c5ec1196914613b9d6fd5189dec1efa584d26a610ed262540ca88aa79707",
+      "kind": "approved-current-ui-case",
+      "evidence": "screenshots/current/manifest.json and maintainer authorization, 2026-10-31.",
+      "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
+    },
+    {
+      "path": "screenshots/current/silverphase-records-gold-2026-10-31.jpg",
+      "sha256": "fb3b579841faf9b2b21526ae1b254aa4c281069a52bf76ea08a601f01f4498a4",
+      "kind": "approved-current-ui-case",
+      "evidence": "screenshots/current/manifest.json and maintainer authorization, 2026-10-31.",
+      "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
+    },
+    {
+      "path": "screenshots/natural_halation.png",
+      "sha256": "2041369bcdfb34ed29d85096ee60ff107ab6e1eea52f7b1b320d75a697401cff",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "screenshots/physically_accurate_grain.png",
+      "sha256": "b518f68e8efd4cd17c778d2f039e8fb2490ed3e2fc659d81b621af3ea2eae00a",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "screenshots/spektralab-main_new.png",
+      "sha256": "118d9c920cf0299b1bcb37f54200c090efba75a16c16a2de0fa9d9eea0e80916",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    }
+  ]
+}

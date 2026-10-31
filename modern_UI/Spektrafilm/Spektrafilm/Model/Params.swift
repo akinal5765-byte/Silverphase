@@ -554,7 +554,7 @@ struct FilmParams: Codable, Equatable, Sendable {
     }
 
     /// Defaults adopted from SpektraLab 1.3.3 (Hanze Qiu). These stocks use
-    /// the upstream particle path; our retained experimental films keep theirs.
+    /// the upstream particle path.
     nonisolated static func ownGrain(of stock: String) -> Double {
         switch StockCatalog.canonicalID(stock) {
         case "kodak_tri_x_400": 1.70
@@ -767,7 +767,6 @@ struct FilmParams: Codable, Equatable, Sendable {
              .bool(digitalIntermediate && FilmParams.diBlueCompensation), .print),
         ]
         // The selected Multigrade pack; supplied by the caller, not the profile.
-        // The four local films retain experimental pairing/calibration status.
         if multigradePrinting {
             let filtration = paperGrade.filtration
             fields += [("c_filter_neutral", .double(0), .print),

@@ -58,6 +58,8 @@ cp "$repo"/modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/* "$resources/Li
 cp "$repo"/modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json "$resources/StockCatalog.json"
 rsync -a --delete "$repo/modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/" "$resources/FilmCovers/"
 
+python3 "$repo/tools/stage-local-materials.py" "$resources"
+
 cp "$here/Resources/DesktopControlDefaults.json" "$resources/DesktopControlDefaults.json"
 # The desktop output transform is compiled unchanged for iOS as a UI library.
 ui_stamp="$(shasum -a 256 "$repo/modern_UI/Spektrafilm/Spektrafilm/Canvas/Shaders.metal" "$here/Shaders/MobileView.metal") $sdk"

@@ -41,7 +41,9 @@ fi
 
 licences=""
 for f in README.txt Silverphase-GPL-3.0.txt Profiles-and-LUTs-CC-BY-SA-4.0.txt \
-         Profiles-and-LUTs-CHANGELOG.txt SpektraLab-BW-PROFILES-NOTICE.md metal-cpp-Apache-2.0.txt; do
+         Profiles-and-LUTs-CHANGELOG.txt SpektraLab-BW-PROFILES-NOTICE.md metal-cpp-Apache-2.0.txt \
+         Colour-BSD-3-Clause.txt Silverphase-Artwork-CC-BY-SA-4.0.txt \
+         Silverphase-Artwork-NOTICE.md Runtime-Data-SOURCES.md; do
   [ -f "$res/Licenses/$f" ] || licences="$licences $f"
 done
 
@@ -62,3 +64,6 @@ done
 for stock in kodak_tri_x_400 ilford_hp5_plus_400 kodak_tmax_100 fujifilm_neopan_acros_100_ii ilford_multigrade_iv_rc; do
   [ -s "$res/engine/profiles/$stock.json" ] || { echo "error: missing B&W profile: $stock; run engine/build.sh bundle" >&2; exit 1; }
 done
+
+# Optional ignored maintainer overlay, refreshed before Xcode copies Resources/.
+python3 "$root/../../tools/stage-local-materials.py" "$res"

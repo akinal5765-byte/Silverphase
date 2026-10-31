@@ -1,4 +1,4 @@
-"""Upstream B&W adoption: native renders, legacy IDs and retained local stocks.
+"""Upstream B&W adoption: native renders and supported legacy IDs.
 No SciPy/reference dependency. Run after engine/build.sh dylib and bundle.
 """
 import hashlib
@@ -13,8 +13,6 @@ from spk_ctypes import Engine
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCT = ROOT / 'engine/resources_product'
 UPSTREAM = ['kodak_tri_x_400', 'ilford_hp5_plus_400', 'kodak_tmax_100', 'fujifilm_neopan_acros_100_ii']
-LOCAL = ['ilford_delta_100_experimental', 'ilford_fp4_plus_125_experimental',
-         'ilford_xp2_super_400_experimental', 'foma_fomapan_100_experimental']
 PAPER = 'ilford_multigrade_iv_rc'
 COMMON = {'auto_exposure': False, 'grain_active': False, 'glare_active': False,
           'halation_active': False, 'extended_dynamic_range': False,
@@ -24,12 +22,10 @@ COMMON = {'auto_exposure': False, 'grain_active': False, 'glare_active': False,
 
 
 def run():
+    assert not list((ROOT/'engine/resources/profiles').glob('*_experimental.json'))
     manifest = json.loads((PRODUCT / 'UPSTREAM.json').read_text())
     for relative, expected in manifest['sha256'].items():
         assert hashlib.sha256((PRODUCT / relative).read_bytes()).hexdigest() == expected, relative
-    for sid in LOCAL:
-        path = 'engine/resources/profiles/' + sid + '.json'
-        assert (ROOT/path).read_bytes() == subprocess.check_output(['git','show','HEAD:'+path], cwd=ROOT), sid
     with tempfile.TemporaryDirectory() as tmp:
         res = Path(tmp)
         (res/'profiles').mkdir()
@@ -47,10 +43,18 @@ def run():
                 with e.open(img, COMMON | {'film_stock':stock, 'print_stock':PAPER,
                           'c_filter_neutral':0, 'm_filter_neutral':0, 'y_filter_neutral':68} | delta) as s:
                     return s.render('full')[0]
-            # Fails before adoption: the old ID still selects our approximation.
+            # Removed self-authored material IDs must fail rather than selecting a donor.
+            for retired in ('kodak_pro_image_100_experimental', 'ilford_xp2_super_400_experimental'):
+                try:
+                    render(retired)
+                except RuntimeError as error:
+                    assert 'no profile' in str(error), str(error)
+                else:
+                    raise AssertionError('retired material unexpectedly rendered: ' + retired)
+            # Historical IDs for the same adopted materials retain their migration.
             for sid in UPSTREAM[:2]:
                 np.testing.assert_array_equal(render(sid), render(sid+'_experimental'), err_msg=sid+' legacy alias')
-            for sid in UPSTREAM + LOCAL:
+            for sid in UPSTREAM:
                 pixels = render(sid)
                 rgb = pixels[...,:3].astype(float)
                 assert np.ptp(rgb,axis=2).max() < 140, (sid,'non-neutral print')

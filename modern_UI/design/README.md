@@ -1,3 +1,9 @@
+> **Capture status, 2026-10-31:** committed UI captures and layout references
+> below are historical material inherited from upstream, with some later
+> typography-check captures. They are not the current Silverphase product UI.
+> Do not republish them as new examples or infer photo rights from the code
+> licence. Current screenshots will use approved non-portrait test inputs.
+
 # Visual iteration — the snapshot harness
 
 > **The interface spec is [`UI-SPEC.md`](UI-SPEC.md).** It is the only one: the

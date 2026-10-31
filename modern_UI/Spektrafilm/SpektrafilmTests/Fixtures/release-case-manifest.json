@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "purpose": "Maintainer-selected fixed RAW workflow cases, approved 2026-10-31. Originals and local copies stay outside Git. Screenshot permission does not grant RAW redistribution.",
+  "fixtures": [
+    {
+      "role": "roof-sky-portrait",
+      "relative_path": "DSC02649.ARW",
+      "sha256": "d2e75ad41f18f50829e6b3a255ebbcc2684054bb362e7357e3ba7b6b0c27bd6a",
+      "bytes": 67563520,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 8,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        100
+      ],
+      "description": "Roof and sky; rotated camera orientation",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "night-storefront",
+      "relative_path": "DSC01726.ARW",
+      "sha256": "2f6c77e7843d92664a3db43c43614024d2c67e62240d8670654e97d322ab6c94",
+      "bytes": 40038400,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        200
+      ],
+      "description": "Night storefront; mixed illumination, bright signage and 100% halation on/off example",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "train-clouds-portrait",
+      "relative_path": "DSC03181.ARW",
+      "sha256": "90869dac8d57e58091c0497d01795b9653c7b892fbcdc149619c2004b820adcc",
+      "bytes": 40046592,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 8,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        100
+      ],
+      "description": "Yellow train and blue sky; rotated camera orientation",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "indoor-locomotive",
+      "relative_path": "DSC03992.ARW",
+      "sha256": "5b208bfdc2d8db6e6b6d85ca35d67b9c1c92c448116364f7e4da34eec9c27c93",
+      "bytes": 36556800,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 8,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        100
+      ],
+      "description": "Dark museum interior and red locomotive; rotated orientation",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "white-bird",
+      "relative_path": "DSC05188.ARW",
+      "sha256": "f99da148424cf58642710afa16523cfc61bd29a75898921aecc0e105e2bcec5b",
+      "bytes": 37675008,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        160
+      ],
+      "description": "White bird against muted background; fine highlight detail",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "bird-foliage",
+      "relative_path": "DSC05956.ARW",
+      "sha256": "3d77a10d6db93beb78fa58c22496bf79c4a9fc9c328d015b581882c7879e9b96",
+      "bytes": 41218048,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        1250
+      ],
+      "description": "White bird among green foliage; ISO 1250",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "printed-portraits",
+      "relative_path": "DSC06833.ARW",
+      "sha256": "1c862bff58495378655db465400dc1881e7c5cabc28ca526e2a878432c2aac50",
+      "bytes": 39198720,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        160
+      ],
+      "description": "Record sleeves and cassette display with printed portraits; explicitly approved as a project case on 2026-10-31",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "leaf-water",
+      "relative_path": "DSC08107.ARW",
+      "sha256": "8f176adf9520fbbac5cd571cf1d1cf1e5cc5f1e6133156b700767c32bfe1ba71",
+      "bytes": 68775936,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        320
+      ],
+      "description": "Green leaf and water highlights",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "sunset",
+      "relative_path": "DSC08706.ARW",
+      "sha256": "8b695bdb93a101bce3fab1fc13d4fe2f1f2b875270691ebb9e3261c2efdef8fc",
+      "bytes": 67231744,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        100
+      ],
+      "description": "Bright sun and dark clouds",
+      "screenshot_candidate": true
+    },
+    {
+      "role": "lotus-macro",
+      "relative_path": "DSC08027.ARW",
+      "sha256": "1cc67885964b81320a29664207d9e0b2a4c19103a7298ed64c1c968efd8172f2",
+      "bytes": 67837952,
+      "width": 7008,
+      "height": 4672,
+      "orientation": 1,
+      "camera": "ILCE-7CM2",
+      "iso": [
+        100
+      ],
+      "description": "Pink lotus macro; saturated reds and smooth tones",
+      "screenshot_candidate": true
+    }
+  ]
+}

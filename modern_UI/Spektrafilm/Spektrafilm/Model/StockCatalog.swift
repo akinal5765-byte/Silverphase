@@ -38,8 +38,9 @@ final class MaterialBrowserLibrary {
 
 enum MaterialBrowserTab: String { case film, paper }
 enum MaterialBrowserFilter: CaseIterable {
-    case all, positive, negative, experimental, blackwhite, favorites, recent
-    static let filmTabs: [Self] = [.all, .positive, .negative, .experimental, .blackwhite]
+    case all, positive, negative, blackwhite, experimental, favorites, recent
+    static let filmTabs: [Self] = [.all, .positive, .negative, .blackwhite]
+        + (StockCatalog.shared.films.contains(where: \.isExperimental) ? [.experimental] : [])
 }
 
 @MainActor struct MaterialBrowserChoice: Identifiable {
@@ -78,11 +79,7 @@ enum MaterialBrowserFilter: CaseIterable {
 
     var title: String {
         if let stock {
-            if stock.id == "silverphase_neutral_bw_print_experimental" {
-                return T("Neutral B&W Print (Experimental)", "中性黑白印相（实验）")
-            }
             return stock.name.replacingOccurrences(of: "Professional ", with: "")
-                .replacingOccurrences(of: "(Experimental)", with: T("(Experimental)", "（实验）"))
         }
         return id == Self.scanID ? L(.printNone) : L(.printDigitalIntermediate)
     }

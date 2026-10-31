@@ -24,12 +24,7 @@
 
 相纸及电影印片使用同一模板的产品包装标签版本，不添加拍摄 ISO；Portra 800 迫冲版本共用原胶片包装。
 
-新增的八款实验性彩色负片沿用上述模板；完整提示词及资源文件名见
-`generated-experimental-packaging-manifest.json`。这些封面是 AI 生成的包装风格插画，
-不是原厂提供的图片或包装扫描件，也不表示实验性配置得到了厂商认证。
-“实验性”标识由应用界面显示，不印在包装封面中。
-
-六款实验性黑白胶片（HP5 Plus、Tri-X、Delta 100、FP4 Plus、XP2 Super、
-Fomapan 100 Classic）同样沿用固定模板，逐款提示词及资源文件名见
-`generated-blackwhite-packaging-manifest.json`。使用内置 imagegen、纯文字输入，
-封面是 AI 生成包装风格插画，并非原厂素材或实物扫描件。
+2026-10-31：自建实验材料及其封面已移除。Tri-X 与 HP5 的现有封面保留，
+资源名改为所采用的上游材料 ID；与 Acros II、T-Max 100、Multigrade IV RC 的
+提示词一同记录于 `generated-product-blackwhite-packaging-manifest.json`。
+相纸封面不标拍摄 ISO。旧实验图片与提示词可通过 Git 历史追溯。

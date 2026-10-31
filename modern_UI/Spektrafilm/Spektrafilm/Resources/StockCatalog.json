@@ -1,51 +1,6 @@
 {
  "stocks": [
   {
-   "id": "agfa_optima_ii_200_experimental",
-   "name": "Agfa Optima II 200 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "kodak_portra_endura",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 200,
-   "speedUnit": "ISO",
-   "speedSource": "https://cacreeks.com/photos/agfaPro.pdf"
-  },
-  {
-   "id": "agfa_portrait_xps_160_experimental",
-   "name": "Agfa Portrait XPS 160 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "kodak_portra_endura",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 160,
-   "speedUnit": "ISO",
-   "speedSource": "https://cacreeks.com/photos/agfaPro.pdf"
-  },
-  {
-   "id": "foma_fomapan_100_experimental",
-   "name": "Foma Fomapan 100 Classic (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "monochrome",
-   "targetPrint": "ilford_multigrade_iv_rc",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 100,
-   "speedUnit": "ISO",
-   "speedSource": "https://www.foma.cz/en/fomapan-100"
-  },
-  {
    "id": "fujifilm_c200",
    "name": "Fujifilm C200",
    "stage": "filming",
@@ -76,21 +31,6 @@
    "speedSource": null
   },
   {
-   "id": "fujifilm_natura_1600_experimental",
-   "name": "Fujifilm NATURA 1600 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "fujifilm_crystal_archive_typeii",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 1600,
-   "speedUnit": "ISO",
-   "speedSource": "https://asset.fujifilm.com/www/jp/files/2024-04/96b634a89ec6a5abda6b70437f4d75a4/datasheet_natura1600_01.pdf"
-  },
-  {
    "id": "fujifilm_neopan_acros_100_ii",
    "name": "Fujifilm Neopan 100 Acros II",
    "stage": "filming",
@@ -104,36 +44,6 @@
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
-  },
-  {
-   "id": "fujifilm_pro_160c_experimental",
-   "name": "Fujifilm PRO 160C (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "fujifilm_crystal_archive_typeii",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 160,
-   "speedUnit": "ISO",
-   "speedSource": "https://asset.fujifilm.com/www/ca/files/2020-03/d52487c5c6f84e7f935c299491c5c1ff/ProfessionalFilmDataGuide.pdf"
-  },
-  {
-   "id": "fujifilm_pro_160ns_experimental",
-   "name": "Fujifilm PRO160NS (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "fujifilm_crystal_archive_typeii",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 160,
-   "speedUnit": "ISO",
-   "speedSource": "https://asset.fujifilm.com/www/jp/files/2024-04/6b75b1c1cb4253623fb2cd7a56ff7443/datasheet_pro160ns_01.pdf"
   },
   {
    "id": "fujifilm_pro_400h",
@@ -166,21 +76,6 @@
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
   },
   {
-   "id": "fujifilm_superia_reala_100_experimental",
-   "name": "Fujifilm SUPERIA REALA 100 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "fujifilm_crystal_archive_typeii",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 100,
-   "speedUnit": "ISO",
-   "speedSource": "https://filmcolors.org/wp-content/uploads/2025/12/Fujicolor-Superia-Reala_AF3-967E.pdf"
-  },
-  {
    "id": "fujifilm_velvia_100",
    "name": "Fujifilm Velvia 100",
    "stage": "filming",
@@ -211,36 +106,6 @@
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
   },
   {
-   "id": "ilford_delta_100_experimental",
-   "name": "Ilford Delta 100 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "monochrome",
-   "targetPrint": "ilford_multigrade_iv_rc",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 100,
-   "speedUnit": "ISO",
-   "speedSource": "https://www.ilfordphoto.com/amfile/file/download/file/3/product/680/"
-  },
-  {
-   "id": "ilford_fp4_plus_125_experimental",
-   "name": "Ilford FP4 Plus 125 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "monochrome",
-   "targetPrint": "ilford_multigrade_iv_rc",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 125,
-   "speedUnit": "ISO",
-   "speedSource": "https://www.ilfordphoto.com/amfile/file/download/file/1919/product/686/"
-  },
-  {
    "id": "ilford_hp5_plus_400",
    "name": "Ilford HP5 Plus 400",
    "stage": "filming",
@@ -269,21 +134,6 @@
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
-  },
-  {
-   "id": "ilford_xp2_super_400_experimental",
-   "name": "Ilford XP2 Super 400 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "chromogenic_monochrome",
-   "targetPrint": "ilford_multigrade_iv_rc",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 400,
-   "speedUnit": "ISO",
-   "speedSource": "https://www.ilfordphoto.com/amfile/file/download/file/1909/product/703/"
   },
   {
    "id": "kodak_2383",
@@ -359,21 +209,6 @@
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
-  },
-  {
-   "id": "kodak_elite_color_200_experimental",
-   "name": "Kodak Elite Color 200 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "kodak_portra_endura",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 200,
-   "speedUnit": "ISO",
-   "speedSource": "https://125px.com/docs/film/kodak/e4039-Elite.pdf"
   },
   {
    "id": "kodak_endura_premier",
@@ -509,21 +344,6 @@
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
-  },
-  {
-   "id": "kodak_pro_image_100_experimental",
-   "name": "Kodak Pro Image 100 (Experimental)",
-   "stage": "filming",
-   "use": "still",
-   "type": "negative",
-   "channelModel": "color",
-   "targetPrint": "kodak_portra_endura",
-   "hasPreviewLUT": false,
-   "pairedFilm": null,
-   "cover": null,
-   "nominalSpeed": 100,
-   "speedUnit": "EI",
-   "speedSource": "https://vklaboratori.com/wp-content/uploads/2018/07/kodak-pro-image-100.pdf"
   },
   {
    "id": "kodak_supra_endura",

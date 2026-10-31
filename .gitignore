@@ -337,3 +337,21 @@ modern_UI/Spektrafilm/Spektrafilm/Resources/engine/
 
 # Machine-local Xcode specification/plugin discovery caches.
 com.apple.DeveloperTools/
+
+# Release hygiene: private inputs and local signing/credential material.
+.env.*
+!.env.example
+!.env.sample
+*.p12
+*.pfx
+*.mobileprovision
+*.pem
+*.key
+*.spektra.json
+*.spektrapair
+
+# Maintainer-only RAW copies, experimental material archives and derived output.
+/private-fixtures/
+
+# Generated private material catalog and covers; staged only for local builds.
+/modern_UI/Spektrafilm/Spektrafilm/Resources/LocalMaterials/

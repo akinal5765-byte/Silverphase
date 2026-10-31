@@ -67,15 +67,21 @@ are separate effects with separate physical positions.
 
 ### Product B&W data
 
-`engine/resources/` contains the base and earlier experimental profiles.
+`engine/resources/` contains the 28 original base profiles. Self-authored
+experimental material profiles and their generators are excluded from tracked
+product inputs. Maintainer builds optionally stage an ignored local overlay;
+`SILVERPHASE_LOCAL_MATERIALS=0` removes it for public builds. The shared catalog
+merges `LocalMaterials/StockCatalog.json` only when packaged; the experiment
+category is visible only when that overlay contains materials.
 `engine/resources_product/` carries adopted Tri-X 400, HP5 Plus 400, T-Max 100,
 Acros II and Multigrade IV RC data, paper-grade packs, and source provenance.
 The build overlays product profiles into the bundled profile directory. Legacy
-Tri-X/HP5 experimental IDs resolve to the adopted stocks; Delta, FP4, XP2 and
-Fomapan retain experimental profiles. See [B&W source notes](engine/tools/profile_sources/blackwhite.md).
+Tri-X/HP5 experimental IDs resolve to the adopted stocks for existing edits.
+Other experimental material IDs require the local overlay; without it they produce a missing
+profile error rather than silently selecting another stock. See [B&W source notes](engine/tools/profile_sources/blackwhite.md).
 
 `channel_model: bw` uses neutral silver and disables layered color-grain behavior;
-legacy monochrome approximations retain their own handling. Silver paper has no
+generic monochrome decoding structures remain for compatibility. Silver paper has no
 calibrated color-paper EDR map, so EDR is gated off. Paper grades 00–5 map to
 filtration plus exposure compensation in the host, preserving negative reuse.
 These profiles and approximations do not establish accuracy for all chemistry,

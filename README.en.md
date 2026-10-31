@@ -25,9 +25,8 @@ The main controls are:
 
 The UI and source are authoritative for exact ranges and defaults. This README does not present every underlying model field as though it were a shipped control.
 
-Eight **experimental negative profiles** are also available: PRO160NS, Pro Image 100, SUPERIA REALA 100, NATURA 1600, Agfa Portrait XPS 160, Agfa Optima II 200, Kodak Elite Color 200, and Fujifilm PRO 160C. They use stable film models as coherent bases, with bounded adjustments informed by manufacturer relative sensitivity and contrast curves. Usable colour takes priority over reconstructing individual dyes from incomplete data. These are creative approximations, not reproductions validated against photographed film. See [sources and limitations](engine/tools/profile_sources/experimental_negatives.md).
 
-B&W materials include SpektraLab's **Tri-X 400, HP5 Plus 400, T-Max 100, Acros II and Ilford Multigrade IV RC paper**, alongside the retained experimental Delta 100, FP4 Plus 125, XP2 Super 400 and Fomapan 100 profiles. Spectral response and density curves form the image. Multigrade provides grades 00–5 with filtration/exposure compensation; eight Wratten lens filters are available. See [B&W sources and limitations](engine/tools/profile_sources/blackwhite.md) and [adoption provenance](engine/resources_product/UPSTREAM.json) for chemistry, fitting and grain assumptions.
+B&W materials include SpektraLab's **Tri-X 400, HP5 Plus 400, T-Max 100, Acros II and Ilford Multigrade IV RC paper**. Spectral response and density curves form the image. Multigrade provides grades 00–5 with filtration/exposure compensation; eight Wratten lens filters are available. See [B&W sources and limitations](engine/tools/profile_sources/blackwhite.md) and [adoption provenance](engine/resources_product/UPSTREAM.json) for chemistry, fitting and grain assumptions.
 
 Film edges and date backs form within the film pipeline: 135, half-frame, multiple 120 and panoramic gates, perforations, markings, fog and leaks. Date availability depends on format: 120 uses the margin; panoramic formats have no date back. Desktop also saves two source photos as a `.spektrapair` half-frame composition; iOS has not yet adopted two-photo pairing. See [film-edge modeling notes](engine/tools/profile_sources/film_edge.md).
 
@@ -85,3 +84,11 @@ Silverphase retains SpektraLab's history and continues development from it. Hanz
 The app and C++ engine are **GPL-3.0-or-later**; film/paper profiles and their derived print-preview LUTs are **CC BY-SA 4.0**; Apple's metal-cpp bindings are **Apache 2.0**. Full license texts and a record of changes to the profiles and LUTs are in the [license directory](modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/). Binary distribution must also meet the applicable source, attribution, and license-text obligations.
 
 Silverphase, SpektraLab, and spektrafilm are independent projects. “Based on” does not mean an official continuation or collaboration.
+
+See [LICENSES.md](LICENSES.md) for component licensing, [CONTRIBUTING.md](CONTRIBUTING.md) for contributions, and the [release review](docs/OPEN-SOURCE-RELEASE.md) for provenance and publication checks. See [local materials](docs/LOCAL-MATERIALS.md) for private experiments and the public-build switch.
+
+## Current interface examples
+
+![Current Silverphase editor with the lotus case](screenshots/current/silverphase-lotus-2026-10-31.jpg)
+
+Actual app window, captured 2026-10-31; experimental materials visible in the capture are available only in local builds containing private materials. See [the record-display case, 100% grain and halation on/off](screenshots/current/README.md) and the [pinned-photo validation workflow](modern_UI/Spektrafilm/VALIDATION.md). RAW originals remain local.

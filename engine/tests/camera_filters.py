@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import numpy as np
 from spk_ctypes import Engine
-from product_blackwhite import COMMON, UPSTREAM, LOCAL, PAPER
+from product_blackwhite import COMMON, UPSTREAM, PAPER
 
 NAMES = ['w8','w11','w12','w15','w21','w25','w47','w58']
 P = 48
@@ -21,7 +21,7 @@ def run():
         field = next(f for f in engine.params_schema()['fields'] if f['name'] == 'camera_filter')
         assert {key: field.get(key) for key in ['path','type','layer','default','live','range']} == {
             'path':'camera.filter','type':'str','layer':'shoot','default':'','live':False,'range':None}
-        for stock in UPSTREAM + LOCAL:
+        for stock in UPSTREAM:
             with engine.open(chart, COMMON | {'film_stock':stock,'print_stock':PAPER,
                       'c_filter_neutral':0,'m_filter_neutral':0,'y_filter_neutral':68}) as session:
                 base = session.render('full')[0]; grey = values(base)[0]

@@ -158,6 +158,8 @@ bundle_resources() {
   cp "$here/resources_product/NOTICE.md" "$app/PRODUCT_PROFILES_NOTICE.md"
   cp "$here/resources_product/UPSTREAM.json" "$app/PRODUCT_PROFILES_UPSTREAM.json"
 
+  python3 "$here/../tools/stage-local-materials.py" "$(dirname "$app")"
+
   local size
   size=$(du -sh "$app" | cut -f1)
   echo "bundle     -> $app ($size)"

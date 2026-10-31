@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-31",
+  "app": "Silverphase macOS",
+  "base_commit": "89f6de254f6f95def9dadb9e9c3c4fdb3f22c979",
+  "working_tree": "Uncommitted open-source preparation and fixed-fixture changes",
+  "photo_permission": "Maintainer supplied and approved project cases/screenshots, including DSC06833 with printed portraits. RAW files remain local-only; no general photo-reuse licence is granted.",
+  "detail_note": "100% denotes application zoom. Original JPEG screenshots are retained without further resizing or retouching. The halation pair uses the same exposure, viewport and settings except halation; high/4x is an enhanced demonstration setting, not the default.",
+  "items": [
+    {
+      "file": "silverphase-lotus-2026-10-31.jpg",
+      "sha256": "43b4c5ec1196914613b9d6fd5189dec1efa584d26a610ed262540ca88aa79707",
+      "source_case": "DSC08027.ARW",
+      "source_sha256": "1cc67885964b81320a29664207d9e0b2a4c19103a7298ed64c1c968efd8172f2",
+      "film_stock": "kodak_portra_400",
+      "zoom": "fit",
+      "settings": {
+        "grain": "1x",
+        "halation": "profile default"
+      },
+      "capture": "Actual native app window. Capture interface returns JPEG; original bytes retained, no further retouching or resizing."
+    },
+    {
+      "file": "silverphase-bird-acros-2026-10-31.jpg",
+      "sha256": "aa4926293404047549f9b03dee4290835987183f03dffb17212f112366554e8a",
+      "source_case": "DSC05188.ARW",
+      "source_sha256": "f99da148424cf58642710afa16523cfc61bd29a75898921aecc0e105e2bcec5b",
+      "film_stock": "fujifilm_neopan_acros_100_ii",
+      "zoom": "fit",
+      "settings": {
+        "grain": "1x"
+      },
+      "capture": "Actual native app window. Capture interface returns JPEG; original bytes retained, no further retouching or resizing."
+    },
+    {
+      "file": "silverphase-records-gold-2026-10-31.jpg",
+      "sha256": "fb3b579841faf9b2b21526ae1b254aa4c281069a52bf76ea08a601f01f4498a4",
+      "source_case": "DSC06833.ARW",
+      "source_sha256": "1c862bff58495378655db465400dc1881e7c5cabc28ca526e2a878432c2aac50",
+      "film_stock": "kodak_gold_200",
+      "zoom": "fit",
+      "settings": {
+        "grain": "1x"
+      },
+      "capture": "Actual native app window. Capture interface returns JPEG; original bytes retained, no further retouching or resizing."
+    },
+    {
+      "file": "silverphase-grain-100pct-2026-10-31.jpg",
+      "sha256": "8420b49158641960c7ad367dca72f796e9d6bcdc0e5f244f3b6c46d633ab1f36",
+      "source_case": "DSC05188.ARW",
+      "source_sha256": "f99da148424cf58642710afa16523cfc61bd29a75898921aecc0e105e2bcec5b",
+      "film_stock": "fujifilm_neopan_acros_100_ii",
+      "zoom": "100%",
+      "settings": {
+        "grain": "1x",
+        "particle_scale": "1x",
+        "grain_softness": "1x"
+      },
+      "capture": "Actual native app window. Capture interface returns JPEG; original bytes retained, no further retouching or resizing."
+    },
+    {
+      "file": "silverphase-halation-on-100pct-2026-10-31.jpg",
+      "sha256": "a6bd1148a80c3c30158737b959b8c388849206f35aa09794febf06d776157cdb",
+      "source_case": "DSC01726.ARW",
+      "source_sha256": "2f6c77e7843d92664a3db43c43614024d2c67e62240d8670654e97d322ab6c94",
+      "film_stock": "kodak_vision3_500t",
+      "zoom": "100%",
+      "settings": {
+        "halation": "high",
+        "halation_amount": "4x",
+        "emulsion_scatter": "0x",
+        "grain": "off",
+        "exposure": "Identical across the halation pair; numeric exposure value not recorded."
+      },
+      "capture": "Actual native app window. Capture interface returns JPEG; original bytes retained, no further retouching or resizing."
+    },
+    {
+      "file": "silverphase-halation-off-100pct-2026-10-31.jpg",
+      "sha256": "c77dbf2b407a07ecf1a782cd55f60ef0c212e303928cc1173824a4ff4f1f8a7f",
+      "source_case": "DSC01726.ARW",
+      "source_sha256": "2f6c77e7843d92664a3db43c43614024d2c67e62240d8670654e97d322ab6c94",
+      "film_stock": "kodak_vision3_500t",
+      "zoom": "100%",
+      "settings": {
+        "halation": "off",
+        "halation_amount": "4x retained but inactive",
+        "emulsion_scatter": "0x",
+        "grain": "off",
+        "exposure": "Identical across the halation pair; numeric exposure value not recorded."
+      },
+      "capture": "Actual native app window. Capture interface returns JPEG; original bytes retained, no further retouching or resizing."
+    }
+  ]
+}

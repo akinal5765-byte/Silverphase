@@ -44,6 +44,10 @@ upstream_url="https://github.com/andreavolpato/spektrafilm"
 cp "$root/license/LICENSE" "$out/Silverphase-GPL-3.0.txt"
 cp "$root/license/SPEKTRAFILM_LICENSE.txt" "$out/Profiles-and-LUTs-CC-BY-SA-4.0.txt"
 cp "$root/engine/third_party/metal-cpp/LICENSE.txt" "$out/metal-cpp-Apache-2.0.txt"
+cp "$root/license/Colour-BSD-3-Clause.txt" "$out/Colour-BSD-3-Clause.txt"
+cp "$root/license/CC-BY-SA-4.0.txt" "$out/Silverphase-Artwork-CC-BY-SA-4.0.txt"
+cp "$root/license/ARTWORK.md" "$out/Silverphase-Artwork-NOTICE.md"
+cp "$root/license/DATA-SOURCES.md" "$out/Runtime-Data-SOURCES.md"
 
 # The CC BY-SA text asks that changes to the profiles and LUTs be recorded in
 # a CHANGELOG shipped beside them, rather than by editing the licence. This is
@@ -55,6 +59,14 @@ Changes to the spektrafilm profiles and LUTs in this application
 
 Required by SPEKTRAFILM_LICENSE.txt ("Changes to profiles and LUTs should be
 tracked in a separate CHANGELOG.txt file shipped with them").
+
+Current material scope, 2026-10-31
+----------------------------------
+The self-authored experimental profiles, generators, calibration entries and
+unused covers described in historical entries below have been removed. Current
+resources contain the original 28 profiles and the five adopted SpektraLab B&W
+profiles. Historical derivation records are retained for attribution and source
+history; they do not describe currently bundled experimental data.
 
 Original author:  Andrea Volpato
 Canonical source: https://github.com/andreavolpato/spektrafilm
@@ -82,7 +94,7 @@ neutral spectral density. No PRO400H Hanatos correction is copied. Dye
 separation, unmeasured shoulder, grain and layer effects remain approximations.
 Source: Fujifilm 163AR109A (04.7-FG), page 8:
 https://asset.fujifilm.com/www/jp/files/2024-04/6b75b1c1cb4253623fb2cd7a56ff7443/datasheet_pro160ns_01.pdf
-Reproducible generator: engine/tools/make_pro160ns.py
+Historical generator (removed from current tree): engine/tools/make_pro160ns.py
 
 Three experimental negative profiles -- DERIVED, 2026-10-04
 -----------------------------------------------------------
@@ -101,7 +113,7 @@ Fujifilm SUPERIA REALA 100: AF3-967E (EIGI-00.12-HB), page 4, archive copy:
 https://filmcolors.org/wp-content/uploads/2025/12/Fujicolor-Superia-Reala_AF3-967E.pdf
 Fujifilm NATURA 1600: 013AR313B (06.4-FP), page 4:
 https://asset.fujifilm.com/www/jp/files/2024-04/96b634a89ec6a5abda6b70437f4d75a4/datasheet_natura1600_01.pdf
-Reproducible generator: engine/tools/make_negative_profiles.py
+Historical generator (removed from current tree): engine/tools/make_negative_profiles.py
 PDFs are not bundled; saved numerical samples and SHA-256 identify sources.
 
 Four further experimental negative profiles -- DERIVED, 2026-10-04
@@ -123,7 +135,7 @@ Kodak Elite Color 200: E-4039, July 2006, page 7, archive copy:
 https://125px.com/docs/film/kodak/e4039-Elite.pdf
 Fujifilm PRO 160C: Professional Film Data Guide, 2005, printed page 59:
 https://asset.fujifilm.com/www/ca/files/2020-03/d52487c5c6f84e7f935c299491c5c1ff/ProfessionalFilmDataGuide.pdf
-Reproducible generator: engine/tools/make_negative_profiles.py
+Historical generator (removed from current tree): engine/tools/make_negative_profiles.py
 Saved numerical samples identify the exact PDF hash. PDFs are not bundled.
 
 
@@ -179,7 +191,8 @@ CDF components, unmeasured shoulders and grain are approximations; XP2 is a
 chromogenic C-41 monochrome model. Silverphase Neutral B&W Print is a synthetic
 neutral response, NOT a measured or branded paper. No manufacturer PDFs are
 redistributed. Sources, versions, hashes, processing and limitations are recorded
-in engine/tools/profile_sources/blackwhite_samples.json and blackwhite.md.
+in the historical engine/tools/profile_sources/blackwhite_samples.json and
+blackwhite.md revisions; retired samples are no longer in the current tree.
 These profile containers derive from Andrea Volpato's spektrafilm CC BY-SA 4.0
 profiles; attribution and share-alike terms remain. Original profiles are unchanged.
 
@@ -196,8 +209,11 @@ The constants that are not derived from the profiles
 The rest of `spektrafilm_constants.bin` -- the 1931 standard observer, the
 illuminant SDs, the colourspace primaries and matrices, the CAT cone
 matrices, the Mallett basis, the Hanatos irradiance spectra, and the measured
-KG3 and lens filter curves -- is published colour-science data, not Andrea
-Volpato's profile work, and is not covered by this file.
+KG3 and lens filter curves -- is separate colour-science data, not Andrea
+Volpato's profile work, and is not covered by this profile change record.
+See Runtime-Data-SOURCES.md for the input families, verified Colour BSD notice
+and remaining historical source/licence questions. Published data is not
+synonymous with public domain. The stored arrays are not modified by this review.
 Film edges, date backs and half-frame composition -- ADOPTED, 2026-10-12
 ------------------------------------------------------------------------
 Native film-edge and date-back rendering, brand markings, paired-frame regional
@@ -229,15 +245,33 @@ without them is not licensed to be shipped.
       project, and preserve that licence.
 
   Profiles-and-LUTs-CHANGELOG.txt
-      What this application did and did not change about them. The profiles
-      are unmodified; the LUTs are derivatives, and this says how they were
-      made.
+      What this application did and did not change about them. The
+      original 28 profiles are unmodified; derived LUTs and the removal of
+      former experimental additions are documented with their history.
 
   metal-cpp-Apache-2.0.txt
       metal-cpp, Apple's C++ bindings for Metal, Apache-2.0, compiled into
       the binary.
 
-Silverphase is an independent derivative of SpektraLab ($predecessor_url).
+  Colour-BSD-3-Clause.txt
+      Copyright 2013 Colour Developers. The BSD notice for Colour-derived
+      colour-science data; see Runtime-Data-SOURCES.md for evidence and limits.
+
+  Silverphase-Artwork-CC-BY-SA-4.0.txt / Silverphase-Artwork-NOTICE.md
+      Project-controlled generated artwork and icon contributions; third-party
+      brand/packaging rights and photographs are outside this grant.
+
+  Runtime-Data-SOURCES.md
+      Runtime dataset sources and remaining provenance questions.
+
+  SpektraLab-BW-PROFILES-NOTICE.md
+      Hanze Qiu's notice for the independently constructed B&W product data.
+      The adopted SpektraLab README licenses film/paper profiles CC BY-SA 4.0.
+      Adoption, source commit and hashes: engine/resources_product/UPSTREAM.json
+      in the corresponding source repository. This data is distinct from
+      Andrea Volpato's original profile collection.
+
+Silverphase is an independent derivative of Hanze Qiu's SpektraLab ($predecessor_url).
 The first link above is for Silverphase's corresponding source. The film
 simulation, measured profiles and print+scan model originate in Andrea
 Volpato's spektrafilm at the second link. Silverphase is not affiliated with
@@ -254,7 +288,7 @@ Tri-X 400 and HP5 Plus 400 now use SpektraLab 1.3.3's profiles by Hanze Qiu;
 T-Max 100, Acros II and Ilford Multigrade IV RC are added from the same source.
 These product profiles are copied unchanged and are separate from Andrea
 Volpato's original 28 CC BY-SA profiles. See SpektraLab-BW-PROFILES-NOTICE.md.
-Delta, FP4, XP2 and Fomapan retain Silverphase's experimental models.
+The former Silverphase Delta, FP4, XP2 and Fomapan models were removed on 2026-10-31.
 The Wratten lens filter table and exposure weighting are adopted from the same
 SpektraLab commit, with Hanze Qiu's source attribution retained. The table
 transcribes Kodak B-3 data; No. 58 has the factor uncertainty recorded in its

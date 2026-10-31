@@ -64,6 +64,10 @@ struct AboutWindow: View {
         Licence(id: "Profiles-and-LUTs-CHANGELOG.txt", title: "What this build changed about the profiles and LUTs"),
         Licence(id: "SpektraLab-BW-PROFILES-NOTICE.md", title: "Hanze Qiu — black-and-white profiles"),
         Licence(id: "metal-cpp-Apache-2.0.txt", title: "Apache 2.0 — metal-cpp"),
+        Licence(id: "Colour-BSD-3-Clause.txt", title: "BSD 3-Clause — Colour Developers"),
+        Licence(id: "Silverphase-Artwork-CC-BY-SA-4.0.txt", title: "CC BY-SA 4.0 — Silverphase artwork"),
+        Licence(id: "Silverphase-Artwork-NOTICE.md", title: "Artwork sources and rights boundaries"),
+        Licence(id: "Runtime-Data-SOURCES.md", title: "Runtime data sources and provenance"),
     ]
 
     /// `Bundle(for:)`, not `Bundle.main`, for `EngineClient`'s reason: the

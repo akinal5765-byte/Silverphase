@@ -25,9 +25,8 @@ Silverphase 是 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独�
 
 具体范围与默认值以应用内控件及代码为准；README 不把内部物理模型的所有可调字段都冒充为已经开放的 UI。
 
-另提供八个**实验负片配置**：PRO160NS、Pro Image 100、SUPERIA REALA 100、NATURA 1600、Agfa Portrait XPS 160、Agfa Optima II 200、Kodak Elite Color 200 和 Fujifilm PRO 160C。当前采用可靠胶片模型为基础，让各自厂商的相对感度与反差曲线参与受限调整，优先保证颜色可用；不是仅凭不完整数据重建染料，也不是经过实拍标定的胶片复刻。详见[配置来源与限制](engine/tools/profile_sources/experimental_negatives.md)。
 
-黑白材料包括来自 SpektraLab 的 **Tri-X 400、HP5 Plus 400、T-Max 100、Acros II 与 Ilford Multigrade IV RC 相纸**，以及保留的 Delta 100、FP4 Plus 125、XP2 Super 400、Fomapan 100 实验配置。它们通过光谱响应与密度曲线成像。多反差纸提供 00–5 级滤色及曝光补偿；镜头提供八种 Wratten 滤镜。来源、化学工艺、拟合及颗粒等限制见[黑白配置说明](engine/tools/profile_sources/blackwhite.md)，采用记录见[上游来源清单](engine/resources_product/UPSTREAM.json)。
+黑白材料包括来自 SpektraLab 的 **Tri-X 400、HP5 Plus 400、T-Max 100、Acros II 与 Ilford Multigrade IV RC 相纸**。它们通过光谱响应与密度曲线成像。多反差纸提供 00–5 级滤色及曝光补偿；镜头提供八种 Wratten 滤镜。来源、化学工艺、拟合及颗粒等限制见[黑白配置说明](engine/tools/profile_sources/blackwhite.md)，采用记录见[上游来源清单](engine/resources_product/UPSTREAM.json)。
 
 片边与日期后背在胶片流程内形成：支持 135、半格、多种 120 和全景片门、片孔、边印、灰雾及漏光。日期是否可用取决于画幅；120 使用边缘，全景画幅不提供日期后背。桌面另可将两张源照片保存为 `.spektrapair` 半格组合，iOS 暂未移植双照片配对。片边建模限制见[来源说明](engine/tools/profile_sources/film_edge.md)。
 
@@ -85,3 +84,11 @@ Silverphase 保留 SpektraLab 的项目历史，并在此基础上继续开发�
 应用与 C++ 引擎按 **GPL-3.0-or-later** 授权；胶片／相纸配置及其衍生的印相预览 LUT 按 **CC BY-SA 4.0** 授权；使用的 Apple metal-cpp 按 **Apache 2.0** 授权。完整许可文本、配置与 LUT 的变更说明见 [许可目录](modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/)。分发二进制时，应一并遵守对应源码、署名与许可文本义务。
 
 Silverphase 与 SpektraLab、spektrafilm 均为独立项目；“基于”不等于官方续作或合作。
+
+开源许可边界见 [LICENSES.md](LICENSES.md)，参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)；公开发布前的素材来源与检查事项见 [发布审查](docs/OPEN-SOURCE-RELEASE.md)。本地实验材料的保留方式与公开构建开关见 [本地素材说明](docs/LOCAL-MATERIALS.md)。
+
+## 当前界面案例
+
+![Silverphase 当前编辑器：荷花案例](screenshots/current/silverphase-lotus-2026-10-31.jpg)
+
+2026-10-31 真实窗口截图；截图中的实验材料选项仅在带私人素材的本地构建中显示。更多[磁带案例、100% 颗粒和光晕开关对比](screenshots/current/README.md)，以及[固定照片测试流程](modern_UI/Spektrafilm/VALIDATION.md)。原始 RAW 只保留在本地。

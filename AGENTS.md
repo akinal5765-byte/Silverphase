@@ -42,7 +42,11 @@ The frozen Python reference environment has retired; do not recreate it or
 claim historical `parity_*.py` results as current verification. Those tools remain
 for research if an explicitly supplied reference is available.
 
-`engine/resources/` holds tracked base/experimental data. Product B&W profiles,
+`engine/resources/` holds tracked base data. Self-authored experimental material
+profiles and their generators were removed from the current tree on 2026-10-31;
+do not restore them as tracked product controls. An optional ignored local-material
+overlay is staged for maintainer builds; use `SILVERPHASE_LOCAL_MATERIALS=0` for
+public builds. Never commit private profiles, generated local catalogs or covers. Product B&W profiles,
 paper-grade packs and provenance are in `engine/resources_product/`. Bundle both
 through the platform build script. Preserve `NOTICE.md` verbatim and maintain
 `UPSTREAM.json` plus bundled license/change notices when adopting source/data.

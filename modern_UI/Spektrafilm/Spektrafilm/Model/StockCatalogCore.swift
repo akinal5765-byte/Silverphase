@@ -43,12 +43,10 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
     var brand: String { name.split(separator: " ").first.map(String.init) ?? "" }
     /// Generated packaging artwork, separate from legacy catalog cover metadata.
     var packagingArtworkURL: URL? {
-        let artworkID = ["kodak_tri_x_400": "kodak_tri_x_400_experimental",
-                         "ilford_hp5_plus_400": "ilford_hp5_plus_400_experimental"][id] ?? id
-        let baseID = artworkID == "kodak_portra_800_push1" || artworkID == "kodak_portra_800_push2" ? "kodak_portra_800" : artworkID
+        let baseID = id == "kodak_portra_800_push1" || id == "kodak_portra_800_push2" ? "kodak_portra_800" : id
         let version = baseID == "kodak_portra_400" ? "v2" : "v1"
         return StockCatalog.bundle.url(forResource: baseID + "-packaging-" + version,
-                                       withExtension: "png", subdirectory: StockCatalog.resourceDirectory + "/FilmCovers")
+                                       withExtension: "png", subdirectory: StockCatalog.resourceDirectory + (isExperimental ? "/LocalMaterials/FilmCovers" : "/FilmCovers"))
     }
     var coverURL: URL? {
         cover.flatMap { StockCatalog.bundle.url(forResource: $0, withExtension: nil, subdirectory: StockCatalog.resourceDirectory + "/FilmCovers") }
@@ -75,7 +73,14 @@ struct StockCatalog: Sendable {
         let url = bundle.url(forResource: "StockCatalog", withExtension: "json", subdirectory: resourceDirectory)
         if let url, let data = try? Data(contentsOf: url),
            let decoded = try? JSONDecoder().decode(Wrapper.self, from: data) {
-            return StockCatalog(stocks: decoded.stocks)
+            let localURL = bundle.url(forResource: "StockCatalog", withExtension: "json",
+                                      subdirectory: resourceDirectory + "/LocalMaterials")
+            let local = localURL.flatMap { try? Data(contentsOf: $0) }
+                .flatMap { try? JSONDecoder().decode(Wrapper.self, from: $0) }?.stocks ?? []
+            let publicIDs = Set(decoded.stocks.map(\.id))
+            return StockCatalog(stocks: decoded.stocks + local.filter {
+                $0.isExperimental && !publicIDs.contains($0.id)
+            })
         }
         return StockCatalog(stocks: [])
     }()

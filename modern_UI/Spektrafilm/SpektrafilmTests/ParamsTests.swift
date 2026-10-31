@@ -115,10 +115,11 @@ final class ParamsTests: XCTestCase {
             XCTAssertEqual(restored.printStock, "ilford_multigrade_iv_rc")
             XCTAssertEqual(restored.fullDelta, old.fullDelta)
         }
-        var local = FilmParams.default
-        local.filmStock = "ilford_xp2_super_400_experimental"
-        XCTAssertEqual(local.fullDelta["grain_amount"], .double(1))
-        XCTAssertEqual(local.fullDelta["grain_sublayers_active"], .bool(true))
+        var retired = FilmParams.default
+        retired.filmStock = "ilford_xp2_super_400_experimental"
+        let restored = try JSONDecoder().decode(FilmParams.self, from: JSONEncoder().encode(retired))
+        XCTAssertEqual(restored.filmStock, retired.filmStock, "a missing material must not silently become another film")
+        XCTAssertNil(StockCatalog(stocks: StockCatalog.shared.stocks.filter { !$0.isExperimental }).stock(restored.filmStock))
     }
 
     func testGrainSoftnessRoutesToFilmWithoutChangingParticleSize() {

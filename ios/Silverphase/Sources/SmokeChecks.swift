@@ -642,11 +642,8 @@ enum MobileSmokeChecks {
         let stocks = StockCatalog.shared.films
         return stocks.filter { MobileMaterialFilter.positive.includes($0, favorites: [], recent: []) }.allSatisfy(\.isPositive) &&
             stocks.filter { MobileMaterialFilter.monochrome.includes($0, favorites: [], recent: []) }.allSatisfy(\.isMonochrome) &&
-            MobileMaterialFilter.allCases.allSatisfy { filter in
-                stocks.filter(\.isExperimental).allSatisfy { stock in
-                    !filter.includes(stock, favorites: [stock.id], recent: [stock.id])
-                }
-            } && stocks.contains { !$0.isExperimental && MobileMaterialFilter.all.includes($0, favorites: [], recent: []) }
+            !stocks.isEmpty && stocks.filter { MobileMaterialFilter.experimental.includes($0, favorites: [], recent: []) }.allSatisfy(\.isExperimental) &&
+            stocks.allSatisfy { MobileMaterialFilter.all.includes($0, favorites: [], recent: []) }
     }
     @MainActor private static func importInteractionCheck(source: URL) async throws {
         let folder = URL.temporaryDirectory.appendingPathComponent("DocumentSmoke-" + UUID().uuidString)

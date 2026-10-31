@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import numpy as np
 from spk_ctypes import Engine
-from product_blackwhite import COMMON, UPSTREAM, LOCAL, PAPER
+from product_blackwhite import COMMON, UPSTREAM, PAPER
 
 ROOT = Path(__file__).resolve().parents[2]
 GRADES = json.loads((ROOT/'engine/resources_product/paper_grades.json').read_text())['grades']
@@ -21,7 +21,7 @@ def density(encoded):
 
 def run():
     with Engine() as engine:
-        for stock in UPSTREAM + LOCAL:
+        for stock in UPSTREAM:
             with engine.open(ramp,COMMON|{'film_stock':stock,'print_stock':PAPER,
                                   'c_filter_neutral':0, **GRADES['2']}) as session:
                 session.render('full')

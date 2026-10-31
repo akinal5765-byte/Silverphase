@@ -17,6 +17,7 @@ import tempfile
 
 REPO = Path(__file__).resolve().parents[3]
 MANIFEST = REPO / 'modern_UI/Spektrafilm/SpektrafilmTests/Fixtures/validation-manifest.json'
+CASES_MANIFEST = MANIFEST.with_name('release-case-manifest.json')
 
 
 def sha256(path):
@@ -36,8 +37,8 @@ def run(command, log, cwd=REPO, env=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--photos-root', type=Path, required=True)
-    parser.add_argument('--scope', choices=('photos', 'full'), default='full')
-    parser.add_argument('--manifest', type=Path, default=MANIFEST)
+    parser.add_argument('--scope', choices=('photos', 'full', 'cases'), default='full')
+    parser.add_argument('--manifest', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--derived-data', type=Path, default=Path('/tmp/silverphase-validation-dd'))
     parser.add_argument('--batch-count', type=int, default=0)
@@ -50,9 +51,15 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     if (output / 'TestResults.xcresult').exists() or (output / 'summary.json').exists():
         parser.error('output already contains a run; select a new output directory')
-    manifest = json.loads(args.manifest.expanduser().read_text())
+    selected_manifest = args.manifest or (CASES_MANIFEST if args.scope == 'cases' else MANIFEST)
+    manifest = json.loads(selected_manifest.expanduser().read_text())
     roles = [item['role'] for item in manifest['fixtures']]
-    if sorted(roles) != sorted(('raw-standard', 'raw-high-resolution', 'encoded-jpeg', 'encoded-tiff')):
+    if args.scope == 'cases':
+        if not roles or len(roles) != len(set(roles)):
+            raise ValueError('cases manifest must contain nonempty distinct roles')
+        if args.batch_count:
+            parser.error('cases scope exports exactly the pinned manifest; omit --batch-count')
+    elif sorted(roles) != sorted(('raw-standard', 'raw-high-resolution', 'encoded-jpeg', 'encoded-tiff')):
         raise ValueError('manifest must contain exactly the four distinct validation roles')
     inputs = []
     for fixture in manifest['fixtures']:
@@ -63,6 +70,9 @@ def main():
         if digest != fixture['sha256']:
             raise ValueError(f"fixture checksum mismatch: {fixture['role']}")
         inputs.append((source, fixture))
+    if args.scope == 'cases' and (len({fixture['sha256'] for _, fixture in inputs}) != len(inputs) or
+                                  any(source.suffix.lower() not in {'.arw', '.nef', '.cr2', '.cr3', '.dng', '.raf'} for source, _ in inputs)):
+        raise ValueError('cases must be distinct RAW inputs')
     print(f'Validated {len(inputs)} selected photo checksums. Report: {output}', flush=True)
     checks = {}
     checks['project'] = run([sys.executable, 'modern_UI/Spektrafilm/Tools/gen-project.py', '--check'], output / 'project.log')
@@ -72,7 +82,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='silverphase-validation-work-') as temporary:
         work = Path(temporary)
         mirror = work / 'repo'
-        shutil.copytree(REPO, mirror, ignore=shutil.ignore_patterns('.git', 'build', '.venv', '__pycache__', '.DS_Store'))
+        shutil.copytree(REPO, mirror, ignore=shutil.ignore_patterns('.git', 'build', '.venv', '__pycache__', '.DS_Store', 'private-fixtures', 'output'))
         photos = work / 'photos'
         for source, fixture in inputs:
             target = photos / fixture['relative_path']
@@ -80,32 +90,38 @@ def main():
             shutil.copyfile(source, target)
         staged_manifest = work / 'fixtures.json'
         staged_manifest.write_text(json.dumps(manifest))
-        standard = next(item for _, item in inputs if item['role'] == 'raw-standard')
+        standard = inputs[0][1] if args.scope == 'cases' else next(item for _, item in inputs if item['role'] == 'raw-standard')
         env = os.environ.copy()
         env['TEST_RUNNER_SILVERPHASE_VALIDATION_PHOTOS'] = str(photos)
         env['TEST_RUNNER_SILVERPHASE_VALIDATION_MANIFEST'] = str(staged_manifest)
         env['TEST_RUNNER_SILVERPHASE_TEST_RAW'] = str(photos / standard['relative_path'])
         batch_hashes = []
-        if args.batch_count:
+        batch_count = len(inputs) if args.scope == 'cases' else args.batch_count
+        if batch_count:
             batch = work / 'batch'
             batch.mkdir()
-            candidates = sorted(path for path in root.rglob('*')
-                                if path.is_file() and path.suffix.lower() in {'.arw', '.nef', '.cr2', '.cr3', '.dng', '.raf'})
-            if len(candidates) < args.batch_count:
+            candidates = [source for source, _ in inputs] if args.scope == 'cases' else sorted(
+                path for path in root.rglob('*')
+                if path.is_file() and path.suffix.lower() in {'.arw', '.nef', '.cr2', '.cr3', '.dng', '.raf'})
+            if len(candidates) < batch_count:
                 raise ValueError('not enough distinct RAW files for the requested batch')
-            for index, source in enumerate(candidates[:args.batch_count]):
+            for index, source in enumerate(candidates[:batch_count]):
                 target = batch / f'{index:03d}-{source.name}'
                 shutil.copyfile(source, target)
                 batch_hashes.append({'relative_path': str(source.relative_to(root)), 'sha256': sha256(source)})
             env['TEST_RUNNER_SILVERPHASE_PERF_BATCH_DIR'] = str(batch)
-            env['TEST_RUNNER_SILVERPHASE_PERF_BATCH_COUNT'] = str(args.batch_count)
+            env['TEST_RUNNER_SILVERPHASE_PERF_BATCH_COUNT'] = str(batch_count)
             env['TEST_RUNNER_SILVERPHASE_PERF_BATCH_FORMAT'] = args.batch_format
             env['TEST_RUNNER_SILVERPHASE_PERF_RESULTS'] = str(output / 'batch.tsv')
         command = ['xcodebuild', '-project', 'modern_UI/Spektrafilm/Spektrafilm.xcodeproj',
                    '-scheme', 'SpektrafilmTests', '-configuration', 'Debug',
                    '-derivedDataPath', str(args.derived_data.resolve()),
                    '-resultBundlePath', str(output / 'TestResults.xcresult')]
-        if args.scope == 'photos':
+        if args.scope == 'cases':
+            command += ['-only-testing:SpektrafilmTests/CanvasViewTests',
+                        '-only-testing:SpektrafilmTests/DigitalIntermediateExportTests',
+                        '-only-testing:SpektrafilmTests/PerformanceStressTests/testRealPhotoBatchExport']
+        elif args.scope == 'photos':
             command += [f'-only-testing:SpektrafilmTests/{suite}' for suite in
                         ('CanvasViewTests', 'RealPhotoValidationTests', 'DigitalIntermediateExportTests')]
             if args.batch_count:
@@ -125,7 +141,7 @@ def main():
         summary = json.loads(result.stdout) if result.returncode == 0 else None
         report = {'scope': args.scope, 'preflight': checks, 'exit_code': code,
                   'fixture_manifest': manifest, 'source_photos_unchanged': True,
-                  'batch_format': args.batch_format if args.batch_count else None,
+                  'batch_format': args.batch_format if batch_count else None,
                   'batch_fixtures': batch_hashes, 'xctest': summary,
                   'coverage': ('failed: inspect build/test logs' if code or (summary and summary['failedTests']) else
                                'partial: inspect skipped tests' if summary and summary['skippedTests'] else
@@ -137,7 +153,7 @@ def main():
             print(f"XCTest: {summary['passedTests']} passed, {summary['failedTests']} failed, {summary['skippedTests']} skipped", flush=True)
         print(f'Report: {output / "summary.json"}', flush=True)
         # A selected photos gate must not succeed by silently skipping its fixtures.
-        if code or summary is None or summary['failedTests'] or (args.scope == 'photos' and summary['skippedTests']):
+        if code or summary is None or summary['failedTests'] or (args.scope in ('photos', 'cases') and summary['skippedTests']):
             return 1
     return 0
 

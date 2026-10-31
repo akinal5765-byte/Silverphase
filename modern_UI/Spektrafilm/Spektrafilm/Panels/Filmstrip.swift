@@ -686,8 +686,8 @@ struct FilmChoiceStrip: View {
         case .all: return T("All", "全部")
         case .negative: return L(filmGroup: "Negative")
         case .positive: return L(filmGroup: "Positive")
-        case .experimental: return T("Experimental", "实验")
         case .blackwhite: return T("B&W", "黑白")
+        case .experimental: return T("Experimental", "实验")
         case .favorites: return T("Favorites", "收藏")
         case .recent: return T("Recently used", "最近使用")
         }

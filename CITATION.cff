@@ -11,18 +11,20 @@ message: |
   https://github.com/andreavolpato/spektrafilm. Cite this repository only when
   you mean the application, the C++ port of the engine, or the GPU pipeline.
 
-  Silverphase is GPL-3.0-or-later; the profiles and the LUTs baked from them
-  are CC BY-SA 4.0 and remain Andrea Volpato's work. Silverphase is not
-  affiliated with or endorsed by either original project.
+  Silverphase code is GPL-3.0-or-later. Andrea Volpato's profiles and their
+  derived LUTs are CC BY-SA 4.0. Hanze Qiu's product B&W data and Silverphase
+  experimental additions have separate provenance records. Silverphase is
+  not affiliated with or endorsed by either original project.
 
-title: "Silverphase: a macOS application for spectral film and print simulation"
+title: "Silverphase: a native Apple application for spectral film and print simulation"
 abstract: |
   Silverphase develops a scene-linear photograph through a virtual film
   negative and a print, on the GPU, interactively. It is a SwiftUI application
-  with a C++/Metal port of the spektrafilm render engine compiled into it, held
-  to the Python reference at float32 storage epsilon by a set of parity
-  harnesses. It contributes the application and the engine port; the spectral
-  modelling it renders is spektrafilm's.
+  for macOS, iPhone and iPad with a shared C++/Metal render engine compiled
+  into it. Current validation uses native checks and host workflows; historical
+  Python-reference parity results are not current acceptance evidence.
+  Silverphase builds on Hanze Qiu's native port; the spectral modelling and
+  original measured profiles originate in Andrea Volpato's spektrafilm.
 
 authors:
   - name: "akinal5765-byte"
@@ -41,6 +43,8 @@ keywords:
   - "RA-4 print simulation"
   - "Metal"
   - "macOS"
+  - "iOS"
+  - "iPadOS"
   - "GPU rendering"
 
 references:

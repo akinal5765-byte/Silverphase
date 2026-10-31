@@ -39,6 +39,8 @@ final class LicensingTests: XCTestCase {
             "Silverphase-GPL-3.0.txt": "GNU GENERAL PUBLIC LICENSE",
             "Profiles-and-LUTs-CC-BY-SA-4.0.txt": "Attribution-ShareAlike 4.0 International",
             "metal-cpp-Apache-2.0.txt": "Apache License",
+            "Colour-BSD-3-Clause.txt": "Copyright 2013 Colour Developers",
+            "Silverphase-Artwork-CC-BY-SA-4.0.txt": "Attribution-ShareAlike 4.0 International",
         ]
         for licence in AboutWindow.licences {
             guard let phrase = expected[licence.id] else { continue }
@@ -83,6 +85,7 @@ final class LicensingTests: XCTestCase {
         XCTAssertTrue(readme.contains(AboutWindow.upstreamURL),
                       "the shipped licence file lost the upstream attribution")
         XCTAssertTrue(readme.contains("Andrea Volpato"))
+        XCTAssertTrue(readme.contains("Hanze Qiu"))
     }
 
     /// The attribution CC BY-SA requires: the author, the canonical source,

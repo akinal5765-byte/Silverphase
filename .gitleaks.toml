@@ -1,0 +1,12 @@
+title = "Silverphase release scan"
+
+[extend]
+useDefault = true
+
+# Reviewed false positive: a public UserDefaults preference identifier in
+# Model/Params.swift, also present in commit 544e83164c3ef693d59b43c8e83590ca3f73a9f1.
+# Match this whole value only; no file, rule or credential prefix is exempted.
+[[allowlists]]
+description = "Public UI preference identifier, not an API credential"
+regexTarget = "secret"
+regexes = ['''^ui2\.diBlueCompensation$''']
