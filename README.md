@@ -80,7 +80,7 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 | iPhone | iOS 18+ | 原生触控编辑器、照片／文件导入、共享工艺控制、裁切与导出 |
 | iPad | iPadOS 18+ | 同一移动编辑器，适配画布、检查器及材料浏览器布局 |
 
-预发布构建可从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 获取：macOS DMG 无 Developer ID 签名且未公证；iOS IPA 需自行重新签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 尚未覆盖桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。局部蒙版尚未开放。
+发布构建可从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 获取：macOS DMG 无 Developer ID 签名且未公证；iOS IPA 需自行重新签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 尚未覆盖桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。局部蒙版尚未开放。
 
 iOS 当前采用会话编辑：冷启动会清理应用内导入副本，设置和导出配方独立保留。请保留原始照片与导出成片；长期归档工作流见各平台说明。
 

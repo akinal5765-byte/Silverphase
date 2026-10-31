@@ -1,14 +1,14 @@
 # Binary releases
 
-Download preview builds from [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
+Download release builds from [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
 The release notes name the exact source tag/commit, system requirements,
-signing state and validation scope. Preview builds may have incomplete features.
+signing state and validation scope. Release builds may have incomplete features.
 
 ## macOS
 
 - Apple Silicon (arm64), macOS 15 or later. Intel Macs are not supported.
 - Open `Silverphase-<version>-macOS-arm64.dmg`, then drag Silverphase into Applications.
-- The current preview has an ad-hoc signature for Apple Silicon code execution,
+- The current release has an ad-hoc signature for Apple Silicon code execution,
   **no Developer ID signature, and no notarization**. This is not Apple approval.
 - If macOS blocks opening it, review System Settings → Privacy & Security and
   use Open Anyway only after verifying the source and checksum. No global
@@ -47,16 +47,16 @@ GitHub's **Source code (zip/tar.gz)** downloads. The source includes build scrip
 engine code and tracked public resources; the binary bundles include licences.
 The platform build JSON records identify the source commit and packaged data.
 
-## Reproduce a preview build
+## Reproduce a release build
 
 Use the documented Xcode/Metal toolchain. From a clean, committed checkout:
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
 python3 tools/package-public-release.py --platform macos \
-  --tag v0.1.0-beta.1 --output output/releases/v0.1.0-beta.1
+  --tag v1.0.0 --output output/releases/v1.0.0
 python3 tools/package-public-release.py --platform ios \
-  --tag v0.1.0-beta.1 --output output/releases/v0.1.0-beta.1
+  --tag v1.0.0 --output output/releases/v1.0.0
 ```
 
 The script enforces Release configuration and `SILVERPHASE_LOCAL_MATERIALS=0`,

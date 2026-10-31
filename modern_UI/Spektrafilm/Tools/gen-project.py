@@ -80,7 +80,7 @@ MACOS = "15.0"
 # they were still `0.2` and `2` — nothing derived them and nothing noticed.
 # They are build settings now and the plist references them, so a release
 # bumps one line here (HANDOFF-DISTRIBUTION §2.6).
-MARKETING_VERSION = "0.1.0"
+MARKETING_VERSION = "1.0.0"
 BUILD_NUMBER = "1"
 
 # Signing, from the environment, because a Developer ID certificate is not in

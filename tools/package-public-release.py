@@ -14,8 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / 'modern_UI/Spektrafilm'
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--platform', choices=['macos', 'ios'], required=True)
-p.add_argument('--tag', required=True, help='For example v0.1.0-beta.1')
+p.add_argument('--tag', required=True, help='For example v1.0.0')
 p.add_argument('--output', type=Path, required=True)
+p.add_argument('--derived-data', type=Path, help='Optional existing Xcode cache; not included in release assets')
 a = p.parse_args()
 if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?', a.tag):
     p.error('Use a version tag without path characters')
@@ -39,6 +40,7 @@ def capture(args):
 
 work = out / 'work' / a.platform
 work.mkdir(parents=True, exist_ok=True)
+derived = a.derived_data.resolve() if a.derived_data else work / 'DerivedData'
 if a.platform == 'macos':
     run(['engine/build.sh', 'bundle'])
     project, scheme, product, resdir = DESKTOP / 'Spektrafilm.xcodeproj', 'Spektrafilm', 'Release', 'Contents/Resources/Resources'
@@ -47,9 +49,9 @@ else:
     project, scheme, product, resdir = ROOT / 'ios/Silverphase/Silverphase.xcodeproj', 'Silverphase', 'Release-iphoneos', 'AppResources'
     extra = ['-sdk', 'iphoneos', '-destination', 'generic/platform=iOS']
 run(['xcodebuild', '-project', project, '-scheme', scheme, '-configuration', 'Release',
-     '-derivedDataPath', work / 'DerivedData', *extra, 'CODE_SIGNING_ALLOWED=NO',
+     '-derivedDataPath', derived, *extra, 'CODE_SIGNING_ALLOWED=NO',
      'ENABLE_DEBUG_DYLIB=NO', 'build'])
-source_app = work / 'DerivedData/Build/Products' / product / 'Silverphase.app'
+source_app = derived / 'Build/Products' / product / 'Silverphase.app'
 app = work / ('dmg/Silverphase.app' if a.platform == 'macos' else 'Payload/Silverphase.app')
 if app.parent.exists():
     shutil.rmtree(app.parent)

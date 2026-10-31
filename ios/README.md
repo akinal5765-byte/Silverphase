@@ -12,7 +12,7 @@ licences, catalogue and JSON scalar type. The earlier iOS PoC's build approach
 and simulator texture compatibility fix have been brought forward; its older
 engine and receiver have not been copied into this product.
 
-## Preview downloads
+## Release downloads
 
 Unsigned device IPA builds are published through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
 
