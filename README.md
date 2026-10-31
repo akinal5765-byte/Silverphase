@@ -93,7 +93,7 @@ iOS 当前采用会话编辑：冷启动会清理应用内导入副本，设置�
       <strong>Layerlight · HDR 图片编辑器</strong><br>
       同一作者开发的独立闭源应用，已在 App Store 上架，支持 iPhone 与 iPad。
       <p>调整 HDR 高光与 Gain Map 光影层，控制光感、反差和柔和度；支持 HEIC 摄影风格工作流，并提供裁切、画框、水印与批量导出等功能。摄影风格编辑需要受支持的设备和系统；部分功能需 Pro。</p>
-      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a> · <a href="https://akinal5765-byte.github.io/Layerlight/">官方网站</a>
+      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a>
     </td>
   </tr>
 </table>

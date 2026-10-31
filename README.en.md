@@ -93,7 +93,7 @@ iOS currently uses editing sessions: a cold start clears app-owned imported copi
       <strong>Layerlight · HDR Photo Editor</strong><br>
       A separate proprietary app by the same author, available on the App Store for iPhone and iPad.
       <p>Shape HDR highlights and Gain Maps with light, contrast, and softness controls. Supports HEIC Photographic Styles workflows, plus crop, frames, watermarks, and batch export. Photographic Styles editing requires compatible devices and systems; some features require Pro.</p>
-      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>View and download on the App Store →</strong></a> · <a href="https://akinal5765-byte.github.io/Layerlight/">Website</a>
+      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>View and download on the App Store →</strong></a>
     </td>
   </tr>
 </table>
