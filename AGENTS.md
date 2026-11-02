@@ -55,7 +55,8 @@ rewrite base measured arrays to implement product controls.
 
 Desktop half-frame pairs are `.spektrapair` JSON documents referencing source
 photos, with pair edits in sidecars. Keep source photographs and personal
-sidecars out of Git. iOS imported copies are session data, not repository assets.
+sidecars out of Git. iOS imported originals and edit records persist in the app-owned local library;
+they are user data, not repository assets.
 
 ## Build and verify
 

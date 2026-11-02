@@ -5,16 +5,31 @@ import ImageIO
 import PhotosUI
 
 @main struct SilverphaseMobileApp: App {
-    @State private var document = MobileDocument()
+    @State private var document: MobileDocument = {
+        let document = MobileDocument()
+        document.editorVisible = ProcessInfo.processInfo.arguments.contains { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }
+        return document
+    }()
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
-            MobileEditor(document: document)
+            Group {
+                if document.editorVisible && ProcessInfo.processInfo.arguments.contains(where: { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }) {
+                    MobileEditor(document: document)
+                } else { MobileLibrary(document: document) }
+            }
                 .preferredColorScheme(.dark)
                 .tint(.primary)
                 .task {
 #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") {
+                    if ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") {
+                        MobileSmokeChecks.prepareCompactPhoneUI(document)
+                    } else if ProcessInfo.processInfo.arguments.contains("--library-regression") {
+                        MobileLibraryChecks.run()
+                        await MobileLibraryChecks.exportBatch()
+                    } else if ProcessInfo.processInfo.arguments.contains("--library-ui-regression") {
+                        MobileLibraryChecks.prepareUI(document)
+                    } else if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") {
                         MobileSmokeChecks.prepareIPadChromeUI(document)
                     } else if ProcessInfo.processInfo.arguments.contains("--clipboard-ui-regression") {
                         MobileSmokeChecks.prepareClipboardUI(document)
@@ -43,7 +58,7 @@ import PhotosUI
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in document.releaseMemory() }
                 .onChange(of: scenePhase) { _, phase in
 #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") || ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") { return }
 #endif
                     document.setActive(phase == .active, background: phase == .background)
                 }
@@ -94,6 +109,10 @@ enum MobileStage: String, CaseIterable, Identifiable {
 
 struct MobileEditor: View {
     @Bindable var document: MobileDocument
+    var batchIDs: [UUID]? = nil
+    var returnToLibrary: (@MainActor @Sendable () -> Void)? = nil
+    @State private var batchCopyRequest: MobileSettingsCopyRequest?
+    private var showsPhotoStrip: Bool { returnToLibrary == nil || batchIDs != nil }
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -111,7 +130,24 @@ struct MobileEditor: View {
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
+    @State private var returnButtonFrame = CGRect.zero
     @State private var iPadSafeInsets = EdgeInsets()
+    @State private var panelDragStart: Double?
+    @GestureState private var panelDragging = false
+    @State private var phoneHingeClosed: Bool?
+    @State private var phonePostureKnown = false
+    @State private var phoneWindowSize = CGSize.zero
+    private var compactPhoneEditor: Bool {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { return false }
+        if #available(iOS 27.1, *) {
+            guard phonePostureKnown else { return false }
+            if let phoneHingeClosed {
+                return !phoneHingeClosed && phoneWindowSize.height > phoneWindowSize.width
+            }
+            return true
+        }
+        return true
+    }
 
     private var verticalSystemBar: Bool {
         guard systemProcessToolbar, let frame = systemBarFrame else { return false }
@@ -126,12 +162,15 @@ struct MobileEditor: View {
     }
     var body: some View {
         NavigationStack {
+            Group {
+            if compactPhoneEditor { compactWorkspace }
+            else {
             ProcessNavigation(document: document, stage: $stage, inspector: $inspector,
                               materials: $materials, exporting: $exporting, enabled: systemProcessToolbar) {
             GeometryReader { geometry in
                 let plan = WorkspaceLayout(size: geometry.size, safe: usesIPadToolbar ? iPadSafeInsets : EdgeInsets(),
                                            exclusions: workspaceExclusions(geometry),
-                                           showsMedia: materials || !document.photos.isEmpty,
+                                           showsMedia: materials || (showsPhotoStrip && !document.photos.isEmpty),
                                            systemBars: systemProcessToolbar,
                                            systemBarFrame: verticalSystemBar ? systemBarFrame?.offsetBy(dx: -geometry.frame(in: .global).minX, dy: -geometry.frame(in: .global).minY) : nil,
                                            showInspector: inspector && document.current != nil,
@@ -189,26 +228,14 @@ struct MobileEditor: View {
                         .auditEditorBounds("panel.browser")
                         .position(x: plan.media.midX, y: plan.media.midY)
                     }
-                    if let photo = document.current {
-                        HStack(spacing: 8) {
-                            Text(photo.name).lineLimit(1)
-                            let outputSize = document.nativeOutputSize
-                            Text("\(Int(outputSize.width.rounded())) × \(Int(outputSize.height.rounded()))").foregroundStyle(.secondary)
-                            if document.busy { Text("处理中…").foregroundStyle(MobileStyle.accent) }
-                            else if document.showOriginal && document.originalDetailBusy { Text("载入原图细节…").foregroundStyle(.secondary) }
-                            else if document.showOriginal && document.originalDetailTile?.nativeSize != nil { Text("原图 · 原始像素").foregroundStyle(.secondary) }
-                            else if document.development != nil { Text(document.developmentRunning ? "显影中…" : "轻点照片开始印相").foregroundStyle(.secondary) }
-                            else if document.detailBusy { Text("载入细节…").foregroundStyle(.secondary) }
-                            else if !document.previewStatus.isEmpty { Text(document.previewStatus).foregroundStyle(.secondary) }
-                            else if let tile = document.detailTile, !document.showOriginal, !document.pickingNeutral {
-                                Text(tile.nativeSize != nil ? "原始像素" : "细节预览").foregroundStyle(.secondary)
-                            }
-                            else if document.image != nil { Text("适屏预览").foregroundStyle(.secondary) }
-                        }
-                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.75))
-                        .frame(width: max(1, geometry.size.width - plan.photoInsets.leading - plan.imageInsets(showInspector: showsPanel).trailing - EditorDesign.contentInset * 2), alignment: .leading)
-                        .position(x: plan.photoInsets.leading + EditorDesign.contentInset + max(1, geometry.size.width - plan.photoInsets.leading - plan.imageInsets(showInspector: showsPanel).trailing - EditorDesign.contentInset * 2) / 2,
-                                  y: plan.navigation.maxY + EditorDesign.canvasInfoInset)
+                    if document.current != nil {
+                        let infoLeft = plan.photoInsets.leading + EditorDesign.contentInset
+                        let infoWidth = max(1, geometry.size.width - plan.imageInsets(showInspector: showsPanel).trailing - EditorDesign.contentInset - infoLeft)
+                        canvasStatus
+                        .frame(width: infoWidth, alignment: .leading)
+                        .position(x: infoLeft + infoWidth / 2,
+                                  y: statusCenterY(in: geometry, defaultY: plan.navigation.maxY + EditorDesign.canvasInfoInset))
+                        .accessibilityElement(children: .combine).accessibilityIdentifier("editor.photo-info")
                         .allowsHitTesting(false)
                     }
                 }
@@ -219,9 +246,7 @@ struct MobileEditor: View {
                 .modifier(WorkspaceViewportClip(roundedHeader: usesIPadToolbar))
             }
             .background {
-                if systemProcessToolbar {
-                    ProcessBarGeometryProbe { systemBarFrame = $0 }.allowsHitTesting(false)
-                } else if usesIPadToolbar {
+                if usesIPadToolbar {
                     WindowSafeAreaProbe { iPadSafeInsets = $0 }.allowsHitTesting(false)
                 }
             }
@@ -233,6 +258,25 @@ struct MobileEditor: View {
             .modifier(ProcessToolbar(document: document, inspector: $inspector,
                                      materials: $materials, exporting: $exporting, about: $about, settings: $settings,
                                      importing: $importing, pickingPhotos: $pickingPhotos, enabled: systemProcessToolbar))
+            }
+            }
+            .background {
+                if UIDevice.current.userInterfaceIdiom == .phone {
+                    ProcessBarGeometryProbe(update: { frame in
+                        systemBarFrame = frame
+                    }, windowSizeChanged: { size in
+                        phoneWindowSize = size
+                    }, hingeChanged: { closed in
+                        phoneHingeClosed = closed
+                        phonePostureKnown = true
+                    }, returnFrameChanged: { returnButtonFrame = $0 })
+                    .allowsHitTesting(false)
+                }
+            }
+            .environment(\.returnToLibrary, returnToLibrary)
+            .sheet(item: $batchCopyRequest) { request in
+                MobileCopySettingsSheet(document: document, request: request, applyIDs: Set(batchIDs ?? []))
+            }
             .environment(overlays)
             .overlay { ChoiceOverlay(overlays: overlays) }
             .sheet(isPresented: $pickingPhotos) {
@@ -263,6 +307,7 @@ struct MobileEditor: View {
             .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in document.schedule() }
             .onChange(of: document.preferences.values) { _, _ in document.schedule() }
             .onChange(of: stage) { _, stage in document.cropEditing = stage == .geometry }
+            .onChange(of: document.selection) { _, id in if id == nil { returnToLibrary?() } }
             .onAppear {
 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--show-parameters") { inspector = true }
@@ -284,6 +329,107 @@ struct MobileEditor: View {
                                      excludedFrame: verticalSystemBar ? systemBarFrame : nil,
                                      isCovered: document.exported != nil || pickingPhotos || importing || settings || about,
                                      dismiss: document.dismissNotification)
+        }
+    }
+
+    private func statusCenterY(in geometry: GeometryProxy, defaultY: CGFloat) -> CGFloat {
+        guard returnToLibrary != nil else { return defaultY }
+        let reservedRowBottom = geometry.safeAreaInsets.top + EditorDesign.hitSize + 2 * EditorDesign.gutter
+        let buttonBottom = returnButtonFrame.isEmpty ? reservedRowBottom : returnButtonFrame.maxY - geometry.frame(in: .global).minY
+        // Reserve a complete toolbar row even before UIKit publishes its control frame.
+        return max(defaultY, max(reservedRowBottom, buttonBottom) + EditorDesign.canvasInfoInset)
+    }
+
+    private var canvasStatus: some View {
+        Text(canvasStatusText).font(.system(size: 11)).lineLimit(1)
+            .foregroundStyle(document.busy ? MobileStyle.accent : .white.opacity(0.75))
+    }
+    private var canvasStatusText: String {
+        if document.busy { return "处理中…" }
+        if document.showOriginal && document.originalDetailBusy { return "载入原图细节…" }
+        if document.showOriginal && document.originalDetailTile?.nativeSize != nil { return "原图 · 原始像素" }
+        if document.development != nil { return document.developmentRunning ? "显影中…" : "轻点照片开始印相" }
+        if document.detailBusy { return "载入细节…" }
+        if !document.previewStatus.isEmpty { return document.previewStatus }
+        if let tile = document.detailTile, !document.showOriginal, !document.pickingNeutral {
+            return tile.nativeSize != nil ? "原始像素" : "细节预览"
+        }
+        return document.image != nil ? "适屏预览" : "等待照片"
+    }
+
+    private var compactWorkspace: some View {
+        GeometryReader { geometry in
+            let photos = showsPhotoStrip && document.photos.count > 1
+            let plan = CompactPhoneLayout(size: geometry.size, fraction: dockFraction, showsPhotos: photos)
+            ZStack(alignment: .topLeading) {
+                if stage == .geometry, let source = document.cropSourceImage, let photo = document.current {
+                    MobileCropCanvas(image: source, geometry: photo.geometry.value, sourceSize: document.geometrySourceSize,
+                                     insets: EdgeInsets(), commit: document.setGeometry).id(document.selection)
+                        .ignoresSafeArea(.container, edges: [.top, .bottom])
+                } else {
+                    PhotoCanvas(canvas: document.canvasState,
+                                image: document.neutralPreview ?? (document.showOriginal ? document.original : document.image),
+                                detail: document.pickingNeutral ? nil : (document.showOriginal ? document.originalDetailTile : document.detailTile),
+                                onViewport: document.requestDetail, onOriginalViewport: document.requestOriginalDetail,
+                                nativeSize: document.showOriginal ? document.originalNativeOutputSize : document.nativeOutputSize,
+                                zoomRequest: document.canvasZoomRequest, wantsNative: document.canvasWantsNative,
+                                comparison: document.showOriginal, onCompare: document.compareCanvas,
+                                development: document.development, developmentRunning: document.developmentRunning,
+                                onPrintNegative: document.printNegative, onDevelopmentFinished: document.finishDevelopment,
+                                onNeutral: document.pickingNeutral ? { document.pickNeutral($0) } : nil)
+                        .id(document.selection)
+                        .ignoresSafeArea(.container, edges: [.top, .bottom])
+                }
+                if document.current == nil { emptyEditor.frame(maxWidth: .infinity, maxHeight: .infinity) }
+                if document.current != nil {
+                    let left = EditorDesign.contentInset
+                    let width = max(1, geometry.size.width - left - EditorDesign.contentInset)
+                    canvasStatus.frame(width: width, alignment: .leading)
+                        .position(x: left + width / 2, y: statusCenterY(in: geometry, defaultY: EditorDesign.canvasInfoInset))
+                        .accessibilityElement(children: .combine).accessibilityIdentifier("editor.photo-info")
+                        .allowsHitTesting(false)
+                }
+                if inspector, document.current != nil {
+                    processPanel(side: false, heightBasis: geometry.size.height)
+                        .frame(width: plan.inspector.width, height: plan.inspector.height)
+                        .modifier(ChromeSurface(radius: 24))
+                        .position(x: plan.inspector.midX, y: plan.inspector.midY)
+                        .accessibilityElement(children: .contain).accessibilityIdentifier("editor.parameters")
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if photos {
+                    filmstrip.frame(width: plan.media.width, height: plan.media.height).modifier(ChromeSurface())
+                        .position(x: plan.media.midX, y: plan.media.midY)
+                }
+                CompactProcessTabs(stage: stage, enabled: document.current != nil && !document.delivering) { item in
+                    document.endParameterInteraction()
+                    stage = item; inspector = true; exporting = false
+                    materials = item == .film || item == .print
+                }
+                .frame(width: plan.tabs.width, height: plan.tabs.height)
+                .position(x: plan.tabs.midX, y: plan.tabs.midY)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .animation(reduceMotion ? nil : .smooth(duration: 0.28), value: inspector)
+            .background(MobileStyle.canvas.ignoresSafeArea())
+        }
+        .toolbar(.visible, for: .navigationBar)
+        .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                if let returnToLibrary {
+                    Button("返回", systemImage: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library")
+                }
+            }.compactHorizontalAxis()
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("导出", systemImage: "square.and.arrow.up") {
+                    exporting = true; inspector = true; materials = false
+                }.disabled(document.current == nil || document.delivering).accessibilityIdentifier("editor.export")
+                NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
+                                 exporting: $exporting, about: $about, settings: $settings,
+                                 importing: $importing, pickingPhotos: $pickingPhotos)
+            }.compactHorizontalAxis()
         }
     }
 
@@ -313,11 +459,16 @@ struct MobileEditor: View {
     }
     private var fileActions: some View {
         HStack(spacing: 0) {
-            ChromeButton(title: "打开照片", symbol: "plus") { openImport() }.accessibilityIdentifier("import.menu")
-                .contextMenu {
-                    Button("重置当前照片", systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
-                    Button("关于 Silverphase", systemImage: "info.circle") { about = true }
-                }
+            if let returnToLibrary {
+                ChromeButton(title: "返回", symbol: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library")
+            }
+            if returnToLibrary == nil {
+                ChromeButton(title: "打开照片", symbol: "plus") { openImport() }.accessibilityIdentifier("import.menu")
+                    .contextMenu {
+                        Button("重置当前照片", systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
+                        Button("关于 Silverphase", systemImage: "info.circle") { about = true }
+                    }
+            }
             ChromeButton(title: "撤销", symbol: "arrow.uturn.backward", enabled: document.canUndo) { document.undo() }.accessibilityIdentifier("editor.undo")
             ChromeButton(title: "重做", symbol: "arrow.uturn.forward", enabled: document.canRedo) { document.redo() }.accessibilityIdentifier("editor.redo")
         }.auditEditorBounds("top.leading-actions")
@@ -376,32 +527,57 @@ struct MobileEditor: View {
             SmallAction(title: "打开照片", symbol: "plus", prominent: true) { pickingPhotos = true }.frame(width: 144)
         }
     }
-    private func processPanel(side: Bool) -> some View {
+    private func processPanel(side: Bool, heightBasis: CGFloat? = nil) -> some View {
         VStack(spacing: 0) {
             if !side {
                 Capsule().fill(Color.white.opacity(0.25)).frame(width: 28, height: 3)
-                    .padding(.top, 6).padding(.bottom, 2)
-                    .frame(maxWidth: .infinity).contentShape(Rectangle())
-                    .gesture(DragGesture().onChanged { value in
-                        dockFraction = min(0.65, max(0.25, dockFraction - value.translation.height / 5000))
-                    })
+                    .padding(.top, heightBasis == nil ? 6 : 0).padding(.bottom, heightBasis == nil ? 2 : 0)
+                    .frame(maxWidth: .infinity).frame(height: heightBasis == nil ? nil : 44).contentShape(Rectangle())
+                    .accessibilityIdentifier("editor.panel-resize")
+                    .gesture(DragGesture(coordinateSpace: .global).updating($panelDragging) { _, state, _ in state = true }
+                        .onChanged { value in
+                            if let heightBasis {
+                                if panelDragStart == nil { panelDragStart = dockFraction }
+                                dockFraction = min(0.72, max(0.25, (panelDragStart ?? dockFraction) - value.translation.height / max(1, heightBasis)))
+                            } else { dockFraction = min(0.65, max(0.25, dockFraction - value.translation.height / 5000)) }
+                        }.onEnded { _ in panelDragStart = nil })
+                    .onChange(of: panelDragging) { _, dragging in if !dragging { panelDragStart = nil } }
             }
             HStack {
-                Text(exporting ? "导出成片" : stage.rawValue).font(EditorDesign.panelTitle).accessibilityIdentifier("inspector.title")
+                Text(exporting ? "导出成片" : compactPhoneEditor && materials ? "胶片与相纸" : stage.rawValue).font(EditorDesign.panelTitle).accessibilityIdentifier("inspector.title")
                 Spacer()
                 if !exporting {
                     Text(document.value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0)?.name.replacingOccurrences(of: "Kodak ", with: "") } ?? "")
                         .font(EditorDesign.help).foregroundStyle(.secondary).lineLimit(1)
+                }
+                if let batchIDs, batchIDs.count > 1, !exporting {
+                    Button {
+                        document.endParameterInteraction()
+                        if let photo = document.current { batchCopyRequest = MobileSettingsCopyRequest(source: photo, groups: document.copyGroups) }
+                    } label: { Image(systemName: "rectangle.stack.badge.plus") }
+                    .frame(width: 44, height: 44).accessibilityLabel("应用编辑项到本批 \(batchIDs.count) 张")
+                    .accessibilityIdentifier("editor.apply-batch")
+                }
+                if compactPhoneEditor && !exporting && (stage == .film || stage == .print) {
+                    ChromeButton(title: materials ? "查看工艺参数" : "选择胶片与相纸",
+                                 symbol: materials ? "slider.horizontal.3" : "rectangle.stack") {
+                        materials.toggle()
+                    }.accessibilityIdentifier("editor.material-toggle")
                 }
                 if !exporting {
                     Menu { Button("重置本工艺", systemImage: "arrow.counterclockwise") { document.resetStage(stage) } } label: {
                         ToolbarGlyph(symbol: "ellipsis")
                     }.tint(.primary).accessibilityLabel("工艺操作")
                 }
-                ChromeButton(title: "收起面板", symbol: "chevron.down") { inspector = false; exporting = false }
+                ChromeButton(title: "收起面板", symbol: "chevron.down") { inspector = false; exporting = false; materials = false }
+                    .accessibilityIdentifier("editor.panel-collapse")
             }.padding(.leading, 16).padding(.trailing, 4).frame(height: 44)
             Rectangle().fill(MobileStyle.rule).frame(height: 1)
-            if exporting { ScrollView { exportPanel }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped() }
+            if compactPhoneEditor && materials && !exporting {
+                MaterialChooser(document: document, startsWithPaper: stage == .print)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+            }
+            else if exporting { ScrollView { exportPanel }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped() }
             else {
                 ScrollView { ProcessControls(document: document, stage: stage).id(document.selection).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, EditorDesign.contentInset).padding(.vertical, 8) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
@@ -410,10 +586,10 @@ struct MobileEditor: View {
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
     private var exportPanel: some View {
-        MobileExportPanel(document: document, filteredIDs: filteredPhotos.map(\.id))
+        MobileExportPanel(document: document, filteredIDs: filteredPhotos.map(\.id), fixedIDs: batchIDs ?? (returnToLibrary == nil ? nil : document.selection.map { [$0] }))
     }
     private var filteredPhotos: [MobilePhoto] {
-        document.photos.filter { $0.rating >= minimumRating && (flagFilter == "all" || $0.flag == flagFilter) }
+        document.photos.filter { (batchIDs?.contains($0.id) ?? true) && $0.rating >= minimumRating && (flagFilter == "all" || $0.flag == flagFilter) }
     }
     private var filmstrip: some View {
         MobileFilmstrip(document: document, photos: filteredPhotos, minimumRating: $minimumRating, flagFilter: $flagFilter)
@@ -453,7 +629,7 @@ struct PhotoCanvas: View {
     private func canvasAccessibilityValue(pixelLongEdge: Double) -> String {
         let transform = "\(canvas.nativeMode ? "native" : "manual");\(canvas.scale);\(canvas.offset.width);\(canvas.offset.height)"
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--interaction-ui-regression"), let image {
+        if (ProcessInfo.processInfo.arguments.contains("--interaction-ui-regression") || ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression")), let image {
             return transform + ";image:" + String(describing: ObjectIdentifier(image)) + String(format: ";pixels:%.2f", pixelLongEdge)
         }
 #endif
@@ -594,6 +770,7 @@ struct FilmstripThumbnail: View {
             if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: fillsFrame ? .fill : .fit) }
             else { Image(systemName: "photo").foregroundStyle(.secondary) }
         }.task(id: url) {
+            image = nil
             let result = await Task.detached(priority: .utility) {
                 let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceThumbnailMaxPixelSize: 192, kCGImageSourceCreateThumbnailWithTransform: true]

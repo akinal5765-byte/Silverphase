@@ -1,9 +1,20 @@
 import SwiftUI
 import UIKit
 
+private struct ReturnToLibraryKey: EnvironmentKey {
+    static let defaultValue: (@MainActor @Sendable () -> Void)? = nil
+}
+extension EnvironmentValues {
+    var returnToLibrary: (@MainActor @Sendable () -> Void)? {
+        get { self[ReturnToLibraryKey.self] }
+        set { self[ReturnToLibraryKey.self] = newValue }
+    }
+}
+
 /// Like Layerlight, destinations belong to a native tab bar; actions belong
 /// to the NavigationStack above it. The system owns grouping and selection.
 struct ProcessToolbar: ViewModifier {
+    @Environment(\.returnToLibrary) private var returnToLibrary
     @Bindable var document: MobileDocument
     @Binding var inspector: Bool
     @Binding var materials: Bool
@@ -19,6 +30,13 @@ struct ProcessToolbar: ViewModifier {
                 .toolbar(.visible, for: .navigationBar)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    if let returnToLibrary {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("返回", systemImage: "chevron.left") { returnToLibrary() }
+                                .tint(.primary).disabled(document.isInteractionLocked)
+                                .accessibilityIdentifier("editor.library")
+                        }.axisBehavior(.horizontalOnly)
+                    }
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             exporting = true; inspector = true; materials = false
@@ -40,6 +58,7 @@ struct ProcessToolbar: ViewModifier {
 }
 
 struct NativeEditorMenu: View {
+    @Environment(\.returnToLibrary) private var returnToLibrary
     @Bindable var document: MobileDocument
     @Binding var inspector: Bool
     @Binding var materials: Bool
@@ -50,11 +69,16 @@ struct NativeEditorMenu: View {
     @Binding var pickingPhotos: Bool
     var body: some View {
         Menu {
-            Section("导入照片") {
-                Button("从照片导入", systemImage: "photo.on.rectangle") { pickingPhotos = true }
-                    .accessibilityIdentifier("import.photos")
-                Button("从文件导入", systemImage: "folder") { importing = true }
-                    .accessibilityIdentifier("import.files")
+            if let returnToLibrary {
+                Button("返回", systemImage: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library-menu")
+            }
+            if returnToLibrary == nil {
+                Section("导入照片") {
+                    Button("从照片导入", systemImage: "photo.on.rectangle") { pickingPhotos = true }
+                        .accessibilityIdentifier("import.photos")
+                    Button("从文件导入", systemImage: "folder") { importing = true }
+                        .accessibilityIdentifier("import.files")
+                }
             }
             Section {
                 Button("撤销", systemImage: "arrow.uturn.backward") { document.undo() }.disabled(!document.canUndo)
@@ -141,27 +165,74 @@ struct ProcessNavigation<Content: View>: View {
 /// custom panels to that surface, not to a guessed safe-area bottom inset.
 struct ProcessBarGeometryProbe: UIViewRepresentable {
     var update: (CGRect?) -> Void
-    func makeUIView(context: Context) -> Probe { Probe(update: update) }
+    var windowSizeChanged: ((CGSize) -> Void)? = nil
+    var hingeChanged: ((Bool?) -> Void)? = nil
+    var returnFrameChanged: ((CGRect) -> Void)? = nil
+    func makeUIView(context: Context) -> Probe { Probe(update: update, windowSizeChanged: windowSizeChanged, hingeChanged: hingeChanged, returnFrameChanged: returnFrameChanged) }
     func updateUIView(_ view: Probe, context: Context) {
         view.update = update
+        view.windowSizeChanged = windowSizeChanged
+        view.hingeChanged = hingeChanged
+        view.returnFrameChanged = returnFrameChanged
         view.setNeedsLayout()
     }
     final class Probe: UIView {
         var update: (CGRect?) -> Void
         private var last: CGRect?
-        init(update: @escaping (CGRect?) -> Void) { self.update = update; super.init(frame: .zero); isUserInteractionEnabled = false }
+        private var lastWindowSize: CGSize?
+        var windowSizeChanged: ((CGSize) -> Void)?
+        var hingeChanged: ((Bool?) -> Void)?
+        var returnFrameChanged: ((CGRect) -> Void)?
+        private var lastReturnFrame: CGRect?
+        init(update: @escaping (CGRect?) -> Void, windowSizeChanged: ((CGSize) -> Void)?, hingeChanged: ((Bool?) -> Void)?, returnFrameChanged: ((CGRect) -> Void)?) {
+            self.update = update; self.windowSizeChanged = windowSizeChanged; self.hingeChanged = hingeChanged
+            self.returnFrameChanged = returnFrameChanged
+            super.init(frame: .zero); isUserInteractionEnabled = false
+            if #available(iOS 27.1, *) {
+                addInteraction(UIHingeInteraction { [weak self] _, update in
+                    let closed = update.hinge.map { $0.status == .closed || $0.status == .unknown }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.window != nil else { return }
+                        self.hingeChanged?(closed)
+                    }
+                })
+            }
+        }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
         override func didMoveToWindow() { super.didMoveToWindow(); schedule() }
         override func layoutSubviews() { super.layoutSubviews(); schedule() }
+        override func safeAreaInsetsDidChange() { super.safeAreaInsetsDidChange(); schedule() }
         private func schedule() {
             DispatchQueue.main.async { [weak self] in
                 guard let self, let window = self.window else { return }
+                if self.lastWindowSize != window.bounds.size {
+                    self.lastWindowSize = window.bounds.size; self.windowSizeChanged?(window.bounds.size)
+                    // System bars finish relocating after the window size notification.
+                    for delay in [0.1, 0.3, 0.6, 1.0] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.schedule() }
+                    }
+                }
+                @MainActor func returnControl(in view: UIView) -> UIView? {
+                    guard !view.isHidden, view.alpha > 0 else { return nil }
+                    if view.accessibilityIdentifier == "editor.library" || (view is UIControl && view.accessibilityLabel == "返回") { return view }
+                    for child in view.subviews { if let match = returnControl(in: child) { return match } }
+                    return nil
+                }
+                if let control = returnControl(in: window) {
+                    let frame = control.convert(control.bounds, to: window)
+                    if !frame.isEmpty, frame != self.lastReturnFrame {
+                        self.lastReturnFrame = frame; self.returnFrameChanged?(frame)
+                    }
+                }
                 @MainActor func tabBar(in view: UIView) -> UITabBar? {
                     if let bar = view as? UITabBar, !bar.isHidden, bar.alpha > 0 { return bar }
                     for child in view.subviews { if let bar = tabBar(in: child) { return bar } }
                     return nil
                 }
-                guard let bar = tabBar(in: window) else { return }
+                guard let bar = tabBar(in: window) else {
+                    if self.last != nil { self.last = nil; self.update(nil) }
+                    return
+                }
                 let container = bar.convert(bar.bounds, to: window)
                 let vertical = container.height > container.width
                 // UIKit relocates the tab content into a shared host. That

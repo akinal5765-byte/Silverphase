@@ -1,5 +1,8 @@
 # Silverphase iOS editor
 
+iOS version: **1.1.0 (2)** — persistent local library, batch editing/export,
+checkbox-based export filenames and adaptive floating phone controls.
+
 Native iOS editor based on **the current desktop product**, with its full-width
 canvas, floating process panel and bottom film/paper chooser. The historical
 `screenshots/` images and the FTP PoC UI are not the visual specification.
@@ -17,7 +20,7 @@ engine and receiver have not been copied into this product.
 The current mobile UI is best suited to **iPhone Duo and iPad**. Conventional
 iPhones can run the editor, but the large number of process controls makes the
 layout cramped and interactions less comfortable on smaller screens. Their
-layout and interaction design still need optimization. The iOS 18 deployment
+compact floating inspector and process bar have simulator coverage; real-phone touch and usability still need evaluation. The iOS 18 deployment
 floor describes compatibility, not equal usability across display sizes.
 
 ## Release downloads
@@ -68,11 +71,11 @@ python3 ios/Silverphase/Tools/gen-project.py --check
 
 ## Current behavior
 
-The current editor uses native Duo process navigation on the right, native export/menu actions and hold-to-compare on the canvas, glass panels, shared tick rulers and a compact bottom browser. iPad keeps its horizontal process navigation and right inspector. The layout and components are specified in [DESIGN.md](DESIGN.md).
+The portrait iPhone editor, including unfolded Duo, uses a floating height-limited inspector over a stable canvas and a compact seven-item glass process bar. Folded Duo and Duo landscape retain native side navigation; the system hinge state distinguishes folded from unfolded portrait. Export/menu actions and hold-to-compare, glass panels and shared tick rulers remain available. iPad keeps its horizontal process navigation and right inspector. The layout and components are specified in [DESIGN.md](DESIGN.md).
 
 Crop now compiles the desktop `Geometry.swift` directly: free/aspect-locked framing, eight touch handles, moving/redrawing, ±45° straighten, orientation, quarter turns and flips. Preview and export use the same inverse pixel mapping. The frame stays level while straightening; framed-film input can be edited on the original before the film gate is applied. Full desktop parity still excludes half-frame pairing.
 
-System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. A cold start clears app-owned imported copies; background/foreground keeps the current session. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, prefers RAW when both RAW and a rendered representation are offered, and never substitutes an embedded JPEG for a RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
+System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. Imported originals, per-photo recipes, crop geometry, ratings and flags persist in the app-owned local library across cold starts. The library is the launch screen; tapping a photo opens the editor without a filmstrip, while multi-photo editing shows only the chosen batch. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, prefers RAW when both RAW and a rendered representation are offered, and never substitutes an embedded JPEG for a RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
 
 Preview quality is automatic: screen-sized fit, coalesced live adjustment, and progressive viewport detail up to native pixels. Double-tap or the menu switches fit/1:1. Settings retains low-power priority, crop effect rescaling, DI blue compensation and cache release; no fixed preview resolution picker. Output resolution is independent of preview. Export provides batch scopes, recipes, naming, JPEG/PNG/16-bit TIFF/Cineon DI, output spaces, metadata/location policies, TIFF previews, file-folder collision policies and add-only Photos saving. Per-process memory guards still apply.
 
@@ -122,7 +125,7 @@ Photos-write, external-sharing or signing/provisioning acceptance.
 ## Selective settings clipboard
 
 Use “复制参数” on the current photo or its context menu to choose process groups
-at copy time. Crop/geometry is initially unchecked. Confirmed groups and the
+at copy time. Crop ratio is initially unchecked. When selected, it copies the numeric proportion only; orientation follows the target, preserving its crop centre, straighten, quarter turns and flips. Confirmed groups and the
 source snapshot form the clipboard; cancelling keeps the previous clipboard.
 “选择” starts empty multi-selection, while the context menu's “选择多张” starts
 with that photo checked. Photo taps then change checkmarks while the orange
@@ -132,8 +135,37 @@ range sheet, keeps the selection, and supports one undo/redo for the whole batch
 even after changing the preview. Single-photo paste uses the same clipboard.
 
 Only editable intent is copied: each target retains its own metadata, lens
-calibration and As Shot decode, and refits scene placement. Normal session edits
-are still temporary; this clipboard does not add document/sidecar persistence.
+calibration and As Shot decode, and refits scene placement. Photo edits are automatically saved in the local library; the clipboard and undo history remain transient.
 The Debug `--clipboard-regression` flag writes `Documents/clipboard-report.json`
 from synthetic in-memory photo states without importing personal images. The
 focused UI test is `PhotoImportTests.testSelectiveCopyAndMultiPhotoPaste`.
+
+## Local library
+
+The library supports search, rating/flag filters, visible-result select all,
+copy/paste edit groups, batch ratings/flags, selected-photo export and confirmed
+app-only deletion. Selection and scroll/filter state survive returning from the
+editor. Batch editing provides an explicit apply-to-batch sheet; ordinary slider
+edits still affect the previewed photo until applied. Export from the library
+fixes the range to the chosen IDs even when an export preset changes.
+
+`Application Support/Silverphase/library.json` is an atomic, versioned manifest;
+originals live beside it with unique relative filenames. Startup does not delete
+this directory. Corrupt/unknown records fail visibly and remain intact. Deletion
+commits the manifest before removing owned originals, leaving the system Photos
+library and import sources untouched. Finished preview thumbnails are disposable
+Caches data keyed to recipe/geometry/settings. Unrendered or changed edits fall back to source thumbnails rather than stale finished pictures. Cards show the photo name, rating and flag without technical preview-origin labels.
+Imports are managed in the library. Editor export is scoped to its current photo or batch; deleting the last photo in that workspace returns to the library. Photo count and original-file storage appear in the scrolling content. Library actions use native toolbars: the shared vertical rail on Duo and the upper navigation toolbar on iPad, including select-all/clear, edit, export and more during selection. Star-rating and flag filters have separate native controls with active-state indicators. Settings/About use their own ellipsis-circle menu; library undo/redo actions are omitted. Native spacers separate import, selection, filters and the application menu. During selection, import, filters and the application menu yield space to selection controls (checkmark / checked photo stack / crossed square), editing/export and a separate More group. Horizontal swipes select a range or deselect it when starting on a selected photo; ordinary vertical swipes scroll. The editor uses a back chevron to return to the library. No separate bottom action surface is drawn. Undo history is limited to the current
+process; library albums, cloud sync and cross-device transfer are not implemented.
+
+Debug `--library-regression` writes `Documents/library-report.json` with isolated
+synthetic state/disk checks. `--library-ui-regression` uses a dedicated synthetic
+library across launches; `--reset-library-fixture` resets only that fixture.
+The focused XCTest is
+`PhotoImportTests.testLibrarySelectionEditingExportAndColdRestore`.
+
+Export filenames use checkbox choices for the original filename, film, paper,
+export date and sequence number, with a live preview from the first export
+target. Choices follow the displayed order with underscores and retain at least
+one component. Stored recipe compatibility is preserved; a custom legacy naming
+rule stays active until the user changes a choice. Template syntax is internal.
