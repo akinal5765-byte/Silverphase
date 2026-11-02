@@ -5,9 +5,14 @@ The release notes name the exact source tag/commit, system requirements,
 signing state and validation scope. Release builds may have incomplete features.
 
 The platforms use independent application versions and build numbers. Current
-source versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
+release versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
 changes can ship in both without making their application versions equal;
 record the source commit and platform in each release.
+
+Current downloads: [macOS 1.0.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1)
+and [iOS 1.1.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1).
+Both Release pages and their attached `INSTALL.md` files use Chinese; the iOS
+IPA is unsigned. The source commit and SHA-256 files remain attached separately.
 
 ## macOS
 

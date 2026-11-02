@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-11-02. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-03. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -13,6 +13,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | Downloads, unsigned IPA and unnotarized DMG | [Binary releases](BINARY-RELEASES.md) |
+| macOS 1.0.1 / iOS 1.1.1, CineStill 800T and validation limits | [Current versions](../README.md#当前版本) / [adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
@@ -27,7 +28,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | Asset provenance and runtime data | [Artwork scope](../license/ARTWORK.md) / [Visual inventory](../license/media-inventory.json) / [Data sources](../license/DATA-SOURCES.md) / [Stored array inventory](../license/data-inventory.json) |
 | Image/data/software licenses | [Bundled notices](../modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/README.txt) |
 | Current screenshot cases and pinned RAW workflow | [Current captures](../screenshots/current/README.md) / [2026-10-31 case validation](../performance/VALIDATION-CASES-2026-10-31.md) |
-| Current integration verification | [2026-10-31 release review](OPEN-SOURCE-RELEASE.md) / [local and public builds](../performance/VALIDATION-LOCAL-MATERIALS-2026-10-31.md) |
+| Earlier release verification | [2026-10-31 release review](OPEN-SOURCE-RELEASE.md) / [local and public builds](../performance/VALIDATION-LOCAL-MATERIALS-2026-10-31.md) |
 | Earlier implementation and measurements | [Historical snapshots](history/) / [RFCs](../rfc/) / [dated reports](../performance/) |
 
 The root architecture/API/contract were refreshed for the two-host native product.
