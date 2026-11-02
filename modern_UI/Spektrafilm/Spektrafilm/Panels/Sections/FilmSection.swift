@@ -228,6 +228,15 @@ struct FilmSection: View {
                                     format: { String(format: "%.1f×", $0) },
                                     disabled: !session.params.halationActive)
                         .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
+                        if session.params.filmStock == "cinestill_800t" {
+                            ScrubSlider(label: T("Highlight headroom", "高光余量"),
+                                        value: Binding(get: { session.params.halationHeadroom },
+                                                       set: { var p = session.params; p.halationHeadroom = $0; session.params = p }),
+                                        range: 0...8, zero: 4, snap: 0.1,
+                                        format: { String(format: "%.1f EV", $0) },
+                                        disabled: !session.params.halationActive || session.params.antihalationMode != "profile" || session.params.halationAmount == 0)
+                            .help(T("Estimates light lost in clipped highlights before film exposure. 0 EV uses the recorded light; applies to CineStill's default back-reflection model.", "在胶片曝光前估计数码高光裁切损失的光量。0 EV 使用原始光量；仅用于 CineStill 默认回反射模型。"))
+                        }
                         ScrubSlider(label: L(.filmScatterStrength),
                                     value: effect(\.scatter), range: EffectStrengths.scatterRange,
                                     zero: 1, snap: 0.1, format: { String(format: "%.1f×", $0) },

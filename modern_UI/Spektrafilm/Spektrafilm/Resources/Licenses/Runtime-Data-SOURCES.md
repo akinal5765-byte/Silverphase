@@ -111,3 +111,16 @@ NOTICE rather than presenting a new grant from Hanze Qiu.
 No new permission request has been sent to upstream authors. Exact historical
 bake versions and missing standalone contributor notices remain recorded as
 source-history limitations; distribution follows the upstream policy above.
+
+## CineStill 800T adoption
+
+On 2026-11-02, Silverphase adopted Hanze Qiu’s CineStill 800T metadata alias
+from SpektraLab commit `02d82b56cf65f0f8e802a708612edc4e9a4790af`. It loads
+Andrea Volpato’s unchanged Vision3 500T data and neutral-print calibration,
+then overrides name, still-camera use and anti-halation metadata. It contains
+no independent CineStill sensitometry. The original B&W `NOTICE.md` remains
+verbatim; the newer upstream notice is preserved separately as
+`engine/resources_product/CINESTILL_NOTICE.md` and bundled on both platforms.
+The back-reflection fit and scene-highlight estimate are upstream modelling
+assumptions, not additional measured material data. Source hashes and local
+adaptations are recorded in `engine/resources_product/UPSTREAM.json`.

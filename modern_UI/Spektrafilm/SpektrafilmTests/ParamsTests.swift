@@ -383,15 +383,15 @@ final class ParamsTests: XCTestCase {
     }
 
     func testWireNamesMatchTheServiceSchema() {
-        // The names the Python schema declares (service/schema.py). A rename
-        // there must be mirrored here or the delta is rejected at runtime.
+        // The host's shipped subset of engine/src/core/params.cpp. A rename
+        // must be mirrored here or the delta is rejected at runtime.
         let known: Set<String> = ["overscan_active", "date_imprint_active", "scene_latitude_split", "scene_latitude_b_active", "camera_filter", "film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
                                   "grain_active", "grain_sublayers_active", "grain_size_scale", "grain_softness",
                                   "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range",
                                   "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range",
                                   "halation_active", "print_exposure", "print_contrast",
                                   "y_filter_shift", "m_filter_shift", "glare_active", "scan_film",
-                                  "extended_dynamic_range", "halation_amount", "antihalation_mode", "density_curve_gamma",
+                                  "extended_dynamic_range", "halation_amount", "halation_headroom_ev", "antihalation_mode", "density_curve_gamma",
                                   "dir_couplers_amount", "dir_couplers_active", "preflash_exposure",
                                   "grain_amount", "glare_amount", "halation_scatter_amount", "scanner_sharpening_amount",
                                   "digital_intermediate", "digital_intermediate_blue_compensation",

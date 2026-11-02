@@ -10,7 +10,9 @@
     "profiles/ilford_hp5_plus_400.json": "a09ccdb57816f220ab598e534318a743ef79e16a300f8bd2de7453d451fe8ec5",
     "profiles/ilford_multigrade_iv_rc.json": "0f776f1f26f04aca4ec438ed377dc1acf4073dc1a8ae32c51607a6cb1a02521d",
     "profiles/kodak_tmax_100.json": "c9160236872034b86fb42b67be3a9252088bfa7bdbb450148b0c20ad83e3033a",
-    "profiles/kodak_tri_x_400.json": "a54be071c6a055a9a49acb7072d10bf0b1bcddf9c0a459b0800a9b14bb66b1f1"
+    "profiles/kodak_tri_x_400.json": "a54be071c6a055a9a49acb7072d10bf0b1bcddf9c0a459b0800a9b14bb66b1f1",
+    "profiles/cinestill_800t.json": "4b5c5771a1d4755cf2f2994bbc0529387d579cc8d9fb6e23fe5d3d856fc13161",
+    "CINESTILL_NOTICE.md": "44425f1dbf29983482087f2b439730db389866bbf19cf90159cf915b2956b96c"
   },
   "code_sources": {
     "engine/src/core/camera_filters.hpp": {
@@ -47,5 +49,48 @@
     "modern_UI/Spektrafilm/Spektrafilm/Import/PairComposer.swift": {
       "adoption": "upstream scene-linear pair compositor adapted to native Silverphase input framing"
     }
+  },
+  "cinestill_800t": {
+    "repository": "https://github.com/JamesQiu2005/SpektraLab",
+    "commit": "02d82b56cf65f0f8e802a708612edc4e9a4790af",
+    "author": "Hanze Qiu",
+    "date": "2026-11-02",
+    "source_files": {
+      "engine/resources_product/profiles/cinestill_800t.json": {
+        "git_blob": "cfa29a6fd6458a762c8675796e9d44a776b619f2"
+      },
+      "engine/src/core/halation_psf.hpp": {
+        "git_blob": "1437d25f7e6ebc5208a489db1f5e38555783aa7b"
+      },
+      "engine/tests/halation_psf_fit.py": {
+        "git_blob": "832cc230f080ea2bf89bd2cb6d945d080ebb5367"
+      },
+      "engine/resources_product/NOTICE.md": {
+        "git_blob": "6e9f573920250c7986e14b33ed9056aeaa6cd014"
+      },
+      "engine/src/core/profile.cpp": {
+        "git_blob": "487aa40e55adf6c6d7b929abf7c78c2bf98517ea"
+      },
+      "engine/src/core/params.cpp": {
+        "git_blob": "dc1708951a4468bab124d5223439ad2c9b1dda23"
+      },
+      "engine/src/core/params.hpp": {
+        "git_blob": "b6d490b84c22616549b16f641508f5d397ff3643"
+      },
+      "engine/src/pipeline/pipeline.cpp": {
+        "git_blob": "15c339e9ba3df3db4c1218b0a0a32a9d3042d9ce"
+      },
+      "engine/src/pipeline/pipeline.hpp": {
+        "git_blob": "f8d9d539e3213cf01f54c91bc59462de6d310815"
+      },
+      "engine/src/shaders/nodes.metal": {
+        "git_blob": "d1a0c09b938500d25e9fe32a8d601be5894e2c65"
+      },
+      "engine/tests/cinestill_checks.py": {
+        "git_blob": "a42d611fb251add12bed4a249647b090a084236a"
+      }
+    },
+    "adoption": "Unchanged CineStill 800T metadata alias and back-reflection constants. Profile loader and neutral-print inheritance adapted to Silverphase; back-reflection selected only by the stock's profile preset, preserving existing strong/weak/none overrides. Upstream headroom applied before film exposure in the existing whole-frame stage. Shared catalogue, macOS/iOS controls, sidecars, reset and clipboard updated. Upstream checks adapted to antihalation_mode; exact base-emulsion and whole/strip equality gates added.",
+    "licenses": "Profile alias: upstream CC-BY-SA-4.0 distribution. Adopted native implementation and test/fit tools: GPL-3.0-or-later. Andrea Volpato's base measured arrays unchanged."
   }
 }

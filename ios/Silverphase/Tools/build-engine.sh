@@ -54,6 +54,7 @@ xcrun --sdk macosx swift -sdk "$(xcrun --sdk macosx --show-sdk-path)" "$here/Too
     "$repo/engine/resources/neutral_print_filters.json" "$repo/engine/resources_product/neutral_print_filters.json" "$resources/engine/neutral_print_filters.json"
 cp "$repo"/engine/resources_product/NOTICE.md "$resources/engine/PRODUCT_PROFILES_NOTICE.md"
 cp "$repo"/engine/resources_product/UPSTREAM.json "$resources/engine/PRODUCT_PROFILES_UPSTREAM.json"
+cp "$repo"/engine/resources_product/CINESTILL_NOTICE.md "$resources/engine/CINESTILL_NOTICE.md"
 cp "$repo"/modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/* "$resources/Licenses/"
 cp "$repo"/modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json "$resources/StockCatalog.json"
 rsync -a --delete "$repo/modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/" "$resources/FilmCovers/"

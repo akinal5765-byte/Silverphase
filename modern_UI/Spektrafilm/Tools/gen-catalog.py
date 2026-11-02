@@ -48,6 +48,7 @@ KODAK_STILL_SPEED_SOURCE = "https://www.kodakprofessional.com/en-gb/node/133"
 FUJI_SPEED_SOURCE = "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
 KODAK_CINE_SPEED_SOURCE = "https://www.kodak.com/en/motion/products/camera-films/"
 NOMINAL_SPEEDS = {
+    "cinestill_800t": 800,
     "kodak_tri_x_400": 400, "ilford_hp5_plus_400": 400,
     "kodak_tmax_100": 100, "fujifilm_neopan_acros_100_ii": 100,
     "fujifilm_c200": 200, "fujifilm_pro_400h": 400,
@@ -64,6 +65,7 @@ NOMINAL_SPEEDS = {
 }
 
 STOCK_SPEED_SOURCES = {
+    "cinestill_800t": "https://cinestillfilm.com/products/800tungsten-c41-135-36",
     "ilford_hp5_plus_400": "https://www.ilfordphoto.com/amfile/file/download/file/1903/product/691/",
     "kodak_tri_x_400": "https://www.kodakprofessional.com/sites/default/files/wysiwyg/film/f4017_trix_320400.pdf",
     "kodak_tmax_100": "https://www.kodakprofessional.com/sites/default/files/wysiwyg/film/f4016.pdf",
@@ -76,7 +78,10 @@ def main() -> None:
     stocks = []
     paths = list(PROFILES.glob("*.json")) + list((REPO / "engine/resources_product/profiles").glob("*.json"))
     for path in sorted(paths, key=lambda p: p.stem):
-        info = json.loads(path.read_text())["info"]
+        doc = json.loads(path.read_text())
+        info = doc["info"]
+        if "derived_from" in doc:
+            info = {**json.loads((PROFILES / f"{doc['derived_from']}.json").read_text())["info"], **info}
         sid = path.stem
         cover = None
         if sid in COVERS:

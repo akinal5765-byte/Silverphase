@@ -1,6 +1,21 @@
 {
  "stocks": [
   {
+   "id": "cinestill_800t",
+   "name": "CineStill 800T",
+   "stage": "filming",
+   "use": "still",
+   "type": "negative",
+   "channelModel": "color",
+   "targetPrint": "kodak_2383",
+   "hasPreviewLUT": false,
+   "pairedFilm": null,
+   "cover": null,
+   "nominalSpeed": 800,
+   "speedUnit": "ISO",
+   "speedSource": "https://cinestillfilm.com/products/800tungsten-c41-135-36"
+  },
+  {
    "id": "fujifilm_c200",
    "name": "Fujifilm C200",
    "stage": "filming",

@@ -65,6 +65,10 @@ struct ProcessControls: View {
                 choice("晕光", "_halation", [("profile", "跟随胶片"), ("none", "高"), ("weak", "中"), ("strong", "低"), ("off", "关闭")])
                 Group {
                     number("晕光强度", "halation_amount", 0...4)
+                    if document.value("film_stock")?.stringValue == "cinestill_800t" {
+                        number("高光余量 · EV", "halation_headroom_ev", 0...8)
+                            .disabled(document.value("_halation")?.stringValue != "profile" || document.value("halation_amount")?.doubleValue == 0)
+                    }
                     number("乳剂散射", "halation_scatter_amount", 0...1)
                 }.disabled(document.value("halation_active")?.boolValue == false)
             case .development:

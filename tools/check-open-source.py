@@ -23,6 +23,7 @@ for source, destination in [
     ('license/SPEKTRAFILM_LICENSE.txt', BUNDLE / 'Profiles-and-LUTs-CC-BY-SA-4.0.txt'),
     ('engine/third_party/metal-cpp/LICENSE.txt', BUNDLE / 'metal-cpp-Apache-2.0.txt'),
     ('engine/resources_product/NOTICE.md', BUNDLE / 'SpektraLab-BW-PROFILES-NOTICE.md'),
+    ('engine/resources_product/CINESTILL_NOTICE.md', BUNDLE / 'SpektraLab-CINESTILL-NOTICE.md'),
     ('license/Colour-BSD-3-Clause.txt', BUNDLE / 'Colour-BSD-3-Clause.txt'),
     ('license/CC-BY-SA-4.0.txt', BUNDLE / 'Silverphase-Artwork-CC-BY-SA-4.0.txt'),
     ('license/ARTWORK.md', BUNDLE / 'Silverphase-Artwork-NOTICE.md'),

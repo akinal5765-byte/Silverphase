@@ -111,6 +111,7 @@
     "grain_sublayers_active" : true,
     "halation_active" : true,
     "halation_amount" : 1,
+    "halation_headroom_ev" : 4,
     "halation_scatter_amount" : 1,
     "m_filter_shift" : 0,
     "overscan_active" : false,

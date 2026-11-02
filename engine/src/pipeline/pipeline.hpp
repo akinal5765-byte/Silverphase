@@ -639,6 +639,7 @@ private:
     bool node_auto_exposure(const Image& in, Image& out, std::string& error);
     bool node_upsample(const Image& in, Image& out, std::string& error);
     bool node_exposure(const Image& in, Image& out, std::string& error);
+    bool node_headroom(const Image& in, Image& out, std::string& error);
     bool node_boost(const Image& in, Image& out, std::string& error);
     bool overscan_wanted() const;
     double overscan_gate_long_mm() const;

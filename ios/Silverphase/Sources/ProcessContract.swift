@@ -29,7 +29,7 @@ enum MobileProcessContract {
     static let steps: [String: Double] = [
         "_temperature": 100, "_tint": 5, "exposure_compensation_ev": 1.0 / 3,
         "_grainAmount": 0.1, "grain_size_scale": 0.1, "_grainSoftness": 0.1,
-        "halation_amount": 0.1, "halation_scatter_amount": 0.1, "density_curve_gamma": 0.05,
+        "halation_headroom_ev": 0.1, "halation_amount": 0.1, "halation_scatter_amount": 0.1, "density_curve_gamma": 0.05,
         "dir_couplers_amount": 0.05, "print_contrast": 0.05, "y_filter_shift": 1, "m_filter_shift": 1,
         "preflash_exposure": 0.005, "_scannerStrength": 0.1, "glare_amount": 0.1,
         "camera_diffusion_strength": 0.125, "enlarger_diffusion_strength": 0.125,

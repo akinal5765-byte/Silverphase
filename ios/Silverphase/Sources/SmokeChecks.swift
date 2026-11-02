@@ -332,7 +332,8 @@ enum MobileSmokeChecks {
         UIApplication.shared.isIdleTimerDisabled = true
         defer { UIApplication.shared.isIdleTimerDisabled = previousIdle }
         let directory = URL.documentsDirectory
-        let reportURL = directory.appendingPathComponent("smoke-report.json")
+        let cineStillOnly = ProcessInfo.processInfo.arguments.contains("--cinestill-regression")
+        let reportURL = directory.appendingPathComponent(cineStillOnly ? "cinestill-report.json" : "smoke-report.json")
         try? FileManager.default.removeItem(at: reportURL)
         var checks: [String] = []
         do {
@@ -355,6 +356,34 @@ enum MobileSmokeChecks {
             try require(first.image.width == 192 && first.image.height == 128, "输入尺寸未保留")
             try require(first.image.colorSpace?.name == CGColorSpace.rommrgb, "预览未标记 ProPhoto")
             checks.append("encoded TIFF input and tagged ProPhoto preview")
+            guard let cineStill = StockCatalog.shared.stock("cinestill_800t") else {
+                throw MobileFailure.message("800T 未进入共享目录")
+            }
+            try require(cineStill.speedLabel == "ISO 800" && cineStill.isFilm && !cineStill.isCine,
+                        "800T 的感光度或材料分类错误")
+            guard let cover = cineStill.packagingArtworkURL, UIImage(contentsOfFile: cover.path) != nil else {
+                throw MobileFailure.message("800T 封面未打包或无法读取")
+            }
+            var cineRecipe = base
+            cineRecipe["film_stock"] = .string("cinestill_800t")
+            let cine = try await engine.render(url: source, recipe: cineRecipe)
+            try require(cine.resolved["film_stock"]?.stringValue == "cinestill_800t" && cine.resolved["halation_headroom_ev"]?.doubleValue == 4,
+                        "800T 默认高光余量没有到达引擎")
+            cineRecipe["halation_headroom_ev"] = .double(0)
+            cineRecipe["antihalation_mode"] = .string("strong")
+            let cineOverride = try await engine.render(url: source, recipe: cineRecipe)
+            let freshCineEngine = MobileEngine()
+            let freshCine = try await freshCineEngine.render(url: source, recipe: cineRecipe)
+            try require(cineOverride.image.dataProvider!.data! as Data == freshCine.image.dataProvider!.data! as Data,
+                        "800T 晕光覆盖复用了错误的引擎状态")
+            await freshCineEngine.close()
+            _ = try await engine.render(url: source, recipe: base)
+            checks.append("CineStill 800T shared catalogue, ISO, cover, default headroom and warm/fresh preset agreement")
+            if cineStillOnly {
+                await engine.close()
+                try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: [.prettyPrinted, .sortedKeys]).write(to: reportURL)
+                return source
+            }
             var menuRecipe = base
             menuRecipe["halation_amount"] = .double(4)
             menuRecipe["antihalation_mode"] = .string("profile")

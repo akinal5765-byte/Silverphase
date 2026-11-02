@@ -61,7 +61,7 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
         case .film:
             // The film format sets the physical scale of grain and halation.
             ["params.filmEdge", "params.dateBack", "params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
-             "params.grainActive", "params.grainSizeScale", "params.grainSoftness", "params.halationActive", "params.halationAmount", "params.antihalationMode",
+             "params.grainActive", "params.grainSizeScale", "params.grainSoftness", "params.halationActive", "params.halationAmount", "params.halationHeadroom", "params.antihalationMode",
              "params.effects.grain", "params.effects.grainLayered", "params.effects.scatter"]
         case .development:
             ["params.developmentContrast", "params.colorSeparation", "params.effects.couplersActive"]
@@ -172,6 +172,7 @@ struct SettingsClip: Equatable, Sendable {
             out.params.halationActive = s.params.halationActive
             out.params.grainSizeScale = s.params.grainSizeScale
             out.params.grainSoftness = s.params.grainSoftness
+            out.params.halationHeadroom = s.params.halationHeadroom
             out.params.halationAmount = s.params.halationAmount
             out.params.antihalationMode = s.params.antihalationMode
             out.params.effects.grain = s.params.effects.grain

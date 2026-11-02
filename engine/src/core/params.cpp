@@ -1,4 +1,5 @@
 #include "params.hpp"
+#include "halation_psf.hpp"
 #include "camera_filters.hpp"
 
 #include <cmath>
@@ -47,6 +48,7 @@ const SchemaField kFields[] = {
     {"film_format_mm",           "camera.film_format_mm",                 F, SHOOT, true, 4.0, 200.0, false},
     {"lens_blur_um",             "camera.lens_blur_um",                   F, SHOOT, true, 0.0, 200.0, false},
     {"halation_active",          "film_render.halation.active",           B, SHOOT, false, 0, 0, false},
+    {"halation_headroom_ev", "film_render.halation.headroom_ev", F, SHOOT, true, 0.0, 8.0, false},
     {"halation_amount",          "film_render.halation.halation_amount",  F, SHOOT, true, 0.0, 4.0, false},
     {"antihalation_mode",        "film_render.halation.antihalation_mode", S, SHOOT, false, 0, 0, false},
     {"halation_boost_ev",        "film_render.halation.boost_ev",         F, SHOOT, true, 0.0, 8.0, false},
@@ -210,6 +212,7 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "camera.exposure_compensation_ev") return &p.camera.exposure_compensation_ev;
     if (path == "camera.film_format_mm") return &p.camera.film_format_mm;
     if (path == "camera.lens_blur_um") return &p.camera.lens_blur_um;
+    if (path == "film_render.halation.headroom_ev") return &p.film_render.halation.headroom_ev;
     if (path == "film_render.halation.halation_amount") return &p.film_render.halation.halation_amount;
     if (path == "film_render.halation.boost_ev") return &p.film_render.halation.boost_ev;
     if (path == "film_render.grain.size_scale") return &p.film_render.grain.size_scale;
@@ -529,19 +532,23 @@ void set2(double dst[2], double a, double b) { dst[0] = a; dst[1] = b; }
 // set by the base material and halation_strength by the antihalation layer;
 // the user-facing amounts stay at 1.0 on top.
 void apply_halation_preset(Params& p) {
+    p.film_render.halation.back_reflection = false;
     if (p.film.info.support != "film") return;
     const std::string& use = p.film.info.use;
     const std::string& mode = p.film_render.halation.antihalation_mode;
     const std::string& ah = mode == "profile" ? p.film.info.antihalation : mode;
+    const bool own_no = p.film.info.antihalation == "no" && mode == "profile";
     const double sigma = use == "cine" ? 50.0 : 65.0;
     double s0, s1, s2;
     if (ah == "strong") { s0 = 0.015; s1 = 0.005; s2 = 0.0; }
     else if (ah == "weak") { s0 = 0.08; s1 = 0.02; s2 = 0.0; }
+    else if (ah == "no" && own_no) { s0 = kBackReflectionStrength[0]; s1 = kBackReflectionStrength[1]; s2 = kBackReflectionStrength[2]; }
     else if (ah == "no" || ah == "none") { s0 = 0.30; s1 = 0.10; s2 = 0.015; }
     else return;   // an unknown tag leaves the defaults, as the dict lookup does
     if (use != "still" && use != "cine") return;
     set3(p.film_render.halation.halation_first_sigma_um, sigma, sigma, sigma);
     set3(p.film_render.halation.halation_strength, s0, s1, s2);
+    p.film_render.halation.back_reflection = own_no;
 }
 
 void apply_film_specifics(Params& p) {
@@ -579,9 +586,10 @@ bool digest(Params& p, const Json& neutral_filters, std::string& error) {
     // film stock -> (c, m, y). A missing entry leaves the defaults, which is
     // what the reference does after printing a warning.
     if (p.settings.neutral_print_filters_from_database) {
-        const Json& row = neutral_filters.at(p.print.info.stock)
-                                          .at(p.enlarger.illuminant)
-                                          .at(p.film.info.stock);
+        const Json& by_film = neutral_filters.at(p.print.info.stock).at(p.enlarger.illuminant);
+        const Json& own = by_film.at(p.film.info.stock);
+        const Json& row = own.is_array() || p.film.info.base_stock.empty()
+                              ? own : by_film.at(p.film.info.base_stock);
         if (row.is_array() && row.items().size() == 3) {
             p.enlarger.c_filter_neutral = row.items()[0].as_double();
             p.enlarger.m_filter_neutral = row.items()[1].as_double();

@@ -23,7 +23,7 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 
 ## What you can do
 
-- **Choose film and paper.** The public catalog includes 24 film profiles, including push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials.
+- **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials.
 - **Control exposure and development.** Metering, film exposure, RAW white balance, development contrast, color separation, and scene-latitude placement determine how the scene fits the film response.
 - **Shape grain and halation.** Physical frame size sets the scale of grain and spatial effects. Grain amount, size, softness, film halation, and emulsion scatter have separate controls.
 - **Make color or B&W prints.** Adjust paper, print exposure, yellow/magenta filtration, preflash, and print glare. Ilford Multigrade IV RC provides grades 00–5 with exposure compensation; eight Wratten lens filters are available.
