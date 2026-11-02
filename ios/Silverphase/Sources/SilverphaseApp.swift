@@ -12,62 +12,73 @@ import PhotosUI
         return document
     }()
     @Environment(\.scenePhase) private var scenePhase
-    var body: some Scene {
-        WindowGroup {
-            Group {
-                if document.editorVisible && ProcessInfo.processInfo.arguments.contains(where: { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }) {
-                    MobileEditor(document: document)
-                } else { MobileLibrary(document: document) }
-            }
-                .background(MobileOrientationObserver().allowsHitTesting(false))
-                .preferredColorScheme(.dark)
-                .tint(.primary)
-                .task {
-#if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--neutral-close-regression") {
-                        MobileLibraryChecks.neutralPickerLifecycle()
-                    } else if ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") {
-                        MobileSmokeChecks.prepareCompactPhoneUI(document)
-                    } else if ProcessInfo.processInfo.arguments.contains("--library-regression") {
-                        MobileLibraryChecks.run()
-                        await MobileLibraryChecks.exportBatch()
-                    } else if ProcessInfo.processInfo.arguments.contains("--library-ui-regression") {
-                        MobileLibraryChecks.prepareUI(document)
-                    } else if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") {
-                        MobileSmokeChecks.prepareIPadChromeUI(document)
-                    } else if ProcessInfo.processInfo.arguments.contains("--clipboard-ui-regression") {
-                        MobileSmokeChecks.prepareClipboardUI(document)
-                    } else if ProcessInfo.processInfo.arguments.contains("--clipboard-regression") {
-                        MobileSmokeChecks.clipboardRegression()
-                    } else if ProcessInfo.processInfo.arguments.contains("--interaction-ui-regression") {
-                        UIApplication.shared.isIdleTimerDisabled = true
-                        document.importFiles([URL.documentsDirectory.appendingPathComponent("DeviceAuditInput.ARW")])
-                    } else if ProcessInfo.processInfo.arguments.contains("--device-audit") {
-                        await MobileDeviceAudit.run(document: document)
-                    } else if ProcessInfo.processInfo.arguments.contains("--clear-flat-import-regression") {
-                        let report = URL.documentsDirectory.appendingPathComponent("flat-import-report.json")
-                        do {
-                            if FileManager.default.fileExists(atPath: report.path) { try FileManager.default.removeItem(at: report) }
-                        } catch { document.error = error.localizedDescription }
-                    } else if ProcessInfo.processInfo.arguments.contains("--flat-import-regression") {
-                        await MobileSmokeChecks.flatImportRegression()
-                    } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {
-                        await MobileSmokeChecks.rawImportRegression()
-                    } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
-                        do { document.importFiles([try await MobileSmokeChecks.run()]) }
-                        catch { document.error = error.localizedDescription }
-                    }
-#endif
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in document.releaseMemory() }
-                .onChange(of: scenePhase) { _, phase in
-#if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") || ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") { return }
-#endif
-                    document.setActive(phase == .active, background: phase == .background)
-                }
+    var body: some Scene { WindowGroup { rootView } }
+
+    @ViewBuilder private var editorRoot: some View {
+        if document.editorVisible && isDiagnosticEditorLaunch {
+            MobileEditor(document: document)
+        } else {
+            MobileLibrary(document: document)
         }
     }
+    private var isDiagnosticEditorLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains {
+            !$0.hasPrefix("--library") && $0.hasPrefix("--") &&
+            ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test")
+        }
+    }
+    private var rootView: some View {
+        editorRoot
+            .background(MobileOrientationObserver().allowsHitTesting(false))
+            .preferredColorScheme(.dark)
+            .tint(.primary)
+            .task { await prepareLaunch() }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in document.releaseMemory() }
+            .onChange(of: scenePhase) { _, phase in
+#if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") || ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") { return }
+#endif
+                document.setActive(phase == .active, background: phase == .background)
+            }
+    }
+    private func prepareLaunch() async {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--neutral-close-regression") {
+            MobileLibraryChecks.neutralPickerLifecycle()
+        } else if ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") {
+            MobileSmokeChecks.prepareCompactPhoneUI(document)
+        } else if ProcessInfo.processInfo.arguments.contains("--library-regression") {
+            MobileLibraryChecks.run()
+            await MobileLibraryChecks.exportBatch()
+        } else if ProcessInfo.processInfo.arguments.contains("--library-ui-regression") {
+            MobileLibraryChecks.prepareUI(document)
+        } else if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") {
+            MobileSmokeChecks.prepareIPadChromeUI(document)
+        } else if ProcessInfo.processInfo.arguments.contains("--clipboard-ui-regression") {
+            MobileSmokeChecks.prepareClipboardUI(document)
+        } else if ProcessInfo.processInfo.arguments.contains("--clipboard-regression") {
+            MobileSmokeChecks.clipboardRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--interaction-ui-regression") {
+            UIApplication.shared.isIdleTimerDisabled = true
+            document.importFiles([URL.documentsDirectory.appendingPathComponent("DeviceAuditInput.ARW")])
+        } else if ProcessInfo.processInfo.arguments.contains("--device-audit") {
+            await MobileDeviceAudit.run(document: document)
+        } else if ProcessInfo.processInfo.arguments.contains("--clear-flat-import-regression") {
+            let report = URL.documentsDirectory.appendingPathComponent("flat-import-report.json")
+            do {
+                if FileManager.default.fileExists(atPath: report.path) { try FileManager.default.removeItem(at: report) }
+            } catch { document.error = error.localizedDescription }
+        } else if ProcessInfo.processInfo.arguments.contains("--flat-import-regression") {
+            await MobileSmokeChecks.flatImportRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {
+            await MobileSmokeChecks.rawImportRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+            do { document.importFiles([try await MobileSmokeChecks.run()]) }
+            catch { document.error = error.localizedDescription }
+        }
+#endif
+    }
+
 }
 
 enum MobileStyle {
