@@ -4,8 +4,7 @@ iOS version: **1.1.0 (2)** — persistent local library, batch editing/export,
 checkbox-based export filenames and adaptive floating phone controls.
 
 Native iOS editor based on **the current desktop product**, with its full-width
-canvas, floating process panel and bottom film/paper chooser. The historical
-`screenshots/` images and the FTP PoC UI are not the visual specification.
+canvas, floating process panel and bottom film/paper chooser. The [current ordinary-iPhone captures](../screenshots/ios/2026-11-02/README.md) document the phone layout; historical upstream screenshots and the FTP PoC UI are not its specification.
 The desktop implementation in `EditorWindow.swift` and `RightPanel.swift` is the
 reference for hierarchy. FTP is not required by this application.
 
@@ -17,11 +16,16 @@ engine and receiver have not been copied into this product.
 
 ## Device usability
 
-The current mobile UI is best suited to **iPhone Duo and iPad**. Conventional
-iPhones can run the editor, but the large number of process controls makes the
-layout cramped and interactions less comfortable on smaller screens. Their
-compact floating inspector and process bar have simulator coverage; real-phone touch and usability still need evaluation. The iOS 18 deployment
-floor describes compatibility, not equal usability across display sizes.
+Conventional iPhones run in portrait only, with vertically scrolling film/paper
+lists, a compact seven-item process bar and a floating,
+height-limited inspector over the canvas. The top bar contains Back, Export and
+Menu; undo/redo are in the menu. Status sits immediately below the toolbar,
+independent of image zoom and comparison. See the [current phone screenshots](../screenshots/ios/2026-11-02/README.md).
+
+Duo retains side navigation when folded or landscape and uses floating tools
+when unfolded in portrait. iPad retains top navigation and a right inspector.
+Simulator layout coverage does not establish equal real-device touch, memory or
+export performance. The deployment floor remains iOS18.
 
 ## Release downloads
 

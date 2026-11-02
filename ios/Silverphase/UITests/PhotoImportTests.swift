@@ -1,6 +1,87 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testOrdinaryPhonePortraitAndVerticalMaterials() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures"]
+        app.launch()
+        let photo = app.buttons["library.photo.来源"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 15))
+        XCTAssertGreaterThan(app.frame.height, app.frame.width, "Ordinary phone launches in portrait even while held sideways")
+        photo.tap()
+        XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
+        app.buttons["stage.film"].tap()
+        let list = app.scrollViews["materials.vertical-list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        let stockButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "materials.stock."))
+        let before = stockButtons.allElementsBoundByIndex.filter(\.isHittable).map(\.identifier)
+        list.swipeUp()
+        let after = stockButtons.allElementsBoundByIndex.filter(\.isHittable).map(\.identifier)
+        XCTAssertFalse(before.isEmpty); XCTAssertNotEqual(before, after, "Vertical swiping changes visible material rows")
+        app.buttons["搜索材料"].tap()
+        app.textFields["materials.search"].tap(); app.textFields["materials.search"].typeText("Gold 200")
+        let gold = app.buttons["materials.stock.kodak_gold_200"]
+        XCTAssertTrue(gold.waitForExistence(timeout: 3)); gold.tap()
+        XCTAssertEqual(gold.value as? String, "已选中")
+        app.buttons["结束搜索"].tap(); app.buttons["相纸"].tap()
+        XCTAssertTrue(list.exists)
+        let paper = try XCTUnwrap(stockButtons.allElementsBoundByIndex.first(where: \.isHittable))
+        paper.tap(); XCTAssertEqual(paper.value as? String, "已选中")
+        XCUIDevice.shared.orientation = .landscapeRight
+        XCTAssertGreaterThan(app.frame.height, app.frame.width, "Editing remains portrait")
+        let pixels = try XCTUnwrap(UIImage(data: XCUIScreen.main.screenshot().pngRepresentation))
+        XCTAssertGreaterThan(pixels.size.height, pixels.size.width)
+        app.terminate()
+    }
+
+    @MainActor func testCaptureCompactPhoneDocumentation() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures"]
+        app.launch()
+        func capture(_ name: String) {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Documentation - " + name; shot.lifetime = .keepAlways; add(shot)
+        }
+        let photo = app.buttons["library.photo.来源"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 15)); photo.tap()
+        let canvas = app.images["editor.canvas"]
+        XCTAssertTrue(canvas.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["editor.library"].exists)
+        canvas.tap()
+        let panel = app.descendants(matching: .any).matching(identifier: "editor.parameters").firstMatch
+        app.buttons["stage.output"].tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "扫描")
+        let handle = app.descendants(matching: .any).matching(identifier: "editor.panel-resize").firstMatch
+        let grip = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        grip.press(forDuration: 0.05, thenDragTo: grip.withOffset(CGVector(dx: 0, dy: -350)))
+        capture("portrait-panel")
+        app.buttons["editor.panel-collapse"].tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 3))
+        canvas.pinch(withScale: 2, velocity: 1)
+        capture("portrait-canvas")
+        app.buttons["stage.film"].tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片与相纸")
+        capture("portrait-materials")
+        app.buttons["editor.panel-collapse"].tap()
+        app.buttons["editor.export"].tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "导出成片")
+        let naming = app.buttons["export.naming.original"]
+        for _ in 0..<8 { if naming.isHittable { break }; panel.swipeUp() }
+        XCTAssertTrue(naming.isHittable)
+        capture("portrait-export-naming")
+        app.buttons["editor.menu"].tap(); app.buttons["设置"].tap()
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
+        let storage = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "应用内图库")).firstMatch
+        for _ in 0..<5 { if storage.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(storage.isHittable)
+        capture("portrait-settings")
+        app.terminate()
+    }
+
     @MainActor func testCompactPhonePanelFloatsOverStableCanvas() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
@@ -89,7 +170,7 @@ final class PhotoImportTests: XCTestCase {
         for orientation in [UIDeviceOrientation.portrait, .landscapeLeft, .landscapeRight, .portrait] {
             XCUIDevice.shared.orientation = orientation
             let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                info.exists && info.frame.minY >= back.frame.maxY + 8 && !info.frame.intersects(back.frame)
+                info.exists && info.frame.minY >= back.frame.maxY + 8 && info.frame.minY <= back.frame.maxY + 32 && !info.frame.intersects(back.frame)
             }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
             XCTAssertFalse(app.navigationBars.staticTexts["相机"].exists)

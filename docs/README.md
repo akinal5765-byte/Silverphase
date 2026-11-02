@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-10-31. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-02. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -17,6 +17,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
 | Mobile build, import/export, diagnostics and memory | [iOS engineering](../ios/README.md) |
+| Ordinary iPhone layout screenshots | [2026-11-02 simulator captures](../screenshots/ios/2026-11-02/README.md) |
 | Mobile layout and controls | [DESIGN](../ios/DESIGN.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
 | Private local materials and public-build exclusion | [Local material overlay](LOCAL-MATERIALS.md) |
 | B&W profile origin and limitations | [B&W notes](../engine/tools/profile_sources/blackwhite.md) / [provenance](../engine/resources_product/UPSTREAM.json) |

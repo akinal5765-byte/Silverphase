@@ -78,14 +78,14 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 |---|---|---|
 | macOS | Apple Silicon，macOS 15+ | 原生编辑器、共享成像引擎、批量导出、软打样、双照片半格组合 |
 | iPhone Duo | iOS 18+ | 较大的编辑空间，当前推荐的移动端使用设备之一 |
-| 普通 iPhone | iOS 18+ | 可运行移动编辑器，但复杂工艺控件在小屏上较为拥挤，操作体验仍需优化 |
+| 普通 iPhone | iOS 18+ | 竖屏编辑、紧凑七项导航、浮动工艺面板及纵向胶片／相纸列表 |
 | iPad | iPadOS 18+ | 同一移动编辑器，适配画布、检查器及材料浏览器布局 |
 
-**移动端当前更推荐 iPhone Duo 和 iPad。** 普通 iPhone 的主要限制是复杂界面在小屏上的布局与操作体验；系统兼容不代表各设备的易用性一致。
+普通 iPhone 已有独立竖屏适配，见[当前界面截图](screenshots/ios/2026-11-02/README.md)。Duo 和 iPad 保留各自的侧栏／检查器布局；模拟器界面检查不代表各设备具有相同的触控、内存和导出表现。
 
 当前构建从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 下载：macOS DMG 无 Developer ID 签名且未公证；iOS IPA 需自行重新签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
 
-iOS 当前采用会话编辑：冷启动会清理应用内导入副本，设置和导出配方独立保留。请保留原始照片与导出成片；长期归档工作流见各平台说明。
+当前源码的 iOS 版本使用应用内本地图库：导入原文件、编辑记录、评分和旗标在重启后保留，支持多选、批量编辑及导出。设置与导出配方独立保存。
 
 ## 也试试 Layerlight
 

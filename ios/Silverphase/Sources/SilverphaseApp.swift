@@ -5,6 +5,7 @@ import ImageIO
 import PhotosUI
 
 @main struct SilverphaseMobileApp: App {
+    @UIApplicationDelegateAdaptor(MobileDeviceLayout.self) private var deviceLayout
     @State private var document: MobileDocument = {
         let document = MobileDocument()
         document.editorVisible = ProcessInfo.processInfo.arguments.contains { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }
@@ -18,6 +19,7 @@ import PhotosUI
                     MobileEditor(document: document)
                 } else { MobileLibrary(document: document) }
             }
+                .background(MobileOrientationObserver().allowsHitTesting(false))
                 .preferredColorScheme(.dark)
                 .tint(.primary)
                 .task {
@@ -130,7 +132,6 @@ struct MobileEditor: View {
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
-    @State private var returnButtonFrame = CGRect.zero
     @State private var iPadSafeInsets = EdgeInsets()
     @State private var panelDragStart: Double?
     @GestureState private var panelDragging = false
@@ -154,6 +155,10 @@ struct MobileEditor: View {
         return frame.height > frame.width
     }
 
+    private var ordinaryPhone: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone && (!systemProcessToolbar || (phonePostureKnown && phoneHingeClosed == nil))
+    }
+
     private var usesIPadToolbar: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     private var systemProcessToolbar: Bool {
@@ -162,6 +167,7 @@ struct MobileEditor: View {
     }
     var body: some View {
         NavigationStack {
+            GeometryReader { chrome in
             Group {
             if compactPhoneEditor { compactWorkspace }
             else {
@@ -228,13 +234,13 @@ struct MobileEditor: View {
                         .auditEditorBounds("panel.browser")
                         .position(x: plan.media.midX, y: plan.media.midY)
                     }
-                    if document.current != nil {
+                    if usesIPadToolbar, document.current != nil {
                         let infoLeft = plan.photoInsets.leading + EditorDesign.contentInset
                         let infoWidth = max(1, geometry.size.width - plan.imageInsets(showInspector: showsPanel).trailing - EditorDesign.contentInset - infoLeft)
                         canvasStatus
                         .frame(width: infoWidth, alignment: .leading)
                         .position(x: infoLeft + infoWidth / 2,
-                                  y: statusCenterY(in: geometry, defaultY: plan.navigation.maxY + EditorDesign.canvasInfoInset))
+                                  y: plan.navigation.maxY + EditorDesign.canvasInfoInset)
                         .accessibilityElement(children: .combine).accessibilityIdentifier("editor.photo-info")
                         .allowsHitTesting(false)
                     }
@@ -260,6 +266,15 @@ struct MobileEditor: View {
                                      importing: $importing, pickingPhotos: $pickingPhotos, enabled: systemProcessToolbar))
             }
             }
+            .frame(width: chrome.size.width, height: chrome.size.height)
+            .overlay(alignment: .topLeading) {
+                if UIDevice.current.userInterfaceIdiom == .phone, document.current != nil {
+                    canvasStatus.padding(.leading, EditorDesign.contentInset).padding(.top, EditorDesign.gutter)
+                        .accessibilityElement(children: .combine).accessibilityIdentifier("editor.photo-info")
+                        .allowsHitTesting(false)
+                }
+            }
+            }
             .background {
                 if UIDevice.current.userInterfaceIdiom == .phone {
                     ProcessBarGeometryProbe(update: { frame in
@@ -269,7 +284,7 @@ struct MobileEditor: View {
                     }, hingeChanged: { closed in
                         phoneHingeClosed = closed
                         phonePostureKnown = true
-                    }, returnFrameChanged: { returnButtonFrame = $0 })
+                    })
                     .allowsHitTesting(false)
                 }
             }
@@ -332,14 +347,6 @@ struct MobileEditor: View {
         }
     }
 
-    private func statusCenterY(in geometry: GeometryProxy, defaultY: CGFloat) -> CGFloat {
-        guard returnToLibrary != nil else { return defaultY }
-        let reservedRowBottom = geometry.safeAreaInsets.top + EditorDesign.hitSize + 2 * EditorDesign.gutter
-        let buttonBottom = returnButtonFrame.isEmpty ? reservedRowBottom : returnButtonFrame.maxY - geometry.frame(in: .global).minY
-        // Reserve a complete toolbar row even before UIKit publishes its control frame.
-        return max(defaultY, max(reservedRowBottom, buttonBottom) + EditorDesign.canvasInfoInset)
-    }
-
     private var canvasStatus: some View {
         Text(canvasStatusText).font(.system(size: 11)).lineLimit(1)
             .foregroundStyle(document.busy ? MobileStyle.accent : .white.opacity(0.75))
@@ -381,14 +388,6 @@ struct MobileEditor: View {
                         .ignoresSafeArea(.container, edges: [.top, .bottom])
                 }
                 if document.current == nil { emptyEditor.frame(maxWidth: .infinity, maxHeight: .infinity) }
-                if document.current != nil {
-                    let left = EditorDesign.contentInset
-                    let width = max(1, geometry.size.width - left - EditorDesign.contentInset)
-                    canvasStatus.frame(width: width, alignment: .leading)
-                        .position(x: left + width / 2, y: statusCenterY(in: geometry, defaultY: EditorDesign.canvasInfoInset))
-                        .accessibilityElement(children: .combine).accessibilityIdentifier("editor.photo-info")
-                        .allowsHitTesting(false)
-                }
                 if inspector, document.current != nil {
                     processPanel(side: false, heightBasis: geometry.size.height)
                         .frame(width: plan.inspector.width, height: plan.inspector.height)
@@ -574,7 +573,7 @@ struct MobileEditor: View {
             }.padding(.leading, 16).padding(.trailing, 4).frame(height: 44)
             Rectangle().fill(MobileStyle.rule).frame(height: 1)
             if compactPhoneEditor && materials && !exporting {
-                MaterialChooser(document: document, startsWithPaper: stage == .print)
+                MaterialChooser(document: document, startsWithPaper: stage == .print, vertical: ordinaryPhone)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
             }
             else if exporting { ScrollView { exportPanel }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped() }

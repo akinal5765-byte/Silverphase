@@ -827,6 +827,41 @@
       "kind": "historical-ui-reference",
       "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
       "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "screenshots/ios/2026-11-02/portrait-canvas.png",
+      "sha256": "8d2eb42843137702e48412a443ac2dc9eea363ad73665e25aa77e0aaa1971aa2",
+      "kind": "current-ios-ui-layout-capture",
+      "evidence": "screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.",
+      "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
+    },
+    {
+      "path": "screenshots/ios/2026-11-02/portrait-export-naming.png",
+      "sha256": "9c16e8d33c4add8b734adf43f67f194155acf0e6f2d2693ab2250d8bdf6a5d50",
+      "kind": "current-ios-ui-layout-capture",
+      "evidence": "screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.",
+      "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
+    },
+    {
+      "path": "screenshots/ios/2026-11-02/portrait-materials.png",
+      "sha256": "0ecbc38d3b0edd1dc350860edb94562ad1de40d1492ef62f3e8f8cb1b0ba6398",
+      "kind": "current-ios-ui-layout-capture",
+      "evidence": "screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.",
+      "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
+    },
+    {
+      "path": "screenshots/ios/2026-11-02/portrait-panel.png",
+      "sha256": "7a2d9861b22a1f2538606d921a105b93426e0b68eafcb41b1d7d1911fdde187a",
+      "kind": "current-ios-ui-layout-capture",
+      "evidence": "screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.",
+      "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
+    },
+    {
+      "path": "screenshots/ios/2026-11-02/portrait-settings.png",
+      "sha256": "73b9ad3808791fc813c6716e648ee1aff81b6b340aaf680f2e625949f37a0afe",
+      "kind": "current-ios-ui-layout-capture",
+      "evidence": "screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.",
+      "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
     }
   ]
 }

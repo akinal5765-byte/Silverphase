@@ -113,12 +113,23 @@ import UniformTypeIdentifiers
     static func prepareUI(_ document: MobileDocument) {
         document.active = false; document.editorVisible = false
         guard document.photos.isEmpty else { return }
-        let input = CIImage(color: CIColor(red: 0.75, green: 0.3, blue: 0.1)).cropped(to: CGRect(x: 0, y: 0, width: 96, height: 64))
+        let documentation = ProcessInfo.processInfo.arguments.contains("--documentation-captures")
+        let size = documentation ? CGSize(width: 384, height: 576) : CGSize(width: 96, height: 64)
+        let input: CIImage
+        if documentation {
+            input = CIFilter(name: "CILinearGradient", parameters: [
+                "inputPoint0": CIVector(x: 0, y: 0), "inputPoint1": CIVector(x: size.width, y: size.height),
+                "inputColor0": CIColor(red: 0.12, green: 0.22, blue: 0.30),
+                "inputColor1": CIColor(red: 0.80, green: 0.65, blue: 0.40)
+            ])!.outputImage!.cropped(to: CGRect(origin: .zero, size: size))
+        } else {
+            input = CIImage(color: CIColor(red: 0.75, green: 0.3, blue: 0.1)).cropped(to: CGRect(origin: .zero, size: size))
+        }
         guard let image = CIContext().createCGImage(input, from: input.extent) else { return }
         document.photos = ["来源", "目标 A", "目标 B"].enumerated().map { index, name in
             var photo = MobilePhoto(name: name, filename: "fixture-\(index).jpg")
-            photo.sourceMegapixels = 0.006144; photo.sourceAspect = 1.5
-            photo.recipe["exposure_compensation_ev"] = .double(index == 0 ? 1 : -Double(index))
+            photo.sourceMegapixels = size.width * size.height / 1_000_000; photo.sourceAspect = size.width / size.height
+            photo.recipe["exposure_compensation_ev"] = .double(documentation ? 0 : index == 0 ? 1 : -Double(index))
             if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, UTType.jpeg.identifier as CFString, 1, nil) {
                 CGImageDestinationAddImage(writer, image, nil); CGImageDestinationFinalize(writer)
             }

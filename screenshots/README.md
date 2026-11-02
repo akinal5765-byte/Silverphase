@@ -1,6 +1,8 @@
 # screenshots/
 
-Current Silverphase examples: [2026-10-31 real-window captures and detail views](current/README.md).
+Current ordinary iPhone layout: [2026-11-02 simulator captures](ios/2026-11-02/README.md), using synthetic input only.
+
+Current Silverphase macOS examples: [2026-10-31 real-window captures and detail views](current/README.md).
 Application artwork:
 
 - [Silverphase icon](app-icon.png): current macOS-rendered icon, with orange film

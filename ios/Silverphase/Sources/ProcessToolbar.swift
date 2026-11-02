@@ -167,13 +167,11 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
     var update: (CGRect?) -> Void
     var windowSizeChanged: ((CGSize) -> Void)? = nil
     var hingeChanged: ((Bool?) -> Void)? = nil
-    var returnFrameChanged: ((CGRect) -> Void)? = nil
-    func makeUIView(context: Context) -> Probe { Probe(update: update, windowSizeChanged: windowSizeChanged, hingeChanged: hingeChanged, returnFrameChanged: returnFrameChanged) }
+    func makeUIView(context: Context) -> Probe { Probe(update: update, windowSizeChanged: windowSizeChanged, hingeChanged: hingeChanged) }
     func updateUIView(_ view: Probe, context: Context) {
         view.update = update
         view.windowSizeChanged = windowSizeChanged
         view.hingeChanged = hingeChanged
-        view.returnFrameChanged = returnFrameChanged
         view.setNeedsLayout()
     }
     final class Probe: UIView {
@@ -182,11 +180,8 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
         private var lastWindowSize: CGSize?
         var windowSizeChanged: ((CGSize) -> Void)?
         var hingeChanged: ((Bool?) -> Void)?
-        var returnFrameChanged: ((CGRect) -> Void)?
-        private var lastReturnFrame: CGRect?
-        init(update: @escaping (CGRect?) -> Void, windowSizeChanged: ((CGSize) -> Void)?, hingeChanged: ((Bool?) -> Void)?, returnFrameChanged: ((CGRect) -> Void)?) {
+        init(update: @escaping (CGRect?) -> Void, windowSizeChanged: ((CGSize) -> Void)?, hingeChanged: ((Bool?) -> Void)?) {
             self.update = update; self.windowSizeChanged = windowSizeChanged; self.hingeChanged = hingeChanged
-            self.returnFrameChanged = returnFrameChanged
             super.init(frame: .zero); isUserInteractionEnabled = false
             if #available(iOS 27.1, *) {
                 addInteraction(UIHingeInteraction { [weak self] _, update in
@@ -210,18 +205,6 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
                     // System bars finish relocating after the window size notification.
                     for delay in [0.1, 0.3, 0.6, 1.0] {
                         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.schedule() }
-                    }
-                }
-                @MainActor func returnControl(in view: UIView) -> UIView? {
-                    guard !view.isHidden, view.alpha > 0 else { return nil }
-                    if view.accessibilityIdentifier == "editor.library" || (view is UIControl && view.accessibilityLabel == "返回") { return view }
-                    for child in view.subviews { if let match = returnControl(in: child) { return match } }
-                    return nil
-                }
-                if let control = returnControl(in: window) {
-                    let frame = control.convert(control.bounds, to: window)
-                    if !frame.isEmpty, frame != self.lastReturnFrame {
-                        self.lastReturnFrame = frame; self.returnFrameChanged?(frame)
                     }
                 }
                 @MainActor func tabBar(in view: UIView) -> UITabBar? {
