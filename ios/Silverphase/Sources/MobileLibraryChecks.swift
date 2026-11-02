@@ -5,6 +5,40 @@ import ImageIO
 import UniformTypeIdentifiers
 
 @MainActor enum MobileLibraryChecks {
+    static func neutralPickerLifecycle() {
+        let report = URL.documentsDirectory.appendingPathComponent("neutral-close-report.json")
+        let directory = URL.temporaryDirectory.appendingPathComponent("Neutral-Close-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var checks: [String] = []
+        do {
+            func require(_ condition: Bool, _ label: String) throws {
+                guard condition else { throw MobileFailure.message(label) }; checks.append(label)
+            }
+            let document = MobileDocument(directory: directory); document.active = false
+            let photo = MobilePhoto(name: "Neutral lifecycle", filename: "neutral.tif")
+            document.photos = [photo]; document.openEditor(photo.id)
+            let input = CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5)).cropped(to: CGRect(x: 0, y: 0, width: 8, height: 8))
+            guard let sampling = CIContext().createCGImage(input, from: input.extent) else { throw MobileFailure.message("sampling fixture unavailable") }
+            document.pickingNeutral = true; document.neutralPreview = sampling
+            document.closeEditor()
+            try require(!document.pickingNeutral && document.neutralPreview == nil, "closing clears neutral picking and sampling preview")
+            try require(!document.editorVisible && document.selection == photo.id, "closing preserves the selected library photo")
+            document.openEditor(photo.id)
+            try require(document.editorVisible && document.selection == photo.id && !document.pickingNeutral && document.neutralPreview == nil, "same-photo reopening cannot resume neutral picking")
+            let rendered = CIContext().createCGImage(input, from: input.extent)!
+            document.image = rendered
+            try require((document.neutralPreview ?? document.image) === rendered, "reopened canvas resolves the rendered image")
+            let recipe = document.current?.recipe
+            document.pickNeutral(CGPoint(x: 0.5, y: 0.5))
+            try require(document.current?.recipe == recipe && !document.pickingNeutral, "canvas taps after reopening do not sample white balance")
+            document.closeEditor(); document.openEditor(photo.id)
+            try require(!document.pickingNeutral && document.neutralPreview == nil, "repeated close and reopen stays out of sampling mode")
+            try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
+        } catch {
+            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": error.localizedDescription], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
+        }
+    }
+
     static func run() {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

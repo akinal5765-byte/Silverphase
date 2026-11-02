@@ -24,7 +24,9 @@ import PhotosUI
                 .tint(.primary)
                 .task {
 #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") {
+                    if ProcessInfo.processInfo.arguments.contains("--neutral-close-regression") {
+                        MobileLibraryChecks.neutralPickerLifecycle()
+                    } else if ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") {
                         MobileSmokeChecks.prepareCompactPhoneUI(document)
                     } else if ProcessInfo.processInfo.arguments.contains("--library-regression") {
                         MobileLibraryChecks.run()

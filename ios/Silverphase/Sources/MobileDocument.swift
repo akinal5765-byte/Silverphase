@@ -227,6 +227,7 @@ struct MobilePhoto: Codable, Identifiable {
     func closeEditor() {
         endParameterInteraction(); save(); finishDevelopment(); showOriginal = false
         editorVisible = false; editorPhotoIDs = nil; cropEditing = false; cancelDetail(); viewport = nil
+        pickingNeutral = false; neutralPreview = nil
         revision += 1; renderTask?.cancel(); engine.workGate.cancel()
         image = nil; original = nil; cropSourceImage = nil; busy = false
         queuePreviewClose()
