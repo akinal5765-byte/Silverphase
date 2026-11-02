@@ -5,6 +5,7 @@ struct MobileFilmstrip: View {
     let photos: [MobilePhoto]
     @Binding var minimumRating: Int
     @Binding var flagFilter: String
+    @State private var deleting: UUID?
     @State private var copyRequest: MobileSettingsCopyRequest?
 
     var body: some View {
@@ -57,7 +58,7 @@ struct MobileFilmstrip: View {
                                 Button("复制参数", systemImage: "doc.on.doc") { requestCopy(photo) }
                                 Button("粘贴参数", systemImage: "doc.on.clipboard") { document.pasteSettings(to: [photo.id]) }
                                     .disabled(document.settingsClipboard == nil)
-                                Button("从本次会话移除", systemImage: "minus.circle", role: .destructive) { document.remove(photo.id) }
+                                Button("从图库删除", systemImage: "trash", role: .destructive) { deleting = photo.id }
                             }
                         }
                     }
@@ -68,6 +69,9 @@ struct MobileFilmstrip: View {
         .padding(.vertical, EditorDesign.cardInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: photos.map(\.id)) { _, ids in document.restrictPhotoSelection(to: ids) }
+        .confirmationDialog("从图库删除照片？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("删除应用内原文件和编辑记录", role: .destructive) { if let deleting { document.remove(deleting) }; deleting = nil }
+        } message: { Text("系统相册和导入来源不受影响。") }
         .sheet(item: $copyRequest) { request in MobileCopySettingsSheet(document: document, request: request) }
     }
 
@@ -156,21 +160,22 @@ struct MobileFilmstrip: View {
     }
 }
 
-private struct MobileCopySettingsSheet: View {
+struct MobileCopySettingsSheet: View {
     @Bindable var document: MobileDocument
     let request: MobileSettingsCopyRequest
+    let applyIDs: Set<UUID>?
     @State private var groups: Set<MobileClipboardGroup>
     @Environment(\.dismiss) private var dismiss
 
-    init(document: MobileDocument, request: MobileSettingsCopyRequest) {
-        self.document = document; self.request = request
+    init(document: MobileDocument, request: MobileSettingsCopyRequest, applyIDs: Set<UUID>? = nil) {
+        self.document = document; self.request = request; self.applyIDs = applyIDs
         _groups = State(initialValue: request.groups)
     }
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Text("从 \(request.source.name) 复制所选参数。粘贴时直接应用这些分区。").font(.subheadline)
+                    Text(applyIDs.map { "从 \(request.source.name) 应用所选编辑项到本批 \($0.count) 张照片。" } ?? "从 \(request.source.name) 复制所选参数。粘贴时直接应用这些分区。").font(.subheadline)
                     HStack {
                         Button("全选") { groups = Set(MobileClipboardGroup.allCases) }
                         Spacer()
@@ -190,11 +195,15 @@ private struct MobileCopySettingsSheet: View {
                     }
                 }
             }
-            .navigationTitle("复制参数").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(applyIDs == nil ? "复制编辑项" : "批量应用编辑项").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("复制") { document.copySettings(request.source, groups: groups); dismiss() }
+                    Button(applyIDs == nil ? "复制" : "应用") {
+                        document.copySettings(request.source, groups: groups)
+                        if let applyIDs { document.pasteSettings(to: applyIDs) }
+                        dismiss()
+                    }
                         .disabled(groups.isEmpty || document.isInteractionLocked)
                         .accessibilityIdentifier("clipboard.confirm-copy")
                 }

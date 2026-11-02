@@ -124,8 +124,18 @@ platform-specific and must be audited explicitly.
 
 Source or session changes invalidate in-flight work; stale results must not
 replace the current photograph. Import/export operations own a modal progress
-state on mobile; ordinary adjustment previews stay interactive. Imported mobile
-copies are cleared at a cold start while preferences/recipes persist.
+state on mobile; ordinary adjustment previews stay interactive. Mobile imports live in an app-owned local library in Application Support.
+`MobileLibraryStore` atomically persists a versioned manifest containing photo
+identity, relative original filenames, edit recipes, geometry, ratings, flags
+and the last preview selection. Invalid manifests are preserved and cannot be
+overwritten by an empty session. Originals survive cold starts; deletion commits
+the reduced manifest before removing owned files. Preview JPEGs live in Caches
+and are keyed by edit intent; undo history and GPU resources remain transient.
+`MobileLibrary` owns filtering, multi-selection, copy/paste and batch export.
+Single-photo editing hides the filmstrip; batch editing scopes it to selected
+photos and applies chosen edit groups with one undo transaction. Crop clipboard
+copies only the numeric ratio, adapting orientation to each target and retaining
+its own crop centre, straighten, quarter turns and flips.
 
 ## 3. Stage classification
 

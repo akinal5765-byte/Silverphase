@@ -37,9 +37,12 @@ struct MobileSettingsView: View {
                     Toggle("数字中间片蓝色补偿", isOn: $preferences.values.diBlueCompensation).tint(MobileStyle.accent)
                     Text("蓝色补偿仅作用于数字中间片；默认关闭。").font(.caption).foregroundStyle(.secondary)
                 }
-                Section("会话与内存") {
-                    LabeledContent("照片存储", value: "本次会话")
-                    Text("重新启动清空已加载图片。设置与导出配方会保留，原始文件和系统图库不受影响。").font(.caption).foregroundStyle(.secondary)
+                Section("图库存储") {
+                    LabeledContent("照片存储", value: "应用内图库")
+                    LabeledContent("照片数量", value: "\(document.photos.count) 张")
+                    Text("导入的原文件和编辑记录保存在本机，重启应用后仍可继续编辑。在图库中移除照片不会影响系统照片库或导入前的原始文件。").font(.caption).foregroundStyle(.secondary)
+                }
+                Section("内存") {
                     LabeledContent("设备内存", value: String(format: "%.1f GB", Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824))
                     LabeledContent("应用当前可用内存", value: String(format: "%.2f GB", Double(availableMemory) / 1_000_000_000))
                     Text("设备总内存由系统与所有应用共享；这里显示系统当前允许本应用继续使用的额度。").font(.caption).foregroundStyle(.secondary)
@@ -75,6 +78,21 @@ enum MobileOutputSpace: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum MobileFilenameField: String, CaseIterable, Identifiable, Sendable {
+    case original, film, paper, date, counter
+    var id: String { rawValue }
+    var token: String { "{" + rawValue + "}" }
+    var title: String {
+        switch self {
+        case .original: "原文件名"
+        case .film: "胶片型号"
+        case .paper: "相纸型号"
+        case .date: "导出日期"
+        case .counter: "序号"
+        }
+    }
+}
+
 struct MobileExportRecipe: Codable, Equatable, Identifiable, Sendable {
     var id = UUID()
     var name = "自定配方"
@@ -90,6 +108,18 @@ struct MobileExportRecipe: Codable, Equatable, Identifiable, Sendable {
     var location = true
     var embedsPreview = false
     var scope = "current"
+    // Keep the stored representation compatible with existing export presets.
+    // Only the UI chooses fields; template syntax is never user-facing.
+    var filenameFields: Set<MobileFilenameField> {
+        get { Set(MobileFilenameField.allCases.filter { naming.contains($0.token) }) }
+        set {
+            let fields = newValue.isEmpty ? Set([MobileFilenameField.original]) : newValue
+            naming = MobileFilenameField.allCases.filter { fields.contains($0) }.map(\.token).joined(separator: "_")
+        }
+    }
+    var usesCustomFilename: Bool {
+        naming != MobileFilenameField.allCases.filter { filenameFields.contains($0) }.map(\.token).joined(separator: "_")
+    }
     func stem(original: String, film: String, paper: String, counter: Int) -> String {
         let originalStem = URL(fileURLWithPath: original).deletingPathExtension().lastPathComponent
         let formatter = DateFormatter(); formatter.dateFormat = "yyyyMMdd"

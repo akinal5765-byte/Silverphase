@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-02",
+  "application": "Silverphase iOS",
+  "version": "1.1.0 (2)",
+  "base_commit": "4c538b2a354d12aba96b746081be550b5390f3ec",
+  "working_tree": "Includes independent toolbar status overlay, ordinary-phone portrait policy, vertical material list and documentation harness.",
+  "device": "iPhone 17 Pro Max simulator",
+  "runtime": "iOS 26.1",
+  "toolchain": "Xcode 27.1",
+  "source": "Self-authored 384x576 Core Image linear-gradient JPEGs, created only with --documentation-captures in the DEBUG library fixture; no private photographs.",
+  "capture": "Native running app in portrait; original XCTest PNG bytes retained, no crop, resize, retouch or compositing.",
+  "scope": "Ordinary iPhone portrait layout only; no landscape, Duo or iPad images. Not a real-photo quality, device-memory, permission or actual-file export acceptance result.",
+  "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices.",
+  "items": [
+    {
+      "file": "portrait-canvas.png",
+      "sha256": "8d2eb42843137702e48412a443ac2dc9eea363ad73665e25aa77e0aaa1971aa2",
+      "width": 1320,
+      "height": 2868,
+      "case": "portrait-canvas",
+      "test": "PhotoImportTests/testCaptureCompactPhoneDocumentation()",
+      "original_attachment": "401A2018-1333-4BEE-B798-868613680B6D.png",
+      "captured_at_unix": 1793611561.122
+    },
+    {
+      "file": "portrait-export-naming.png",
+      "sha256": "9c16e8d33c4add8b734adf43f67f194155acf0e6f2d2693ab2250d8bdf6a5d50",
+      "width": 1320,
+      "height": 2868,
+      "case": "portrait-export-naming",
+      "test": "PhotoImportTests/testCaptureCompactPhoneDocumentation()",
+      "original_attachment": "BCCCBD4B-4FB5-4FBB-9D76-FC9D1AA28442.png",
+      "captured_at_unix": 1793611568.082
+    },
+    {
+      "file": "portrait-materials.png",
+      "sha256": "0ecbc38d3b0edd1dc350860edb94562ad1de40d1492ef62f3e8f8cb1b0ba6398",
+      "width": 1320,
+      "height": 2868,
+      "case": "portrait-materials",
+      "test": "PhotoImportTests/testCaptureCompactPhoneDocumentation()",
+      "original_attachment": "0190EE1D-E6C4-4202-AA33-E0138CD1E72D.png",
+      "captured_at_unix": 1793611562.784
+    },
+    {
+      "file": "portrait-panel.png",
+      "sha256": "7a2d9861b22a1f2538606d921a105b93426e0b68eafcb41b1d7d1911fdde187a",
+      "width": 1320,
+      "height": 2868,
+      "case": "portrait-panel",
+      "test": "PhotoImportTests/testCaptureCompactPhoneDocumentation()",
+      "original_attachment": "EFD1E778-EBDC-497A-80E1-4DCB038CEFF4.png",
+      "captured_at_unix": 1793611556.736
+    },
+    {
+      "file": "portrait-settings.png",
+      "sha256": "73b9ad3808791fc813c6716e648ee1aff81b6b340aaf680f2e625949f37a0afe",
+      "width": 1320,
+      "height": 2868,
+      "case": "portrait-settings",
+      "test": "PhotoImportTests/testCaptureCompactPhoneDocumentation()",
+      "original_attachment": "0101B066-05E0-407E-9307-D7939A857C05.png",
+      "captured_at_unix": 1793611573.644
+    }
+  ]
+}

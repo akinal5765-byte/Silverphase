@@ -291,6 +291,21 @@ enum MobileSmokeChecks {
         }
     }
 
+    @MainActor static func prepareCompactPhoneUI(_ document: MobileDocument) {
+        document.setActive(false, background: false)
+        let input = CIFilter(name: "CILinearGradient", parameters: [
+            "inputPoint0": CIVector(x: 0, y: 0), "inputPoint1": CIVector(x: 192, y: 288),
+            "inputColor0": CIColor(red: 0.12, green: 0.22, blue: 0.30),
+            "inputColor1": CIColor(red: 0.80, green: 0.65, blue: 0.40)
+        ])!.outputImage!.cropped(to: CGRect(x: 0, y: 0, width: 192, height: 288))
+        guard let image = CIContext().createCGImage(input, from: input.extent) else { return }
+        var photo = MobilePhoto(name: "Compact layout fixture", filename: "compact-layout-fixture.tif")
+        photo.sourceMegapixels = 0.055296; photo.sourceAspect = 2.0 / 3
+        document.photos = [photo]; document.selection = photo.id
+        document.image = image; document.original = image
+        document.canvasState.reset()
+    }
+
     @MainActor static func prepareIPadChromeUI(_ document: MobileDocument) {
         document.active = false
         let color = CIImage(color: CIColor(red: 1, green: 0.25, blue: 0.05)).cropped(to: CGRect(x: 0, y: 0, width: 128, height: 128))

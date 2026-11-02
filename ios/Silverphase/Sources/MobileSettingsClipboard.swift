@@ -14,7 +14,7 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
         case .print: "印相"
         case .output: "扫描"
         case .filmEdge: "片边与日期"
-        case .geometry: "构图"
+        case .geometry: "裁切比例"
         }
     }
     var detail: String {
@@ -25,7 +25,7 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
         case .print: "相纸、直扫／中间片、印相曝光、滤色与柔化。"
         case .output: "扫描锐化、眩光与高光扩展。"
         case .filmEdge: "片门、片边、灰雾、漏光及日期后背；自动日期取目标照片。"
-        case .geometry: "裁切、校直、旋转与翻转；默认不复制。"
+        case .geometry: "仅复制宽高比例，横竖跟随目标；保留目标的构图中心、校直、旋转与翻转。"
         }
     }
     var keys: Set<String> {
@@ -60,11 +60,14 @@ struct MobileSettingsClip {
     let sourceName: String
     let groups: Set<MobileClipboardGroup>
     private let recipe: [String: WireValue]
-    private let geometry: MobileGeometry
+    private let cropRatio: Double
 
     init(source: MobilePhoto, groups: Set<MobileClipboardGroup>) {
         sourceName = source.name; self.groups = groups
-        recipe = source.recipe; geometry = source.geometry
+        recipe = source.recipe
+        let crop = source.geometry.value.crop
+        let ratio = max(0.001, crop.width * source.sourceAspect / max(0.001, crop.height))
+        cropRatio = max(ratio, 1 / ratio)
     }
     var summary: String { MobileClipboardGroup.allCases.filter { groups.contains($0) }.map(\.title).joined(separator: "、") }
     func applied(to target: MobilePhoto) -> MobilePhoto {
@@ -79,9 +82,27 @@ struct MobileSettingsClip {
             result.recipe.removeValue(forKey: "_tint")
         }
         if groups.contains(.geometry) {
-            let area = max(1, target.sourceMegapixels * 1_000_000)
             let aspect = max(0.001, target.sourceAspect)
-            result.geometry = MobileGeometry(value: geometry.value.fitted(in: CGSize(width: sqrt(area * aspect), height: sqrt(area / aspect))))
+            let size = CGSize(width: 3000 * aspect, height: 3000)
+            var g = target.geometry.value
+            let turned = g.quarterTurns % 2 != 0
+            var currentRatio = g.crop.width * aspect / max(0.001, g.crop.height)
+            if turned { currentRatio = 1 / currentRatio }
+            // A square crop has no orientation: use the target's turned source.
+            let portrait = abs(currentRatio - 1) < 0.000001 ? (turned ? aspect > 1 : aspect < 1) : currentRatio < 1
+            var ratio = portrait ? 1 / cropRatio : cropRatio
+            if turned { ratio = 1 / ratio }
+            let centre = g.centre
+            let area = max(0.000001, g.crop.width * size.width * g.crop.height * size.height)
+            let width = sqrt(area * ratio) / size.width
+            let height = sqrt(area / ratio) / size.height
+            g.crop = CropRect(x: centre.x - width / 2, y: centre.y - height / 2, width: width, height: height)
+            g.aspect = CropAspect.allCases.first { preset in
+                preset.fixedRatio.map { abs($0 - ratio) < 0.000001 } ?? false
+            } ?? (abs(ratio - aspect) < 0.000001 ? .original : .free)
+            g = g.fitted(in: size)
+            g.intendedSize = CGSize(width: g.crop.width, height: g.crop.height)
+            result.geometry = MobileGeometry(value: g)
         }
         return result
     }

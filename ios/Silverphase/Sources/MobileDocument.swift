@@ -190,31 +190,62 @@ struct MobilePhoto: Codable, Identifiable {
     private var renderTask: Task<Void, Never>?
     private var previewCleanupTask: Task<Void, Never>?
     private let directory: URL
+    private var libraryWritable = false
+    private(set) var libraryReadError: String?
+    var editorVisible = true
+    private var editorPhotoIDs: Set<UUID>?
     var current: MobilePhoto? { photos.first { $0.id == selection } }
     var canUndo: Bool { !isInteractionLocked && !undoStack.isEmpty }
     var canRedo: Bool { !isInteractionLocked && !redoStack.isEmpty }
 
     init(directory: URL? = nil) {
-        // Imported files are owned temporary copies for this launch only.
-        self.directory = directory ?? URL.applicationSupportDirectory.appendingPathComponent(ProcessInfo.processInfo.arguments.contains("--smoke-test") ? "Silverphase-Diagnostics" : "Silverphase", isDirectory: true)
+        // Every diagnostic launch is isolated from the user's durable library.
+        let diagnostic = ProcessInfo.processInfo.arguments.contains { $0.hasSuffix("regression") || $0 == "--smoke-test" || $0 == "--device-audit" }
+        var diagnosticDirectory = URL.temporaryDirectory.appendingPathComponent("Silverphase-Diagnostics-" + UUID().uuidString, isDirectory: true)
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--library-ui-regression") {
+            diagnosticDirectory = URL.temporaryDirectory.appendingPathComponent("Silverphase-Library-UI-Fixture", isDirectory: true)
+            if ProcessInfo.processInfo.arguments.contains("--reset-library-fixture") { try? FileManager.default.removeItem(at: diagnosticDirectory) }
+        }
+#endif
+        self.directory = directory ?? (diagnostic
+            ? diagnosticDirectory
+            : URL.applicationSupportDirectory.appendingPathComponent("Silverphase", isDirectory: true))
         do {
-            if FileManager.default.fileExists(atPath: self.directory.path) {
-                try FileManager.default.removeItem(at: self.directory)
-            }
-            try FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
-        } catch { self.error = "准备临时工作区失败：\(error.localizedDescription)" }
+            let snapshot = try MobileLibraryStore(directory: self.directory).load()
+            photos = snapshot.photos
+            selection = snapshot.selection.flatMap { id in photos.contains { $0.id == id } ? id : nil }
+            libraryWritable = true
+        } catch { libraryReadError = "读取图库失败：\(error.localizedDescription)"; self.error = libraryReadError }
     }
 
+    func openEditor(_ id: UUID, ids: [UUID]? = nil) {
+        editorPhotoIDs = ids.map(Set.init)
+        editorVisible = true
+        if selection == id { schedule() } else { select(id) }
+    }
+    func closeEditor() {
+        endParameterInteraction(); save(); finishDevelopment(); showOriginal = false
+        editorVisible = false; editorPhotoIDs = nil; cropEditing = false; cancelDetail(); viewport = nil
+        pickingNeutral = false; neutralPreview = nil
+        revision += 1; renderTask?.cancel(); engine.workGate.cancel()
+        image = nil; original = nil; cropSourceImage = nil; busy = false
+        queuePreviewClose()
+    }
+
+    func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
+        MobileLibraryPreview.url(photo: photo, cropRemapsEffects: preferences.values.cropRemapsEffects, diBlueCompensation: preferences.values.diBlueCompensation)
+    }
     func url(for photo: MobilePhoto) -> URL { directory.appendingPathComponent(photo.filename) }
     func select(_ id: UUID) {
         guard !isInteractionLocked, id != selection else { return }
         endParameterInteraction(); cancelDetail(); viewport = nil; nativeCanvasSize = .zero; nativeCanvasSizeIsExact = false; lastFinalRequestedEdge = 0
-        selection = id; image = nil; original = nil; cropSourceImage = nil; resolved = [:]; latitude = nil; neutralPreview = nil; pickingNeutral = false
+        selection = id; save(); image = nil; original = nil; cropSourceImage = nil; resolved = [:]; latitude = nil; neutralPreview = nil; pickingNeutral = false
         showOriginal = false
         schedule()
     }
     @discardableResult func beginPhotoImport(total: Int) -> Bool {
-        guard !isInteractionLocked, !delivering else { return false }
+        guard libraryWritable, !isInteractionLocked, !delivering else { return false }
         beginImport(stage: .receiving, total: total)
         return true
     }
@@ -249,7 +280,7 @@ struct MobilePhoto: Codable, Identifiable {
     @discardableResult func importFiles(_ urls: [URL], displayNames: [URL: String] = [:], removeSourcesAfterImport: Bool = false,
                                         continuingPhotoSelection: Bool = false) -> Task<Void, Never> {
         let adoptingPicker = continuingPhotoSelection && isImporting && operation?.stage == .receiving
-        guard !delivering, !isInteractionLocked || adoptingPicker else { return Task {} }
+        guard libraryWritable, !delivering, !isInteractionLocked || adoptingPicker else { return Task {} }
         if !adoptingPicker { beginImport(stage: .copying, total: urls.count) }
         guard let importID = operation?.id else { return Task {} }
         operation?.stage = .copying; operation?.total = urls.count; operation?.index = 1
@@ -294,12 +325,16 @@ struct MobilePhoto: Codable, Identifiable {
             if !failures.isEmpty { error = failures.joined(separator: "\n") }
             if let first = imported.first {
                 // Keep the same operation through the first usable preview.
-                selection = first.id; image = nil; original = nil; cropSourceImage = nil; resolved = [:]; latitude = nil
+                selection = first.id; save(); image = nil; original = nil; cropSourceImage = nil; resolved = [:]; latitude = nil
                 nativeCanvasSize = .zero; nativeCanvasSizeIsExact = false; lastFinalRequestedEdge = 0
                 undoStack = []; redoStack = []; showOriginal = false
                 operation?.stage = .preview; operation?.filename = first.name
                 operation?.index = 1; operation?.total = imported.count
-                scheduleRender(importID: importID)
+                if editorVisible { scheduleRender(importID: importID) }
+                else {
+                    busy = false; finishImport(id: importID, resumePrevious: false)
+                    if notification == nil { postNotification("已导入 \(imported.count) 张照片", style: .success) }
+                }
             } else { finishImport(id: importID, resumePrevious: true) }
         }
     }
@@ -495,8 +530,13 @@ struct MobilePhoto: Codable, Identifiable {
         guard let next = redoStack.popLast() else { return }
         undoStack.append(restore(next))
     }
-    // Retained as an in-memory change hook; no library or recipe sidecars.
-    func save() { }
+    @discardableResult func save() -> Bool {
+        guard libraryWritable else { return false }
+        do {
+            try MobileLibraryStore(directory: directory).write(.init(photos: photos, selection: selection))
+            return true
+        } catch { self.error = "保存图库失败：\(error.localizedDescription)"; return false }
+    }
     private(set) var settingsClipboard: MobileSettingsClip?
     private(set) var copyGroups = MobileClipboardGroup.defaults
     private(set) var isSelectingPhotos = false
@@ -559,32 +599,45 @@ struct MobilePhoto: Codable, Identifiable {
                 schedule()
             }
         }
-        if count > 0 { postNotification("已粘贴到 \(count) 张照片", detail: clip.summary, style: .success) }
+        if count > 0, error == nil { postNotification("已粘贴到 \(count) 张照片", detail: clip.summary, style: .success) }
         return count
     }
-    func mark(_ id: UUID, rating: Int? = nil, flag: String? = nil) {
+    func mark(_ id: UUID, rating: Int? = nil, flag: String? = nil) { markPhotos([id], rating: rating, flag: flag) }
+    func markPhotos(_ ids: Set<UUID>, rating: Int? = nil, flag: String? = nil) {
         guard !isInteractionLocked else { return }
-        guard let index = photos.firstIndex(where: { $0.id == id }) else { return }
-        if let rating { photos[index].rating = min(5, max(0, rating)) }
-        if let flag { photos[index].flag = flag }
+        for index in photos.indices where ids.contains(photos[index].id) {
+            if let rating { photos[index].rating = min(5, max(0, rating)) }
+            if let flag { photos[index].flag = flag }
+        }
+        save()
     }
-    func remove(_ id: UUID) {
-        guard !isInteractionLocked, !delivering, let index = photos.firstIndex(where: { $0.id == id }) else { return }
+    func remove(_ id: UUID) { removePhotos([id]) }
+    func removePhotos(_ ids: Set<UUID>) {
+        guard !isInteractionLocked, !delivering else { return }
         endParameterInteraction()
-        let removed = photos.remove(at: index)
-        selectedPhotoIDs.remove(id)
-        undoStack = undoStack.compactMap { entry in let kept = entry.filter { $0.key != id }; return kept.isEmpty ? nil : kept }
-        redoStack = redoStack.compactMap { entry in let kept = entry.filter { $0.key != id }; return kept.isEmpty ? nil : kept }
-        if selection == id {
+        let removed = photos.filter { ids.contains($0.id) }
+        guard !removed.isEmpty else { return }
+        let remaining = photos.filter { !ids.contains($0.id) }
+        let next = selection.flatMap { ids.contains($0) ? nil : $0 }
+        guard libraryWritable else { return }
+        do { try MobileLibraryStore(directory: directory).write(.init(photos: remaining, selection: next)) }
+        catch { self.error = "删除未完成：\(error.localizedDescription)"; return }
+        photos = remaining; selectedPhotoIDs.subtract(ids)
+        undoStack = undoStack.compactMap { let kept = $0.filter { !ids.contains($0.key) }; return kept.isEmpty ? nil : kept }
+        redoStack = redoStack.compactMap { let kept = $0.filter { !ids.contains($0.key) }; return kept.isEmpty ? nil : kept }
+        if let selection, ids.contains(selection) {
             finishDevelopment(); cancelDetail(); viewport = nil
             nativeCanvasSize = .zero; nativeCanvasSizeIsExact = false
             revision += 1; renderTask?.cancel(); engine.workGate.cancel()
-            selection = nil; image = nil; original = nil; resolved = [:]; latitude = nil
-            busy = false
-            queuePreviewClose()
-            if let next = photos.first { select(next.id) }
+            self.selection = nil; image = nil; original = nil; resolved = [:]; latitude = nil
+            busy = false; queuePreviewClose()
+            if editorVisible, let next = photos.first(where: { editorPhotoIDs?.contains($0.id) ?? true }) { select(next.id) }
         }
-        try? FileManager.default.removeItem(at: url(for: removed))
+        for photo in removed {
+            do { if FileManager.default.fileExists(atPath: url(for: photo).path) { try FileManager.default.removeItem(at: url(for: photo)) } }
+            catch { self.error = "照片已从图库移除，但清理原文件失败：\(error.localizedDescription)" }
+            MobileLibraryPreview.remove(photo.id)
+        }
     }
     func resetKeys(_ keys: [String]) {
         guard !isInteractionLocked, current != nil else { return }
@@ -782,7 +835,7 @@ struct MobilePhoto: Codable, Identifiable {
             if detailTask != nil || detailTile != nil { cancelDetail() }
             return
         }
-        guard active, !busy, !isInteractionLocked, interactionStart == nil, let photo = current else { return }
+        guard editorVisible, active, !busy, !isInteractionLocked, interactionStart == nil, let photo = current else { return }
         if let tile = detailTile, satisfies(tile, request) { return }
         guard detailTask == nil else { return }
         let token = detailGeneration
@@ -838,7 +891,7 @@ struct MobilePhoto: Codable, Identifiable {
         }
     }
     func schedule() {
-        guard !isImporting else { return }
+        guard editorVisible, !isImporting else { return }
         scheduleRender()
     }
     func compareCanvas(_ held: Bool) {
@@ -890,6 +943,8 @@ struct MobilePhoto: Codable, Identifiable {
                 guard !Task.isCancelled, generation == revision, active else { return }
                 developmentOffered = true
                 image = display; original = displayOriginal; cropSourceImage = cropDisplay
+                let previewURL = libraryPreviewURL(photo)
+                Task.detached(priority: .utility) { MobileLibraryPreview.write(display, to: previewURL, source: url) }
                 development = developmentAssets; developmentRunning = false
                 if !nativeCanvasSizeIsExact, !MobileFilmGate.presents(photo.recipe) {
                     nativeCanvasSize = photo.geometry.outputSize(for: geometrySourceSize)
@@ -967,7 +1022,7 @@ struct MobilePhoto: Codable, Identifiable {
     func setActive(_ active: Bool, background: Bool = true) {
         if !active { finishDevelopment() }
         if !active { showOriginal = false }
-        if !active { endParameterInteraction(); cancelDetail() }
+        if !active { endParameterInteraction(); save(); cancelDetail() }
         detailRenderer.engine.workGate.setActive(active)
         self.active = active
         engine.workGate.setActive(active)
@@ -987,7 +1042,7 @@ struct MobilePhoto: Codable, Identifiable {
         }
     }
     func export(_ format: MobileExportFormat, destination: MobileExportDestination = .share, ids: [UUID]? = nil) {
-        guard active, !isInteractionLocked, !busy, !delivering, current != nil else { return }
+        guard active, !isInteractionLocked, !busy, !delivering else { return }
         finishDevelopment()
         showOriginal = false
         cancelDetail()
@@ -1011,7 +1066,7 @@ struct MobilePhoto: Codable, Identifiable {
                 return CIContext(options: [.cacheIntermediates: false]).createCGImage(small, from: small.extent.integral, format: .RGBA8, colorSpace: shown.colorSpace)
             }
         }
-        original = nil; cropSourceImage = nil; neutralPreview = nil; previewAfterExport = true
+        original = nil; cropSourceImage = nil; neutralPreview = nil; previewAfterExport = editorVisible
         exportInterruptedByBackground = false
         exportEngine.workGate.setActive(true)
         let generation = revision

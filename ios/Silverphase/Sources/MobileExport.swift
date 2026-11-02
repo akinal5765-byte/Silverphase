@@ -4,10 +4,12 @@ import UniformTypeIdentifiers
 struct MobileExportPanel: View {
     @Bindable var document: MobileDocument
     let filteredIDs: [UUID]
+    var fixedIDs: [UUID]? = nil
     @State private var selectingFolder = false
     private var recipe: Binding<MobileExportRecipe> { $document.exportRecipe }
     private var targets: [UUID] {
-        switch document.exportRecipe.scope {
+        if let fixedIDs { return fixedIDs.filter { id in document.photos.contains { $0.id == id } } }
+        return switch document.exportRecipe.scope {
         case "all": document.photos.map(\.id)
         case "picked": document.photos.filter { $0.flag == "pick" }.map(\.id)
         case "filtered": filteredIDs
@@ -30,10 +32,13 @@ struct MobileExportPanel: View {
                 } label: { Text(document.exportRecipe.name); Image(systemName: "chevron.down") }
             }
             TextField("配方名称", text: recipe.name).textFieldStyle(.roundedBorder).font(EditorDesign.parameter).padding(.vertical, 8)
-            row("导出范围") {
-                Picker("导出范围", selection: recipe.scope) {
-                    Text("当前照片").tag("current"); Text("全部照片").tag("all"); Text("已保留照片").tag("picked"); Text("当前筛选结果").tag("filtered")
-                }.labelsHidden()
+            if let fixedIDs { Text("已选 \(fixedIDs.count) 张照片").accessibilityIdentifier("export.selected-count") }
+            else {
+                row("导出范围") {
+                    Picker("导出范围", selection: recipe.scope) {
+                        Text("当前照片").tag("current"); Text("全部照片").tag("all"); Text("已保留照片").tag("picked"); Text("当前筛选结果").tag("filtered")
+                    }.labelsHidden()
+                }
             }
             ToolSectionTitle(title: "文件与色彩")
             row("格式") { Picker("格式", selection: recipe.format) { ForEach(MobileExportFormat.allCases) { Text($0.rawValue).tag($0) } }.labelsHidden() }
@@ -68,12 +73,39 @@ struct MobileExportPanel: View {
                 Text("使用输入照片的原始像素，不受预览分辨率和24 MP上限限制；裁切会减少像素。超过手机当前可用内存时明确提示，不自动降画质。").font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
             }
             ToolSectionTitle(title: "命名与元数据")
-            TextField("文件名规则", text: recipe.naming).textFieldStyle(.roundedBorder).font(EditorDesign.parameter).padding(.vertical, 8)
-            Text("可用：{original} {film} {paper} {date} {counter}").font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
-            if let photo = document.current {
-                Text(document.exportRecipe.stem(original: photo.name, film: document.value("film_stock")?.stringValue ?? "film", paper: document.value("print_stock")?.stringValue ?? "paper", counter: 1) + "." + document.exportRecipe.format.fileExtension)
-                    .font(EditorDesign.help).lineLimit(2).foregroundStyle(.secondary).padding(.vertical, 8)
+            Text("勾选文件名包含的内容").font(EditorDesign.parameter).padding(.top, 8)
+            ForEach(MobileFilenameField.allCases) { field in
+                let selected = document.exportRecipe.filenameFields.contains(field)
+                Button {
+                    var fields = document.exportRecipe.filenameFields
+                    if selected { fields.remove(field) } else { fields.insert(field) }
+                    document.exportRecipe.filenameFields = fields
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: selected ? "checkmark.square.fill" : "square")
+                            .foregroundStyle(selected ? MobileStyle.accent : .secondary)
+                        Text(field.title).foregroundStyle(.primary)
+                        Spacer()
+                    }.frame(minHeight: EditorDesign.hitSize).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .disabled(selected && document.exportRecipe.filenameFields.count == 1)
+                    .accessibilityLabel(field.title)
+                    .accessibilityValue(selected ? "已勾选" : "未勾选")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("export.naming." + field.id)
             }
+            Text("按上方顺序组合，用下划线分隔；至少保留一项。序号从 0001 开始。")
+                .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
+            if document.exportRecipe.usesCustomFilename {
+                Text("当前沿用已保存的自定义命名；修改勾选后使用所选项目组合。")
+                    .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            let photo = targets.first.flatMap { id in document.photos.first { $0.id == id } }
+            let film = photo?.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue ?? "film"
+            let paper = photo?.recipe["print_stock"]?.stringValue ?? MobileProcessContract.defaults["print_stock"]?.stringValue ?? "paper"
+            Text("预览：" + document.exportRecipe.stem(original: photo?.name ?? "照片.jpg", film: film, paper: paper, counter: 1) + "." + document.exportRecipe.format.fileExtension)
+                .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 8).accessibilityIdentifier("export.naming-preview")
             Toggle("保留拍摄元数据", isOn: recipe.metadata).frame(minHeight: EditorDesign.hitSize).tint(MobileStyle.accent)
             Toggle("保留定位信息", isOn: recipe.location).frame(minHeight: EditorDesign.hitSize).tint(MobileStyle.accent).disabled(!document.exportRecipe.metadata)
             if document.exportRecipe.format == .tiff { Toggle("嵌入 TIFF 预览页", isOn: recipe.embedsPreview).frame(minHeight: EditorDesign.hitSize).tint(MobileStyle.accent) }
@@ -88,7 +120,7 @@ struct MobileExportPanel: View {
             }.padding(.top, 12).accessibilityIdentifier("export.photos").disabled(document.busy || document.delivering || targets.isEmpty || document.exportRecipe.format == .di)
             SmallAction(title: document.exportFolder == nil ? "导出／分享文件…" : "导出到文件夹", symbol: "square.and.arrow.up") {
                 document.export(document.exportRecipe.format, ids: targets)
-            }.padding(.top, 8).disabled(document.busy || document.delivering || targets.isEmpty)
+            }.padding(.top, 8).accessibilityIdentifier("export.files").disabled(document.busy || document.delivering || targets.isEmpty)
         }
         .font(EditorDesign.parameter).toggleStyle(.switch).pickerStyle(.menu)
         .padding(.horizontal, EditorDesign.contentInset).padding(.vertical, 8)

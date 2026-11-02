@@ -18,9 +18,9 @@ signing state and validation scope. Release builds may have incomplete features.
 ## iPhone and iPad
 
 - iOS/iPadOS 18 or later, arm64.
-- **iPhone Duo and iPad are currently recommended.** Conventional iPhones can
-  run the app, but dense controls and the complex editing UI remain cramped
-  on smaller screens and need further usability optimization.
+- The current source includes a portrait-only conventional iPhone layout with
+  floating controls and vertical film/paper lists; see the [phone captures](../screenshots/ios/2026-11-02/README.md). Duo and iPad retain their own navigation.
+  Simulator captures do not establish real-device export or memory coverage.
 - `Silverphase-<version>-iOS-unsigned.ipa` is an **unsigned device build**, not a
   simulator app, App Store download or an already provisioned installation.
 - Users arrange their own signing, provisioning and installation. This project

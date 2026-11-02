@@ -78,14 +78,14 @@ All captures show actual macOS windows on 2026-10-31. Settings, sources, and per
 |---|---|---|
 | macOS | Apple silicon, macOS 15+ | Native editor, shared imaging engine, batch export, soft proofing, two-photo half-frame compositions |
 | iPhone Duo | iOS 18+ | Larger editing workspace; one of the currently recommended mobile devices |
-| Conventional iPhone | iOS 18+ | Runs the mobile editor, but dense process controls feel cramped and need further small-screen usability work |
+| Conventional iPhone | iOS 18+ | Portrait editor, compact seven-item navigation, floating process panel and vertical film/paper lists |
 | iPad | iPadOS 18+ | The same mobile editor with adapted canvas, inspector, and material-browser layouts |
 
-**iPhone Duo and iPad are currently recommended for mobile editing.** On conventional iPhones, the main limitation is fitting the complex interface and interactions onto a smaller screen. OS compatibility does not imply equally comfortable use on every device.
+Conventional iPhones now have a dedicated portrait layout; see the [current interface captures](screenshots/ios/2026-11-02/README.md). Duo and iPad retain their side-navigation/inspector arrangements. Simulator layout checks do not establish identical touch, memory or export behavior across devices.
 
 Current builds are distributed through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS IPA requires user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS does not include desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 
-iOS currently uses editing sessions: a cold start clears app-owned imported copies, while settings and export recipes persist independently. Keep original photographs and exported images for long-term storage; consult the platform guides for workflow details.
+The current iOS source uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Settings and export recipes persist independently.
 
 ## Also by the author: Layerlight
 
