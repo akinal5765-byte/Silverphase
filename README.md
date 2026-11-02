@@ -21,6 +21,17 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 
 应用采用 SwiftUI 与共享的 C++20／Metal 引擎，在设备上处理照片，运行时不需要 Python 服务或虚拟环境。Silverphase 是 Hanze Qiu 的 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目，物理模型与原始实测胶片／相纸配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。
 
+## 当前版本
+
+| 平台 | 版本（构建号） | 下载 |
+|---|---|---|
+| macOS | **1.0.1（2）** | [Apple Silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
+| iOS／iPadOS | **1.1.1（3）** | [未签名 IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
+
+两端使用共享成像引擎，版本号独立维护。macOS 安装包未经过 Apple 公证；iOS 安装包需自行签名，具体步骤及校验文件见各版本的中文 Release 说明和[安装指南](docs/BINARY-RELEASES.md)。
+
+本次两端均新增 **CineStill 800T**：提供无防光晕背层的回反射红色光晕、高光余量控制（0–8 EV，默认 4 EV），并配有生成的包装风格封面。胶片卡片统一显示「800T」，列表保留完整名称。材料复用 Vision3 500T 的乳剂数据；高光余量是对被裁切高光光量的估计。测试通过、跳过及移动端覆盖限制见[本次验证记录](performance/VALIDATION-CINESTILL-2026-11-02.md)。
+
 ## 可以做什么
 
 - **选择胶片与相纸。** 公开目录包含 25 款胶片配置（含 CineStill 800T 与 Push 变体）和 9 款相纸，覆盖彩色负片、正片、电影负片与黑白材料。
@@ -34,7 +45,7 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 
 | 材料类别 | 代表配置 |
 |---|---|
-| 彩色负片 | Portra 160／400／800、Gold 200、Ektar 100、Ultramax 400、Fujifilm C200、Pro 400H、X-Tra 400 |
+| 彩色负片 | CineStill 800T、Portra 160／400／800、Gold 200、Ektar 100、Ultramax 400、Fujifilm C200、Pro 400H、X-Tra 400 |
 | 正片 | Ektachrome 100、Kodachrome 64、Provia 100F、Velvia 100 |
 | 电影负片 | Vision3 50D、200T、250D、500T |
 | 黑白负片 | Tri-X 400、HP5 Plus 400、T-Max 100、Acros II |

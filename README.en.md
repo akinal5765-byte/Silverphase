@@ -21,6 +21,17 @@ Silverphase takes a photograph through **camera input → film → development �
 
 The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on device without a runtime Python service or virtual environment. Silverphase is an independent derivative of Hanze Qiu's [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film/paper profiles originate in Andrea Volpato's [spektrafilm](https://github.com/andreavolpato/spektrafilm).
 
+## Current releases
+
+| Platform | Version (build) | Download |
+|---|---|---|
+| macOS | **1.0.1 (2)** | [Apple-silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
+| iOS / iPadOS | **1.1.1 (3)** | [Unsigned IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
+
+The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; the iOS package needs user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).
+
+Both releases add **CineStill 800T** with the back-reflection red halo of a film without anti-halation backing, highlight headroom (0–8 EV, default 4 EV), and generated packaging-style artwork. Cards consistently show “800T”; lists retain the full name. The material reuses Vision3 500T emulsion data, and headroom estimates clipped highlight energy. Passed checks, skips and mobile coverage limits are recorded in the [adoption validation](performance/VALIDATION-CINESTILL-2026-11-02.md).
+
 ## What you can do
 
 - **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials.
@@ -34,7 +45,7 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 
 | Material family | Representative profiles |
 |---|---|
-| Color negative | Portra 160/400/800, Gold 200, Ektar 100, Ultramax 400, Fujifilm C200, Pro 400H, X-Tra 400 |
+| Color negative | CineStill 800T, Portra 160/400/800, Gold 200, Ektar 100, Ultramax 400, Fujifilm C200, Pro 400H, X-Tra 400 |
 | Reversal | Ektachrome 100, Kodachrome 64, Provia 100F, Velvia 100 |
 | Motion-picture negative | Vision3 50D, 200T, 250D, 500T |
 | B&W negative | Tri-X 400, HP5 Plus 400, T-Max 100, Acros II |
