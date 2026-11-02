@@ -34,6 +34,7 @@ struct EdrToneMap {
 
 struct ProfileInfo {
     std::string stock, name, type = "negative", support = "film", stage = "filming";
+    std::string base_stock; // Unchanged emulsion used by a metadata alias.
     std::string use = "still", antihalation = "weak", target_print;
     std::string channel_model = "color", densitometer = "status_M";
     double log_sensitivity_density_over_min = 0.2;

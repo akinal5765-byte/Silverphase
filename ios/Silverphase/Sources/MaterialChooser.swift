@@ -152,7 +152,7 @@ struct MaterialChooser: View {
         document.value(paper ? "print_stock" : "film_stock")?.stringValue == stock.id && (!paper || (document.value("scan_film")?.boolValue != true && document.value("digital_intermediate")?.boolValue != true))
     }
     private func shortName(_ name: String) -> String {
-        for prefix in ["Kodak Professional ", "Kodak ", "Fujifilm ", "Fuji ", "Ilford "] where name.hasPrefix(prefix) { return String(name.dropFirst(prefix.count)) }
+        for prefix in ["Kodak Professional ", "Kodak ", "Fujifilm ", "Fuji ", "Ilford ", "CineStill "] where name.hasPrefix(prefix) { return String(name.dropFirst(prefix.count)) }
         return name
     }
     private func subtitle(_ stock: Stock) -> String {

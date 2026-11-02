@@ -51,6 +51,16 @@ but does not establish measured compatibility.
 
 ## 3. Ownership and errors
 
+`cinestill_800t` is an adopted metadata alias of `kodak_vision3_500t`: the
+unchanged base emulsion and neutral-print pack are reused, with still-film
+metadata and no anti-halation backing. In `antihalation_mode: profile`, it
+selects SpektraLab's back-reflection halo. Explicit strong/weak/none overrides
+retain Silverphase's existing Gaussian presets.
+`halation_headroom_ev` is an additive shoot-side float (0–8 EV, default 4).
+For the back-reflection model only, it estimates clipped scene highlights
+before film exposure/edge composition; 0 uses the recorded light. It has no
+effect with halation disabled, amount zero, or another halation preset.
+
 Caller-owned input memory is valid for the open call; the engine copies what it
 retains. `spk_device_image.buffer` must be a sufficiently large buffer on the
 engine's Metal device, tightly packed float32, top row first. Alpha is ignored.

@@ -189,7 +189,7 @@ final class StockListTests: XCTestCase {
             MaterialBrowserChoice.choices(catalog: catalog, tab: .film, filter: filter,
                                           query: query, favorites: [], recent: [])
         }
-        XCTAssertEqual(catalog.stocks.count, 33)
+        XCTAssertEqual(catalog.stocks.count, 34)
         XCTAssertTrue(catalog.stocks.allSatisfy { !$0.id.hasSuffix("_experimental") })
         let positive = Set(choices(.positive).map(\.id))
         let negative = Set(choices(.negative).map(\.id))
@@ -288,7 +288,7 @@ final class StockListTests: XCTestCase {
 
     func testAllMaterialPackagingArtworkDecodesFromBundle() throws {
         let catalog = StockCatalog.shared
-        XCTAssertEqual(catalog.stocks.filter { !$0.isExperimental }.count, 33)
+        XCTAssertEqual(catalog.stocks.filter { !$0.isExperimental }.count, 34)
         // Every selectable material now has generated artwork; HP5/Tri-X reuse
         // their existing covers and Portra push variants share the base stock.
         for stock in catalog.stocks {

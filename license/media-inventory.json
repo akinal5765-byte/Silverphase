@@ -178,6 +178,13 @@
       "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
     },
     {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/cinestill_800t-packaging-v1.png",
+      "sha256": "29574d79b210d524fb806500b2e44a7028766c33bb88cb74c8ec6127e610a66c",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-cinestill-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_c200-packaging-v1.png",
       "sha256": "c1d9263dc4960a00f9a2d32472e70a839650aa55f288360eed6fe5a386922a0e",
       "kind": "generated-cover",
@@ -801,34 +808,6 @@
       "rights_scope": "Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed."
     },
     {
-      "path": "screenshots/natural_halation.png",
-      "sha256": "2041369bcdfb34ed29d85096ee60ff107ab6e1eea52f7b1b320d75a697401cff",
-      "kind": "historical-ui-reference",
-      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
-      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
-    },
-    {
-      "path": "screenshots/physically_accurate_grain.png",
-      "sha256": "b518f68e8efd4cd17c778d2f039e8fb2490ed3e2fc659d81b621af3ea2eae00a",
-      "kind": "historical-ui-reference",
-      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
-      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
-    },
-    {
-      "path": "screenshots/related-apps/layerlight-icon.png",
-      "sha256": "6b1b614719f3634f2eac9ac96b8abaac3f4fbe2b28b01b9d224ef7252e041a2b",
-      "kind": "related-app-promotional-icon",
-      "evidence": "screenshots/related-apps/layerlight-source.json; app-owner request, 2026-10-31.",
-      "rights_scope": "Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants."
-    },
-    {
-      "path": "screenshots/spektralab-main_new.png",
-      "sha256": "118d9c920cf0299b1bcb37f54200c090efba75a16c16a2de0fa9d9eea0e80916",
-      "kind": "historical-ui-reference",
-      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
-      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
-    },
-    {
       "path": "screenshots/ios/2026-11-02/portrait-canvas.png",
       "sha256": "8d2eb42843137702e48412a443ac2dc9eea363ad73665e25aa77e0aaa1971aa2",
       "kind": "current-ios-ui-layout-capture",
@@ -862,6 +841,34 @@
       "kind": "current-ios-ui-layout-capture",
       "evidence": "screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.",
       "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
+    },
+    {
+      "path": "screenshots/natural_halation.png",
+      "sha256": "2041369bcdfb34ed29d85096ee60ff107ab6e1eea52f7b1b320d75a697401cff",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "screenshots/physically_accurate_grain.png",
+      "sha256": "b518f68e8efd4cd17c778d2f039e8fb2490ed3e2fc659d81b621af3ea2eae00a",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "screenshots/related-apps/layerlight-icon.png",
+      "sha256": "6b1b614719f3634f2eac9ac96b8abaac3f4fbe2b28b01b9d224ef7252e041a2b",
+      "kind": "related-app-promotional-icon",
+      "evidence": "screenshots/related-apps/layerlight-source.json; app-owner request, 2026-10-31.",
+      "rights_scope": "Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants."
+    },
+    {
+      "path": "screenshots/spektralab-main_new.png",
+      "sha256": "118d9c920cf0299b1bcb37f54200c090efba75a16c16a2de0fa9d9eea0e80916",
+      "kind": "historical-ui-reference",
+      "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
+      "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
     }
   ]
 }

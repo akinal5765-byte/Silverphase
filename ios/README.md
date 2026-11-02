@@ -1,6 +1,7 @@
 # Silverphase iOS editor
 
-iOS version: **1.1.0 (2)** — persistent local library, batch editing/export,
+iOS version: **1.1.1 (3)** — CineStill 800T and consistent material-card naming;
+persistent local library, batch editing/export,
 checkbox-based export filenames and adaptive floating phone controls.
 
 Native iOS editor based on **the current desktop product**, with its full-width
@@ -93,6 +94,7 @@ Explicit Debug flags run diagnostics inside this app without a phone automation 
 
 - `--flat-import-regression`: synthetic Photos-provider JPEG (sRGB/P3/Adobe RGB), HEIC and PNG import, names, linear grey, EXIF rotation, first editor preview and JPEG export dimensions/ICC; rejects invalid files and RAW-to-JPEG substitution, and writes `Documents/flat-import-report.json`. The report separately records `exportsValidated`; a simulator with insufficient reported process memory runs input checks but explicitly leaves export unverified. Add `--flat-import-large` for native 4032×3024 JPEG/HEIC render and JPEG export. Test images, imported copies and export directories are removed automatically. After copying the report to the host, launch `--clear-flat-import-regression` to delete the device report.
 - `--smoke-test`: synthetic GPU, defaults, calibration, negative reuse, layout constraints, film gates, undo/reset, export decode/ICC/depth, TIFF previews and DI/LUT packaging; writes `Documents/smoke-report.json`.
+- `--cinestill-regression`: focused synthetic CineStill 800T checks for shared catalogue, ISO 800, packaged cover, default highlight headroom and warm/fresh halation-preset agreement; writes `Documents/cinestill-report.json`. This does not claim full smoke, full-resolution export or phone acceptance.
 - `--device-audit --audit-color`: authorised temporary `Documents/DeviceAuditInput.ARW`; working-pixel samples and resolved parameters for desktop comparison.
 - `--device-audit --audit-mp=24`: cold/edit/stress timing and sampled memory/thermal state.
 - `--device-audit --audit-jpeg`: priority JPG checks across P3/sRGB/Adobe RGB, actual 24/12/6MP, crop/long-edge, metadata and file decode; writes `Documents/device-jpeg-audit.json`.

@@ -222,6 +222,8 @@ final class EngineClientTests: XCTestCase {
         XCTAssertEqual(schema.fields.first { $0.name == "halation_amount" }?.range, [0, 4],
                        "halation strength must retain the upstream physical range")
         XCTAssertEqual(schema.fields.first { $0.name == "antihalation_mode" }?.layer, "shoot")
+        XCTAssertEqual(schema.fields.first { $0.name == "halation_headroom_ev" }?.layer, "shoot")
+        XCTAssertEqual(schema.fields.first { $0.name == "halation_headroom_ev" }?.range, [0, 8])
         XCTAssertEqual(schema.fields.first { $0.name == "scanner_sharpening_amount" }?.layer, "print")
         XCTAssertEqual(schema.fields.first { $0.name == "scanner_sharpening_amount" }?.range, [0, 1.4])
         XCTAssertEqual(schema.fields.first { $0.name == "grain_softness" }?.layer, "shoot")

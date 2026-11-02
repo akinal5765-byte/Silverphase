@@ -397,7 +397,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         case grainSoftness
         case cameraDiffusion, cameraDiffusionStrength, cameraDiffusionRange
         case enlargerDiffusion, enlargerDiffusionStrength, enlargerDiffusionRange
-        case halationAmount, antihalationMode, developmentContrast, colorSeparation
+        case halationAmount, halationHeadroom, antihalationMode, developmentContrast, colorSeparation
         case filmEdge, dateBack, pairSceneLatitude, pairSceneLatitudeSplit
         case cameraFilter
         case paperGrade
@@ -477,6 +477,7 @@ struct FilmParams: Codable, Equatable, Sendable {
     var enlargerDiffusionRange: Double = 1
     var halationActive: Bool = true
     /// A multiplier on the stock's own halation response; 1 preserves it.
+    var halationHeadroom: Double = 4
     var halationAmount: Double = 1
     /// "profile" follows the stock; the other modes override only its
     /// anti-halation reflection preset, without changing the profile file.
@@ -605,6 +606,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         enlargerDiffusionStrength = 0.5
         enlargerDiffusionRange = 1
         halationActive = true
+        halationHeadroom = 4
         halationAmount = 1
         antihalationMode = "profile"
         developmentContrast = 1
@@ -657,6 +659,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         enlargerDiffusionStrength = try c.decodeIfPresent(Double.self, forKey: .enlargerDiffusionStrength) ?? 0.5
         enlargerDiffusionRange = try c.decodeIfPresent(Double.self, forKey: .enlargerDiffusionRange) ?? 1
         halationActive = try c.decode(Bool.self, forKey: .halationActive)
+        halationHeadroom = try c.decodeIfPresent(Double.self, forKey: .halationHeadroom) ?? 4
         halationAmount = try c.decodeIfPresent(Double.self, forKey: .halationAmount) ?? 1
         antihalationMode = try c.decodeIfPresent(String.self, forKey: .antihalationMode) ?? "profile"
         developmentContrast = try c.decodeIfPresent(Double.self, forKey: .developmentContrast) ?? 1
@@ -712,6 +715,7 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("camera_diffusion_strength", .double(cameraDiffusionStrength), .shoot),
             ("camera_diffusion_range", .double(cameraDiffusionRange), .shoot),
             ("halation_active", .bool(halationActive), .shoot),
+            ("halation_headroom_ev", .double(halationHeadroom.clamped(to: 0...8)), .shoot),
             ("halation_amount", .double(halationAmount), .shoot),
             ("antihalation_mode", .string(antihalationMode), .shoot),
             ("density_curve_gamma", .double(developmentContrast), .shoot),

@@ -39,6 +39,8 @@ without them is not licensed to be shipped.
 
   SpektraLab-BW-PROFILES-NOTICE.md
       Hanze Qiu's notice for the independently constructed B&W product data.
+      SpektraLab-CINESTILL-NOTICE.md additionally preserves the upstream
+      notice for the CineStill 800T metadata alias and back-reflection model.
       The adopted SpektraLab README licenses film/paper profiles CC BY-SA 4.0.
       Adoption, source commit and hashes: engine/resources_product/UPSTREAM.json
       in the corresponding source repository. This data is distinct from

@@ -1,5 +1,7 @@
 # Silverphase macOS 工程
 
+macOS 版本：**1.0.1（2）**，新增 CineStill 800T。与 iOS 独立编号。
+
 本目录是 Silverphase 的 SwiftUI／AppKit 应用工程。Xcode target 和部分
 内部路径仍叫 Spektrafilm；产品名称为 Silverphase。项目保留 Hanze Qiu
 的 SpektraLab 原生移植基础及 Andrea Volpato 的 spektrafilm 模型与配置。

@@ -157,6 +157,7 @@ bundle_resources() {
   cp "$here/resources_product/paper_grades.json" "$app/paper_grades.json"
   cp "$here/resources_product/NOTICE.md" "$app/PRODUCT_PROFILES_NOTICE.md"
   cp "$here/resources_product/UPSTREAM.json" "$app/PRODUCT_PROFILES_UPSTREAM.json"
+  cp "$here/resources_product/CINESTILL_NOTICE.md" "$app/CINESTILL_NOTICE.md"
 
   python3 "$here/../tools/stage-local-materials.py" "$(dirname "$app")"
 

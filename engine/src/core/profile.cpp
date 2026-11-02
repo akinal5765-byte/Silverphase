@@ -48,6 +48,7 @@ std::string str_or(const Json& j, const char* key, const std::string& fallback) 
 bool Profile::from_json(const Json& root, std::string& error) {
     const Json& in = root.at("info");
     if (!in.is_object()) { error = "profile has no 'info' object"; return false; }
+    info.base_stock.clear();
     info.stock = str_or(in, "stock", "");
     info.name = str_or(in, "name", info.stock);
     info.type = str_or(in, "type", "negative");
@@ -207,10 +208,31 @@ bool load_profile(const std::string& resources_dir, const std::string& stock,
     std::string path = resources_dir + "/profiles/" + canonical + ".json";
     // Checkout-only companion data. Bundled profiles are copied into profiles/.
     if (!std::ifstream(path)) path = resources_dir + "/../resources_product/profiles/" + canonical + ".json";
-    if (!out.load(path, error)) {
+    std::string text;
+    Json root;
+    if (!read_file(path, text, error) || !Json::parse(text, root, error)) { error = "no profile '" + stock + "' (" + error + ")"; return false; }
+    std::string base_stock;
+    if (root.has("derived_from")) {
+        if (!root.at("derived_from").is_string()) { error = "derived_from must be a stock name"; return false; }
+        base_stock = root.at("derived_from").as_string();
+        if (base_stock.empty() || base_stock.size() > 96 || base_stock.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != std::string::npos) {
+            error = "bad derived_from stock name"; return false;
+        }
+        Json base;
+        if (!read_file(resources_dir + "/profiles/" + base_stock + ".json", text, error) || !Json::parse(text, base, error)) return false;
+        if (base.has("derived_from")) { error = "nested profile aliases are not supported"; return false; }
+        if (!root.at("info").is_object()) { error = "alias has no info object"; return false; }
+        Json info = base.at("info");
+        for (const auto& kv : root.at("info").fields()) info.set(kv.first, kv.second);
+        info.set("stock", Json(canonical));
+        base.set("info", std::move(info));
+        root = std::move(base);
+    }
+    if (!out.from_json(root, error)) {
         error = "no profile '" + stock + "' (" + error + ")";
         return false;
     }
+    out.info.base_stock = base_stock;
     return true;
 }
 

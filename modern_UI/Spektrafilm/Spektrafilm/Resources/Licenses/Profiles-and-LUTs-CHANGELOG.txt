@@ -178,3 +178,15 @@ The Wratten lens filter table and exposure weighting are adopted from the same
 SpektraLab commit, with Hanze Qiu's source attribution retained. The table
 transcribes Kodak B-3 data; No. 58 has the factor uncertainty recorded in its
 source header. No original measured film or paper profile is altered for it.
+
+CineStill 800T adoption, 2026-11-02
+---------------------------------
+Adopted unchanged metadata alias from Hanze Qiu's SpektraLab commit
+02d82b56cf65f0f8e802a708612edc4e9a4790af, under the upstream CC BY-SA 4.0
+profile distribution. Andrea Volpato's Vision3 500T measured arrays remain
+unchanged; the alias reuses them and their neutral-print pack at load time.
+Back-reflection PSF and highlight-headroom code are adopted under GPL-3.0-or-later,
+adapted to Silverphase's existing halation menu, both hosts and striped rendering.
+The packaging illustration uses built-in imagegen and the shared text-only
+template; prompt and output are recorded in generated-cinestill-packaging-manifest.json.
+See SpektraLab-CINESTILL-NOTICE.md and engine/resources_product/UPSTREAM.json.

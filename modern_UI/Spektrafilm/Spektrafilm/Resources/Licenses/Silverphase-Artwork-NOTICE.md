@@ -71,3 +71,12 @@ README promotion; it is excluded from Silverphase's GPL and CC BY-SA grants.
 The owner-supplied production source hashes and native export settings are in
 `screenshots/related-apps/layerlight-source.json`. No Layerlight application
 source code is included or relicensed here.
+
+## Ordinary iPhone layout captures
+
+`screenshots/ios/2026-11-02/` contains native simulator UI captures with a
+self-authored Core Image gradient fixture, not private or third-party photographs.
+Original PNGs and provenance are recorded in the adjacent manifest. Application
+UI and generated fixture follow the project terms; Apple system UI, fonts and
+bundled material packaging retain their existing rights and notices. These
+layout examples do not grant additional rights to third-party material artwork.

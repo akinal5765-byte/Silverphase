@@ -62,6 +62,12 @@ A compile does not establish device memory provisioning, touch or Photos access.
 
 ## 4. Ownership and source changes
 
+CineStill 800T shares its alias profile, back-reflection implementation,
+catalogue and packaging illustration across both hosts. The additive
+`halation_headroom_ev` control is shoot-side, defaults to 4 EV for legacy
+recipes, and belongs to film settings for reset/copy/paste. It changes scene
+light before film exposure, never the base material's measured arrays.
+
 The repository is one product; there is no exclusive frontend/backend directory
 assignment. Announce edits to shared global documents. No parallel agents or
 separate worktree is mandated by this contract. Preserve the user's existing

@@ -4,6 +4,11 @@ Download release builds from [GitHub Releases](https://github.com/akinal5765-byt
 The release notes name the exact source tag/commit, system requirements,
 signing state and validation scope. Release builds may have incomplete features.
 
+The platforms use independent application versions and build numbers. Current
+source versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
+changes can ship in both without making their application versions equal;
+record the source commit and platform in each release.
+
 ## macOS
 
 - Apple Silicon (arm64), macOS 15 or later. Intel Macs are not supported.
@@ -57,9 +62,9 @@ Use the documented Xcode/Metal toolchain. From a clean, committed checkout:
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
 python3 tools/package-public-release.py --platform macos \
-  --tag v1.0.0 --output output/releases/v1.0.0
+  --tag v1.0.1 --output output/releases/v1.0.1
 python3 tools/package-public-release.py --platform ios \
-  --tag v1.0.0 --output output/releases/v1.0.0
+  --tag v1.1.1 --output output/releases/v1.1.1
 ```
 
 The script enforces Release configuration and `SILVERPHASE_LOCAL_MATERIALS=0`,

@@ -72,7 +72,7 @@ import PhotosUI
             await MobileSmokeChecks.flatImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {
             await MobileSmokeChecks.rawImportRegression()
-        } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+        } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--cinestill-regression") {
             do { document.importFiles([try await MobileSmokeChecks.run()]) }
             catch { document.error = error.localizedDescription }
         }

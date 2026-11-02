@@ -37,7 +37,7 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
         case .film:
             ["film_stock", "film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit",
              "grain_active", "grain_sublayers_active", "_grainAmount", "grain_amount", "grain_size_scale",
-             "_grainSoftness", "grain_softness", "halation_active", "antihalation_mode", "halation_amount", "halation_scatter_amount"]
+             "_grainSoftness", "grain_softness", "halation_active", "antihalation_mode", "halation_headroom_ev", "halation_amount", "halation_scatter_amount"]
         case .development: ["density_curve_gamma", "dir_couplers_active", "dir_couplers_amount"]
         case .print:
             ["print_stock", "scan_film", "digital_intermediate", "_paperGrade", "_printBrightnessStops", "print_exposure",
