@@ -3,8 +3,9 @@
 Status: preparation, 2026-11-03. First release is completely free, targeting global
 availability including China mainland. App Store Connect record **6829987567**
 has been created with SKU `silverphase-ios`, bundle ID `com.silverphase.editor`
-and Simplified Chinese as its primary language. No build upload or review
-submission has been performed.
+and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
+successfully on 2026-11-03 and entered Apple's processing queue. No review
+submission or public app release has been performed.
 Current product version is 1.1.1 (3); deployment floor is iOS/iPadOS 18.
 
 Chinese promotional text, description, keywords, version 1.1.1, copyright and
@@ -16,7 +17,10 @@ No paid advertising is included; the Layerlight entry is an unpaid own-app link.
 [Privacy policy](../docs/PRIVACY.md) and [support page](../docs/SUPPORT.md) are
 prepared in Chinese and English. Settings/About link to their public GitHub
 `blob/main/docs/` URLs; verify publication before upload and enter the same URLs
-in App Store Connect. The user authorised committing and pushing this release
+in App Store Connect. Both public pages were verified after publication; the
+support URL and privacy-policy URL are saved in the store record. The
+“Data Not Collected” privacy answers were published after the user's explicit
+confirmation. The user authorised committing and pushing this release
 preparation to origin/main on 2026-11-03.
 The account currently reports an updated Apple Developer Program agreement;
 the user chose to handle it later. No agreement was accepted by the agent.
@@ -28,6 +32,15 @@ Free pricing was saved for all 175 storefronts. Availability is configured for
 all 175 countries/regions, including China mainland, subject to Apple's local
 requirements and review. iOS-on-Mac and Vision Pro availability are disabled;
 this submission targets iPhone/iPad.
+
+Signed Release archive and App Store export succeeded. The exported IPA contains
+the privacy manifest and related-app icon, and the archive contains a dSYM.
+Public-resource checks found no local-material overlay or experimental profiles.
+The source corresponding to this archive is commit `b19d870`; subsequent edits
+to this preparation document do not change the binary. Upload success does not
+establish Apple's processing/validation acceptance. Store screenshots and review
+contact details remain outstanding, as do the licensing and regional questions
+below. No simulator UI or device acceptance was repeated during this upload.
 
 The user requests checking whether the local-only editor can be distributed in
 China mainland without an ICP filing. If Apple requires clarification, use the
