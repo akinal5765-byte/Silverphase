@@ -4,7 +4,8 @@ Status: preparation, 2026-11-03. First release is completely free, targeting glo
 availability including China mainland. App Store Connect record **6829987567**
 has been created with SKU `silverphase-ios`, bundle ID `com.silverphase.editor`
 and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
-successfully on 2026-11-03 and entered Apple's processing queue. No review
+successfully on 2026-11-03. Apple finished processing it; TestFlight now shows
+“Ready to Submit” after the export-compliance answers were saved. No review
 submission or public app release has been performed.
 Current product version is 1.1.1 (3); deployment floor is iOS/iPadOS 18.
 
@@ -37,10 +38,15 @@ Signed Release archive and App Store export succeeded. The exported IPA contains
 the privacy manifest and related-app icon, and the archive contains a dSYM.
 Public-resource checks found no local-material overlay or experimental profiles.
 The source corresponding to this archive is commit `b19d870`; subsequent edits
-to this preparation document do not change the binary. Upload success does not
-establish Apple's processing/validation acceptance. Store screenshots and review
-contact details remain outstanding, as do the licensing and regional questions
-below. No simulator UI or device acceptance was repeated during this upload.
+to this preparation document do not change the binary. Review contact details
+were copied from Layerlight at the user's request, saved and verified after reload.
+Store screenshots will be supplied by the user; all simulators were shut down
+and temporary screenshot source changes were restored. Automated screenshot test
+execution failed to start, so it provides no UI acceptance evidence.
+Build association with the App Store version remains unverified: App Store Connect
+subsequently returned blank pages even when re-entered from the apps list and a
+fresh tab. Licensing and regional questions below also remain unresolved.
+No device acceptance was repeated during this upload.
 
 The user requests checking whether the local-only editor can be distributed in
 China mainland without an ICP filing. If Apple requires clarification, use the
@@ -135,7 +141,8 @@ the root privacy manifest, engine constants, product provenance/licence notices
 and app dSYM, with no local-material directory or experimental JSON profiles.
 The build emitted C-linkage, Swift capture/concurrency/style warnings and an
 App Intents metadata skip. No XCTest, simulator, or device acceptance run was
-performed for these packaging changes; Apple upload validation is still pending.
+performed for these packaging changes. The subsequent signed upload was accepted
+and finished processing; this does not establish App Review approval.
 
 Before submission, test the signed Release build on iPhone and iPad: cold launch,
 Photos/file import (including denied permission), editing, persistence, export
