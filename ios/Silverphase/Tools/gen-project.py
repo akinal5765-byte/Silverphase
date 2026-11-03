@@ -24,7 +24,14 @@ icon_path = os.path.relpath(repo / 'modern_UI/Spektrafilm/Spektrafilm/Silverphas
 icon_ref = obj('app-icon', f'isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = {quote(icon_path)}; sourceTree = SOURCE_ROOT;')
 refs.append(icon_ref)
 icon_build = obj('build:app-icon', f'isa = PBXBuildFile; fileRef = {icon_ref};')
-resource_phase = obj('resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({icon_build}); runOnlyForDeploymentPostprocessing = 0;')
+privacy_ref = obj('privacy-manifest', 'isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT;')
+refs.append(privacy_ref)
+privacy_build = obj('build:privacy-manifest', f'isa = PBXBuildFile; fileRef = {privacy_ref};')
+related_icon_path = os.path.relpath(repo / 'screenshots/related-apps/layerlight-icon.png', root)
+related_icon_ref = obj('layerlight-icon', f'isa = PBXFileReference; lastKnownFileType = image.png; path = {quote(related_icon_path)}; sourceTree = SOURCE_ROOT;')
+refs.append(related_icon_ref)
+related_icon_build = obj('build:layerlight-icon', f'isa = PBXBuildFile; fileRef = {related_icon_ref};')
+resource_phase = obj('resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({icon_build},{privacy_build},{related_icon_build}); runOnlyForDeploymentPostprocessing = 0;')
 product = obj('product', 'isa = PBXFileReference; explicitFileType = wrapper.application; path = Silverphase.app; sourceTree = BUILT_PRODUCTS_DIR;')
 group = obj('group', f'isa = PBXGroup; children = ({",".join(refs + [product, uid("uitest-source"), uid("uitest-product")])}); sourceTree = "<group>";')
 source_phase = obj('sources', f'isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(builds)}); runOnlyForDeploymentPostprocessing = 0;')
@@ -43,7 +50,7 @@ for name in ['Debug', 'Release']:
         'CLANG_MODULE_CACHE_PATH': '$(DERIVED_FILE_DIR)/module-cache',
         'SWIFT_OPTIMIZATION_LEVEL': '-Onone' if name == 'Debug' else '-O',
         'ALWAYS_SEARCH_USER_PATHS': 'NO', 'SWIFT_ACTIVE_COMPILATION_CONDITIONS': 'DEBUG' if name == 'Debug' else '',
-        'DEBUG_INFORMATION_FORMAT': 'dwarf', 'GENERATE_INFOPLIST_FILE': 'NO',
+        'DEBUG_INFORMATION_FORMAT': 'dwarf' if name == 'Debug' else 'dwarf-with-dsym', 'GENERATE_INFOPLIST_FILE': 'NO',
     }
     configs.append(obj('config:' + name, 'isa = XCBuildConfiguration; name = ' + name + '; buildSettings = {' + ''.join(k + ' = ' + quote(v) + ';' for k,v in settings.items()) + '};'))
 config_list = obj('configs', f'isa = XCConfigurationList; buildConfigurations = ({",".join(configs)}); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')
@@ -90,3 +97,20 @@ if '--check' in sys.argv:
     if not scheme_path.exists() or scheme_path.read_text() != scheme: sys.exit('iOS UI test scheme needs regeneration')
 else:
     scheme_path.parent.mkdir(parents=True, exist_ok=True); scheme_path.write_text(scheme)
+
+app_scheme = f'''<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="2710" version="1.3">
+<BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries>
+<BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{target}" BuildableName="Silverphase.app" BlueprintName="Silverphase" ReferencedContainer="container:Silverphase.xcodeproj"/></BuildActionEntry>
+</BuildActionEntries></BuildAction>
+<LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES"><BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{target}" BuildableName="Silverphase.app" BlueprintName="Silverphase" ReferencedContainer="container:Silverphase.xcodeproj"/></BuildableProductRunnable></LaunchAction>
+<ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{target}" BuildableName="Silverphase.app" BlueprintName="Silverphase" ReferencedContainer="container:Silverphase.xcodeproj"/></BuildableProductRunnable></ProfileAction>
+<AnalyzeAction buildConfiguration="Debug"/>
+<ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+</Scheme>
+'''
+app_scheme_path = scheme_path.with_name('Silverphase.xcscheme')
+if '--check' in sys.argv:
+    if not app_scheme_path.exists() or app_scheme_path.read_text() != app_scheme: sys.exit('iOS app scheme needs regeneration')
+else:
+    app_scheme_path.write_text(app_scheme)

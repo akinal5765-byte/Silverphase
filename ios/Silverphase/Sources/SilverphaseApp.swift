@@ -757,6 +757,8 @@ struct MobileAbout: View {
                 Section("Silverphase") {
                     Text("基于 Hanze Qiu 的 SpektraLab 原生应用与 Andrea Volpato 的 spektrafilm 物理模型及实测配置。Silverphase 为独立衍生项目。")
                 }
+                MobileSupportSection()
+                MobileRelatedAppSection()
                 Section("开源许可与署名") {
                     ForEach(licenseURLs, id: \.self) { url in
                         NavigationLink(url.lastPathComponent) { ScrollView { Text((try? String(contentsOf: url, encoding: .utf8)) ?? "无法读取许可文件")

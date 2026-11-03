@@ -2,6 +2,7 @@ import SwiftUI
 import Darwin
 import UniformTypeIdentifiers
 import CoreGraphics
+import ImageIO
 
 @MainActor @Observable final class MobilePreferences {
     struct Values: Codable, Equatable {
@@ -54,6 +55,8 @@ struct MobileSettingsView: View {
                     LabeledContent("色彩工作空间", value: "ProPhoto RGB")
                     Button("恢复默认设置", role: .destructive) { document.preferences.values = MobilePreferences.Values() }
                 }
+                MobileSupportSection()
+                MobileRelatedAppSection()
             }
             .navigationTitle("设置")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
@@ -64,6 +67,64 @@ struct MobileSettingsView: View {
                 availableMemory = UInt64(os_proc_available_memory())
                 do { try await Task.sleep(for: .seconds(2)) } catch { return }
             }
+        }
+    }
+}
+
+struct MobileSupportSection: View {
+    var body: some View {
+        Section("支持与隐私") {
+            Link("帮助与支持", destination: URL(string: "https://github.com/akinal5765-byte/Silverphase/blob/main/docs/SUPPORT.md")!)
+            Link("隐私政策", destination: URL(string: "https://github.com/akinal5765-byte/Silverphase/blob/main/docs/PRIVACY.md")!)
+        }
+    }
+}
+
+struct MobileRelatedAppSection: View {
+    private static let layerlightURL = URL(string: "https://apps.apple.com/app/id6756343255")!
+    private static let layerlightIcon: CGImage? = {
+        guard let url = Bundle.main.url(forResource: "layerlight-icon", withExtension: "png"),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }()
+
+    var body: some View {
+        Section("开发者的其他应用") {
+            Link(destination: Self.layerlightURL) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        Group {
+                            if let icon = Self.layerlightIcon {
+                                Image(decorative: icon, scale: 1)
+                                    .renderingMode(.original)
+                                    .resizable()
+                                    .scaledToFit()
+                            } else {
+                                Image(systemName: "camera.aperture")
+                                    .resizable()
+                                    .scaledToFit()
+                            }
+                        }
+                        .frame(width: 56, height: 56)
+                        .accessibilityHidden(true)
+                        Text("Layerlight · HDR 图片编辑器")
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                    }
+                    Text("为照片增添 HDR 光影层次，还可在 iOS「照片」中调整摄影风格。")
+                        .foregroundStyle(.secondary)
+                    Text("摄影风格需受支持的设备与系统。部分功能需 Pro。")
+                        .foregroundStyle(.secondary)
+                    Label("在 App Store 查看", systemImage: "arrow.up.right")
+                        .foregroundStyle(MobileStyle.accent)
+                }
+                .font(.body)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("related-app.layerlight")
+            .accessibilityHint("打开 Layerlight 的 App Store 页面")
         }
     }
 }

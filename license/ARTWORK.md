@@ -67,7 +67,7 @@ from upstream, distinct from the current Silverphase examples.
 
 `screenshots/related-apps/layerlight-icon.png` identifies the maintainer's separate
 proprietary App Store application, Layerlight. The app owner authorized its
-README promotion; it is excluded from Silverphase's GPL and CC BY-SA grants.
+README and iOS Settings/About promotion; it is excluded from Silverphase's GPL and CC BY-SA grants.
 The owner-supplied production source hashes and native export settings are in
 `screenshots/related-apps/layerlight-source.json`. No Layerlight application
 source code is included or relicensed here.
