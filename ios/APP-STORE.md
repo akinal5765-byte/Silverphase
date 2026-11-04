@@ -1,7 +1,25 @@
 # iOS App Store preparation
 
 Beta installation link, supplied 2026-11-04: [Join TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-The 1.1.2 source update does not package an IPA or upload a new build.
+
+## Current TestFlight build · 2026-11-04
+
+PR #4 was merged as `0340e73`. Signed Release **1.1.2 (4)** was archived
+from that commit and uploaded successfully at 19:07 China time on 2026-11-04.
+Apple finished processing the build. The user confirmed the “none of the above”
+export-compliance answer after source inspection found only Apple CryptoKit
+SHA-256 hashing for cache keys and diagnostics, with no custom/third-party encryption.
+The answer was saved successfully. **Silverphase 内部测试** shows 1.1.2 (4)
+as **Testing**. The build was added to **Silverphase 公开测试** and submitted
+for Beta App Review with Chinese test notes and automatic tester notification;
+the public-group build currently shows **Waiting for Review**. The existing
+public link is unchanged, and 1.1.1 (3) remains available while review is pending.
+Public materials were built
+with `SILVERPHASE_LOCAL_MATERIALS=0`; the archive contains no experimental profiles.
+The archive includes symbols. No new GitHub IPA asset or App Store release was published.
+
+## Historical store preparation · 2026-11-03
+
 The preparation and upload status below records the 2026-11-03 session.
 
 
@@ -12,8 +30,8 @@ and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
 successfully on 2026-11-03. Apple finished processing it; TestFlight now shows
 “Ready to Submit” after the export-compliance answers were saved. No review
 submission or public app release has been performed.
-Current repository version is **1.1.2 (4)**; this build has not been uploaded to
-App Store Connect. The last uploaded build remains **1.1.1 (3)**.
+The uploaded build for that session was **1.1.1 (3)**; see the current
+TestFlight build above for the later upload.
 The deployment floor is iOS/iPadOS 18.
 
 Chinese promotional text, description, keywords, version 1.1.1, copyright and
