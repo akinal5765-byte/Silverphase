@@ -1,5 +1,10 @@
 # iOS App Store preparation
 
+Beta installation link, supplied 2026-11-04: [Join TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+The 1.1.2 source update does not package an IPA or upload a new build.
+The preparation and upload status below records the 2026-11-03 session.
+
+
 Status: preparation, 2026-11-03. First release is completely free, targeting global
 availability including China mainland. App Store Connect record **6829987567**
 has been created with SKU `silverphase-ios`, bundle ID `com.silverphase.editor`

@@ -28,6 +28,8 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 | macOS | **1.0.1 (2)** | [Apple-silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
 | iOS / iPadOS | **1.1.1 (3)** | [Unsigned IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
 
+iPhone/iPad beta installation: [Join TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+
 The current iOS source version is **1.1.2 (4)**; this change does not publish a new binary. It adds native seven-stage navigation, in-panel material selection, directional ruler gestures that preserve panel scrolling, and refreshed library previews after editing. The table lists published downloads; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for current behavior and validation scope.
 
 The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; the iOS package needs user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).

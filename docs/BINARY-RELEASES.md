@@ -30,6 +30,11 @@ IPA is unsigned. The source commit and SHA-256 files remain attached separately.
 
 ## iPhone and iPad
 
+Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+The 1.1.2 source update does not package an IPA or upload a new build.
+The unsigned IPA instructions below apply to historical GitHub Release assets.
+
+
 - iOS/iPadOS 18 or later, arm64.
 - The current source includes a portrait-only conventional iPhone layout with
   floating controls and vertical film/paper lists; see the [phone captures](../screenshots/ios/2026-11-02/README.md). Duo and iPad retain their own navigation.

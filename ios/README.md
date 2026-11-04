@@ -29,12 +29,15 @@ when unfolded in portrait. iPad retains top navigation and a right inspector.
 Simulator layout coverage does not establish equal real-device touch, memory or
 export performance. The deployment floor remains iOS18.
 
-## Release downloads
+## Installation and downloads
+
+Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+This source update does not package an IPA or upload a new build.
 
 App Store preparation and remaining distribution requirements are tracked in
 [APP-STORE.md](APP-STORE.md).
 
-Unsigned device IPA builds are published through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
+Historical unsigned device IPA builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
 
 ## Build
 
