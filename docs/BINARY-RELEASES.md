@@ -1,18 +1,19 @@
 # Binary releases
 
-Download release builds from [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
+Find release notes and macOS packages on [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
+iPhone/iPad beta installation and updates use [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 The release notes name the exact source tag/commit, system requirements,
 signing state and validation scope. Release builds may have incomplete features.
 
-The platforms use independent application versions and build numbers. Current
-release versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
+The platforms use independent application versions and build numbers. Published GitHub
+package versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
 changes can ship in both without making their application versions equal;
 record the source commit and platform in each release.
 
 The current iOS source version is **1.1.2 (4)**. This source update does not
 publish a new IPA or upload a build to App Store Connect.
 
-Current downloads: [macOS 1.0.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1)
+GitHub packages (the iOS IPA is historical): [macOS 1.0.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1)
 and [iOS 1.1.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1).
 Both Release pages and their attached `INSTALL.md` files use Chinese; the iOS
 IPA is unsigned. The source commit and SHA-256 files remain attached separately.
@@ -32,6 +33,13 @@ IPA is unsigned. The source commit and SHA-256 files remain attached separately.
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 The 1.1.2 source update does not package an IPA or upload a new build.
+Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
+then accept the invitation and install Silverphase. The available beta version is
+the version shown in TestFlight; it can differ from the repository source version.
+Each beta build is available for up to 90 days; see [Apple’s TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
+
+### Historical unsigned IPA
+
 The unsigned IPA instructions below apply to historical GitHub Release assets.
 
 
