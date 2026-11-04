@@ -28,6 +28,8 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 | macOS | **1.0.1 (2)** | [Apple-silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
 | iOS / iPadOS | **1.1.1 (3)** | [Unsigned IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
 
+The current iOS source version is **1.1.2 (4)**; this change does not publish a new binary. It adds native seven-stage navigation, in-panel material selection, directional ruler gestures that preserve panel scrolling, and refreshed library previews after editing. The table lists published downloads; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for current behavior and validation scope.
+
 The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; the iOS package needs user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).
 
 Both releases add **CineStill 800T** with the back-reflection red halo of a film without anti-halation backing, highlight headroom (0–8 EV, default 4 EV), and generated packaging-style artwork. Cards consistently show “800T”; lists retain the full name. The material reuses Vision3 500T emulsion data, and headroom estimates clipped highlight energy. Passed checks, skips and mobile coverage limits are recorded in the [adoption validation](performance/VALIDATION-CINESTILL-2026-11-02.md).

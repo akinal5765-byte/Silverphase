@@ -2,7 +2,7 @@
 
 当前规范，整理于2026-11-04。实现常量见 `Silverphase/Sources/EditorDesign.swift`。
 桌面端提供工艺语义与共用控件；手机与平板按实际工作区安排导航和面板。
-本次图片更新聚焦[普通 iPhone 适配截图](../screenshots/ios/2026-11-02/README.md)，不新增 Duo 图片。
+[2026-11-02 普通 iPhone 截图](../screenshots/ios/2026-11-02/README.md)早于本次原生工艺栏及材料入口更新；当前行为以本文与源码为准。
 旧布局、迭代过程及被替代规则保留在[历史快照](history/DESIGN-through-2026-11-02.md)。
 
 ## 普通 iPhone 编辑布局

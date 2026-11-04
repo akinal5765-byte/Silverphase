@@ -28,6 +28,8 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 | macOS | **1.0.1（2）** | [Apple Silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
 | iOS／iPadOS | **1.1.1（3）** | [未签名 IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
 
+当前 iOS 源码版本为 **1.1.2（4）**，本轮提交未发布新的安装包。更新包括原生七项工艺导航、面板内材料选择、刻度尺与面板滚动的方向协调，以及编辑后图库缩略图刷新。上表保留已发布下载；当前界面与验证范围见 [iOS 指南](ios/README.md)及[控制对照](ios/CONTROL-AUDIT.md)。
+
 两端使用共享成像引擎，版本号独立维护。macOS 安装包未经过 Apple 公证；iOS 安装包需自行签名，具体步骤及校验文件见各版本的中文 Release 说明和[安装指南](docs/BINARY-RELEASES.md)。
 
 本次两端均新增 **CineStill 800T**：提供无防光晕背层的回反射红色光晕、高光余量控制（0–8 EV，默认 4 EV），并配有生成的包装风格封面。胶片卡片统一显示「800T」，列表保留完整名称。材料复用 Vision3 500T 的乳剂数据；高光余量是对被裁切高光光量的估计。测试通过、跳过及移动端覆盖限制见[本次验证记录](performance/VALIDATION-CINESTILL-2026-11-02.md)。

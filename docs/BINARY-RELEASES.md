@@ -9,6 +9,9 @@ release versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
 changes can ship in both without making their application versions equal;
 record the source commit and platform in each release.
 
+The current iOS source version is **1.1.2 (4)**. This source update does not
+publish a new IPA or upload a build to App Store Connect.
+
 Current downloads: [macOS 1.0.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1)
 and [iOS 1.1.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1).
 Both Release pages and their attached `INSTALL.md` files use Chinese; the iOS

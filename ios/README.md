@@ -5,7 +5,8 @@ in-panel material selection, directional tick-ruler gestures and refreshed libra
 persistent local library and batch editing/export.
 
 Native iOS editor based on **the current desktop product**, with its full-width
-canvas, floating process panel and bottom film/paper chooser. The [current ordinary-iPhone captures](../screenshots/ios/2026-11-02/README.md) document the phone layout; historical upstream screenshots and the FTP PoC UI are not its specification.
+canvas and floating process panel. Ordinary iPhones open film/paper lists inside
+that panel; Duo and iPad retain the bottom material browser. The [dated ordinary-iPhone captures](../screenshots/ios/2026-11-02/README.md) show the 2026-11-02 phone layout, before the 1.1.2 material-entry changes; historical upstream screenshots and the FTP PoC UI are not its specification.
 The desktop implementation in `EditorWindow.swift` and `RightPanel.swift` is the
 reference for hierarchy. FTP is not required by this application.
 
