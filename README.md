@@ -30,7 +30,7 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 
 Releases 保留版本说明与 macOS 安装包；iPhone／iPad 通过 TestFlight 安装及更新，无需自行签名。
 
-当前 iOS 源码版本为 **1.1.2（4）**，本轮提交未发布新的安装包。更新包括原生七项工艺导航、面板内材料选择、刻度尺与面板滚动的方向协调，以及编辑后图库缩略图刷新。当前界面与验证范围见 [iOS 指南](ios/README.md)及[控制对照](ios/CONTROL-AUDIT.md)。
+当前 iOS 源码版本为 **1.1.2（4）**，已上传 TestFlight；内部测试已开放，公开测试正在等待 Apple Beta 审核。更新包括原生七项工艺导航、面板内材料选择、刻度尺与面板滚动的方向协调，以及编辑后图库缩略图刷新。当前界面与验证范围见 [iOS 指南](ios/README.md)及[控制对照](ios/CONTROL-AUDIT.md)。
 
 两端使用共享成像引擎，版本号独立维护。macOS 安装包未经过 Apple 公证；iOS 优先通过上述 TestFlight 链接安装；历史未签名 IPA 需自行签名，具体步骤及校验文件见各版本的中文 Release 说明和[安装指南](docs/BINARY-RELEASES.md)。
 

@@ -30,7 +30,7 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 
 Releases retain version notes and macOS packages; iPhone/iPad users install and update through TestFlight without arranging their own signing.
 
-The current iOS source version is **1.1.2 (4)**; this change does not publish a new binary. It adds native seven-stage navigation, in-panel material selection, directional ruler gestures that preserve panel scrolling, and refreshed library previews after editing. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for current behavior and validation scope.
+The current iOS source version is **1.1.2 (4)**, available to internal TestFlight testers and awaiting Apple Beta App Review for public testing. It adds native seven-stage navigation, in-panel material selection, directional ruler gestures that preserve panel scrolling, and refreshed library previews after editing. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for current behavior and validation scope.
 
 The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; iOS beta installation uses TestFlight, while historical unsigned IPAs require user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).
 

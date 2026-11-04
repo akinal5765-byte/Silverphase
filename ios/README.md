@@ -32,7 +32,8 @@ export performance. The deployment floor remains iOS18.
 ## Installation and downloads
 
 Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-This source update does not package an IPA or upload a new build.
+Build **1.1.2 (4)** has been uploaded to App Store Connect for TestFlight;
+see [distribution status](APP-STORE.md). No new GitHub IPA asset was published.
 
 App Store preparation and remaining distribution requirements are tracked in
 [APP-STORE.md](APP-STORE.md).

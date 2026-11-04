@@ -10,8 +10,9 @@ package versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
 changes can ship in both without making their application versions equal;
 record the source commit and platform in each release.
 
-The current iOS source version is **1.1.2 (4)**. This source update does not
-publish a new IPA or upload a build to App Store Connect.
+The current iOS source version is **1.1.2 (4)**. Build **1.1.2 (4)** has been
+uploaded for TestFlight; see [distribution status](../ios/APP-STORE.md).
+No new GitHub IPA asset was published.
 
 GitHub packages (the iOS IPA is historical): [macOS 1.0.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1)
 and [iOS 1.1.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1).
@@ -32,7 +33,7 @@ IPA is unsigned. The source commit and SHA-256 files remain attached separately.
 ## iPhone and iPad
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-The 1.1.2 source update does not package an IPA or upload a new build.
+Build 1.1.2 (4) is available to internal testers; public testing is awaiting Apple Beta App Review.
 Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
 then accept the invitation and install Silverphase. The available beta version is
 the version shown in TestFlight; it can differ from the repository source version.
