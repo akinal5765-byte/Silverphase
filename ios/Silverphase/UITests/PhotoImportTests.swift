@@ -158,6 +158,31 @@ final class PhotoImportTests: XCTestCase {
         app.terminate()
     }
 
+    @MainActor func testSelectedProcessReopensPanelAndLeavesExport() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--compact-editor-ui-regression"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.processStage("camera")
+        XCTAssertTrue(camera.waitForExistence(timeout: 15))
+        camera.tap()
+        let panel = app.descendants(matching: .any).matching(identifier: "editor.parameters").firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 3))
+        app.buttons["editor.panel-collapse"].tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(camera.isSelected)
+        camera.tap()
+        XCTAssertTrue(panel.waitForExistence(timeout: 3), "Tapping the selected process must reopen its panel")
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "相机")
+        app.buttons["editor.export"].tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "导出成片")
+        XCTAssertTrue(camera.isSelected)
+        camera.tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "相机",
+                       "Tapping the selected process must leave export")
+    }
+
     @MainActor func testFoldedDuoKeepsNativeSideNavigation() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

@@ -51,6 +51,10 @@ struct NativeProcessPicker: UIViewRepresentable {
         let view: UIView = vertical || embeddedInToolbar ? ProcessSegmentsHost(size: size, vertical: vertical) : ProcessPickerToolbar(size: size, vertical: false)
         let host = (view as? ProcessPickerToolbar)?.host ?? (view as! ProcessSegmentsHost)
         host.control.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .valueChanged)
+        let repeatTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.repeatedTap(_:)))
+        repeatTap.cancelsTouchesInView = false
+        repeatTap.delegate = context.coordinator
+        host.control.addGestureRecognizer(repeatTap)
         return view
     }
     func updateUIView(_ view: UIView, context: Context) {
@@ -63,9 +67,28 @@ struct NativeProcessPicker: UIViewRepresentable {
         }
     }
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIView, context: Context) -> CGSize? { size }
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        private var selectionAtTouch = UISegmentedControl.noSegment
         var parent: NativeProcessPicker
         init(_ parent: NativeProcessPicker) { self.parent = parent }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            selectionAtTouch = (gestureRecognizer.view as? UISegmentedControl)?.selectedSegmentIndex ?? UISegmentedControl.noSegment
+            return true
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+        @objc func repeatedTap(_ gesture: UITapGestureRecognizer) {
+            guard let control = gesture.view as? UISegmentedControl, control.isEnabled,
+                  control.numberOfSegments > 0, control.bounds.width > 0 else { return }
+            let point = gesture.location(in: control)
+            guard control.bounds.contains(point) else { return }
+            // All process segments have equal width. Coordinates stay local
+            // to the control even when the Duo host rotates it vertically.
+            let tapped = Int((point.x - control.bounds.minX) / control.bounds.width * CGFloat(control.numberOfSegments))
+            guard tapped == selectionAtTouch, tapped == control.selectedSegmentIndex,
+                  control.isEnabledForSegment(at: tapped) else { return }
+            changed(control)
+        }
         @objc func changed(_ control: UISegmentedControl) {
             guard MobileStage.allCases.indices.contains(control.selectedSegmentIndex), parent.enabled else { return }
             parent.select(MobileStage.allCases[control.selectedSegmentIndex])
