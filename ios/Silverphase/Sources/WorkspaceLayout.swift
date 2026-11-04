@@ -14,7 +14,7 @@ struct WorkspaceLayout {
     private let windowWidth: CGFloat
 
     init(size: CGSize, safe: EdgeInsets, exclusions: [CGRect],
-         showsMedia: Bool, systemBars: Bool = false, systemBarFrame: CGRect? = nil, showInspector: Bool = true, materialBrowser: Bool, dockFraction: Double) {
+         showsMedia: Bool, systemBars: Bool = false, systemBarFrame: CGRect? = nil, panelBottom: CGFloat? = nil, showInspector: Bool = true, materialBrowser: Bool, dockFraction: Double) {
         windowWidth = size.width
         let gap = EditorDesign.gutter
         // The editor passes zero extra insets because NavigationStack already
@@ -37,7 +37,10 @@ struct WorkspaceLayout {
                                 height: twoRows ? 92 : 44)
         navigationContent = Self.unobstructedHeader(headerBand, exclusions: exclusions, gap: gap)
         let workTop = navigation.maxY + gap
-        let bottom = min(size.height - max(gap, safe.bottom), systemBarFrame?.maxY ?? .greatestFiniteMagnitude)
+        // Use an explicitly requested bottom alignment only when the caller
+        // has a measured bottom-docked process bar; other layouts keep their
+        // window-based height independently of the process group position.
+        let bottom = max(workTop + 1, panelBottom ?? (size.height - max(gap, safe.bottom)))
         usesSidebar = usable >= (systemBars ? 240 : 320) + 264 + gap
         let panelWidth = min(324, max(264, usable * 0.34))
         let mediaHeight: CGFloat = showsMedia ? EditorDesign.browserHeight : 0
@@ -107,7 +110,8 @@ struct WorkspaceViewportClip: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26.0, *), roundedHeader {
             content.clipShape(ChromeSurface.boundary(topBar: true))
-        } else { content.clipped() }
+        } else if roundedHeader { content.clipped() }
+        else { content }
     }
 }
 

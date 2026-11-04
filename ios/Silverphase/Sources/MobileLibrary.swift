@@ -140,7 +140,8 @@ struct MobileLibrary: View {
             else { open([photo]) }
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                FilmstripThumbnail(url: hasPreview ? preview : document.url(for: photo), fillsFrame: false)
+                FilmstripThumbnail(url: hasPreview ? preview : document.url(for: photo), fillsFrame: false,
+                                   version: document.libraryPreviewVersions[photo.id, default: 0])
                     .frame(maxWidth: .infinity).frame(height: 140)
                     .background(.black.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 12))
                     .overlay(alignment: .topTrailing) {

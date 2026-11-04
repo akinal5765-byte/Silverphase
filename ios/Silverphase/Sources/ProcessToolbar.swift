@@ -11,9 +11,10 @@ extension EnvironmentValues {
     }
 }
 
-/// Like Layerlight, destinations belong to a native tab bar; actions belong
-/// to the NavigationStack above it. The system owns grouping and selection.
+/// NavigationStack owns editor actions and the side process picker. Native
+/// segmented selection avoids tab-bar overflow while retaining system feedback.
 struct ProcessToolbar: ViewModifier {
+    let stage: MobileStage
     @Environment(\.returnToLibrary) private var returnToLibrary
     @Bindable var document: MobileDocument
     @Binding var inspector: Bool
@@ -28,8 +29,23 @@ struct ProcessToolbar: ViewModifier {
         if #available(iOS 27.1, *), enabled {
             content
                 .toolbar(.visible, for: .navigationBar)
+                .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+#if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--side-toolbar-pressure") {
+                        // Reproduce competing vertical chrome without relying
+                        // on a personal Live Activity or device-only UI.
+                        ToolbarItem(placement: .topBarLeading) {
+                            Color.clear.frame(width: 44, height: 120)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("侧栏空间测试占位")
+                                .accessibilityIdentifier("editor.toolbar-pressure")
+                        }.axisBehavior(.verticalPreferred).visibilityPriority(.high)
+                        ToolbarSpacer(.fixed, placement: .topBarLeading).axisBehavior(.verticalPreferred)
+                    }
+#endif
+
                     if let returnToLibrary {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("返回", systemImage: "chevron.left") { returnToLibrary() }
@@ -44,12 +60,37 @@ struct ProcessToolbar: ViewModifier {
                             .tint(.primary)
                             .disabled(document.image == nil || document.isInteractionLocked)
                             .accessibilityIdentifier("editor.export")
-                    }.axisBehavior(.verticalPreferred)
+                    }.axisBehavior(.verticalPreferred).visibilityPriority(.low)
                     ToolbarItem(placement: .topBarLeading) {
                         NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
                                          exporting: $exporting, about: $about, settings: $settings,
                                          importing: $importing, pickingPhotos: $pickingPhotos)
-                    }.axisBehavior(.verticalPreferred)
+                    }.axisBehavior(.verticalPreferred).visibilityPriority(.low)
+                }
+        } else if UIDevice.current.userInterfaceIdiom == .pad {
+            content
+                .toolbar(.visible, for: .navigationBar)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .navigationTitle(document.current == nil ? "" : exporting ? "导出成片" : stage.rawValue)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        if let returnToLibrary {
+                            Button("返回", systemImage: "chevron.left") { returnToLibrary() }
+                                .disabled(document.isInteractionLocked)
+                                .accessibilityIdentifier("editor.library")
+                        }
+                    }
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button("导出", systemImage: "square.and.arrow.up") {
+                            exporting = true; inspector = true; materials = false
+                        }
+                        .disabled(document.image == nil || document.isInteractionLocked || document.delivering)
+                        .accessibilityIdentifier("editor.export")
+                        NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
+                                         exporting: $exporting, about: $about, settings: $settings,
+                                         importing: $importing, pickingPhotos: $pickingPhotos)
+                    }
                 }
         } else {
             content.toolbar(.hidden, for: .navigationBar)
@@ -115,53 +156,55 @@ struct ProcessNavigation<Content: View>: View {
             materials = item == .film || item == .print
         })
     }
-    private func stageIcon(_ item: MobileStage) -> UIImage {
-        let color: UIColor = stage == item ? .systemOrange : .label
-        let colorTraits = UITraitCollection(userInterfaceStyle: .dark)
-        let source = (UIImage(systemName: item.symbol,
-                              withConfiguration: UIImage.SymbolConfiguration(pointSize: EditorDesign.glyphSize, weight: .regular)) ?? UIImage())
-            .withTintColor(color.resolvedColor(with: colorTraits), renderingMode: .alwaysOriginal)
-        let side = EditorDesign.glyphSize
-        let scale = min(side / max(1, source.size.width), side / max(1, source.size.height))
-        let size = CGSize(width: source.size.width * scale, height: source.size.height * scale)
-        // A point-size configuration is a font metric, not an image bound.
-        // Normalize every native tab symbol to the same drawing box used by
-        // other editor glyphs; keep the system's larger touch region intact.
-        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
-            source.draw(in: CGRect(x: (side - size.width) / 2, y: (side - size.height) / 2,
-                                   width: size.width, height: size.height))
-        }.withRenderingMode(.alwaysOriginal)
-    }
     @ViewBuilder var body: some View {
         if #available(iOS 27.1, *), enabled {
-            TabView(selection: selection) {
-                ForEach(MobileStage.allCases) { item in
-                    Tab(value: item) {
-                        // Inactive tab canvases must not publish stale/zero
-                        // geometry into the selected photo's detail request.
-                        if stage == item { content().tint(.primary) } else { Color.clear }
-                    } label: {
-                        Label {
-                            Text(item.rawValue)
-                        } icon: {
-                            // The shared Duo bar can replace a template icon's
-                            // tint with its action group's primary color. As in
-                            // Layerlight's system picker, retain the icon color
-                            // while leaving selection/glass/tracking native.
-                            Image(uiImage: stageIcon(item)).renderingMode(.original)
+            content()
+                .toolbar(.visible, for: .bottomBar)
+                .toolbar {
+                    ToolbarItem(id: "editor.process-picker", placement: .bottomBar) {
+                        NativeProcessPicker(stage: stage,
+                                            enabled: document.current != nil && !document.isInteractionLocked && !document.delivering,
+                                            vertical: true, size: CGSize(width: 48, height: 308)) { item in
+                            document.endParameterInteraction()
+                            selection.wrappedValue = item
                         }
-                        .accessibilityIdentifier("stage." + item.id)
+                        .frame(width: 48, height: 308)
+                        .accessibilityIdentifier("editor.side-process-picker")
                     }
-                    .disabled(document.current == nil || document.isInteractionLocked || document.delivering)
+                    .axisBehavior(.verticalPreferred)
+                    // Process selection must outlast action groups in crowded
+                    // vertical bars (including expanded Live Activities).
+                    .visibilityPriority(.init(higherThan: .high))
+                    .sharedBackgroundVisibility(.hidden)
                 }
-            }
-            .tabViewStyle(.tabBarOnly)
-            .tint(MobileStyle.accent)
+        } else if UIDevice.current.userInterfaceIdiom == .pad {
+            content()
+                .toolbar {
+                    if #available(iOS 26.0, *) {
+                        iPadProcessItem.sharedBackgroundVisibility(.hidden)
+                    } else {
+                        iPadProcessItem
+                    }
+                }
         } else { content() }
+    }
+
+    private var iPadProcessItem: some ToolbarContent {
+        ToolbarItem(id: "editor.process-picker", placement: .topBarLeading) {
+            NativeProcessPicker(stage: stage,
+                                enabled: document.current != nil && !document.isInteractionLocked && !document.delivering,
+                                vertical: false, size: CGSize(width: 336, height: 44),
+                                embeddedInToolbar: true, showsTitles: false) { item in
+                document.endParameterInteraction()
+                selection.wrappedValue = item
+            }
+            .frame(width: 336, height: 44)
+            .accessibilityIdentifier("editor.horizontal-process-picker")
+        }
     }
 }
 
-/// Read the system's actual tab-bar surface in window coordinates. Align
+/// Read the process picker's actual system-toolbar frame in window coordinates. Align
 /// custom panels to that surface, not to a guessed safe-area bottom inset.
 struct ProcessBarGeometryProbe: UIViewRepresentable {
     var update: (CGRect?) -> Void
@@ -207,45 +250,19 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
                         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.schedule() }
                     }
                 }
-                @MainActor func tabBar(in view: UIView) -> UITabBar? {
-                    if let bar = view as? UITabBar, !bar.isHidden, bar.alpha > 0 { return bar }
-                    for child in view.subviews { if let bar = tabBar(in: child) { return bar } }
+                @MainActor func processPicker(in view: UIView) -> UIView? {
+                    guard !view.isHidden, view.alpha > 0 else { return nil }
+                    if view.accessibilityIdentifier == "editor.side-process-picker" { return view }
+                    for child in view.subviews { if let picker = processPicker(in: child) { return picker } }
                     return nil
                 }
-                guard let bar = tabBar(in: window) else {
+                guard let picker = processPicker(in: window) else {
                     if self.last != nil { self.last = nil; self.update(nil) }
                     return
                 }
-                let container = bar.convert(bar.bounds, to: window)
-                let vertical = container.height > container.width
-                // UIKit relocates the tab content into a shared host. That
-                // host does not expose its virtual accessibility children as
-                // UIView labels. Locate the narrow vertical group by the
-                // public frames of its equally aligned tab hit regions.
-                // Do not depend on private UIKit class names or selectors.
-                var surfaces: [CGRect] = []
-                let count = bar.items?.count ?? MobileStage.allCases.count
-                @MainActor func collect(_ view: UIView) {
-                    guard !view.isHidden, view.alpha > 0.01 else { return }
-                    let rect = view.convert(view.bounds, to: window)
-                    if vertical, rect.width >= 40, rect.width <= container.width,
-                       rect.height > rect.width, rect.minX > window.bounds.midX {
-                        let hits = view.subviews.filter { !$0.isHidden && $0.alpha > 0.01 }.map { $0.convert($0.bounds, to: window) }
-                            .filter { $0.width >= 32 && $0.width <= rect.width && $0.height >= 32 && $0.height < rect.height }
-                        let rows = Set(hits.map { Int($0.midY.rounded()) })
-                        if count > 1, rows.count == count,
-                           hits.allSatisfy({ abs($0.midX - rect.midX) < 1 && rect.contains($0) }) {
-                            surfaces.append(rect)
-                        }
-                    }
-                    for child in view.subviews { collect(child) }
-                }
-                collect(window)
-                let validSurface = surfaces.min { $0.width * $0.height < $1.width * $1.height }
-                let frame = vertical ? (validSurface ?? container) : container
+                let frame = picker.convert(picker.bounds, to: window)
 #if DEBUG
-                EditorLayoutAudit.record("system.tabbar.container", container)
-                if let validSurface { EditorLayoutAudit.record("system.tabbar.surface", validSurface) }
+                EditorLayoutAudit.record("system.process-picker", frame)
 #endif
                 guard frame != self.last else { return }
                 self.last = frame

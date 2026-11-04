@@ -21,14 +21,18 @@ Silverphase takes a photograph through **camera input → film → development �
 
 The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on device without a runtime Python service or virtual environment. Silverphase is an independent derivative of Hanze Qiu's [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film/paper profiles originate in Andrea Volpato's [spektrafilm](https://github.com/andreavolpato/spektrafilm).
 
-## Current releases
+## [Releases](https://github.com/akinal5765-byte/Silverphase/releases)
 
-| Platform | Version (build) | Download |
+| Platform | Distributed version | Install |
 |---|---|---|
 | macOS | **1.0.1 (2)** | [Apple-silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
-| iOS / iPadOS | **1.1.1 (3)** | [Unsigned IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
+| iOS / iPadOS | Beta; see TestFlight for the available version | [Install with TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |
 
-The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; the iOS package needs user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).
+Releases retain version notes and macOS packages; iPhone/iPad users install and update through TestFlight without arranging their own signing.
+
+The current iOS source version is **1.1.2 (4)**; this change does not publish a new binary. It adds native seven-stage navigation, in-panel material selection, directional ruler gestures that preserve panel scrolling, and refreshed library previews after editing. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for current behavior and validation scope.
+
+The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; iOS beta installation uses TestFlight, while historical unsigned IPAs require user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).
 
 Both releases add **CineStill 800T** with the back-reflection red halo of a film without anti-halation backing, highlight headroom (0–8 EV, default 4 EV), and generated packaging-style artwork. Cards consistently show “800T”; lists retain the full name. The material reuses Vision3 500T emulsion data, and headroom estimates clipped highlight energy. Passed checks, skips and mobile coverage limits are recorded in the [adoption validation](performance/VALIDATION-CINESTILL-2026-11-02.md).
 
@@ -94,7 +98,7 @@ All captures show actual macOS windows on 2026-10-31. Settings, sources, and per
 
 Conventional iPhones now have a dedicated portrait layout; see the [current interface captures](screenshots/ios/2026-11-02/README.md). Duo and iPad retain their side-navigation/inspector arrangements. Simulator layout checks do not establish identical touch, memory or export behavior across devices.
 
-Current builds are distributed through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS IPA requires user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS does not include desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
+Current builds are distributed through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS beta uses [TestFlight](https://testflight.apple.com/join/uwY3ZYJp). Historical IPAs require user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS does not include desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 
 The current iOS source uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Settings and export recipes persist independently.
 

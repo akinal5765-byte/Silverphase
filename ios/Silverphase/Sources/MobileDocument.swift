@@ -39,6 +39,7 @@ struct MobilePhoto: Codable, Identifiable {
     var exportStatus = ""
     var exportedFiles: [URL] = []
     var photos: [MobilePhoto] = []
+    private(set) var libraryPreviewVersions: [UUID: Int] = [:]
     var selection: UUID? { didSet { if oldValue != selection { canvasState.reset(); pendingDefaultValues = [:] } } }
     private var pendingDefaultValues: [String: WireValue] = [:]
     let canvasState = MobileCanvasState()
@@ -235,6 +236,18 @@ struct MobilePhoto: Codable, Identifiable {
 
     func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
         MobileLibraryPreview.url(photo: photo, cropRemapsEffects: preferences.values.cropRemapsEffects, diBlueCompensation: preferences.values.diBlueCompensation)
+    }
+    private func cacheLibraryPreview(_ image: CGImage, photo: MobilePhoto) {
+        let previewURL = libraryPreviewURL(photo)
+        let source = url(for: photo)
+        Task.detached(priority: .utility) { [weak self] in
+            if MobileLibraryPreview.write(image, to: previewURL, source: source) {
+                await self?.libraryPreviewDidWrite(photo.id)
+            }
+        }
+    }
+    private func libraryPreviewDidWrite(_ photoID: UUID) {
+        libraryPreviewVersions[photoID, default: 0] += 1
     }
     func url(for photo: MobilePhoto) -> URL { directory.appendingPathComponent(photo.filename) }
     func select(_ id: UUID) {
@@ -943,8 +956,7 @@ struct MobilePhoto: Codable, Identifiable {
                 guard !Task.isCancelled, generation == revision, active else { return }
                 developmentOffered = true
                 image = display; original = displayOriginal; cropSourceImage = cropDisplay
-                let previewURL = libraryPreviewURL(photo)
-                Task.detached(priority: .utility) { MobileLibraryPreview.write(display, to: previewURL, source: url) }
+                cacheLibraryPreview(display, photo: photo)
                 development = developmentAssets; developmentRunning = false
                 if !nativeCanvasSizeIsExact, !MobileFilmGate.presents(photo.recipe) {
                     nativeCanvasSize = photo.geometry.outputSize(for: geometrySourceSize)

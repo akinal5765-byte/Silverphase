@@ -1,11 +1,12 @@
 # Silverphase iOS editor
 
-iOS version: **1.1.1 (3)** — CineStill 800T and consistent material-card naming;
-persistent local library, batch editing/export,
-checkbox-based export filenames and adaptive floating phone controls.
+iOS version: **1.1.2 (4)** — native process navigation across iPhone, Duo and iPad,
+in-panel material selection, directional tick-ruler gestures and refreshed library previews;
+persistent local library and batch editing/export.
 
 Native iOS editor based on **the current desktop product**, with its full-width
-canvas, floating process panel and bottom film/paper chooser. The [current ordinary-iPhone captures](../screenshots/ios/2026-11-02/README.md) document the phone layout; historical upstream screenshots and the FTP PoC UI are not its specification.
+canvas and floating process panel. Ordinary iPhones open film/paper lists inside
+that panel; Duo and iPad retain the bottom material browser. The [dated ordinary-iPhone captures](../screenshots/ios/2026-11-02/README.md) show the 2026-11-02 phone layout, before the 1.1.2 material-entry changes; historical upstream screenshots and the FTP PoC UI are not its specification.
 The desktop implementation in `EditorWindow.swift` and `RightPanel.swift` is the
 reference for hierarchy. FTP is not required by this application.
 
@@ -28,12 +29,15 @@ when unfolded in portrait. iPad retains top navigation and a right inspector.
 Simulator layout coverage does not establish equal real-device touch, memory or
 export performance. The deployment floor remains iOS18.
 
-## Release downloads
+## Installation and downloads
+
+Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+This source update does not package an IPA or upload a new build.
 
 App Store preparation and remaining distribution requirements are tracked in
 [APP-STORE.md](APP-STORE.md).
 
-Unsigned device IPA builds are published through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
+Historical unsigned device IPA builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
 
 ## Build
 
@@ -79,7 +83,7 @@ python3 ios/Silverphase/Tools/gen-project.py --check
 
 ## Current behavior
 
-The portrait iPhone editor, including unfolded Duo, uses a floating height-limited inspector over a stable canvas and a compact seven-item glass process bar. Folded Duo and Duo landscape retain native side navigation; the system hinge state distinguishes folded from unfolded portrait. Export/menu actions and hold-to-compare, glass panels and shared tick rulers remain available. iPad keeps its horizontal process navigation and right inspector. The layout and components are specified in [DESIGN.md](DESIGN.md).
+The portrait iPhone editor, including unfolded Duo, uses a floating height-limited inspector over a stable canvas and a compact seven-item process bar with a native toolbar segmented control for glass selection and tracking. Folded Duo and Duo landscape place a vertical seven-item segmented control inside the system side toolbar instead of relying on tab-bar overflow; the system hinge state distinguishes folded from unfolded portrait. Export/menu actions and hold-to-compare, glass panels and shared tick rulers remain available. iPad shares the native segmented process picker as a horizontal icon-only control in the same native top toolbar row as back/export/menu actions, with its right inspector and bottom browser. Its canvas extends behind transparent chrome while controls respect the safe area. The layout and components are specified in [DESIGN.md](DESIGN.md).
 
 Crop now compiles the desktop `Geometry.swift` directly: free/aspect-locked framing, eight touch handles, moving/redrawing, ±45° straighten, orientation, quarter turns and flips. Preview and export use the same inverse pixel mapping. The frame stays level while straightening; framed-film input can be edited on the original before the film gate is applied. Full desktop parity still excludes half-frame pairing.
 

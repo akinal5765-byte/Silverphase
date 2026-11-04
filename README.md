@@ -21,14 +21,18 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 
 应用采用 SwiftUI 与共享的 C++20／Metal 引擎，在设备上处理照片，运行时不需要 Python 服务或虚拟环境。Silverphase 是 Hanze Qiu 的 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目，物理模型与原始实测胶片／相纸配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。
 
-## 当前版本
+## [Releases](https://github.com/akinal5765-byte/Silverphase/releases)
 
-| 平台 | 版本（构建号） | 下载 |
+| 平台 | 分发版本 | 安装 |
 |---|---|---|
 | macOS | **1.0.1（2）** | [Apple Silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
-| iOS／iPadOS | **1.1.1（3）** | [未签名 IPA](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1) |
+| iOS／iPadOS | 测试版，以 TestFlight 显示为准 | [通过 TestFlight 安装](https://testflight.apple.com/join/uwY3ZYJp) |
 
-两端使用共享成像引擎，版本号独立维护。macOS 安装包未经过 Apple 公证；iOS 安装包需自行签名，具体步骤及校验文件见各版本的中文 Release 说明和[安装指南](docs/BINARY-RELEASES.md)。
+Releases 保留版本说明与 macOS 安装包；iPhone／iPad 通过 TestFlight 安装及更新，无需自行签名。
+
+当前 iOS 源码版本为 **1.1.2（4）**，本轮提交未发布新的安装包。更新包括原生七项工艺导航、面板内材料选择、刻度尺与面板滚动的方向协调，以及编辑后图库缩略图刷新。当前界面与验证范围见 [iOS 指南](ios/README.md)及[控制对照](ios/CONTROL-AUDIT.md)。
+
+两端使用共享成像引擎，版本号独立维护。macOS 安装包未经过 Apple 公证；iOS 优先通过上述 TestFlight 链接安装；历史未签名 IPA 需自行签名，具体步骤及校验文件见各版本的中文 Release 说明和[安装指南](docs/BINARY-RELEASES.md)。
 
 本次两端均新增 **CineStill 800T**：提供无防光晕背层的回反射红色光晕、高光余量控制（0–8 EV，默认 4 EV），并配有生成的包装风格封面。胶片卡片统一显示「800T」，列表保留完整名称。材料复用 Vision3 500T 的乳剂数据；高光余量是对被裁切高光光量的估计。测试通过、跳过及移动端覆盖限制见[本次验证记录](performance/VALIDATION-CINESTILL-2026-11-02.md)。
 
@@ -94,7 +98,7 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 
 普通 iPhone 已有独立竖屏适配，见[当前界面截图](screenshots/ios/2026-11-02/README.md)。Duo 和 iPad 保留各自的侧栏／检查器布局；模拟器界面检查不代表各设备具有相同的触控、内存和导出表现。
 
-当前构建从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 下载：macOS DMG 无 Developer ID 签名且未公证；iOS IPA 需自行重新签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
+当前构建从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 下载：macOS DMG 无 Developer ID 签名且未公证；iOS 测试版通过 [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) 安装及更新，历史 IPA 需自行签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
 
 当前源码的 iOS 版本使用应用内本地图库：导入原文件、编辑记录、评分和旗标在重启后保留，支持多选、批量编辑及导出。设置与导出配方独立保存。
 

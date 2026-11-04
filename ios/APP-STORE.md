@@ -1,5 +1,10 @@
 # iOS App Store preparation
 
+Beta installation link, supplied 2026-11-04: [Join TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+The 1.1.2 source update does not package an IPA or upload a new build.
+The preparation and upload status below records the 2026-11-03 session.
+
+
 Status: preparation, 2026-11-03. First release is completely free, targeting global
 availability including China mainland. App Store Connect record **6829987567**
 has been created with SKU `silverphase-ios`, bundle ID `com.silverphase.editor`
@@ -7,7 +12,9 @@ and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
 successfully on 2026-11-03. Apple finished processing it; TestFlight now shows
 “Ready to Submit” after the export-compliance answers were saved. No review
 submission or public app release has been performed.
-Current product version is 1.1.1 (3); deployment floor is iOS/iPadOS 18.
+Current repository version is **1.1.2 (4)**; this build has not been uploaded to
+App Store Connect. The last uploaded build remains **1.1.1 (3)**.
+The deployment floor is iOS/iPadOS 18.
 
 Chinese promotional text, description, keywords, version 1.1.1, copyright and
 review notes were saved in App Store Connect. Login is not required; release is
