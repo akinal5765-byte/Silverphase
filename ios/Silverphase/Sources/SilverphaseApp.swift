@@ -145,7 +145,6 @@ struct MobileEditor: View {
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
-    @State private var iPadSafeInsets = EdgeInsets()
     @State private var panelDragStart: Double?
     @GestureState private var panelDragging = false
     @State private var phoneHingeClosed: Bool?
@@ -187,22 +186,32 @@ struct MobileEditor: View {
             ProcessNavigation(document: document, stage: $stage, inspector: $inspector,
                               materials: $materials, exporting: $exporting, enabled: systemProcessToolbar) {
             GeometryReader { geometry in
-                let plan = WorkspaceLayout(size: geometry.size, safe: usesIPadToolbar ? iPadSafeInsets : EdgeInsets(),
+                let sideFrame = verticalSystemBar ? systemBarFrame?.offsetBy(dx: -geometry.frame(in: .global).minX, dy: -geometry.frame(in: .global).minY) : nil
+                let alignsToSideTabs = phonePostureKnown && phoneHingeClosed == false && phoneWindowSize.width > phoneWindowSize.height
+                let panelBottom = alignsToSideTabs ? sideFrame.map { min($0.maxY, geometry.size.height + geometry.safeAreaInsets.bottom) } : nil
+                let plan = WorkspaceLayout(size: geometry.size, safe: EdgeInsets(),
                                            exclusions: workspaceExclusions(geometry),
                                            showsMedia: materials || (showsPhotoStrip && !document.photos.isEmpty),
-                                           systemBars: systemProcessToolbar,
-                                           systemBarFrame: verticalSystemBar ? systemBarFrame?.offsetBy(dx: -geometry.frame(in: .global).minX, dy: -geometry.frame(in: .global).minY) : nil,
+                                           systemBars: systemProcessToolbar || usesIPadToolbar,
+                                           systemBarFrame: sideFrame, panelBottom: panelBottom,
                                            showInspector: inspector && document.current != nil,
                                            materialBrowser: materials, dockFraction: dockFraction)
                 let showsPanel = inspector && document.current != nil
+                let fit = plan.imageInsets(showInspector: showsPanel)
+                let bleed = geometry.safeAreaInsets
+                // The photo fills the window; only its fit rectangle and the
+                // floating controls respect the navigation container's insets.
+                let canvasFit = EdgeInsets(top: fit.top + bleed.top, leading: fit.leading + bleed.leading,
+                                           bottom: fit.bottom + bleed.bottom, trailing: fit.trailing + bleed.trailing)
                 ZStack(alignment: .topLeading) {
                     if stage == .geometry, let source = document.cropSourceImage, let photo = document.current {
                         MobileCropCanvas(image: source, geometry: photo.geometry.value, sourceSize: document.geometrySourceSize,
-                                         insets: plan.imageInsets(showInspector: showsPanel), commit: document.setGeometry)
+                                         insets: canvasFit, commit: document.setGeometry)
                             .id(document.selection)
+                            .ignoresSafeArea(.container, edges: .all)
                     } else {
                     PhotoCanvas(canvas: document.canvasState, image: document.neutralPreview ?? (document.showOriginal ? document.original : document.image),
-                                fitInsets: plan.imageInsets(showInspector: showsPanel),
+                                fitInsets: canvasFit,
                                 detail: document.pickingNeutral ? nil : (document.showOriginal ? document.originalDetailTile : document.detailTile),
                                 onViewport: document.requestDetail,
                                 onOriginalViewport: document.requestOriginalDetail,
@@ -213,11 +222,12 @@ struct MobileEditor: View {
                                 onPrintNegative: document.printNegative, onDevelopmentFinished: document.finishDevelopment,
                                 onNeutral: document.pickingNeutral ? { document.pickNeutral($0) } : nil)
                         .id(document.selection)
+                            .ignoresSafeArea(.container, edges: .all)
                     }
                     if document.current == nil {
                         emptyEditor.frame(width: geometry.size.width, height: geometry.size.height)
                     }
-                    if !systemProcessToolbar {
+                    if !systemProcessToolbar && !usesIPadToolbar {
                     editorBar(twoRows: plan.usesTwoNavigationRows, sideStages: systemProcessToolbar)
                         .padding(.leading, plan.navigationContent.minX)
                         .padding(.trailing, geometry.size.width - plan.navigationContent.maxX)
@@ -262,19 +272,12 @@ struct MobileEditor: View {
                 .animation(reduceMotion ? nil : .smooth(duration: 0.28), value: materials)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: stage)
                 .modifier(WorkspaceGlassGroup())
-                .modifier(WorkspaceViewportClip(roundedHeader: usesIPadToolbar))
             }
-            .background {
-                if usesIPadToolbar {
-                    WindowSafeAreaProbe { iPadSafeInsets = $0 }.allowsHitTesting(false)
-                }
-            }
-            .ignoresSafeArea(.container, edges: usesIPadToolbar ? [.top, .bottom] : verticalSystemBar ? [.top, .trailing, .bottom] : [])
             .auditEditorBounds("viewport")
             .auditEditorBounds("safeViewport")
             .background(MobileStyle.canvas.ignoresSafeArea())
             }
-            .modifier(ProcessToolbar(document: document, inspector: $inspector,
+            .modifier(ProcessToolbar(stage: stage, document: document, inspector: $inspector,
                                      materials: $materials, exporting: $exporting, about: $about, settings: $settings,
                                      importing: $importing, pickingPhotos: $pickingPhotos, enabled: systemProcessToolbar))
             }
@@ -413,10 +416,10 @@ struct MobileEditor: View {
                     filmstrip.frame(width: plan.media.width, height: plan.media.height).modifier(ChromeSurface())
                         .position(x: plan.media.midX, y: plan.media.midY)
                 }
-                CompactProcessTabs(stage: stage, enabled: document.current != nil && !document.delivering) { item in
+                CompactProcessTabs(stage: stage, enabled: document.current != nil && !document.isInteractionLocked && !document.delivering) { item in
                     document.endParameterInteraction()
                     stage = item; inspector = true; exporting = false
-                    materials = item == .film || item == .print
+                    materials = !ordinaryPhone && (item == .film || item == .print)
                 }
                 .frame(width: plan.tabs.width, height: plan.tabs.height)
                 .position(x: plan.tabs.midX, y: plan.tabs.midY)
@@ -437,7 +440,7 @@ struct MobileEditor: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("导出", systemImage: "square.and.arrow.up") {
                     exporting = true; inspector = true; materials = false
-                }.disabled(document.current == nil || document.delivering).accessibilityIdentifier("editor.export")
+                }.disabled(document.current == nil || document.isInteractionLocked || document.delivering).accessibilityIdentifier("editor.export")
                 NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
                                  exporting: $exporting, about: $about, settings: $settings,
                                  importing: $importing, pickingPhotos: $pickingPhotos)
@@ -539,30 +542,48 @@ struct MobileEditor: View {
             SmallAction(title: "打开照片", symbol: "plus", prominent: true) { pickingPhotos = true }.frame(width: 144)
         }
     }
+    private var processPanelTitle: String {
+        if exporting { return "导出成片" }
+        if compactPhoneEditor && materials {
+            return ordinaryPhone ? (stage == .print ? "选择相纸" : "选择胶片") : "胶片与相纸"
+        }
+        return stage.rawValue
+    }
+    private func panelResizeGesture(heightBasis: CGFloat?) -> some Gesture {
+        DragGesture(coordinateSpace: .global)
+            .updating($panelDragging) { _, state, _ in state = true }
+            .onChanged { value in
+                if let heightBasis {
+                    if panelDragStart == nil { panelDragStart = dockFraction }
+                    dockFraction = min(0.72, max(0.25, (panelDragStart ?? dockFraction) - value.translation.height / max(1, heightBasis)))
+                } else {
+                    dockFraction = min(0.65, max(0.25, dockFraction - value.translation.height / 5000))
+                }
+            }
+            .onEnded { _ in panelDragStart = nil }
+    }
     private func processPanel(side: Bool, heightBasis: CGFloat? = nil) -> some View {
         VStack(spacing: 0) {
             if !side {
                 Capsule().fill(Color.white.opacity(0.25)).frame(width: 28, height: 3)
                     .padding(.top, heightBasis == nil ? 6 : 0).padding(.bottom, heightBasis == nil ? 2 : 0)
-                    .frame(maxWidth: .infinity).frame(height: heightBasis == nil ? nil : 44).contentShape(Rectangle())
+                    .frame(maxWidth: .infinity).frame(height: heightBasis == nil ? nil : 14).contentShape(Rectangle())
                     .accessibilityIdentifier("editor.panel-resize")
-                    .gesture(DragGesture(coordinateSpace: .global).updating($panelDragging) { _, state, _ in state = true }
-                        .onChanged { value in
-                            if let heightBasis {
-                                if panelDragStart == nil { panelDragStart = dockFraction }
-                                dockFraction = min(0.72, max(0.25, (panelDragStart ?? dockFraction) - value.translation.height / max(1, heightBasis)))
-                            } else { dockFraction = min(0.65, max(0.25, dockFraction - value.translation.height / 5000)) }
-                        }.onEnded { _ in panelDragStart = nil })
-                    .onChange(of: panelDragging) { _, dragging in if !dragging { panelDragStart = nil } }
+                    .gesture(panelResizeGesture(heightBasis: heightBasis))
             }
             HStack {
-                Text(exporting ? "导出成片" : compactPhoneEditor && materials ? "胶片与相纸" : stage.rawValue).font(EditorDesign.panelTitle).accessibilityIdentifier("inspector.title")
-                Spacer()
-                if !exporting {
+                HStack {
+                    Text(processPanelTitle).font(EditorDesign.panelTitle).accessibilityIdentifier("inspector.title")
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+                .gesture(panelResizeGesture(heightBasis: heightBasis), including: side ? .none : .all)
+                if !exporting && !ordinaryPhone {
                     Text(document.value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0)?.name.replacingOccurrences(of: "Kodak ", with: "") } ?? "")
                         .font(EditorDesign.help).foregroundStyle(.secondary).lineLimit(1)
                 }
-                if let batchIDs, batchIDs.count > 1, !exporting {
+                if let batchIDs, batchIDs.count > 1, !exporting, !(ordinaryPhone && materials) {
                     Button {
                         document.endParameterInteraction()
                         if let photo = document.current { batchCopyRequest = MobileSettingsCopyRequest(source: photo, groups: document.copyGroups) }
@@ -570,13 +591,19 @@ struct MobileEditor: View {
                     .frame(width: 44, height: 44).accessibilityLabel("应用编辑项到本批 \(batchIDs.count) 张")
                     .accessibilityIdentifier("editor.apply-batch")
                 }
-                if compactPhoneEditor && !exporting && (stage == .film || stage == .print) {
+                if compactPhoneEditor && !ordinaryPhone && !exporting && (stage == .film || stage == .print) {
                     ChromeButton(title: materials ? "查看工艺参数" : "选择胶片与相纸",
                                  symbol: materials ? "slider.horizontal.3" : "rectangle.stack") {
                         materials.toggle()
                     }.accessibilityIdentifier("editor.material-toggle")
                 }
-                if !exporting {
+                if ordinaryPhone && materials && !exporting {
+                    Button("完成") { materials = false }
+                        .font(EditorDesign.parameter).tint(MobileStyle.accent)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityIdentifier("editor.material-done")
+                }
+                if !exporting && !(ordinaryPhone && materials) {
                     Menu { Button("重置本工艺", systemImage: "arrow.counterclockwise") { document.resetStage(stage) } } label: {
                         ToolbarGlyph(symbol: "ellipsis")
                     }.tint(.primary).accessibilityLabel("工艺操作")
@@ -586,16 +613,28 @@ struct MobileEditor: View {
             }.padding(.leading, 16).padding(.trailing, 4).frame(height: 44)
             Rectangle().fill(MobileStyle.rule).frame(height: 1)
             if compactPhoneEditor && materials && !exporting {
-                MaterialChooser(document: document, startsWithPaper: stage == .print, vertical: ordinaryPhone)
+                MaterialChooser(document: document, startsWithPaper: stage == .print, vertical: ordinaryPhone,
+                                locksMaterialKind: ordinaryPhone)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
             }
             else if exporting { ScrollView { exportPanel }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped() }
             else {
-                ScrollView { ProcessControls(document: document, stage: stage).id(document.selection).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, EditorDesign.contentInset).padding(.vertical, 8) }
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if ordinaryPhone && (stage == .film || stage == .print) {
+                            PhoneMaterialModule(document: document, paper: stage == .print) { materials = true }
+                                .id(stage).padding(.top, 8).padding(.bottom, 4)
+                        }
+                        ProcessControls(document: document, stage: stage).id(document.selection)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, EditorDesign.contentInset).padding(.vertical, 8)
+                }
                     .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                     .id(stage).transition(.opacity)
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .onChange(of: panelDragging) { _, dragging in if !dragging { panelDragStart = nil } }
     }
     private var exportPanel: some View {
         MobileExportPanel(document: document, filteredIDs: filteredPhotos.map(\.id), fixedIDs: batchIDs ?? (returnToLibrary == nil ? nil : document.selection.map { [$0] }))
@@ -778,12 +817,13 @@ private struct ThumbnailResult: @unchecked Sendable { let image: CGImage? }
 struct FilmstripThumbnail: View {
     let url: URL
     var fillsFrame = false
+    var version = 0
     @State private var image: CGImage?
     var body: some View {
         Group {
             if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: fillsFrame ? .fill : .fit) }
             else { Image(systemName: "photo").foregroundStyle(.secondary) }
-        }.task(id: url) {
+        }.task(id: "\(url.absoluteString)#\(version)") {
             image = nil
             let result = await Task.detached(priority: .utility) {
                 let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,

@@ -4,6 +4,7 @@
 // Silverphase: compact height, semantic ticks and exact default markers,
 // vertical-scroll cooperation and cancellation when a control disappears.
 import SwiftUI
+import UIKit
 
 struct ToolTickRuler: View {
     enum Orientation { case horizontal, vertical }
@@ -47,9 +48,7 @@ private struct AnimatedToolRuler: View {
     @State private var motionID = UUID()
     @State private var interactionValue: Double?
     private var displayedValue: Double { interactionValue ?? value }
-    @State private var rejectsDrag = false
     @State private var dragStart: Double?
-    @GestureState private var dragRecognized = false
     @State private var overscroll = 0.0
     @State private var lastStep: Int?
     @State private var feedback = UIImpactFeedbackGenerator(style: .light)
@@ -72,71 +71,8 @@ private struct AnimatedToolRuler: View {
                     .allowsHitTesting(false)
             }
             .contentShape(Rectangle())
-            .simultaneousGesture(DragGesture(minimumDistance: 8)
-                .updating($dragRecognized) { _, state, _ in state = true }
-                .onChanged { gesture in
-                    if rejectsDrag { return }
-                    if dragStart == nil {
-                        if orientation == .horizontal && abs(gesture.translation.height) > abs(gesture.translation.width) {
-                            rejectsDrag = true; return
-                        }
-                        motionID = UUID()
-                        dragStart = value
-                        onDragging(true)
-                        lastStep = Int((value / unitsPerTick).rounded())
-                        feedback.prepare()
-                    }
-                    let displacement = orientation == .horizontal ? gesture.translation.width : gesture.translation.height
-                    let proposed = (dragStart ?? value) - Double(displacement) / spacing * unitsPerTick
-                    let clamped = ToolRulerScale.quantized(proposed, in: range, resolution: resolution)
-                    // Every tool has 40 intervals across 480 pt; only the numeric step changes.
-                    if abs(clamped - displayedValue) > 0.0001 {
-                        highlightDirection = clamped > displayedValue ? 1 : -1
-                        highlightStrength = 1
-                    }
-                    if commitsWhileDragging { value = clamped }
-                    else { interactionValue = clamped }
-                    onPreview(clamped)
-                    let excess = proposed - clamped
-                    overscroll = excess / (1 + abs(excess) / (unitsPerTick * 2)) * 0.2
-                    let step = Int((clamped / unitsPerTick).rounded())
-                    if step != lastStep {
-                        let tickValue = (clamped / unitsPerTick).rounded() * unitsPerTick
-                        let majorUnit = ToolRulerScale.majorStep(minor: unitsPerTick)
-                        let major = abs(clamped - anchor) < resolution / 2 || abs(tickValue / majorUnit - (tickValue / majorUnit).rounded()) < 1e-7
-                        feedback.impactOccurred(intensity: major ? 1.0 : 0.6)
-                        feedback.prepare()
-                        lastStep = step
-                    }
-                }
-                .onEnded { _ in
-                    defer { rejectsDrag = false }
-                    guard dragStart != nil else { return }
-                    // Release at the finger's value. No velocity projection:
-                    // fast swipes must not turn into a different adjustment.
-                    let target = ToolRulerScale.quantized(displayedValue, in: range, resolution: resolution)
-                    dragStart = nil
-                    if abs(target - displayedValue) > 0.0001 {
-                        highlightDirection = target > displayedValue ? 1 : -1
-                        highlightStrength = 1
-                    }
-                    let completedMotion = motionID
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) {
-                        value = target
-                        interactionValue = nil
-                        overscroll = 0
-                    } completion: {
-                        guard motionID == completedMotion, dragStart == nil else { return }
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
-                            highlightStrength = 0
-                        }
-                    }
-                    onPreview(target)
-                    onDragging(false)
-                    onEnd()
-                    feedback.impactOccurred(intensity: 0.4)
-                    lastStep = nil
-                })
+            .gesture(RulerPanGesture(orientation: orientation, onChanged: dragChanged,
+                                     onEnded: dragEnded, onCancelled: resetInteraction))
             .simultaneousGesture(TapGesture(count: 2).onEnded {
                 resetInteraction()
                 onEnd()
@@ -146,9 +82,68 @@ private struct AnimatedToolRuler: View {
                 feedback.impactOccurred(intensity: 0.4)
             })
             .onChange(of: range) { _, _ in resetInteraction() }
-            .onChange(of: dragRecognized) { _, active in if !active { resetInteraction() } }
             .onChange(of: anchor) { _, _ in resetInteraction() }
             .onDisappear { resetInteraction() }
+    }
+
+    private func dragChanged(_ translation: CGSize) {
+        if dragStart == nil {
+            motionID = UUID()
+            dragStart = value
+            onDragging(true)
+            lastStep = Int((value / unitsPerTick).rounded())
+            feedback.prepare()
+        }
+        let displacement = orientation == .horizontal ? translation.width : translation.height
+        let proposed = (dragStart ?? value) - Double(displacement) / spacing * unitsPerTick
+        let clamped = ToolRulerScale.quantized(proposed, in: range, resolution: resolution)
+        // Every tool has 40 intervals across 480 pt; only the numeric step changes.
+        if abs(clamped - displayedValue) > 0.0001 {
+            highlightDirection = clamped > displayedValue ? 1 : -1
+            highlightStrength = 1
+        }
+        if commitsWhileDragging { value = clamped }
+        else { interactionValue = clamped }
+        onPreview(clamped)
+        let excess = proposed - clamped
+        overscroll = excess / (1 + abs(excess) / (unitsPerTick * 2)) * 0.2
+        let step = Int((clamped / unitsPerTick).rounded())
+        if step != lastStep {
+            let tickValue = (clamped / unitsPerTick).rounded() * unitsPerTick
+            let majorUnit = ToolRulerScale.majorStep(minor: unitsPerTick)
+            let major = abs(clamped - anchor) < resolution / 2 || abs(tickValue / majorUnit - (tickValue / majorUnit).rounded()) < 1e-7
+            feedback.impactOccurred(intensity: major ? 1.0 : 0.6)
+            feedback.prepare()
+            lastStep = step
+        }
+    }
+
+    private func dragEnded() {
+        guard dragStart != nil else { return }
+        // Release at the finger's value. No velocity projection:
+        // fast swipes must not turn into a different adjustment.
+        let target = ToolRulerScale.quantized(displayedValue, in: range, resolution: resolution)
+        dragStart = nil
+        if abs(target - displayedValue) > 0.0001 {
+            highlightDirection = target > displayedValue ? 1 : -1
+            highlightStrength = 1
+        }
+        let completedMotion = motionID
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) {
+            value = target
+            interactionValue = nil
+            overscroll = 0
+        } completion: {
+            guard motionID == completedMotion, dragStart == nil else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                highlightStrength = 0
+            }
+        }
+        onPreview(target)
+        onDragging(false)
+        onEnd()
+        feedback.impactOccurred(intensity: 0.4)
+        lastStep = nil
     }
 
     private func resetInteraction() {
@@ -156,7 +151,6 @@ private struct AnimatedToolRuler: View {
         motionID = UUID()
         highlightStrength = 0
         dragStart = nil
-        rejectsDrag = false
         interactionValue = nil
         overscroll = 0
         lastStep = nil
@@ -221,5 +215,53 @@ private struct ToolRulerMarks: View, Animatable {
         ], startPoint: orientation == .horizontal ? .leading : .top,
            endPoint: orientation == .horizontal ? .trailing : .bottom))
         .clipped()
+    }
+}
+
+
+/// Fail vertical motion before recognizing a horizontal ruler drag, so the
+/// enclosing scroll view can take the same touch sequence.
+private struct RulerPanGesture: UIGestureRecognizerRepresentable {
+    let orientation: ToolTickRuler.Orientation
+    let onChanged: (CGSize) -> Void
+    let onEnded: () -> Void
+    let onCancelled: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator(orientation: orientation)
+    }
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.maximumNumberOfTouches = 1
+        pan.delegate = context.coordinator
+        return pan
+    }
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        context.coordinator.orientation = orientation
+    }
+    func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
+        switch pan.state {
+        case .began, .changed:
+            let translation = pan.translation(in: pan.view)
+            onChanged(CGSize(width: translation.x, height: translation.y))
+        case .ended: onEnded()
+        case .cancelled, .failed: onCancelled()
+        default: break
+        }
+    }
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var orientation: ToolTickRuler.Orientation
+        init(orientation: ToolTickRuler.Orientation) { self.orientation = orientation }
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+            let delta = pan.translation(in: pan.view)
+            return orientation == .horizontal ? abs(delta.x) > abs(delta.y) : abs(delta.y) > abs(delta.x)
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            // Give the ruler the direction decision first. A vertical drag
+            // immediately fails above and releases the parent scroll view.
+            otherGestureRecognizer is UIPanGestureRecognizer && otherGestureRecognizer.view is UIScrollView
+        }
     }
 }

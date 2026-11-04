@@ -12,7 +12,8 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertGreaterThan(app.frame.height, app.frame.width, "Ordinary phone launches in portrait even while held sideways")
         photo.tap()
         XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
-        app.buttons["stage.film"].tap()
+        app.processStage("film").tap()
+        app.buttons["editor.change-film"].tap()
         let list = app.scrollViews["materials.vertical-list"]
         XCTAssertTrue(list.waitForExistence(timeout: 5))
         let stockButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "materials.stock."))
@@ -24,11 +25,17 @@ final class PhotoImportTests: XCTestCase {
         app.textFields["materials.search"].tap(); app.textFields["materials.search"].typeText("Gold 200")
         let gold = app.buttons["materials.stock.kodak_gold_200"]
         XCTAssertTrue(gold.waitForExistence(timeout: 3)); gold.tap()
+        XCTAssertTrue(list.exists, "Keep the material list open for comparing live previews")
         XCTAssertEqual(gold.value as? String, "已选中")
-        app.buttons["结束搜索"].tap(); app.buttons["相纸"].tap()
-        XCTAssertTrue(list.exists)
+        app.buttons["editor.material-done"].tap()
+        XCTAssertTrue(app.buttons["editor.change-film"].label.contains("Gold 200"))
+        app.processStage("print").tap()
+        app.buttons["editor.change-paper"].tap()
+        XCTAssertTrue(list.waitForExistence(timeout: 3))
         let paper = try XCTUnwrap(stockButtons.allElementsBoundByIndex.first(where: \.isHittable))
-        paper.tap(); XCTAssertEqual(paper.value as? String, "已选中")
+        paper.tap(); XCTAssertTrue(list.exists)
+        XCTAssertEqual(paper.value as? String, "已选中")
+        app.buttons["editor.material-done"].tap()
         XCUIDevice.shared.orientation = .landscapeRight
         XCTAssertGreaterThan(app.frame.height, app.frame.width, "Editing remains portrait")
         let pixels = try XCTUnwrap(UIImage(data: XCUIScreen.main.screenshot().pngRepresentation))
@@ -53,7 +60,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.buttons["editor.library"].exists)
         canvas.tap()
         let panel = app.descendants(matching: .any).matching(identifier: "editor.parameters").firstMatch
-        app.buttons["stage.output"].tap()
+        app.processStage("output").tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "扫描")
         let handle = app.descendants(matching: .any).matching(identifier: "editor.panel-resize").firstMatch
         let grip = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -63,9 +70,12 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(panel.waitForNonExistence(timeout: 3))
         canvas.pinch(withScale: 2, velocity: 1)
         capture("portrait-canvas")
-        app.buttons["stage.film"].tap()
-        XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片与相纸")
+        app.processStage("film").tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片")
+        app.buttons["editor.change-film"].tap()
+        XCTAssertTrue(app.scrollViews["materials.vertical-list"].waitForExistence(timeout: 3))
         capture("portrait-materials")
+        app.buttons["editor.material-done"].tap()
         app.buttons["editor.panel-collapse"].tap()
         app.buttons["editor.export"].tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "导出成片")
@@ -105,13 +115,21 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.buttons["editor.export"].exists)
         XCTAssertTrue(app.buttons["editor.menu"].exists)
         for stage in ["camera", "film", "development", "print", "output", "geometry", "filmEdge"] {
-            let button = app.buttons["stage." + stage]
+            let button = app.processStage(stage)
             XCTAssertTrue(button.isHittable, "All seven process destinations must be reachable")
             XCTAssertGreaterThanOrEqual(button.frame.width, 44)
             button.tap()
             XCTAssertEqual(canvas.value as? String, fit, "Switching process must preserve the photo's fit and transform")
         }
-        app.buttons["stage.camera"].tap()
+        let tabsFrame = tabs.frame
+        let firstStage = app.processStage("camera")
+        let lastStage = app.processStage("filmEdge")
+        let firstFrame = firstStage.frame
+        firstStage.press(forDuration: 0.1, thenDragTo: lastStage)
+        XCTAssertEqual(tabs.frame, tabsFrame, "Dragging selects a segment without moving the whole bar")
+        XCTAssertEqual(app.processStage("camera").frame, firstFrame)
+        XCTAssertTrue(lastStage.isSelected, "Native glass drag selection remains available")
+        app.processStage("camera").tap()
         let panel = app.descendants(matching: .any).matching(identifier: "editor.parameters").firstMatch
         let originalHeight = panel.frame.height
         let handle = app.descendants(matching: .any).matching(identifier: "editor.panel-resize").firstMatch
@@ -125,13 +143,14 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(panel.waitForNonExistence(timeout: 3))
         XCTAssertEqual(canvas.value as? String, fit, "Collapsing the panel cannot resize the photograph")
         let collapsed = XCTAttachment(screenshot: app.screenshot()); collapsed.name = "Compact phone collapsed panel"; collapsed.lifetime = .keepAlways; add(collapsed)
-        app.buttons["stage.film"].tap()
+        app.processStage("film").tap()
         XCTAssertTrue(panel.waitForExistence(timeout: 3))
-        XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片与相纸")
-        app.buttons["editor.material-toggle"].tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片")
-        app.buttons["editor.material-toggle"].tap()
-        XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片与相纸")
+        XCTAssertFalse(app.buttons["editor.material-toggle"].exists)
+        app.buttons["editor.change-film"].tap()
+        XCTAssertTrue(app.scrollViews["materials.vertical-list"].waitForExistence(timeout: 3))
+        app.buttons["editor.material-done"].tap()
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片")
         XCTAssertEqual(canvas.value as? String, fit)
         app.buttons["editor.export"].tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "导出成片")
@@ -329,39 +348,70 @@ final class PhotoImportTests: XCTestCase {
         app.terminate()
     }
 
-    @MainActor func testIPadGlobalMenuAndRoundedViewport() throws {
+    @MainActor func testIPadNativeProcessPickerAndActions() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--ipad-chrome-regression"]
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
         XCUIDevice.shared.orientation = .landscapeLeft
         defer { XCUIDevice.shared.orientation = .portrait }
         app.launch()
-        let navigation = app.descendants(matching: .any).matching(identifier: "editor.primary-navigation").firstMatch
-        XCTAssertTrue(navigation.waitForExistence(timeout: 10))
-        let screenshot = app.screenshot()
-        let image = try XCTUnwrap(screenshot.image.cgImage)
-        func red(at point: CGPoint) throws -> UInt8 {
-            let scale = CGFloat(image.width) / app.frame.width
-            let crop = try XCTUnwrap(image.cropping(to: CGRect(x: (point.x - app.frame.minX) * scale, y: (point.y - app.frame.minY) * scale, width: 1, height: 1)))
-            var pixel = [UInt8](repeating: 0, count: 4)
-            let context = try XCTUnwrap(CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
-            context.draw(crop, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-            return pixel[0]
+        let photo = app.buttons["library.photo.来源"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 15))
+        photo.tap()
+        let picker = app.descendants(matching: .any).matching(identifier: "editor.horizontal-process-picker").firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.otherElements["editor.primary-navigation"].exists)
+        let canvas = app.descendants(matching: .any).matching(identifier: "editor.canvas").firstMatch
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+        for orientation in [UIDeviceOrientation.landscapeLeft, .portrait] {
+            XCUIDevice.shared.orientation = orientation
+            let portrait = orientation == .portrait
+            let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                portrait ? app.frame.height > app.frame.width : app.frame.width > app.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
+            for id in ["camera", "film", "development", "print", "output", "geometry", "filmEdge"] {
+                let segment = app.processStage(id)
+                XCTAssertTrue(segment.isHittable, "Seven native stages remain reachable: " + id)
+                XCTAssertGreaterThanOrEqual(segment.frame.width, 44)
+                segment.tap()
+                XCTAssertTrue(segment.isSelected)
+            }
+            app.processStage("camera").tap()
+            canvas.pinch(withScale: 2, velocity: 1)
+            let transform = try XCTUnwrap(canvas.value as? String)
+            let frame = picker.frame
+            app.processStage("camera").press(forDuration: 0.1, thenDragTo: app.processStage("filmEdge"))
+            XCTAssertTrue(app.processStage("filmEdge").isSelected)
+            XCTAssertEqual(picker.frame, frame, "Dragging changes selection without moving the dock")
+            XCTAssertEqual(canvas.value as? String, transform)
+            XCTAssertLessThanOrEqual(canvas.frame.minY, app.frame.minY + 2)
+            XCTAssertGreaterThanOrEqual(canvas.frame.maxY, app.frame.maxY - 2)
+            for id in ["editor.library", "editor.export", "editor.menu"] {
+                let action = app.buttons[id]
+                XCTAssertTrue(action.isHittable)
+                XCTAssertLessThan(abs(action.frame.midY - picker.frame.midY), 4,
+                                  "Process picker and all actions must share one native toolbar row: " + id)
+                XCTAssertFalse(action.frame.intersects(picker.frame))
+            }
+            let capture = XCTAttachment(screenshot: app.screenshot())
+            capture.name = portrait ? "iPad native portrait" : "iPad native landscape"
+            capture.lifetime = .keepAlways; add(capture)
         }
-        XCTAssertGreaterThan(try red(at: CGPoint(x: navigation.frame.midX, y: navigation.frame.maxY + 20)), 200, "The zoomed orange fixture must actually cover the viewport")
-        XCTAssertLessThan(try red(at: CGPoint(x: navigation.frame.minX + 1, y: navigation.frame.minY + 1)), 180, "Zoomed pixels leak outside the top-left glass corner")
-        XCTAssertLessThan(try red(at: CGPoint(x: navigation.frame.maxX - 2, y: navigation.frame.minY + 1)), 180, "Zoomed pixels leak outside the top-right glass corner")
-        let chrome = XCTAttachment(screenshot: screenshot); chrome.name = "iPad rounded viewport"; chrome.lifetime = .keepAlways; add(chrome)
         let menu = app.buttons["editor.menu"]
-        XCTAssertTrue(menu.exists, "iPad needs the shared global menu")
+        XCTAssertTrue(menu.isHittable)
         menu.tap()
         XCTAssertTrue(app.buttons["设置"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["从照片导入"].exists)
-        XCTAssertTrue(app.buttons["从文件导入"].exists)
-        XCTAssertTrue(app.buttons["重置当前照片"].exists)
         app.buttons["设置"].tap()
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 3))
         app.buttons["完成"].tap()
-        XCTAssertTrue(menu.exists)
+        XCTAssertTrue(menu.isHittable)
+        app.terminate()
+        app.launchArguments = ["--layout-audit"]
+        app.launch()
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        for id in ["camera", "film", "development", "print", "output", "geometry", "filmEdge"] {
+            XCTAssertFalse(app.processStage(id).isEnabled, "Empty sessions keep process selection disabled")
+        }
         app.terminate()
     }
 
@@ -551,24 +601,68 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue((canvas.value as? String)?.hasSuffix(";1;1;0") == true)
         app.terminate()
     }
-    @MainActor func testImportedPhotoActivatesNativeStagesAndTracksSelection() throws {
+    @MainActor func testSideProcessAndActionsAlignToOppositeEdges() throws {
         let app = XCUIApplication()
-        for arguments in [["--layout-audit"], ["--smoke-test"]] {
+        app.launchArguments = ["--compact-editor-ui-regression"]
+        app.launch()
+        let first = app.processStage("camera")
+        let last = app.processStage("filmEdge")
+        XCTAssertTrue(first.waitForExistence(timeout: 15))
+        let export = app.buttons["editor.export"]
+        let menu = app.buttons["editor.menu"]
+        XCTAssertTrue(export.isHittable); XCTAssertTrue(menu.isHittable)
+        XCTAssertLessThan(export.frame.maxY, first.frame.minY)
+        XCTAssertLessThan(menu.frame.maxY, first.frame.minY)
+        XCTAssertGreaterThanOrEqual(last.frame.maxY, app.frame.maxY - 44, "Process group must align to the bottom safe edge")
+        XCTAssertLessThanOrEqual(last.frame.maxY, app.frame.maxY)
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Duo top actions and bottom process group"; capture.lifetime = .keepAlways; add(capture)
+        app.terminate()
+    }
+
+    @MainActor func testSideProcessSurvivesToolbarPressure() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--compact-editor-ui-regression", "--side-toolbar-pressure"]
+        app.launch()
+        // Require actual system overflow, rather than assuming that the
+        // additional item consumed space or that this is a crowded layout.
+        let overflow = app.buttons.matching(NSPredicate(format: "identifier CONTAINS %@", "OverflowBarButtonItem")).firstMatch
+        XCTAssertTrue(overflow.waitForExistence(timeout: 15), "The test must actually trigger native toolbar overflow")
+        for id in ["camera", "film", "development", "print", "output", "geometry", "filmEdge"] {
+            let control = app.processStage(id)
+            XCTAssertTrue(control.waitForExistence(timeout: 5))
+            XCTAssertTrue(control.isHittable, "Process must remain outside overflow: " + id)
+            XCTAssertGreaterThanOrEqual(control.frame.height, 43.5)
+            control.tap()
+            XCTAssertTrue(control.isSelected)
+        }
+        let photo = app.buttons["filmstrip.photo.Compact layout fixture"]
+        XCTAssertTrue(photo.exists)
+        XCTAssertGreaterThanOrEqual(photo.frame.maxY, app.frame.maxY - 50, "Moving the process group upward must not shorten the workspace")
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Duo process selection under toolbar pressure"; capture.lifetime = .keepAlways; add(capture)
+        app.terminate()
+    }
+
+    @MainActor func testImportedPhotoActivatesNativeStagesAndTracksSelection() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        for arguments in [["--layout-audit"], ["--compact-editor-ui-regression"]] {
             app.launchArguments = arguments
             app.launch()
             let menu = app.buttons["editor.menu"]
             XCTAssertTrue(menu.waitForExistence(timeout: 8))
             XCTAssertFalse(app.otherElements["editor.primary-navigation"].exists)
-            if arguments.contains("--smoke-test") {
+            if arguments.contains("--compact-editor-ui-regression") {
                 let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["editor.export"])
                 XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 35), .completed)
             }
-            let bar = app.tabBars.firstMatch
-            XCTAssertTrue(bar.waitForExistence(timeout: 5), "Stages must use the native tab bar")
-            for title in ["相机", "胶片", "显影", "印相", "扫描", "构图", "片边"] {
-                let control = bar.buttons[title]
+            XCTAssertFalse(app.tabBars.firstMatch.exists, "Seven stages must avoid system tab overflow")
+            for (id, title) in [("camera", "相机"), ("film", "胶片"), ("development", "显影"), ("print", "印相"), ("output", "扫描"), ("geometry", "构图"), ("filmEdge", "片边")] {
+                let control = app.processStage(id)
                 XCTAssertTrue(control.waitForExistence(timeout: 5), "Missing native stage: " + title)
-                if !arguments.contains("--smoke-test") {
+                if !arguments.contains("--compact-editor-ui-regression") {
                     XCTAssertFalse(control.isEnabled, "Empty session must keep stages disabled: " + title)
                     continue
                 }
@@ -577,13 +671,13 @@ final class PhotoImportTests: XCTestCase {
                 control.tap()
                 let titleMatches = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", title), object: app.staticTexts["inspector.title"])
                 XCTAssertEqual(XCTWaiter.wait(for: [titleMatches], timeout: 3), .completed)
-                XCTAssertTrue(control.isSelected, "System tab has no selected state: " + title)
+                XCTAssertTrue(control.isSelected, "Native segment has no selected state: " + title)
             }
             XCTAssertTrue(app.buttons["editor.export"].exists)
             XCTAssertFalse(app.buttons["editor.compare"].exists)
             menu.tap()
-            XCTAssertTrue(app.buttons["import.photos"].waitForExistence(timeout: 3))
-            XCTAssertTrue(app.buttons["import.files"].exists)
+            XCTAssertTrue(app.buttons["从照片导入"].waitForExistence(timeout: 3))
+            XCTAssertTrue(app.buttons["从文件导入"].exists)
             app.terminate()
         }
     }
@@ -596,14 +690,14 @@ final class PhotoImportTests: XCTestCase {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["导出"])
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 35), .completed)
         for stage in ["camera", "film", "development", "print", "output", "geometry"] {
-            XCTAssertTrue(app.buttons["stage." + stage].exists, "Stage must be on the main editor: " + stage)
+            XCTAssertTrue(app.processStage(stage).exists, "Stage must be on the main editor: " + stage)
         }
-        app.buttons["stage.film"].tap()
+        app.processStage("film").tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "胶片")
-        app.buttons["stage.development"].tap()
+        app.processStage("development").tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "显影")
         app.buttons["收起面板"].tap()
-        XCTAssertTrue(app.buttons["stage.camera"].isHittable)
+        XCTAssertTrue(app.processStage("camera").isHittable)
     }
 
     @MainActor func testFinishedRenderSavesToPhotos() throws {
@@ -666,5 +760,15 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(cancel.waitForExistence(timeout: 8), app.debugDescription)
         cancel.tap()
         XCTAssertTrue(app.buttons["import.menu"].waitForExistence(timeout: 3))
+    }
+}
+
+private extension XCUIApplication {
+    func processStage(_ id: String) -> XCUIElement {
+        let button = buttons["stage." + id]
+        if button.exists { return button }
+        // Native segments expose their image's identifier and use its label
+        // for VoiceOver. Query the containing button to exercise real tracking.
+        return buttons.containing(.image, identifier: "stage." + id).firstMatch
     }
 }

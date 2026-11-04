@@ -29,10 +29,10 @@ enum MobileLibraryPreview {
             try? FileManager.default.removeItem(at: file)
         }
     }
-    static func write(_ image: CGImage, to url: URL, source: URL) {
+    @discardableResult static func write(_ image: CGImage, to url: URL, source: URL) -> Bool {
         lock.lock(); defer { lock.unlock() }
-        guard FileManager.default.fileExists(atPath: source.path) else { return }
-        autoreleasepool {
+        guard FileManager.default.fileExists(atPath: source.path) else { return false }
+        return autoreleasepool {
             do {
                 let folder = url.deletingLastPathComponent()
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -40,17 +40,20 @@ enum MobileLibraryPreview {
                 let input = CIImage(cgImage: image).transformed(by: .init(scaleX: scale, y: scale))
                 let context = CIContext(options: [.cacheIntermediates: false])
                 defer { context.clearCaches() }
-                guard let small = context.createCGImage(input, from: input.extent, format: .RGBA8, colorSpace: image.colorSpace) else { return }
+                guard let small = context.createCGImage(input, from: input.extent, format: .RGBA8, colorSpace: image.colorSpace) else { return false }
                 let data = NSMutableData()
-                guard let writer = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return }
+                guard let writer = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return false }
                 CGImageDestinationAddImage(writer, small, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
-                guard CGImageDestinationFinalize(writer) else { return }
+                guard CGImageDestinationFinalize(writer) else { return false }
                 try (data as Data).write(to: url, options: .atomic)
-                for old in try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
-                    where old != url && old.lastPathComponent.hasPrefix(String(url.lastPathComponent.prefix(36)) + "-") {
+                // iOS can express the same file URL differently; compare names within this directory.
+                for old in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+                    where old.lastPathComponent != url.lastPathComponent &&
+                    old.lastPathComponent.hasPrefix(String(url.lastPathComponent.prefix(36)) + "-") {
                     try? FileManager.default.removeItem(at: old)
                 }
-            } catch { /* Disposable cache; source and recipe remain authoritative. */ }
+                return true
+            } catch { return false } // Disposable cache; source and recipe remain authoritative.
         }
     }
 }

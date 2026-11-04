@@ -7,7 +7,9 @@ and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
 successfully on 2026-11-03. Apple finished processing it; TestFlight now shows
 “Ready to Submit” after the export-compliance answers were saved. No review
 submission or public app release has been performed.
-Current product version is 1.1.1 (3); deployment floor is iOS/iPadOS 18.
+Current repository version is **1.1.2 (4)**; this build has not been uploaded to
+App Store Connect. The last uploaded build remains **1.1.1 (3)**.
+The deployment floor is iOS/iPadOS 18.
 
 Chinese promotional text, description, keywords, version 1.1.1, copyright and
 review notes were saved in App Store Connect. Login is not required; release is

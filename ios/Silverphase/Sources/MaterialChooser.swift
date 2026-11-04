@@ -20,6 +20,7 @@ struct MaterialChooser: View {
     @Bindable var document: MobileDocument
     var startsWithPaper = false
     var vertical = false
+    var locksMaterialKind = false
     @State private var paper = false
     @State private var query = ""
     @State private var searching = false
@@ -41,9 +42,11 @@ struct MaterialChooser: View {
     var body: some View {
         VStack(spacing: EditorDesign.browserGap) {
             HStack(spacing: 4) {
-                tab("胶片", selected: !paper) { paper = false; filter = .all }
-                tab("相纸", selected: paper) { paper = true; filter = .all }
-                Rectangle().fill(MobileStyle.rule).frame(width: 1, height: 20)
+                if !locksMaterialKind {
+                    tab("胶片", selected: !paper) { paper = false; filter = .all }
+                    tab("相纸", selected: paper) { paper = true; filter = .all }
+                    Rectangle().fill(MobileStyle.rule).frame(width: 1, height: 20)
+                }
                 if searching {
                     TextField("搜索材料", text: $query).font(EditorDesign.label).textFieldStyle(.plain)
                         .frame(minWidth: 0, maxWidth: .infinity).accessibilityIdentifier("materials.search")
@@ -183,5 +186,71 @@ struct MaterialChooser: View {
                 }
             }
         }.buttonStyle(.plain)
+    }
+}
+
+
+/// An explicit material entry lives alongside the phone's process parameters.
+struct PhoneMaterialModule: View {
+    @Bindable var document: MobileDocument
+    let paper: Bool
+    let choose: () -> Void
+
+    private var stock: Stock? {
+        document.value(paper ? "print_stock" : "film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }
+    }
+    private var positive: Bool {
+        document.value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
+    }
+    private var bypassesPaper: Bool {
+        paper && (positive || document.value("scan_film")?.boolValue == true || document.value("digital_intermediate")?.boolValue == true)
+    }
+    private var name: String {
+        if paper && positive { return "正片直接扫描" }
+        if paper && document.value("scan_film")?.boolValue == true { return "不使用相纸" }
+        if paper && document.value("digital_intermediate")?.boolValue == true { return "数字中间片" }
+        return stock?.name ?? (paper ? "选择相纸" : "选择胶片")
+    }
+    private var subtitle: String {
+        if bypassesPaper { return "直接扫描胶片" }
+        guard let stock else { return paper ? "印相材料" : "感光材料" }
+        let kind = stock.isMonochrome ? "黑白" : stock.isPaper ? "相纸" : stock.isPositive ? "正片" : "负片"
+        return [kind, stock.speedLabel].compactMap { $0 }.joined(separator: " · ")
+    }
+    var body: some View {
+        Button {
+            document.endParameterInteraction()
+            choose()
+        } label: {
+            HStack(spacing: 12) {
+                Group {
+                    if !bypassesPaper, let url = stock?.packagingArtworkURL ?? stock?.coverURL {
+                        FilmstripThumbnail(url: url, fillsFrame: true)
+                    } else {
+                        Image(systemName: paper ? "photo" : "film")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity).background(MobileStyle.well)
+                    }
+                }
+                .frame(width: 64, height: 48).clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(paper ? "当前相纸" : "当前胶片").font(EditorDesign.help).foregroundStyle(.secondary)
+                    Text(name).font(EditorDesign.selectedValue).foregroundStyle(.primary).lineLimit(2)
+                    Text(subtitle).font(EditorDesign.help).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                if !(paper && positive) {
+                    HStack(spacing: 4) {
+                        Text("更换")
+                        Image(systemName: "chevron.right")
+                    }.font(EditorDesign.parameter).foregroundStyle(MobileStyle.accent).fixedSize()
+                }
+            }
+            .padding(12).background(MobileStyle.well, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel((paper ? "相纸，" : "胶片，") + name + (paper && positive ? "" : "，更换"))
+        .accessibilityIdentifier(paper ? "editor.change-paper" : "editor.change-film")
+        .disabled(document.current == nil || document.delivering || document.isInteractionLocked || (paper && positive))
     }
 }
