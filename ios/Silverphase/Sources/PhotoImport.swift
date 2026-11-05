@@ -10,6 +10,20 @@ struct MobileImageMetadata: Sendable {
     var aspect = 1.5
     var megapixels = 0.0
     var isRaw: Bool { typeIdentifier.flatMap(UTType.init)?.conforms(to: .rawImage) == true }
+    static func formatBadge(for identifier: String?) -> String? {
+        guard let identifier, let type = UTType(identifier) else { return nil }
+        if type.conforms(to: .rawImage) { return "RAW" }
+        if type.conforms(to: .jpeg) { return "JPG" }
+        if type.conforms(to: .heic) || type.conforms(to: .heif) { return "HEIF" }
+        if type.conforms(to: .tiff) { return "TIFF" }
+        return type.preferredFilenameExtension?.uppercased()
+    }
+
+    static func storedTypeIdentifier(_ url: URL) -> String? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceGetType(source).map { $0 as String }
+    }
+
     var fileExtension: String? { typeIdentifier.flatMap(UTType.init)?.preferredFilenameExtension }
 
     static func read(_ url: URL, hint: UTType? = nil) -> Self {
@@ -84,8 +98,8 @@ struct LibraryPhotoImport: Sendable {
     let name: String
 }
 
-/// The system picker stays permission-free. Preserve the selected file and its
-/// colour profile; prefer an offered RAW over its rendered preview.
+/// Prefer original RAW resources when Photos grants access. The picker can
+/// still provide selected files when library access is limited or denied.
 struct LibraryPhotoPicker: UIViewControllerRepresentable {
     static let flatTypes: [UTType] = [.jpeg, .heic, .heif, .png, .tiff]
     @Binding var isPresented: Bool
@@ -93,7 +107,7 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
     let onProgress: (Int, Int, String) -> Void
     let onFinish: ([LibraryPhotoImport], Int, [String]) -> Void
     func makeUIViewController(context: Context) -> PHPickerViewController {
-        var config = PHPickerConfiguration()
+        var config = PHPickerConfiguration(photoLibrary: .shared())
         config.filter = .images
         config.selectionLimit = 0
         config.preferredAssetRepresentationMode = .current
@@ -118,20 +132,67 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
                 for (index, result) in results.enumerated() {
                     parent.onProgress(index + 1, results.count, result.itemProvider.suggestedName ?? "")
                     do {
-                        if let file = try await Self.load(result.itemProvider) { files.append(file) }
-                        else { skipped += 1 }
+                        if let file = try await Self.loadOriginalRAW(result) {
+                            files.append(file)
+                        } else if let file = try await Self.load(result.itemProvider) {
+                            files.append(file)
+                        } else if Self.rawHint(for: result.itemProvider) != nil {
+                            errors.append("无法读取 RAW 原片：\(result.itemProvider.suggestedName ?? "未命名照片")")
+                        } else { skipped += 1 }
                     } catch { errors.append(error.localizedDescription) }
                 }
                 parent.onFinish(files, skipped, errors)
             }
         }
+        private static func rawHint(for provider: NSItemProvider) -> UTType? {
+            provider.registeredTypeIdentifiers.compactMap(UTType.init).first { $0.conforms(to: .rawImage) }
+                ?? provider.suggestedName.flatMap {
+                    UTType(filenameExtension: URL(fileURLWithPath: $0).pathExtension)
+                }.flatMap { $0.conforms(to: .rawImage) ? $0 : nil }
+        }
+
+        private static func loadOriginalRAW(_ result: PHPickerResult) async throws -> LibraryPhotoImport? {
+            guard let id = result.assetIdentifier else { return nil }
+            var access = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            if access == .notDetermined && rawHint(for: result.itemProvider) == nil {
+                access = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+            }
+            guard access == .authorized || access == .limited,
+                  let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else { return nil }
+            let resources = PHAssetResource.assetResources(for: asset)
+            guard let resource = resources.first(where: {
+                ($0.type == .photo || $0.type == .alternatePhoto) &&
+                    UTType($0.uniformTypeIdentifier)?.conforms(to: .rawImage) == true
+            }) else { return nil }
+
+            let hint = UTType(resource.uniformTypeIdentifier)
+            let name = URL(fileURLWithPath: resource.originalFilename).lastPathComponent
+            let ext = hint?.preferredFilenameExtension ?? URL(fileURLWithPath: name).pathExtension
+            let destination = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+            let options = PHAssetResourceRequestOptions()
+            options.isNetworkAccessAllowed = true
+            do {
+                try await PHAssetResourceManager.default().writeData(for: resource, toFile: destination, options: options)
+                let info = await Task.detached(priority: .userInitiated) {
+                    MobileImageMetadata.read(destination, hint: hint)
+                }.value
+                guard info.isRaw, info.megapixels > 0 else {
+                    throw MobileFailure.message("照片图库返回的文件无法识别为 RAW 原片。")
+                }
+                return LibraryPhotoImport(url: destination, name: info.displayName(suggested: name, fallback: destination.lastPathComponent))
+            } catch {
+                try? FileManager.default.removeItem(at: destination)
+                throw MobileFailure.message("无法读取 RAW 原片 \(name)：\(error.localizedDescription)")
+            }
+        }
+
         static func load(_ provider: NSItemProvider) async throws -> LibraryPhotoImport? {
             let types = provider.registeredTypeIdentifiers.compactMap(UTType.init)
             let type = types.first { $0.conforms(to: .rawImage) }
                 ?? types.first { type in LibraryPhotoPicker.flatTypes.contains { type.conforms(to: $0) } }
                 ?? types.first { $0.conforms(to: .image) } ?? .image
             let suggested = provider.suggestedName
-            let hint = type.conforms(to: .rawImage) ? type : suggested.flatMap { UTType(filenameExtension: URL(fileURLWithPath: $0).pathExtension) }.flatMap { $0.conforms(to: .rawImage) ? $0 : nil }
+            let hint = rawHint(for: provider)
             return try await withCheckedThrowingContinuation { continuation in
                 provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
                     do {

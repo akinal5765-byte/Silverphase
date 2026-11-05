@@ -151,12 +151,13 @@ struct MobileLibrary: View {
                                 .background(.black.opacity(0.65), in: Circle()).padding(8)
                         }
                     }
-                Text(photo.name).font(.caption).lineLimit(1)
+                Text(photo.name).font(EditorDesign.label).lineLimit(1).truncationMode(.middle)
                 HStack(spacing: 4) {
+                    LibraryFormatBadge(identifier: photo.sourceTypeIdentifier, original: document.url(for: photo))
                     if photo.rating > 0 { Text(String(repeating: "★", count: photo.rating)).foregroundStyle(MobileStyle.accent) }
                     if photo.flag != "none" { Image(systemName: photo.flag == "pick" ? "flag.fill" : "flag.slash") }
                     Spacer(minLength: 0)
-                }.font(.caption2).foregroundStyle(.secondary).frame(height: 14)
+                }.font(EditorDesign.caption).foregroundStyle(.secondary).frame(height: 14)
             }.contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -288,7 +289,7 @@ struct MobileLibrary: View {
         return Image(uiImage: icon).renderingMode(.original)
             .overlay(alignment: .bottomTrailing) {
                 if let badge {
-                    Text(badge).font(.system(size: 9, weight: .semibold))
+                    Text(badge).font(EditorDesign.badge)
                         .foregroundStyle(active ? MobileStyle.accent : .primary)
                         .padding(2).background(MobileStyle.surface, in: Circle()).offset(x: 7, y: 7)
                 }
@@ -334,5 +335,22 @@ private struct MobileLibraryToolbarSeparator: ToolbarContent {
         } else {
             ToolbarItem(placement: .topBarTrailing) { Divider().frame(height: 20) }
         }
+    }
+}
+
+private struct LibraryFormatBadge: View {
+    let identifier: String?
+    let original: URL
+    @State private var detectedIdentifier: String?
+
+    var body: some View {
+        Text(MobileImageMetadata.formatBadge(for: identifier ?? detectedIdentifier) ?? "")
+            .fontWeight(.semibold)
+            .task(id: original) {
+                guard identifier == nil else { return }
+                detectedIdentifier = await Task.detached(priority: .utility) {
+                    MobileImageMetadata.storedTypeIdentifier(original)
+                }.value
+            }
     }
 }

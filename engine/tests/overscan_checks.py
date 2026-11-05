@@ -171,6 +171,17 @@ def main():
 
         # --- RFC-032 §29 -------------------------------------------------------
         S135 = {"overscan_active": True, "overscan_format": "135", "overscan_edge_text": "KODAK PORTRA 400"}
+        ceremony = e.open(frame(192, 128), dict(BASE, **S135))
+        try:
+            printed, _ = ceremony.render("live")
+            scanned, _ = ceremony.preview_scan("live")
+            reprinted, _ = ceremony.render("live")
+            check("animation scan retains the film border and leaves the print intact",
+                  scanned.shape == printed.shape and not np.array_equal(scanned, printed)
+                  and np.array_equal(reprinted, printed))
+        finally:
+            ceremony.close()
+
         px = 36.25 / 1200
         dx = decode_dx(on, px)
         check("the DX code reads back as Portra 400 (1277) with good parity",

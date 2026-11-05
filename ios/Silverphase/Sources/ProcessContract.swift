@@ -26,6 +26,11 @@ enum MobileProcessContract {
         "date_imprint_corner": .string("br"), "date_imprint_ev": .double(3.5), "date_imprint_size": .double(1),
         "date_imprint_inset_x": .double(3), "date_imprint_inset_y": .double(2.4),
     ]
+    static let cameraToneKeys = [
+        "camera_tone_highlights", "camera_tone_shadows", "camera_tone_whites", "camera_tone_blacks",
+    ]
+    static let cameraToneRange = -100.0...100.0
+
     static let steps: [String: Double] = [
         "_temperature": 100, "_tint": 5, "exposure_compensation_ev": 1.0 / 3,
         "_grainAmount": 0.1, "grain_size_scale": 0.1, "_grainSoftness": 0.1,
@@ -34,7 +39,6 @@ enum MobileProcessContract {
         "preflash_exposure": 0.005, "_scannerStrength": 0.1, "glare_amount": 0.1,
         "camera_diffusion_strength": 0.125, "enlarger_diffusion_strength": 0.125,
         "camera_diffusion_range": 0.1, "enlarger_diffusion_range": 0.1, "overscan_frame_number": 1,
-        "_placementHighlight": 0.25, "_placementShadow": 0.25,
     ]
     static func ownGrain(_ id: String) -> Double {
         switch StockCatalog.canonicalID(id) {

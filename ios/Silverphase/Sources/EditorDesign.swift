@@ -23,13 +23,16 @@ enum EditorDesign {
     static let valueWidth: CGFloat = 48
     static let label = Font.system(size: 12)
     static let caption = Font.system(size: 11)
+    static let badge = Font.system(size: 10, weight: .semibold)
+    static let cardTitle = Font.system(size: 12, weight: .semibold)
+    static let noticeTitle = Font.system(size: 13, weight: .semibold)
 
     // Inspector roles: keep parameter rows consistent across ruler/menu/toggle controls.
-    static let panelTitle = Font.system(size: 17, weight: .semibold)
-    static let sectionTitle = Font.system(size: 14, weight: .semibold)
+    static let panelTitle = Font.system(size: 15, weight: .semibold)
+    static let sectionTitle = Font.system(size: 13, weight: .semibold)
     static let parameter = Font.system(size: 13)
-    static let selectedValue = Font.system(size: 14, weight: .medium)
-    static let numericValue = Font.system(size: 15, weight: .medium)
+    static let selectedValue = Font.system(size: 13, weight: .medium)
+    static let numericValue = Font.system(size: 14, weight: .medium)
     static let panelSummary = Font.system(size: 12)
     static let help = Font.system(size: 11)
     static let instrument = Font.system(size: 10).monospacedDigit()
@@ -78,10 +81,10 @@ struct BrowserCard<Artwork: View>: View {
                 .clipShape(RoundedRectangle(cornerRadius: EditorDesign.artworkRadius, style: .continuous))
                 .padding(.bottom, 4)
             if let title {
-                Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary)
+                Text(title).font(EditorDesign.cardTitle).foregroundStyle(.primary)
                     .lineLimit(1).frame(maxWidth: .infinity, minHeight: 14, maxHeight: 14, alignment: .leading)
             }
-            Text(subtitle).font(.system(size: 10)).foregroundStyle(.secondary)
+            Text(subtitle).font(EditorDesign.instrument).foregroundStyle(.secondary)
                 .lineLimit(1).frame(maxWidth: .infinity, minHeight: 12, maxHeight: 12, alignment: .leading)
             Spacer(minLength: 0)
         }

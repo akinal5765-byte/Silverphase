@@ -4,12 +4,21 @@ import UniformTypeIdentifiers
 import CoreGraphics
 import ImageIO
 
+enum MobilePrintAnimationFrequency: String, Codable {
+    case perLaunch, perPhoto
+}
+
 @MainActor @Observable final class MobilePreferences {
     struct Values: Codable, Equatable {
         var previewEdge = 2560 // legacy preference decoder; editor quality is automatic
         var lowerPreviewInLowPower = true
         var cropRemapsEffects = false
         var diBlueCompensation = false
+        private var savedPrintAnimationFrequency: MobilePrintAnimationFrequency? = nil
+        var printAnimationFrequency: MobilePrintAnimationFrequency {
+            get { savedPrintAnimationFrequency ?? .perLaunch }
+            set { savedPrintAnimationFrequency = newValue }
+        }
     }
     var values: Values { didSet { if let data = try? JSONEncoder().encode(values) { UserDefaults.standard.set(data, forKey: "mobile.preferences.v1") } } }
     init() {
@@ -37,6 +46,14 @@ struct MobileSettingsView: View {
                     Toggle("裁切后重新计算物理效果尺度", isOn: $preferences.values.cropRemapsEffects).tint(MobileStyle.accent)
                     Toggle("数字中间片蓝色补偿", isOn: $preferences.values.diBlueCompensation).tint(MobileStyle.accent)
                     Text("蓝色补偿仅作用于数字中间片；默认关闭。").font(.caption).foregroundStyle(.secondary)
+                }
+                Section("编辑器") {
+                    Picker("印相动画", selection: $preferences.values.printAnimationFrequency) {
+                        Text("每次启动一次").tag(MobilePrintAnimationFrequency.perLaunch)
+                        Text("每张照片一次").tag(MobilePrintAnimationFrequency.perPhoto)
+                    }
+                    Text("每张照片一次：本次启动中，每张照片首次进入印相时显示动画。")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("图库存储") {
                     LabeledContent("照片存储", value: "应用内图库")
