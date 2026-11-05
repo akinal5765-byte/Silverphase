@@ -154,7 +154,8 @@ enum MobileSmokeChecks {
                 try await Task.sleep(for: .milliseconds(50))
             }
             guard let photo = document.current, photo.name == "RAW-Import-Regression.ARW",
-                  !photo.exifSummary.isEmpty, document.url(for: photo).pathExtension.lowercased() == "arw" else {
+                  !photo.exifSummary.isEmpty, document.url(for: photo).pathExtension.lowercased() == "arw",
+                  MobileImageMetadata.formatBadge(for: photo.sourceTypeIdentifier) == "RAW" else {
                 throw MobileFailure.message("原始名称、EXIF 或 RAW 存储后缀未保留")
             }
             let engine = MobileEngine()
@@ -199,7 +200,7 @@ enum MobileSmokeChecks {
             }
             var source = MobilePhoto(name: "Source", filename: "source.tif")
             source.recipe = ["exposure_compensation_ev": .double(1), "film_stock": .string("kodak_gold_200"),
-                             "_placementHighlight": .double(2), "_whiteBalancePreset": .string("asShot"),
+                             "_placementHighlight": .double(2), "camera_tone_highlights": .double(-30), "_whiteBalancePreset": .string("asShot"),
                              "_temperature": .double(8000), "_lens": .bool(true)]
             source.geometry = MobileGeometry(quarterTurns: 1, aspect: 1)
             var first = MobilePhoto(name: "Target A", filename: "a.tif")
@@ -227,6 +228,7 @@ enum MobileSmokeChecks {
             try require(document.photos[1].recipe["density_curve_gamma"]?.doubleValue == 1.2 && document.photos[2].recipe["film_stock"] == second.recipe["film_stock"], "unselected parameter groups remain intact")
             try require(document.photos[1].recipe["camera_filter"] == nil && document.photos[1].recipe["_temperature"] == nil && document.photos[1].recipe["_tint"] == nil, "source defaults remove old overrides and As Shot uses target camera")
             try require(document.photos[1].recipe["_lens"] == .bool(false) && document.photos[1].recipe["_raw"] == .bool(true), "lens calibration and decode metadata are not pasted")
+            try require(document.photos[1].recipe["camera_tone_highlights"] == .double(-30) && document.photos[2].recipe["camera_tone_highlights"] == .double(-30), "camera clipboard carries tone across targets")
             try require(document.photos[1].recipe["_placementHighlight"] == .double(2) && document.photos[1].recipe["scene_latitude_highlight_knee"] == nil, "scene placement copies intent rather than fitted curve")
             try require(document.photos[3].recipe == untouched.recipe && document.photos[0].recipe["exposure_compensation_ev"] == .double(3), "unselected source and photo remain unchanged")
             document.mark(first.id, rating: 5, flag: "pick")
@@ -501,6 +503,12 @@ enum MobileSmokeChecks {
             let restoredBytes = restoredPrint.image.dataProvider!.data! as Data
             try require(restoredPrint.negativeWasCached && referenceBytes == restoredBytes, "印相来回调整改变了同一负片")
             checks.append("desktop defaults, full calibration database, P3 shader, B&W grain defaults and cached-negative reprint")
+            var toneRecipe = printOnly
+            for key in MobileProcessContract.cameraToneKeys { toneRecipe[key] = .double(-30) }
+            let toned = try await engine.render(url: source, recipe: toneRecipe)
+            try require(!toned.negativeWasCached && MobileProcessContract.cameraToneKeys.allSatisfy {
+                toned.resolved[$0]?.doubleValue == -30
+            }, "相机影调应传到引擎并重新生成负片")
             try require(!(first.latitude?.bins.isEmpty ?? true), "场景宽容度与直方图未接入")
             var controls = base
             controls["camera_diffusion_active"] = .bool(true)
@@ -747,6 +755,7 @@ enum MobileSmokeChecks {
         let preferences = MobilePreferences()
         preferences.values.previewEdge = 1080
         preferences.values.lowerPreviewInLowPower = false
+        preferences.values.printAnimationFrequency = .perLaunch
         let restoredPreferences = MobilePreferences()
         guard restoredPreferences.values.previewEdge == 1080, abs(restoredPreferences.megapixels(aspect: 1.5) - 0.7776) < 1e-8 else { throw MobileFailure.message("预览设置未保存或未计算实际渲染尺寸") }
         let document = MobileDocument(directory: directory)
@@ -796,6 +805,16 @@ enum MobileSmokeChecks {
         }
         guard document.photos.count == 2, let first = document.photos.first, let second = document.photos.last else {
             throw MobileFailure.message("多张照片导入失败")
+        }
+        if !UIAccessibility.isReduceMotionEnabled {
+            document.preferences.values.printAnimationFrequency = .perPhoto
+            document.select(second.id)
+            for _ in 0..<200 { if !document.busy { break }; try await Task.sleep(for: .milliseconds(50)) }
+            guard document.development != nil else { throw MobileFailure.message("逐张印相未在第二张照片显示") }
+            document.finishDevelopment()
+            document.schedule()
+            for _ in 0..<200 { if !document.busy { break }; try await Task.sleep(for: .milliseconds(50)) }
+            guard document.development == nil else { throw MobileFailure.message("同一张照片重复显示印相动画") }
         }
         document.select(first.id)
         let interactionBefore = document.current?.recipe

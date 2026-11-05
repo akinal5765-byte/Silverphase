@@ -97,7 +97,7 @@ enum MobileStyle {
 }
 
 enum MobileStage: String, CaseIterable, Identifiable {
-    case camera = "相机", film = "胶片", development = "显影", print = "印相", output = "扫描", geometry = "构图", filmEdge = "片边"
+    case camera = "拍摄", film = "胶片", development = "显影", print = "彩色放大", output = "扫描", geometry = "构图", filmEdge = "片边"
     var id: String {
         switch self {
         case .camera: "camera"
@@ -148,18 +148,10 @@ struct MobileEditor: View {
     @State private var panelDragStart: Double?
     @GestureState private var panelDragging = false
     @State private var phoneHingeClosed: Bool?
-    @State private var phonePostureKnown = false
     @State private var phoneWindowSize = CGSize.zero
     private var compactPhoneEditor: Bool {
-        guard UIDevice.current.userInterfaceIdiom == .phone else { return false }
-        if #available(iOS 27.1, *) {
-            guard phonePostureKnown else { return false }
-            if let phoneHingeClosed {
-                return !phoneHingeClosed && phoneWindowSize.height > phoneWindowSize.width
-            }
-            return true
-        }
-        return true
+        if ordinaryPhone { return true }
+        return systemProcessToolbar && phoneHingeClosed == false && phoneWindowSize.height > phoneWindowSize.width
     }
 
     private var verticalSystemBar: Bool {
@@ -168,13 +160,13 @@ struct MobileEditor: View {
     }
 
     private var ordinaryPhone: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone && (!systemProcessToolbar || (phonePostureKnown && phoneHingeClosed == nil))
+        UIDevice.current.userInterfaceIdiom == .phone && phoneHingeClosed == nil
     }
 
     private var usesIPadToolbar: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     private var systemProcessToolbar: Bool {
-        if #available(iOS 27.1, *) { UIDevice.current.userInterfaceIdiom == .phone }
+        if #available(iOS 27.1, *) { UIDevice.current.userInterfaceIdiom == .phone && phoneHingeClosed != nil }
         else { false }
     }
     var body: some View {
@@ -187,7 +179,7 @@ struct MobileEditor: View {
                               materials: $materials, exporting: $exporting, enabled: systemProcessToolbar) {
             GeometryReader { geometry in
                 let sideFrame = verticalSystemBar ? systemBarFrame?.offsetBy(dx: -geometry.frame(in: .global).minX, dy: -geometry.frame(in: .global).minY) : nil
-                let alignsToSideTabs = phonePostureKnown && phoneHingeClosed == false && phoneWindowSize.width > phoneWindowSize.height
+                let alignsToSideTabs = phoneHingeClosed == false && phoneWindowSize.width > phoneWindowSize.height
                 let panelBottom = alignsToSideTabs ? sideFrame.map { min($0.maxY, geometry.size.height + geometry.safeAreaInsets.bottom) } : nil
                 let plan = WorkspaceLayout(size: geometry.size, safe: EdgeInsets(),
                                            exclusions: workspaceExclusions(geometry),
@@ -299,7 +291,6 @@ struct MobileEditor: View {
                         phoneWindowSize = size
                     }, hingeChanged: { closed in
                         phoneHingeClosed = closed
-                        phonePostureKnown = true
                     })
                     .allowsHitTesting(false)
                 }
@@ -364,8 +355,27 @@ struct MobileEditor: View {
     }
 
     private var canvasStatus: some View {
-        Text(canvasStatusText).font(.system(size: 11)).lineLimit(1)
-            .foregroundStyle(document.busy ? MobileStyle.accent : .white.opacity(0.75))
+        VStack(alignment: .leading, spacing: 2) {
+            if let photo = document.current {
+                Text(photo.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    if photo.sourceMegapixels > 0 {
+                        let size = document.geometrySourceSize
+                        Text("\(Int(size.width.rounded())) × \(Int(size.height.rounded())) px")
+                            .monospacedDigit()
+                            .fixedSize()
+                    }
+                    Text(canvasStatusText)
+                        .foregroundStyle(document.busy ? MobileStyle.accent : .white.opacity(0.75))
+                }
+                .lineLimit(1)
+            }
+        }
+        .font(EditorDesign.caption)
+        .foregroundStyle(.white.opacity(0.75))
+        .padding(.trailing, EditorDesign.contentInset)
     }
     private var canvasStatusText: String {
         if document.busy { return "处理中…" }
@@ -537,8 +547,8 @@ struct MobileEditor: View {
     private var emptyEditor: some View {
         VStack(spacing: 10) {
             Image(systemName: "photo.on.rectangle.angled").font(.system(size: 27, weight: .light)).foregroundStyle(.secondary)
-            Text("打开照片开始编辑").font(.system(size: 15, weight: .semibold))
-            Text("胶片 · 显影 · 印相").font(.system(size: 11)).foregroundStyle(.secondary)
+            Text("打开照片开始编辑").font(EditorDesign.panelTitle)
+            Text("胶片 · 显影 · 印相").font(EditorDesign.caption).foregroundStyle(.secondary)
             SmallAction(title: "打开照片", symbol: "plus", prominent: true) { pickingPhotos = true }.frame(width: 144)
         }
     }
@@ -571,18 +581,23 @@ struct MobileEditor: View {
                     .accessibilityIdentifier("editor.panel-resize")
                     .gesture(panelResizeGesture(heightBasis: heightBasis))
             }
-            HStack {
-                HStack {
-                    Text(processPanelTitle).font(EditorDesign.panelTitle).accessibilityIdentifier("inspector.title")
+            HStack(spacing: EditorDesign.unit) {
+                HStack(spacing: EditorDesign.unit * 2) {
+                    Text(processPanelTitle)
+                        .font(EditorDesign.panelTitle)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
+                        .layoutPriority(1)
+                        .accessibilityIdentifier("inspector.title")
+                    if !exporting && !ordinaryPhone {
+                        Text(document.value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0)?.name.replacingOccurrences(of: "Kodak ", with: "") } ?? "")
+                            .font(EditorDesign.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
                     Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: EditorDesign.panelHeader)
                 .contentShape(Rectangle())
                 .gesture(panelResizeGesture(heightBasis: heightBasis), including: side ? .none : .all)
-                if !exporting && !ordinaryPhone {
-                    Text(document.value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0)?.name.replacingOccurrences(of: "Kodak ", with: "") } ?? "")
-                        .font(EditorDesign.help).foregroundStyle(.secondary).lineLimit(1)
-                }
                 if let batchIDs, batchIDs.count > 1, !exporting, !(ordinaryPhone && materials) {
                     Button {
                         document.endParameterInteraction()
@@ -610,7 +625,7 @@ struct MobileEditor: View {
                 }
                 ChromeButton(title: "收起面板", symbol: "chevron.down") { inspector = false; exporting = false; materials = false }
                     .accessibilityIdentifier("editor.panel-collapse")
-            }.padding(.leading, 16).padding(.trailing, 4).frame(height: 44)
+            }.padding(.leading, EditorDesign.contentInset).padding(.trailing, EditorDesign.unit).frame(height: EditorDesign.panelHeader)
             Rectangle().fill(MobileStyle.rule).frame(height: 1)
             if compactPhoneEditor && materials && !exporting {
                 MaterialChooser(document: document, startsWithPaper: stage == .print, vertical: ordinaryPhone,

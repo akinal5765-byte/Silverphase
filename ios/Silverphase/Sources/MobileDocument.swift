@@ -25,6 +25,7 @@ struct MobilePhoto: Codable, Identifiable {
     var exifSummary = ""
     var sourceMegapixels = 0.0
     var sourceAspect = 1.5
+    var sourceTypeIdentifier: String?
 }
 
 @MainActor @Observable final class MobileDocument {
@@ -124,8 +125,7 @@ struct MobilePhoto: Codable, Identifiable {
     var previewStatus = ""
     private(set) var development: MobileDevelopmentAssets? { didSet { if oldValue != nil && development == nil { queueDetailReconciliation() } } }
     private(set) var developmentRunning = false
-    // One opening ritual per document lifetime (one app launch), not per photo.
-    private var developmentOffered = false
+    private var photosOfferedDevelopment: Set<UUID> = []
     func printNegative() { if development != nil { developmentRunning = true } }
     func finishDevelopment(_ id: UUID? = nil) {
         guard id == nil || development?.id == id else { return }
@@ -319,6 +319,10 @@ struct MobilePhoto: Codable, Identifiable {
                         if let error = coordinationError ?? copyError as NSError? { throw error }
                         return MobileImageMetadata.read(destination)
                     }.value
+                    if UTType(filenameExtension: source.pathExtension)?.conforms(to: .rawImage) == true && !metadata.isRaw {
+                        throw MobileFailure.message("文件标为 RAW，但无法识别为 RAW 原片。")
+                    }
+                    photo.sourceTypeIdentifier = metadata.typeIdentifier
                     photo.exifSummary = metadata.exifSummary
                     photo.sourceMegapixels = metadata.megapixels
                     photo.sourceAspect = metadata.aspect
@@ -481,7 +485,7 @@ struct MobilePhoto: Codable, Identifiable {
     func resetStage(_ stage: MobileStage) {
         let keys: [String]
         switch stage {
-        case .camera: keys = ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "_temperature", "_tint", "_whiteBalancePreset", "_lens", "camera_filter", "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"]
+        case .camera: keys = ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "_temperature", "_tint", "_whiteBalancePreset", "_lens", "camera_filter", "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"] + MobileProcessContract.cameraToneKeys
         case .film: keys = ["film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit", "grain_active", "grain_sublayers_active", "_grainAmount", "grain_amount", "grain_size_scale", "_grainSoftness", "grain_softness", "halation_active", "antihalation_mode", "halation_headroom_ev", "halation_amount", "halation_scatter_amount"]
         case .development: keys = ["density_curve_gamma", "dir_couplers_active", "dir_couplers_amount"]
         case .print: keys = ["_printBrightnessStops", "print_exposure", "print_contrast", "_paperGrade", "y_filter_shift", "m_filter_shift", "preflash_exposure", "_printEffects", "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range"]
@@ -950,11 +954,13 @@ struct MobilePhoto: Codable, Identifiable {
                     else { cropDisplay = try await engine.cropCanvasImage(url: url, recipe: settings, megapixels: targetMP) }
                 } else { cropDisplay = photo.geometry.value.isIdentity ? display : try await engine.canvasImage(result.image) }
                 guard !Task.isCancelled, generation == revision, active else { return }
-                let shouldDevelop = !developmentOffered && !UIAccessibility.isReduceMotionEnabled && result.resolved["scan_film"]?.boolValue != true
+                let alreadyOffered = preferences.values.printAnimationFrequency == .perPhoto
+                    ? photosOfferedDevelopment.contains(photo.id) : !photosOfferedDevelopment.isEmpty
+                let shouldDevelop = !alreadyOffered && !UIAccessibility.isReduceMotionEnabled && result.resolved["scan_film"]?.boolValue != true
                 let developmentAssets = shouldDevelop ? try? await engine.developmentAssets(print: working, geometry: photo.geometry,
                     framed: MobileFilmGate.presents(photo.recipe), scanStyle: result.resolved["digital_intermediate"]?.boolValue == true) : nil
                 guard !Task.isCancelled, generation == revision, active else { return }
-                developmentOffered = true
+                if developmentAssets != nil { photosOfferedDevelopment.insert(photo.id) }
                 image = display; original = displayOriginal; cropSourceImage = cropDisplay
                 cacheLibraryPreview(display, photo: photo)
                 development = developmentAssets; developmentRunning = false

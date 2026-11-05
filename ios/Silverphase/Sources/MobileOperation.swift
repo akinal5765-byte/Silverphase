@@ -126,10 +126,10 @@ struct MobileNotificationCenter: View {
                 }
             }.frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 4) {
-                Text(notification.title).font(.system(size: 13, weight: .semibold))
+                Text(notification.title).font(EditorDesign.noticeTitle)
                     .fixedSize(horizontal: false, vertical: true)
                 if !notification.detail.isEmpty {
-                    Text(notification.detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(notification.detail).font(EditorDesign.caption).foregroundStyle(.secondary)
                         .lineLimit(notification.style == .failure ? 5 : 2).truncationMode(.middle)
                 }
                 if notification.style == .progress, let fraction = notification.fraction {

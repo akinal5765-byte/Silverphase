@@ -62,7 +62,7 @@ struct MobileFilmstrip: View {
                             }
                         }
                     }
-                    if photos.isEmpty { Text("没有符合筛选条件的照片").font(.system(size: 12)).foregroundStyle(.secondary).padding() }
+                    if photos.isEmpty { Text("没有符合筛选条件的照片").font(EditorDesign.label).foregroundStyle(.secondary).padding() }
                 }.padding(.horizontal, EditorDesign.cardInset)
             }.frame(height: EditorDesign.cardHeight).clipped()
         }
@@ -86,7 +86,7 @@ struct MobileFilmstrip: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(document.current?.name ?? "照片").font(EditorDesign.caption).lineLimit(1).truncationMode(.middle)
                 if let summary = document.current?.exifSummary, !summary.isEmpty {
-                    Text(summary).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(summary).font(EditorDesign.instrument).foregroundStyle(.secondary).lineLimit(1)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
             Menu {
@@ -98,7 +98,7 @@ struct MobileFilmstrip: View {
                     .frame(width: 44, height: 44)
                     .overlay(alignment: .bottomTrailing) {
                         if minimumRating > 0 {
-                            Text("\(minimumRating)").font(.system(size: 9, weight: .semibold))
+                            Text("\(minimumRating)").font(EditorDesign.badge)
                                 .foregroundStyle(MobileStyle.accent)
                                 .padding(.trailing, 5).padding(.bottom, 3)
                         }
@@ -117,7 +117,7 @@ struct MobileFilmstrip: View {
                     .frame(width: 44, height: 44)
                     .overlay(alignment: .bottomTrailing) {
                         if flagFilter == "none" {
-                            Text("无").font(.system(size: 9, weight: .semibold)).foregroundStyle(MobileStyle.accent)
+                            Text("无").font(EditorDesign.badge).foregroundStyle(MobileStyle.accent)
                                 .padding(.trailing, 3).padding(.bottom, 3)
                         }
                     }
@@ -140,7 +140,7 @@ struct MobileFilmstrip: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("已选 \(document.selectedPhotoIDs.count) 张").font(EditorDesign.label)
                 if let clip = document.settingsClipboard {
-                    Text(clip.summary).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(clip.summary).font(EditorDesign.instrument).foregroundStyle(.secondary).lineLimit(1)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .combine).accessibilityIdentifier("filmstrip.selection-count")

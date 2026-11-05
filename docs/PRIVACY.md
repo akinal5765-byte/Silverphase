@@ -12,7 +12,7 @@ Silverphase 在设备上处理照片。应用不会将你的原始照片、成�
 
 ## 权限与导出
 
-从系统照片选择器导入时，应用接收你选择的项目；导入不要求获得整库读取权限。你主动选择保存成片到系统照片图库时，应用会请求添加照片的权限。你可以在系统设置中管理权限，或选择导出到文件。
+从系统照片选择器导入时，应用接收你选择的项目；普通导入无需整库读取权限。为优先取得 RAW 原件，应用可能请求照片读取权限，并只查询所选照片的原始资源。如果原件在 iCloud，系统可按需下载到本机。你主动选择保存成片到系统照片图库时，应用会请求添加照片的权限。你可以在系统设置中管理权限，或选择导出到文件。
 
 导出设置可以保留拍摄元数据及位置信息，也可以移除位置信息。请在分享前检查导出设置；接收成片的人或服务可能读取成片中保留的信息。导出到 iCloud Drive、其他云盘、系统照片图库或分享扩展时，相应系统功能及服务提供方的隐私规则适用。
 
@@ -42,7 +42,7 @@ This policy covers the Silverphase iPhone and iPad app distributed by Yukun Li.
 
 **Photos and edits.** Silverphase processes photos on your device. The app does not upload originals, rendered photos, photo metadata or edit records to developer servers. It includes no advertising, cross-app tracking or third-party analytics SDK. No account is required. You choose imports through the system photo or file picker. Imported originals are copied into the app library. Names, photo information, edits, ratings and flags can remain locally so you can resume editing. Local thumbnails and rendering caches support the editing experience.
 
-**Permissions and exports.** Photo-picker imports receive the items you select without requiring permission to read your entire photo library. Saving an export to Photos requests add-only access. You can manage permissions in system settings or export to Files instead. Export settings control preservation of photo metadata and location. Review these settings before sharing: recipients may read retained metadata. Exports to Photos, iCloud Drive, other cloud providers or share extensions are also governed by the relevant system features and providers.
+**Permissions and exports.** Photo-picker imports can receive selected items without full library access. To prefer RAW originals, the app may request Photos read access and look up original resources for the selected items only. Photos can download an original from iCloud when needed. Saving an export to Photos requests add-only access. You can manage permissions in system settings or export to Files instead. Export settings control preservation of photo metadata and location. Review these settings before sharing: recipients may read retained metadata. Exports to Photos, iCloud Drive, other cloud providers or share extensions are also governed by the relevant system features and providers.
 
 **Preferences and diagnostics.** Preferences, export recipes and presets are stored locally. A local record of the most recent export may contain status, elapsed time, memory use, export options and errors to help investigate interruptions. It contains no image pixels and is not automatically sent to the developer. System-level diagnostic sharing depends on your Apple settings and Apple's policies.
 

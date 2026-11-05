@@ -1244,6 +1244,12 @@ spk_status spk_preview_scan(spk_session* session, const char* tier_name, spk_res
         ok = negative_for(session, *tier, &session->progress, negative, error);
     }
     if (ok) {
+        // A cached negative includes its film border. The scan probe has its
+        // own layout state and must use the same pre-border frame dimensions.
+        const auto& state = session->tiers[tier->name];
+        ok = pipeline->set_overscan_frame(state.overscan_frame_w, state.overscan_frame_h, error);
+    }
+    if (ok) {
         // The swap is the whole trick: `run_print_for` reads the session's
         // pipeline, and the session's own must be back in place when this
         // returns — a preview may not disturb what is on the canvas.

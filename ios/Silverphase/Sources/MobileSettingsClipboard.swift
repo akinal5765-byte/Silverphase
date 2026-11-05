@@ -8,22 +8,22 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
     static let defaults = Set(allCases.filter { $0 != .geometry })
     var title: String {
         switch self {
-        case .camera: "相机"
-        case .film: "胶片"
-        case .development: "显影"
-        case .print: "印相"
-        case .output: "扫描"
+        case .camera: MobileStage.camera.rawValue
+        case .film: MobileStage.film.rawValue
+        case .development: MobileStage.development.rawValue
+        case .print: MobileStage.print.rawValue
+        case .output: MobileStage.output.rawValue
         case .filmEdge: "片边与日期"
         case .geometry: "裁切比例"
         }
     }
     var detail: String {
         switch self {
-        case .camera: "测光、曝光、白平衡、滤镜与场景置位；目标按自身画面重新计算。"
-        case .film: "胶片型号、物理画幅、颗粒、晕光与散射。"
-        case .development: "显影反差与色彩分离。"
-        case .print: "相纸、直扫／中间片、印相曝光、滤色与柔化。"
-        case .output: "扫描锐化、眩光与高光扩展。"
+        case .camera: "测光、曝光、影调、白平衡、滤镜与场景置位。"
+        case .film: "胶片型号、物理画幅、颗粒、光晕与散射。"
+        case .development: "显影反差与 DIR 效应。"
+        case .print: "相纸、直扫／中间片、放大曝光、滤色与柔光放大。"
+        case .output: "扫描锐化、相纸眩光与高光层次展开。"
         case .filmEdge: "片门、片边、灰雾、漏光及日期后背；自动日期取目标照片。"
         case .geometry: "仅复制宽高比例，横竖跟随目标；保留目标的构图中心、校直、旋转与翻转。"
         }
@@ -31,9 +31,9 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
     var keys: Set<String> {
         switch self {
         case .camera:
-            ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "camera_filter",
+            Set(MobileProcessContract.cameraToneKeys + ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "camera_filter",
              "_whiteBalancePreset", "_temperature", "_tint", "camera_diffusion_active", "camera_diffusion_family",
-             "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"]
+             "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"])
         case .film:
             ["film_stock", "film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit",
              "grain_active", "grain_sublayers_active", "_grainAmount", "grain_amount", "grain_size_scale",

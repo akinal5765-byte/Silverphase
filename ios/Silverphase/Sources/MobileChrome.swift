@@ -74,7 +74,7 @@ struct ChoiceOverlay: View {
                     Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { overlays.choice = nil }
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
-                            Text(choice.title).font(.system(size: 13, weight: .semibold))
+                            Text(choice.title).font(EditorDesign.noticeTitle)
                             Spacer()
                             ChromeButton(title: "关闭", symbol: "xmark") { overlays.choice = nil }
                         }.padding(.leading, 12)
@@ -91,7 +91,7 @@ struct ChoiceOverlay: View {
                                             Text(option.title).frame(maxWidth: .infinity, alignment: .leading)
                                             if choice.selected == option.id { Image(systemName: "checkmark").foregroundStyle(.primary) }
                                         }
-                                        .font(.system(size: 13)).foregroundStyle(option.enabled ? .white : MobileStyle.muted)
+                                        .font(EditorDesign.parameter).foregroundStyle(option.enabled ? .white : MobileStyle.muted)
                                         .frame(minHeight: 44).padding(.horizontal, 12).contentShape(Rectangle())
                                     }.buttonStyle(.plain).disabled(!option.enabled)
                                         .accessibilityIdentifier(option.accessibilityID ?? option.id)
@@ -115,7 +115,7 @@ struct SmallAction: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) { Image(systemName: symbol); Text(title); Spacer() }
-                .font(.system(size: 13, weight: .medium))
+                .font(EditorDesign.selectedValue)
                 .foregroundStyle(prominent ? Color.black : Color.white)
                 .padding(.horizontal, 12).frame(height: 44)
                 .background(prominent ? MobileStyle.accent : MobileStyle.well, in: RoundedRectangle(cornerRadius: 12))

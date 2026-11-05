@@ -11,19 +11,26 @@ struct ProcessControls: View {
                 if let latitude = document.latitude {
                     Text(materialPair).font(EditorDesign.panelSummary).foregroundStyle(.secondary).padding(.top, 8).padding(.bottom, 12)
                     MobileLatitudeGraph(latitude: latitude).padding(.bottom, 8)
-                    section("场景置位")
-                    placement("高光", key: "_placementHighlight", minimum: latitude.minimumHighlight)
-                    placement("阴影", key: "_placementShadow", minimum: latitude.minimumShadow)
-                    Button("自动适配胶片与相纸宽容度") {
-                        document.setValues(["_placementHighlight": .double(latitude.suggestedHighlight), "_placementShadow": .double(latitude.suggestedShadow)])
-                    }.buttonStyle(.plain).font(EditorDesign.parameter).foregroundStyle(MobileStyle.accent).frame(minHeight: 44).disabled(!latitude.suggestionValid)
                 } else {
                     Text(document.busy ? "正在测量当前胶片与相纸的宽容度…" : (document.value("_latitudeFailure")?.stringValue ?? "当前组合的宽容度测量不可用"))
                         .font(EditorDesign.help).foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 64)
                 }
+                if (document.value("_placementHighlight")?.doubleValue ?? 0) > 0 ||
+                    (document.value("_placementShadow")?.doubleValue ?? 0) > 0 {
+                    Button("清除旧场景置位") {
+                        document.resetKeys(["_placementHighlight", "_placementShadow"])
+                    }.buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
+                }
                 section("测光与曝光")
-                choice("测光模式", "_meter", [("custom", "手动"), ("balanced", "均衡"), ("center", "中央"), ("protect_highlights", "保护高光"), ("protect_shadows", "保护阴影"), ("center_weighted", "中央加权")])
+                choice("测光模式", "_meter", [("custom", "关闭自动曝光（RAW 基准）"), ("balanced", "均衡"), ("center", "中央主体"), ("protect_highlights", "保护高光"), ("protect_shadows", "保护阴影"), ("center_weighted", "中央加权")])
                 number("曝光补偿 · EV", "exposure_compensation_ev", -4...4)
+                section("影调")
+                number("高光", "camera_tone_highlights", MobileProcessContract.cameraToneRange, fractionDigits: 0)
+                number("阴影", "camera_tone_shadows", MobileProcessContract.cameraToneRange, fractionDigits: 0)
+                number("白色色阶", "camera_tone_whites", MobileProcessContract.cameraToneRange, fractionDigits: 0)
+                number("黑色色阶", "camera_tone_blacks", MobileProcessContract.cameraToneRange, fractionDigits: 0)
+                Button("重置影调") { document.resetKeys(MobileProcessContract.cameraToneKeys) }
+                    .buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
                 section("白平衡")
                 if document.value("_raw")?.boolValue == true {
                     choice("白平衡预设", "_whiteBalancePreset", [("asShot", "拍摄时"), ("daylight", "日光"), ("cloudy", "多云"), ("shade", "阴影"), ("tungsten", "钨丝灯"), ("fluorescent", "荧光灯"), ("custom", "自定")])
@@ -39,18 +46,18 @@ struct ProcessControls: View {
                 } else {
                     Text("此文件已完成白平衡；RAW 可调整拍摄色温与色调。").font(EditorDesign.help).foregroundStyle(.secondary).padding(.vertical, 8)
                 }
-                section("镜头与柔化")
+                section("镜头与柔光")
                 if document.value("_lensSupported")?.boolValue == true {
                     Button { document.setDiscrete("_lens", .bool(!(document.value("_lens")?.boolValue ?? false))) } label: {
                         HStack { Text("镜头校正").foregroundStyle(.secondary); Spacer(); Image(systemName: document.value("_lens")?.boolValue == true ? "checkmark.square.fill" : "square") }.font(EditorDesign.parameter).frame(minHeight: 44)
                     }.buttonStyle(.plain)
                 }
                 choice("光谱滤镜", "camera_filter", [("", "关闭"), ("w8", "8号 · 黄"), ("w11", "11号 · 黄绿"), ("w12", "12号 · 深黄"), ("w15", "15号 · 深黄"), ("w21", "21号 · 橙"), ("w25", "25号 · 红"), ("w47", "47号 · 蓝"), ("w58", "58号 · 绿")])
-                diffusion("拍摄柔化", prefix: "camera")
+                diffusion("拍摄柔光", prefix: "camera")
             case .film:
                 section("画幅")
-                choice("胶片画幅", "_filmFrame", MobileProcessContract.frames.map { ($0.id, $0.id == "Custom" ? "自定" : $0.id) })
-                choice("参考边", "_filmSide", [("short", "短边"), ("long", "长边")])
+                choice("胶片规格", "_filmFrame", MobileProcessContract.frames.map { ($0.id, $0.id == "Custom" ? "自定" : $0.id) })
+                choice("尺寸基准", "_filmSide", [("short", "短边"), ("long", "长边")])
                 choice("长度单位", "_sideUnit", [("mm", "mm"), ("cm", "cm"), ("inch", "inch")])
                 sideLength
                     .disabled(document.value("_filmFrame")?.stringValue != "Custom")
@@ -62,20 +69,20 @@ struct ProcessControls: View {
                     number("颗粒尺度", "grain_size_scale", 0.5...2)
                     number("颗粒柔化 · 倍率", "_grainSoftness", 0...2)
                 }.disabled(document.value("grain_active")?.boolValue == false)
-                choice("晕光", "_halation", [("profile", "跟随胶片"), ("none", "高"), ("weak", "中"), ("strong", "低"), ("off", "关闭")])
+                choice("胶片光晕", "_halation", [("profile", "跟随胶片"), ("none", "高"), ("weak", "中"), ("strong", "低"), ("off", "关闭")])
                 Group {
-                    number("晕光强度", "halation_amount", 0...4)
+                    number("光晕强度", "halation_amount", 0...4)
                     if document.value("film_stock")?.stringValue == "cinestill_800t" {
                         number("高光余量 · EV", "halation_headroom_ev", 0...8)
                             .disabled(document.value("_halation")?.stringValue != "profile" || document.value("halation_amount")?.doubleValue == 0)
                     }
-                    number("乳剂散射", "halation_scatter_amount", 0...1)
+                    number("散射", "halation_scatter_amount", 0...1)
                 }.disabled(document.value("halation_active")?.boolValue == false)
             case .development:
                 section("负片响应")
                 number("显影反差", "density_curve_gamma", 0.5...1.5)
-                flag("色彩分离", "dir_couplers_active").disabled(filmIsMonochrome)
-                number("分离强度", "dir_couplers_amount", 0...1.4)
+                flag("DIR 效应", "dir_couplers_active").disabled(filmIsMonochrome)
+                number("成色剂强度", "dir_couplers_amount", 0...1.4)
                     .disabled(document.value("dir_couplers_active")?.boolValue == false || filmIsMonochrome)
             case .print:
                 flag("直接扫描胶片", "scan_film")
@@ -83,17 +90,16 @@ struct ProcessControls: View {
                 if document.value("scan_film")?.boolValue != true && document.value("digital_intermediate")?.boolValue != true {
                     section("曝光与滤色")
                     printBrightness
-                    number("印相反差", "print_contrast", 0.7...1.3)
+                    number("相纸反差", "print_contrast", 0.7...1.3)
                     if document.value("print_stock")?.stringValue == "ilford_multigrade_iv_rc" {
                         paperGrades
                     } else {
-                        number("黄色滤光", "y_filter_shift", -50...50)
-                        number("品红滤光", "m_filter_shift", -50...50)
+                        number("黄滤色（Y）", "y_filter_shift", -50...50)
+                        number("品红滤色（M）", "m_filter_shift", -50...50)
                     }
-                    flag("印相效果", "_printEffects")
-                    number("预闪", "preflash_exposure", 0...0.05, entryRange: 0...1).disabled(document.value("_printEffects")?.boolValue == false)
-                    section("光学柔化")
-                    diffusion("放大机柔化", prefix: "enlarger")
+                    flag("相纸效果", "_printEffects")
+                    number("相纸预闪", "preflash_exposure", 0...0.05, entryRange: 0...1).disabled(document.value("_printEffects")?.boolValue == false)
+                    diffusion("柔光放大", prefix: "enlarger")
                 } else {
                     Text("直接扫描与数字中间片绕过相纸印相。").font(EditorDesign.help).foregroundStyle(.secondary).padding(.vertical, 8)
                 }
@@ -102,10 +108,10 @@ struct ProcessControls: View {
                 flag("扫描锐化", "_scannerActive").disabled(diActive)
                 number("锐化强度 · 倍率", "_scannerStrength", 0...2)
                     .disabled(diActive || document.value("_scannerActive")?.boolValue == false)
-                flag("印相眩光", "glare_active").disabled(printBypassed)
-                number("眩光强度", "glare_amount", 0...4)
+                flag("相纸眩光", "glare_active").disabled(printBypassed)
+                number("耀光强度", "glare_amount", 0...4)
                     .disabled(printBypassed || document.value("glare_active")?.boolValue == false)
-                flag("高光扩展", "extended_dynamic_range").disabled(printBypassed || paperIsMonochrome)
+                flag("高光层次展开", "extended_dynamic_range").disabled(printBypassed || paperIsMonochrome)
             case .filmEdge:
                 section("片边")
                 flag("显示片边", "overscan_active")
@@ -122,7 +128,7 @@ struct ProcessControls: View {
                     Spacer()
                     Button("重新过片") { document.setDiscrete("overscan_frame_seed", .double(Double(Int.random(in: 1...999999)))) }
                 }.font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize).buttonStyle(.borderless)
-                section("日期后背")
+                section("日期背")
                 flag("日期曝光", "date_imprint_active")
                 text("日期文字", "date_imprint_text")
                 choice("日期样式", "date_imprint_style", [("lcd", "数码管"), ("dots", "点阵"), ("data", "数据后背")])
@@ -155,17 +161,12 @@ struct ProcessControls: View {
     private func section(_ title: String) -> some View {
         ToolSectionTitle(title: title)
     }
-    private func placement(_ title: String, key: String, minimum: Double) -> some View {
-        RulerParameterRow(title: title, value: Binding(get: { document.value(key)?.doubleValue ?? 0 }, set: {
-            document.set(key, .double($0 < max(0.15, minimum) / 2 ? 0 : max(minimum, $0)))
-        }), range: 0...12, defaultValue: 0, step: 0.25, onInteraction: document.parameterInteraction, onReset: { document.resetKeys([key]) })
-    }
     private func diffusion(_ title: String, prefix: String) -> some View {
         Group {
             choice(title, "_" + prefix + "Diffusion", [("off", "关闭"), ("glimmerglass", "Glimmerglass"), ("black_pro_mist", "Black Pro-Mist"), ("pro_mist", "Pro-Mist"), ("cinebloom", "Cinebloom")])
             Group {
-                number("柔化强度", prefix + "_diffusion_strength", 0.125...2)
-                number("光晕范围", prefix + "_diffusion_range", 0.5...2)
+                number("柔光强度", prefix + "_diffusion_strength", 0.125...2)
+                number("扩散范围", prefix + "_diffusion_range", 0.5...2)
             }.disabled(document.value(prefix + "_diffusion_active")?.boolValue != true)
         }
     }
@@ -175,7 +176,7 @@ struct ProcessControls: View {
     private var sideLength: some View {
         let unit = document.value("_sideUnit")?.stringValue ?? "mm"
         let factor = unit == "inch" ? 25.4 : unit == "cm" ? 10.0 : 1.0
-        return RulerParameterRow(title: "参考边长度 · " + unit, value: Binding(get: { (document.value("_sideLengthMM")?.doubleValue ?? 24) / factor }, set: { document.set("_sideLengthMM", .double($0 * factor)) }), range: (4 / factor)...(200 / factor), defaultValue: (document.defaultNumber("_sideLengthMM") ?? 24) / factor, fractionDigits: unit == "inch" ? 3 : 1, onInteraction: document.parameterInteraction, onReset: { document.resetKeys(["_sideLengthMM"]) })
+        return RulerParameterRow(title: "基准尺寸 · " + unit, value: Binding(get: { (document.value("_sideLengthMM")?.doubleValue ?? 24) / factor }, set: { document.set("_sideLengthMM", .double($0 * factor)) }), range: (4 / factor)...(200 / factor), defaultValue: (document.defaultNumber("_sideLengthMM") ?? 24) / factor, fractionDigits: unit == "inch" ? 3 : 1, onInteraction: document.parameterInteraction, onReset: { document.resetKeys(["_sideLengthMM"]) })
     }
     private func asShotAxis(_ title: String, key: String) -> some View {
         Button { document.resetKeys([key]) } label: {
@@ -184,7 +185,7 @@ struct ProcessControls: View {
         }.buttonStyle(.plain)
     }
     private var printBrightness: some View {
-        RulerParameterRow(title: "印相亮度 · EV", value: Binding(get: { document.value("_printBrightnessStops")?.doubleValue ?? 0 }, set: { document.set("_printBrightnessStops", .double($0)) }), range: -3...3, defaultValue: 0, step: 0.25, onInteraction: document.parameterInteraction, onReset: { document.resetKeys(["_printBrightnessStops", "print_exposure"]) })
+        RulerParameterRow(title: "放大曝光 · EV", value: Binding(get: { document.value("_printBrightnessStops")?.doubleValue ?? 0 }, set: { document.set("_printBrightnessStops", .double($0)) }), range: -3...3, defaultValue: 0, step: 0.25, onInteraction: document.parameterInteraction, onReset: { document.resetKeys(["_printBrightnessStops", "print_exposure"]) })
     }
     private var paperGrades: some View {
         Menu {
@@ -204,11 +205,11 @@ struct ProcessControls: View {
                 .font(EditorDesign.parameter).frame(minHeight: 44)
         }
     }
-    @ViewBuilder private func number(_ title: String, _ key: String, _ range: ClosedRange<Double>, entryRange: ClosedRange<Double>? = nil) -> some View {
+    @ViewBuilder private func number(_ title: String, _ key: String, _ range: ClosedRange<Double>, entryRange: ClosedRange<Double>? = nil, fractionDigits: Int? = nil) -> some View {
         if let value = document.value(key)?.doubleValue {
             let baseline = document.defaultNumber(key) ?? range.lowerBound
             let rulerRange = min(range.lowerBound, baseline)...max(range.upperBound, baseline)
-            RulerParameterRow(title: title, value: Binding(get: { document.value(key)?.doubleValue ?? value }, set: { document.set(key, .double($0)) }), range: rulerRange, defaultValue: baseline, fractionDigits: key == "_temperature" || key == "overscan_frame_number" ? 0 : key == "preflash_exposure" ? 3 : 2, entryRange: entryRange, step: MobileProcessContract.steps[key], onInteraction: document.parameterInteraction, onReset: { document.resetKeys([key]) })
+            RulerParameterRow(title: title, value: Binding(get: { document.value(key)?.doubleValue ?? value }, set: { document.set(key, .double($0)) }), range: rulerRange, defaultValue: baseline, fractionDigits: fractionDigits ?? (key == "_temperature" || key == "overscan_frame_number" ? 0 : key == "preflash_exposure" ? 3 : 2), entryRange: entryRange, step: MobileProcessContract.steps[key], onInteraction: document.parameterInteraction, onReset: { document.resetKeys([key]) })
         }
     }
     @ViewBuilder private func flag(_ title: String, _ key: String) -> some View {
