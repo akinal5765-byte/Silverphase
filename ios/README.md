@@ -1,8 +1,6 @@
 # Silverphase iOS editor
 
-iOS version: **1.1.2 (4)** — native process navigation across iPhone, Duo and iPad,
-in-panel material selection, directional tick-ruler gestures and refreshed library previews;
-persistent local library and batch editing/export.
+The editor supports a persistent local library, native process navigation, and batch editing and export.
 
 Native iOS editor based on **the current desktop product**, with its full-width
 canvas and floating process panel. Ordinary iPhones open film/paper lists inside
@@ -32,9 +30,6 @@ export performance. The deployment floor remains iOS18.
 ## Installation and downloads
 
 Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-Build **1.1.2 (4)** has been uploaded to App Store Connect for TestFlight;
-see [distribution status](APP-STORE.md). No new GitHub IPA asset was published.
-
 App Store preparation and remaining distribution requirements are tracked in
 [APP-STORE.md](APP-STORE.md).
 

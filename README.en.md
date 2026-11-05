@@ -23,29 +23,25 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 
 ## [Releases](https://github.com/akinal5765-byte/Silverphase/releases)
 
-| Platform | Distributed version | Install |
-|---|---|---|
-| macOS | **1.0.1 (2)** | [Apple-silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
-| iOS / iPadOS | Beta; see TestFlight for the available version | [Install with TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |
+| Platform | Install and update |
+|---|---|
+| macOS | Download the Apple-silicon DMG from [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases), or check for updates under Settings → Software Update. |
+| iOS / iPadOS | Install and update the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp). |
 
-Releases retain version notes and macOS packages; iPhone/iPad users install and update through TestFlight without arranging their own signing.
-
-The current iOS source version is **1.1.2 (4)**, available to internal TestFlight testers and awaiting Apple Beta App Review for public testing. It adds native seven-stage navigation, in-panel material selection, directional ruler gestures that preserve panel scrolling, and refreshed library previews after editing. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for current behavior and validation scope.
-
-The platforms share an imaging engine and maintain independent application versions. The macOS package is not notarized; iOS beta installation uses TestFlight, while historical unsigned IPAs require user-arranged signing. Each Release page provides Chinese installation notes and checksums; see the [installation guide](docs/BINARY-RELEASES.md).
-
-Both releases add **CineStill 800T** with the back-reflection red halo of a film without anti-halation backing, highlight headroom (0–8 EV, default 4 EV), and generated packaging-style artwork. Cards consistently show “800T”; lists retain the full name. The material reuses Vision3 500T emulsion data, and headroom estimates clipped highlight energy. Passed checks, skips and mobile coverage limits are recorded in the [adoption validation](performance/VALIDATION-CINESTILL-2026-11-02.md).
+Platform versions are independent. Public builds are ad-hoc signed, with no Developer ID signature or notarization. See the [binary release guide](docs/BINARY-RELEASES.md) for installation, checksums, and historical IPAs. The [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) describe the mobile interface and validation scope.
 
 ## What you can do
 
 - **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials.
-- **Control exposure and development.** Metering, film exposure, RAW white balance, development contrast, color separation, and scene-latitude placement determine how the scene fits the film response.
+- **Control exposure and development.** Adjust metering, film exposure, RAW white balance, development contrast, and color separation. On macOS, Highlights, Shadows, Whites, and Blacks act before film exposure. See the [control audit](ios/CONTROL-AUDIT.md) for scene placement and other iOS controls.
 - **Shape grain and halation.** Physical frame size sets the scale of grain and spatial effects. Grain amount, size, softness, film halation, and emulsion scatter have separate controls.
 - **Make color or B&W prints.** Adjust paper, print exposure, yellow/magenta filtration, preflash, and print glare. Ilford Multigrade IV RC provides grades 00–5 with exposure compensation; eight Wratten lens filters are available.
 - **Add film edges and dates.** Use 135, half-frame, multiple 120 and panoramic gates, perforations, markings, fog, and light leaks. Date-back placement and styling follow the chosen format.
-- **Inspect and deliver.** Crop, rotate, inspect histograms, compare previews, and use batch export and export recipes. Desktop also provides soft proofing and two-photo half-frame compositions.
+- **Inspect and deliver.** Crop, rotate, inspect histograms, compare previews, and use batch export and export recipes. Desktop also provides soft proofing and two-photo half-frame compositions. Pin the bottom strip or reveal it by hovering at the bottom edge, and press Tab to hide or restore the editor panels.
 
 ### Film and paper
+
+CineStill 800T uses Vision3 500T emulsion data to model red back-reflection without anti-halation backing. Highlight headroom estimates light lost to clipping. See the [profile validation record](performance/VALIDATION-CINESTILL-2026-11-02.md).
 
 | Material family | Representative profiles |
 |---|---|
@@ -87,9 +83,9 @@ Open the original images to inspect detail. Page scaling and JPEG compression af
 
 All captures show actual macOS windows on 2026-10-31. Settings, sources, and permitted use are recorded in the [full gallery](screenshots/current/README.md).
 
-## Platforms and current status
+## Platforms and feature scope
 
-| Platform | Requirements | Current scope |
+| Platform | Requirements | Scope |
 |---|---|---|
 | macOS | Apple silicon, macOS 15+ | Native editor, shared imaging engine, batch export, soft proofing, two-photo half-frame compositions |
 | iPhone Duo | iOS 18+ | Larger editing workspace; one of the currently recommended mobile devices |
@@ -98,9 +94,9 @@ All captures show actual macOS windows on 2026-10-31. Settings, sources, and per
 
 Conventional iPhones now have a dedicated portrait layout; see the [current interface captures](screenshots/ios/2026-11-02/README.md). Duo and iPad retain their side-navigation/inspector arrangements. Simulator layout checks do not establish identical touch, memory or export behavior across devices.
 
-Current builds are distributed through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases): the macOS DMG has no Developer ID signature or notarization, and the iOS beta uses [TestFlight](https://testflight.apple.com/join/uwY3ZYJp). Historical IPAs require user-arranged signing and installation. See [binary releases](docs/BINARY-RELEASES.md) for downloads, checksums and installation. Source builds remain available. iOS does not include desktop two-photo pairing or every proofing feature; see the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
+iOS omits desktop two-photo pairing and some proofing features. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 
-The current iOS source uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Settings and export recipes persist independently.
+The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Settings and export recipes persist independently.
 
 ## Also by the author: Layerlight
 

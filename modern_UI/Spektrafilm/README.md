@@ -1,6 +1,6 @@
 # Silverphase macOS 工程
 
-macOS 版本：**1.0.1（2）**，新增 CineStill 800T。与 iOS 独立编号。
+桌面版独立编号。源码构建版本由 [工程生成器](Tools/gen-project.py) 定义，安装包及版本说明见 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases)。
 
 本目录是 Silverphase 的 SwiftUI／AppKit 应用工程。Xcode target 和部分
 内部路径仍叫 Spektrafilm；产品名称为 Silverphase。项目保留 Hanze Qiu
@@ -21,7 +21,9 @@ macOS 版本：**1.0.1（2）**，新增 CineStill 800T。与 iOS 独立编号�
 - `Tools/`：工程生成、资源检查、验证及签名／公证／DMG 打包工具。
 
 界面使用单一现代布局：顶栏、浮动工艺面板、底部胶片选择／照片导航条。
-Metal 画布保持窗口尺寸；浮动控件的遮挡仅改变适合窗口的可见区域。
+Metal 画布保持窗口尺寸，适合窗口与放大查看都以未遮挡区域为基准。
+底部条可固定或自动收起，Tab 隐藏或恢复编辑面板。新打开的照片默认展开
+「输入 / 拍摄」，其中的影调调整在胶片曝光前生效。
 没有另一套传统界面或独立的通用调色栏。历史 sidecar 的旧调色信息仍有
 兼容读取路径。当前布局规范见 [UI-SPEC](../design/UI-SPEC.md)。
 

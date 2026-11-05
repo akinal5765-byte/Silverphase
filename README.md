@@ -23,29 +23,25 @@ Silverphase 将照片送入**相机输入 → 胶片 → 显影 → 印相 → �
 
 ## [Releases](https://github.com/akinal5765-byte/Silverphase/releases)
 
-| 平台 | 分发版本 | 安装 |
-|---|---|---|
-| macOS | **1.0.1（2）** | [Apple Silicon DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1) |
-| iOS／iPadOS | 测试版，以 TestFlight 显示为准 | [通过 TestFlight 安装](https://testflight.apple.com/join/uwY3ZYJp) |
+| 平台 | 安装与更新 |
+|---|---|
+| macOS | 在 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 下载 Apple Silicon DMG，也可在应用的「设置 → 软件更新」检查新版。 |
+| iOS／iPadOS | 通过 [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) 安装及更新测试版。 |
 
-Releases 保留版本说明与 macOS 安装包；iPhone／iPad 通过 TestFlight 安装及更新，无需自行签名。
-
-当前 iOS 源码版本为 **1.1.2（4）**，已上传 TestFlight；内部测试已开放，公开测试正在等待 Apple Beta 审核。更新包括原生七项工艺导航、面板内材料选择、刻度尺与面板滚动的方向协调，以及编辑后图库缩略图刷新。当前界面与验证范围见 [iOS 指南](ios/README.md)及[控制对照](ios/CONTROL-AUDIT.md)。
-
-两端使用共享成像引擎，版本号独立维护。macOS 安装包未经过 Apple 公证；iOS 优先通过上述 TestFlight 链接安装；历史未签名 IPA 需自行签名，具体步骤及校验文件见各版本的中文 Release 说明和[安装指南](docs/BINARY-RELEASES.md)。
-
-本次两端均新增 **CineStill 800T**：提供无防光晕背层的回反射红色光晕、高光余量控制（0–8 EV，默认 4 EV），并配有生成的包装风格封面。胶片卡片统一显示「800T」，列表保留完整名称。材料复用 Vision3 500T 的乳剂数据；高光余量是对被裁切高光光量的估计。测试通过、跳过及移动端覆盖限制见[本次验证记录](performance/VALIDATION-CINESTILL-2026-11-02.md)。
+两端独立编号。公开构建使用 ad-hoc 签名，未经 Developer ID 签名与 Apple 公证。安装步骤、校验方法和历史 IPA 说明见[二进制发布指南](docs/BINARY-RELEASES.md)。iOS 界面和验证范围见 [iOS 指南](ios/README.md)及[控制对照](ios/CONTROL-AUDIT.md)。
 
 ## 可以做什么
 
 - **选择胶片与相纸。** 公开目录包含 25 款胶片配置（含 CineStill 800T 与 Push 变体）和 9 款相纸，覆盖彩色负片、正片、电影负片与黑白材料。
-- **控制曝光与显影。** 使用测光、胶片曝光、RAW 白平衡、显影反差、色彩分离及场景宽容度置放，调整照片如何落到胶片响应范围内。
+- **控制曝光与显影。** 使用测光、胶片曝光、RAW 白平衡、显影反差和色彩分离塑造画面。macOS 可在胶片曝光前调整高光、阴影和黑白色阶；iOS 的场景置位等控制见[控制对照](ios/CONTROL-AUDIT.md)。
 - **塑造颗粒与光晕。** 物理画幅参与颗粒及空间效果的尺度换算；颗粒强度、尺度、柔化、胶片光晕与乳剂散射分别可调。
 - **完成彩色或黑白印相。** 调整相纸、印相曝光、黄／品红滤色、预闪与印相眩光；Ilford Multigrade IV RC 支持 00–5 级纸号及曝光补偿，镜头提供八种 Wratten 滤镜。
 - **加入片边与日期。** 支持 135、半格、多种 120 和全景片门，以及片孔、边印、灰雾和漏光；日期后背按所选画幅提供相应位置与样式。
-- **检查并交付成片。** 使用裁切、旋转、直方图、对比预览、批量导出及导出配方；桌面另提供软打样和双照片半格组合。
+- **检查并交付成片。** 使用裁切、旋转、直方图、对比预览、批量导出及导出配方；桌面另提供软打样和双照片半格组合。底部条可固定或在鼠标移到底边时浮出，按 Tab 可隐藏或恢复编辑面板。
 
 ### 胶片与相纸
+
+CineStill 800T 使用 Vision3 500T 的乳剂数据模拟去除防光晕背层后的红色回反射。高光余量用于估计裁切前的高光光量。见[材料验证记录](performance/VALIDATION-CINESTILL-2026-11-02.md)。
 
 | 材料类别 | 代表配置 |
 |---|---|
@@ -87,20 +83,20 @@ Releases 保留版本说明与 macOS 安装包；iPhone／iPad 通过 TestFlight
 
 以上均为 2026-10-31 的真实 macOS 窗口截图。案例设置、来源及使用范围见[完整案例页](screenshots/current/README.md)。
 
-## 平台与当前状态
+## 平台与功能范围
 
-| 平台 | 系统要求 | 当前范围 |
+| 平台 | 系统要求 | 功能范围 |
 |---|---|---|
 | macOS | Apple Silicon，macOS 15+ | 原生编辑器、共享成像引擎、批量导出、软打样、双照片半格组合 |
 | iPhone Duo | iOS 18+ | 较大的编辑空间，当前推荐的移动端使用设备之一 |
 | 普通 iPhone | iOS 18+ | 竖屏编辑、紧凑七项导航、浮动工艺面板及纵向胶片／相纸列表 |
 | iPad | iPadOS 18+ | 同一移动编辑器，适配画布、检查器及材料浏览器布局 |
 
-普通 iPhone 已有独立竖屏适配，见[当前界面截图](screenshots/ios/2026-11-02/README.md)。Duo 和 iPad 保留各自的侧栏／检查器布局；模拟器界面检查不代表各设备具有相同的触控、内存和导出表现。
+普通 iPhone 已有独立竖屏适配，见[2026-11-02 界面截图](screenshots/ios/2026-11-02/README.md)。Duo 和 iPad 保留各自的侧栏／检查器布局；模拟器界面检查不代表各设备具有相同的触控、内存和导出表现。
 
-当前构建从 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases) 下载：macOS DMG 无 Developer ID 签名且未公证；iOS 测试版通过 [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) 安装及更新，历史 IPA 需自行签名与安装。下载、校验和安装方法见[二进制发布说明](docs/BINARY-RELEASES.md)。也可从源码构建。iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
+iOS 不包含桌面的双照片半格组合及全部校样功能，详细边界见 [iOS 指南](ios/README.md)和[控制对照](ios/CONTROL-AUDIT.md)。
 
-当前源码的 iOS 版本使用应用内本地图库：导入原文件、编辑记录、评分和旗标在重启后保留，支持多选、批量编辑及导出。设置与导出配方独立保存。
+iOS 编辑器使用应用内本地图库：导入原文件、编辑记录、评分和旗标在重启后保留，支持多选、批量编辑及导出。设置与导出配方独立保存。
 
 ## 也试试 Layerlight
 
