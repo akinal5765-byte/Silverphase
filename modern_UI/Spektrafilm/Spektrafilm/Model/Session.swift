@@ -2514,6 +2514,7 @@ final class Session: CanvasHost {
             resolveFilmPresentation(&resolved)
             sidecar.params = resolved
             var opened = sidecar.params
+            let openedPreviewEdge: Int
             do {
                 // Its own scope, so the 727 MB buffer is gone before the solve
                 // and the first render run — at -Onone too, where a value is
@@ -2537,7 +2538,8 @@ final class Session: CanvasHost {
                 guard selection == url, !Task.isCancelled else { return nil }
                 if pair != nil { sidecar.params.sceneLatitude = frame.params.sceneLatitude; sidecar.params.pairSceneLatitude = frame.params.pairSceneLatitude }
                 opened = sidecar.params
-                let delta = Self.openDelta(sidecar: sidecar, previewLongEdge: previewLongEdge)
+                openedPreviewEdge = previewLongEdge
+                let delta = Self.openDelta(sidecar: sidecar, previewLongEdge: openedPreviewEdge)
                 afterOpenDeltaForTesting?()
                 r = try await client.open(frame.frame, paramsDelta: delta)
             }
@@ -2565,7 +2567,7 @@ final class Session: CanvasHost {
             // app can find out which one it got.
             noteWorkingSpace(r.params["output_color_space"]?.stringValue
                              ?? Self.defaultWorkingSpace)
-            serviceGeneration = scheduler.reset(sessionID: r.sessionID, params: opened, previewEdge: renderedPreviewEdge)
+            serviceGeneration = scheduler.reset(sessionID: r.sessionID, params: opened, previewEdge: openedPreviewEdge)
             // What the engine's own auto-exposure chose for this frame. The
             // Exp. Comp. slider is an offset from it, so the UI has to know
             // the baseline to show it (HANDOFF §4). `solve(target:"exposure")`
@@ -2591,6 +2593,7 @@ final class Session: CanvasHost {
                       + (backend?.sessionCache.map { "  ·  \($0.summary)" } ?? ""))
             guard selection == url, !Task.isCancelled else { return nil }
             applyRender(rr, generation: serviceGeneration)
+            if previewLongEdge != openedPreviewEdge { scheduler.setPreviewEdge(previewLongEdge) }
             if parameterInteractionActive {
                 let viewport = renderer.viewport
                 let fit = max(viewport.image.width, viewport.image.height) * viewport.fitScale * viewport.backingScale

@@ -20,6 +20,33 @@ import XCTest
 
 @MainActor
 final class OpenPathTests: XCTestCase {
+    func testReplacingEngineSessionUsesThePreviewEdgeSentWithOpen() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "preview-reopen-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let key = Session.previewEdgeKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(saved, forKey: key) }
+
+        let first = directory.appending(path: "a.tif")
+        let second = directory.appending(path: "b.tif")
+        try PortTestFrame.write(to: first)
+        try PortTestFrame.write(to: second)
+        let session = Session()
+        session.setPreviewLongEdge(1080)
+        session.open(urls: [first])
+        let initialID = await session.ensureDeveloped()
+        XCTAssertNotNil(initialID)
+        XCTAssertEqual(session.renderedPreviewEdge, 1080)
+
+        session.open(urls: [second])
+        session.setPreviewLongEdge(1920)
+        let replacementID = await session.ensureDeveloped()
+        XCTAssertNotNil(replacementID)
+        XCTAssertNotEqual(replacementID, initialID)
+        XCTAssertEqual(session.renderedPreviewEdge, 1920)
+    }
+
     func testWhiteBalanceReDevelopsExistingPrintWithoutAnotherUserRequest() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: "restored-wb-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
