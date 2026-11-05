@@ -18,7 +18,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
-| Mobile build, import/export, diagnostics and memory | [iOS engineering](../ios/README.md) |
+| Mobile build, RAW import, print animation, export and diagnostics | [iOS engineering](../ios/README.md) |
 | Ordinary iPhone layout screenshots | [2026-11-02 simulator captures](../screenshots/ios/2026-11-02/README.md) |
 | Mobile layout and controls | [DESIGN](../ios/DESIGN.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
 | Private local materials and public-build exclusion | [Local material overlay](LOCAL-MATERIALS.md) |

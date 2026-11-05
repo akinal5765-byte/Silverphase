@@ -116,7 +116,7 @@ calls and gives the canvas owned results. `Session+FilmPresentation.swift`,
 material model.
 
 iOS `MobileDocument` coordinates imported photos, per-photo state, operations,
-settings and recipes. `MobileEngine` wraps the same ABI. Shared desktop sources
+settings and recipes. Photos import looks up RAW resources for selected assets when Photos read access allows it and can download cloud originals before copying them into the local library. `MobileEngine` wraps the same ABI. Shared desktop sources
 are compiled by relative reference: `StockCatalogCore.swift`, `ParamValue.swift`
 and `Geometry.swift`. `DesktopControlDefaults.json` captures desktop defaults;
 `MobileDesktopContractTests` detects drift. Other mobile control code is
@@ -221,7 +221,7 @@ macOS uses SwiftUI/AppKit, a Metal canvas, floating process inspector, bottom
 film/paper browser and photo strip. [UI-SPEC](modern_UI/design/UI-SPEC.md) and
 current source govern layout. iOS uses native navigation, glass panels, tick
 rulers and a compact material browser; iPad keeps horizontal process navigation
-and a right inspector. [iOS DESIGN](ios/DESIGN.md) records its layout.
+and a right inspector. Phones start with horizontal process navigation and use the Duo-specific layout after the system reports a hinge. [iOS DESIGN](ios/DESIGN.md) records its layout.
 
 ### 7.2 Process controls and compatibility
 

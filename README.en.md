@@ -33,7 +33,7 @@ Platform versions are independent. Public builds are ad-hoc signed, with no Deve
 ## What you can do
 
 - **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials.
-- **Control exposure and development.** Adjust metering, film exposure, RAW white balance, development contrast, and color separation. On macOS, Highlights, Shadows, Whites, and Blacks act before film exposure. See the [control audit](ios/CONTROL-AUDIT.md) for scene placement and other iOS controls.
+- **Control exposure and development.** Adjust metering, film exposure, RAW white balance, development contrast, and color separation. On macOS and iOS, Highlights, Shadows, Whites, and Blacks act before film exposure.
 - **Shape grain and halation.** Physical frame size sets the scale of grain and spatial effects. Grain amount, size, softness, film halation, and emulsion scatter have separate controls.
 - **Make color or B&W prints.** Adjust paper, print exposure, yellow/magenta filtration, preflash, and print glare. Ilford Multigrade IV RC provides grades 00–5 with exposure compensation; eight Wratten lens filters are available.
 - **Add film edges and dates.** Use 135, half-frame, multiple 120 and panoramic gates, perforations, markings, fog, and light leaks. Date-back placement and styling follow the chosen format.
@@ -96,7 +96,7 @@ Conventional iPhones now have a dedicated portrait layout; see the [current inte
 
 iOS omits desktop two-photo pairing and some proofing features. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 
-The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Settings and export recipes persist independently.
+The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Library cards show the original file format. With Photos read access, imports prefer RAW originals and download them from iCloud when needed. Settings and export recipes persist independently, and the print animation can run once per launch or once per photo.
 
 ## Also by the author: Layerlight
 
