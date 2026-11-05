@@ -98,9 +98,14 @@ struct TopBar: View {
                 inspectorStages
                 BarIcon(name: "square.and.arrow.up", help: L(.helpExport) + " (⌘E)",
                         disabled: session.selection == nil,
-                        selected: session.showExport) {
+                        selected: !session.panelsHidden && session.showExport) {
                     withAnimation(.easeOut(duration: 0.18)) {
-                        session.showExport.toggle()
+                        if session.panelsHidden {
+                            session.panelsHidden = false
+                            session.showExport = true
+                        } else {
+                            session.showExport.toggle()
+                        }
                     }
                 }
             }
@@ -286,7 +291,7 @@ struct TopBar: View {
             HStack(spacing: 0) {
                 ForEach(InspectorStage.allCases) { stage in
                     BarIcon(name: stage.symbol, help: stage.title,
-                            selected: !session.showExport && !session.rightCollapsed && session.inspectorStage == stage) {
+                            selected: !session.panelsHidden && !session.showExport && !session.rightCollapsed && session.inspectorStage == stage) {
                         withAnimation(.easeOut(duration: 0.18)) {
                             session.selectInspectorStage(stage)
                         }

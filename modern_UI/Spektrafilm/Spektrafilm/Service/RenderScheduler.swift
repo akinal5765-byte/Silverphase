@@ -30,6 +30,43 @@ final class RenderScheduler {
     private let log: Log
     private(set) var sent = FilmParams.default
     private var wanted = FilmParams.default
+    private var previewEdge: Int?
+    private var interactionFloor = 800
+    private var interactionEdge: Int?
+    private var interacting = false
+    private(set) var renderedPreviewEdge: Int?
+    private var desiredPreviewEdge: Int? { interacting ? interactionEdge : previewEdge }
+
+    // Size changes travel in the same serial request as edits, never in a
+    // parallel setParams/reprint task. The final edit restores settled quality.
+    func setInteraction(_ active: Bool, pixelLongEdge: Double, elapsedMs: Double) {
+        interacting = active
+        if active, let previewEdge {
+            let fit = [1080, 1600, 1920, 2560, 3200, 3840].first { Double($0) >= pixelLongEdge } ?? 3840
+            // A desktop viewport can contain several times the pixels of a
+            // phone. Latency adaptation must never undersample its fit image.
+            interactionFloor = min(previewEdge, fit)
+            interactionEdge = interactionFloor
+        }
+        startLoop()
+    }
+
+    func setPreviewEdge(_ edge: Int) {
+        previewEdge = edge
+        interactionEdge = min(interactionEdge ?? edge, edge)
+        startLoop()
+    }
+
+    private func startLoop() {
+        guard sessionID != nil else { return }
+        if loop == nil { loop = Task { await run() } }
+    }
+
+    nonisolated static func nextInteractionEdge(_ edge: Int, elapsedMs: Double, ceiling: Int) -> Int {
+        if elapsedMs > 200 { return max(800, Int(Double(edge) * 0.8)) }
+        if elapsedMs < 70 { return min(ceiling, Int(Double(edge) * 1.15)) }
+        return edge
+    }
     private var loop: Task<Void, Never>?
     private var generation = 0
     private var sessionID: String?
@@ -69,16 +106,20 @@ final class RenderScheduler {
     /// service. The detail renderer checks this before spending the transport
     /// on a 6–17 s full-resolution render: the transport is single-flight, so
     /// a detail render would sit in front of the user's next slider release.
-    var pending: Bool { wanted != sent }
+    var pending: Bool { wanted != sent || desiredPreviewEdge != renderedPreviewEdge }
 
     /// A new service session: what it holds now, and which generation it is.
-    func reset(sessionID: String, params: FilmParams) -> Int {
+    func reset(sessionID: String, params: FilmParams, previewEdge: Int? = nil) -> Int {
         loop?.cancel(); loop = nil
         generation += 1
         onBusy?(false)
         self.sessionID = sessionID
         sent = params
         wanted = params
+        self.previewEdge = previewEdge
+        interactionEdge = previewEdge
+        renderedPreviewEdge = previewEdge
+        interacting = false
         return generation
     }
 
@@ -92,8 +133,7 @@ final class RenderScheduler {
     func request(_ params: FilmParams) {
         wanted = params
         lastRequestAt = .now
-        guard sessionID != nil else { return }
-        if loop == nil { loop = Task { await run() } }
+        startLoop()
     }
 
     /// A render the engine ran and the user will never see: a newer generation
@@ -128,9 +168,9 @@ final class RenderScheduler {
         defer { if gen == generation { loop = nil } }
         while !Task.isCancelled, gen == generation, let sid = sessionID {
             let (delta, layers) = wanted.delta(from: sent)
-            if delta.isEmpty { return }
+            if delta.isEmpty && desiredPreviewEdge == renderedPreviewEdge { return }
             let shoot = layers.contains(.shoot)
-            let window = shoot ? debounce.shoot : debounce.print
+            let window = interacting ? min(debounce.print, .milliseconds(16)) : (shoot ? debounce.shoot : debounce.print)
             // Only what is left of the window since the last edit: a lone
             // edit waits exactly the window, as it always did, and an edit
             // that was made while the previous render ran is sent at once.
@@ -151,7 +191,11 @@ final class RenderScheduler {
             }
             // Re-read after the debounce: the user kept dragging.
             let target = wanted
-            let (d2, l2) = target.delta(from: sent)
+            var (d2, l2) = target.delta(from: sent)
+            let targetEdge = desiredPreviewEdge
+            if targetEdge != renderedPreviewEdge, let targetEdge {
+                d2["preview_long_edge"] = .double(Double(targetEdge))
+            }
             if d2.isEmpty { continue }
             onBusy?(true)
             do {
@@ -167,10 +211,17 @@ final class RenderScheduler {
                 }
                 if gen == generation {
                     sent = target
-                    if target == wanted {
+                    renderedPreviewEdge = targetEdge
+                    let matchingSize = targetEdge == desiredPreviewEdge
+                    if (target == wanted || interacting) && matchingSize {
                         onResult?(r, gen)
                     } else {
                         noteSuperseded(r, issuedGeneration: gen, layers: l2)
+                    }
+                    // Adapt only when another edit is waiting, so a stationary
+                    // pointer cannot create an endless resize/render loop.
+                    if interacting, target != wanted, let edge = targetEdge, let ceiling = previewEdge {
+                        interactionEdge = max(interactionFloor, Self.nextInteractionEdge(edge, elapsedMs: r.response.elapsedMs, ceiling: ceiling))
                     }
                 } else {
                     noteSuperseded(r, issuedGeneration: gen, layers: l2)
@@ -180,6 +231,7 @@ final class RenderScheduler {
                     onError?(error)
                     // Do not spin on a failing delta: accept it as sent.
                     sent = target
+                    renderedPreviewEdge = targetEdge
                 }
             }
             if gen == generation { onBusy?(false) }

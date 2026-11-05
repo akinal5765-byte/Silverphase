@@ -1,4 +1,4 @@
-//  ScrubSlider.swift — the one slider. Label | track with a pill knob | value.
+//  ScrubSlider.swift — desktop parameter bars with hover ticks and animated values.
 //
 //  Built once and used everywhere. Drag anywhere on the track, ⌥ for ×0.25
 //  sensitivity, ⇧ snaps to `snap`, double-click resets to `zero`, and the
@@ -11,6 +11,17 @@ import SwiftUI
 /// editor's rails, which is what every caller but the export page wants; the
 /// export page's drawing has a narrower label column, a thinner track and a
 /// shorter row. The knob is not here because both drawings agree on it.
+private struct RulerInteractionKey: EnvironmentKey {
+    static let defaultValue: (@MainActor (Bool) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var rulerInteraction: (@MainActor (Bool) -> Void)? {
+        get { self[RulerInteractionKey.self] }
+        set { self[RulerInteractionKey.self] = newValue }
+    }
+}
+
 private struct RailSliderMetricsKey: EnvironmentKey { static let defaultValue = SliderMetrics() }
 
 extension EnvironmentValues {
@@ -72,7 +83,12 @@ struct ScrubSlider: View {
     /// is how every slider on the Parameters rail lands on one grid without
     /// each call site having to say so.
     var metrics: SliderMetrics? = nil
+    var ruler = true
+    var resolution = 0.01
+    var onInteraction: ((Bool) -> Void)? = nil
+    @Environment(\.rulerInteraction) private var inheritedInteraction
     var onCommit: () -> Void = {}
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.railSliderMetrics) private var railMetrics
     private var m: SliderMetrics { metrics ?? railMetrics }
 
@@ -86,6 +102,7 @@ struct ScrubSlider: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if ruler { photosRow } else {
             HStack(spacing: 0) {
                 Text(label)
                     .font(m.labelFont)
@@ -110,6 +127,7 @@ struct ScrubSlider: View {
             // below than a text line.
             .frame(height: Theme.Metric.gridControl)
             .frame(height: m.rowHeight, alignment: .top)
+            }
             // The second line is the drawing's own: "As Shot" and its box sit
             // **under the label**, not beside the value, so they line up with
             // the label column rather than floating in the middle of the row.
@@ -127,6 +145,67 @@ struct ScrubSlider: View {
             }
         }
         .rowEnabled(!disabled)
+    }
+
+    // Desktop bar: labels and numbers share a single shallow surface.
+    // Ticks are discoverable on hover; the baseline remains visible at rest.
+    private var photosRow: some View {
+        GeometryReader { geo in
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.Metric.parameterRowRadius).fill(Theme.Ink.secondary.opacity(0.13))
+                if let gradient = trackGradient {
+                    RoundedRectangle(cornerRadius: Theme.Metric.parameterRowRadius)
+                        .fill(LinearGradient(colors: gradient, startPoint: .leading, endPoint: .trailing))
+                        .opacity(0.3)
+                }
+                Canvas { context, size in
+                    let baseline = zeroFraction * size.width
+                    let position = fraction * size.width
+                    let active = hovered || dragStart != nil
+                    if dragStart != nil {
+                        let fill = CGRect(x: min(baseline, position), y: 0,
+                                          width: abs(position - baseline), height: size.height)
+                        context.fill(Path(fill), with: .color(Theme.accent.opacity(0.24)))
+                    }
+                    let pointer = CGRect(x: min(size.width - 2, max(0, position - 1.5)), y: 0, width: 3, height: size.height)
+                    context.fill(Path(pointer), with: .color(active ? Theme.accent : Theme.Ink.tertiary.opacity(0.6)))
+                    if active {
+                        for tick in ToolRulerScale.ticks(in: range, range: range, step: rulerStep, anchor: zero, keyMarks: []) {
+                            let x = (tick.value - range.lowerBound) / (range.upperBound - range.lowerBound) * size.width
+                            context.fill(Path(CGRect(x: x, y: 0, width: 0.6, height: tick.major ? 6 : 3)),
+                                         with: .color(Theme.Ink.secondary.opacity(tick.major ? 0.7 : 0.4)))
+                        }
+                    }
+                }
+                .allowsHitTesting(false)
+                HStack {
+                    Text(label).font(m.labelFont).foregroundStyle(Theme.Ink.secondary)
+                        .lineLimit(1).allowsHitTesting(false)
+                    Spacer(minLength: 6)
+                    valueField.frame(width: m.valueWidth + 12)
+                }.padding(.horizontal, Theme.Metric.parameterRowInset)
+                HStack(spacing: 0) {
+                    DesktopRulerInput(onChanged: { rulerDragged($0, width: geo.size.width) },
+                                      onEnded: rulerEnded, onReset: resetRuler, onStep: stepRuler,
+                                      onEditValue: beginValueEntry, valueEntryWidth: valueEntryWidth,
+                                      value: value, step: rulerStep, readValue: { value }, inputEnabled: !disabled)
+                    if editing {
+                        Color.clear.frame(width: valueEntryWidth).allowsHitTesting(false)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Metric.parameterRowRadius))
+            .onHover { hovered = $0 }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(label)
+            .accessibilityValue(format(value))
+            .accessibilityAdjustableAction { stepRuler($0 == .increment) }
+            .accessibilityAction(named: Text(T("Reset", "重置"))) { resetRuler() }
+            .accessibilityAction(named: Text(T("Edit Value", "输入数值"))) { beginValueEntry() }
+            .onDisappear { rulerEnded() }
+        }
+        .frame(height: max(Theme.Metric.parameterRowHeight, m.rowHeight))
+        .padding(.bottom, Theme.Metric.parameterRowGap)
     }
 
     private var fraction: CGFloat {
@@ -232,8 +311,64 @@ struct ScrubSlider: View {
         .frame(height: m.rowHeight)
     }
 
+    private var rulerStep: Double { snap == 0.5 ? ToolRulerScale.step(in: range) : snap }
+
+    private func interactionChanged(_ active: Bool) {
+        if let onInteraction { onInteraction(active) } else { inheritedInteraction?(active) }
+    }
+
+    private func rulerDragged(_ translation: Double, width: CGFloat? = nil) {
+        if dragStart == nil { dragStart = value; interactionChanged(true) }
+        let sensitivity = NSEvent.modifierFlags.contains(.option) ? 0.25 : 1.0
+        let delta = width.map { translation / max(Double($0), 1) * (range.upperBound - range.lowerBound) }
+            ?? (-translation / 12 * rulerStep)
+        var proposed = (dragStart ?? value) + delta * sensitivity
+        if NSEvent.modifierFlags.contains(.shift) { proposed = (proposed / snap).rounded() * snap }
+        let next = ToolRulerScale.quantized(proposed, in: range, resolution: resolution)
+        value = next
+    }
+
+    private func rulerEnded() {
+        guard dragStart != nil else { return }
+        dragStart = nil
+        interactionChanged(false); onCommit()
+    }
+
+    private func resetRuler() {
+        rulerEnded()
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) { value = zero }
+        onCommit()
+    }
+
+    private func stepRuler(_ forward: Bool) {
+        let increment = NSEvent.modifierFlags.contains(.shift) ? snap : resolution
+        value = ToolRulerScale.advanced(value, forward: forward, range: range, resolution: increment)
+        onCommit()
+    }
+
+    private var valueEntryWidth: CGFloat { m.valueWidth + 12 + Theme.Metric.parameterRowInset }
+
+    private func beginValueEntry() {
+        guard !disabled, !editing else { return }
+        text = format(value)
+        editing = true
+        focused = true
+    }
+
     private var valueField: some View {
-        Group {
+        // Keep the readout alive under the editor so committing a typed value
+        // can roll from the previous number rather than insert a new Text.
+        ZStack {
+                Text(format(value))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: (value * 1000).rounded()))
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: format(value))
+                    .font(m.valueFont)
+                    .foregroundStyle(Theme.text)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2, perform: beginValueEntry)
+                    .opacity(editing ? 0 : 1)
+                    .allowsHitTesting(!ruler && !editing)
             if editing {
                 TextField("", text: $text)
                     .textFieldStyle(.plain)
@@ -243,12 +378,6 @@ struct ScrubSlider: View {
                     .focused($focused)
                     .onSubmit { commitText() }
                     .onChange(of: focused) { _, f in if !f { commitText() } }
-            } else {
-                Text(format(value))
-                    .font(m.valueFont)
-                    .foregroundStyle(Theme.text)
-                    .contentShape(Rectangle())
-                    .onTapGesture { text = format(value); editing = true; focused = true }
             }
         }
         .lineLimit(1)
@@ -256,10 +385,11 @@ struct ScrubSlider: View {
         .frame(height: m.valueInPill ? Theme.Metric.gridControl : nil)
         // The value box is the same material as every pill and field; Camera's
         // rows show the number as plain text and so opt out of the surface.
-        .modifier(ValueBoxSurface(inPill: m.valueInPill, hovered: hovered, pressed: editing))
+        .modifier(ValueBoxSurface(inPill: m.valueInPill && !ruler, hovered: hovered, pressed: editing))
     }
 
     private func commitText() {
+        guard editing else { return }
         if let v = parse(text), v.isFinite {
             value = v.clamped(to: entryRange ?? range)
             onCommit()
@@ -381,5 +511,155 @@ struct ToggleRow: View {
         .frame(minHeight: sublabel.isEmpty ? nil : Theme.Metric.toggleRowHeight)
         .rowEnabled(enabled, because: reason)
         .modifier(DisabledReason(show: !help.isEmpty, reason: help))
+    }
+}
+
+// Shared scale and mark behaviour from the iOS ruler.
+
+
+enum ToolRulerScale {
+    static let spacing = 12.0
+
+    static func step(in range: ClosedRange<Double>) -> Double {
+        let raw = max(0.0001, (range.upperBound - range.lowerBound) / 40)
+        let scale = pow(10, floor(log10(raw)))
+        return ([1.0, 2, 2.5, 5, 10].first { $0 * scale >= raw - 1e-10 } ?? 10) * scale
+    }
+
+    /// Display ticks describe the scale, never the permitted parameter values.
+    /// Quantise only to the numeric label's precision; landmarks exert no pull.
+    static func quantized(_ value: Double, in range: ClosedRange<Double>, resolution: Double) -> Double {
+        let bounded = min(range.upperBound, max(range.lowerBound, value))
+        let rounded = (bounded / resolution).rounded() * resolution
+        return min(range.upperBound, max(range.lowerBound, rounded))
+    }
+    static func advanced(_ value: Double, forward: Bool, range: ClosedRange<Double>, resolution: Double) -> Double {
+        quantized(value + (forward ? resolution : -resolution), in: range, resolution: resolution)
+    }
+    static func majorStep(minor: Double) -> Double {
+        if abs(minor - 1.0 / 3) < 1e-8 { return 1 }
+        let raw = minor * 4
+        let scale = pow(10, floor(log10(raw)))
+        return ([1.0, 2, 5, 10].first { $0 * scale >= raw - 1e-10 } ?? 10) * scale
+    }
+    struct Tick { let value: Double; let major: Bool }
+    static func ticks(in visible: ClosedRange<Double>, range: ClosedRange<Double>, step: Double,
+                      anchor: Double, keyMarks: [Double]) -> [Tick] {
+        let marks = Array(Set(([range.lowerBound, range.upperBound, anchor] + keyMarks).filter { range.contains($0) }))
+        let first = Int(ceil(max(range.lowerBound, visible.lowerBound) / step - 1e-9))
+        let last = Int(floor(min(range.upperBound, visible.upperBound) / step + 1e-9))
+        let major = majorStep(minor: step)
+        var result: [Tick] = []
+        if first <= last {
+            for index in first...last {
+                let value = Double(index) * step
+                // Replace a nearby minor line with the exact default marker.
+                if marks.contains(where: { abs($0 - value) < step * 0.45 }) { continue }
+                result.append(Tick(value: value, major: abs(value / major - (value / major).rounded()) < 1e-7))
+            }
+        }
+        result += marks.filter { visible.contains($0) }.map { Tick(value: $0, major: true) }
+        return result.sorted { $0.value < $1.value }
+    }
+}
+
+/// Preserve the system pointer drag, including accessibility three-finger
+/// dragging. AppKit's default performer selects the current input device;
+/// never replace scrolling with a custom touch gesture.
+struct DesktopRulerInput: NSViewRepresentable {
+    var onChanged: (Double) -> Void
+    var onEnded: () -> Void
+    var onReset: () -> Void
+    var onStep: (Bool) -> Void
+    var onEditValue: () -> Void
+    var valueEntryWidth: CGFloat
+    var value: Double
+    var step: Double
+    var readValue: () -> Double
+    var inputEnabled = true
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeNSView(context: Context) -> InputView {
+        let view = InputView()
+        return view
+    }
+    func updateNSView(_ view: InputView, context: Context) {
+        view.change = onChanged; view.end = onEnded; view.reset = onReset
+        view.advance = onStep; view.value = value; view.step = step; view.readValue = readValue
+        view.editValue = onEditValue; view.valueEntryWidth = valueEntryWidth
+        view.inputEnabled = inputEnabled && isEnabled
+    }
+    static func dismantleNSView(_ view: InputView, coordinator: ()) { view.finish() }
+
+    final class InputView: NSView {
+        var change: (Double) -> Void = { _ in }
+        var end: () -> Void = {}
+        var reset: () -> Void = {}
+        var advance: (Bool) -> Void = { _ in }
+        var editValue: () -> Void = {}
+        var valueEntryWidth: CGFloat = 0
+        var inputEnabled = true
+        var value = 0.0
+        var step = 1.0
+        var readValue: () -> Double = { 0 }
+        private var mouseStart: CGFloat?
+        private var pendingDoubleClick: (() -> Void)?
+        private var lastTick: Int?
+        private var lastFeedback = -Double.infinity
+        override var acceptsFirstResponder: Bool { true }
+        override var focusRingType: NSFocusRingType { get { .none } set {} }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func mouseDown(with event: NSEvent) {
+            guard inputEnabled else { return }
+            finish()
+            window?.makeFirstResponder(self)
+            // Defer double-click actions until mouse-up so a drag can start
+            // anywhere on the ruler, including on a quick second press.
+            if event.clickCount == 2 {
+                let x = convert(event.locationInWindow, from: nil).x
+                pendingDoubleClick = x >= bounds.maxX - valueEntryWidth ? editValue : reset
+            }
+            mouseStart = event.locationInWindow.x
+            lastTick = Int((value / max(step, 1e-9)).rounded())
+        }
+        override func mouseDragged(with event: NSEvent) {
+            guard inputEnabled, let start = mouseStart else { finish(); return }
+            pendingDoubleClick = nil
+            change(Double(event.locationInWindow.x - start))
+            // Read the binding again after the synchronous parameter write;
+            // clamped endpoints must not keep ticking on overscroll.
+            let tick = Int((readValue() / max(step, 1e-9)).rounded())
+            if RulerFeedbackGate.shouldPerform(draggingSlider: true, previousTick: lastTick,
+                                               tick: tick, elapsed: event.timestamp - lastFeedback) {
+                NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                lastFeedback = event.timestamp
+            }
+            lastTick = tick
+        }
+        override func mouseUp(with event: NSEvent) {
+            let action = inputEnabled ? pendingDoubleClick : nil
+            finish()
+            action?()
+        }
+        override func keyDown(with event: NSEvent) {
+            guard inputEnabled else { return }
+            if event.keyCode == 123 || event.keyCode == 124 { advance(event.keyCode == 124) }
+            else { super.keyDown(with: event) }
+        }
+        // Wheel events remain in the standard responder chain.
+        override func scrollWheel(with event: NSEvent) { super.scrollWheel(with: event) }
+        func finish() {
+            let wasActive = mouseStart != nil
+            mouseStart = nil; lastTick = nil; pendingDoubleClick = nil
+            if wasActive { end() }
+        }
+    }
+}
+
+enum RulerFeedbackGate {
+    static func shouldPerform(draggingSlider: Bool, previousTick: Int?, tick: Int, elapsed: Double) -> Bool {
+        draggingSlider && previousTick != nil
+            && previousTick != tick && elapsed >= 0.04
     }
 }

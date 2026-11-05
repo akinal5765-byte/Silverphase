@@ -303,6 +303,10 @@ struct CameraParams {
     double filter_ir[3] = {0.0, 675.0, 15.0};
     DiffusionFilterParams diffusion_filter;
     SceneLatitudeParams scene_latitude;
+    double tone_highlights = 0.0;
+    double tone_shadows = 0.0;
+    double tone_whites = 0.0;
+    double tone_blacks = 0.0;
 };
 
 struct EnlargerParams {

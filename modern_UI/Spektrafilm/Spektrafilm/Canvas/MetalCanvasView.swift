@@ -56,9 +56,13 @@ protocol CanvasHost: AnyObject {
     func hovered(normalised: CGPoint?)
     func stepFrame(_ delta: Int)
     func rateFrame(_ rating: Int)
+    func togglePanels()
 }
 
-extension CanvasHost { func rateFrame(_ rating: Int) {} }
+extension CanvasHost {
+    func rateFrame(_ rating: Int) {}
+    func togglePanels() {}
+}
 
 /// The view is its own `MTKViewDelegate`. A separate coordinator object has
 /// to be owned by something — `MTKView.delegate` is weak — and getting that
@@ -97,7 +101,7 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
     private var cropDrag: CropDrag?
 
     private var trackingArea: NSTrackingArea?
-    private var ratingKeyMonitor: Any?
+    private var canvasKeyMonitor: Any?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -106,15 +110,22 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if let ratingKeyMonitor { NSEvent.removeMonitor(ratingKeyMonitor); self.ratingKeyMonitor = nil }
+        if let canvasKeyMonitor { NSEvent.removeMonitor(canvasKeyMonitor); self.canvasKeyMonitor = nil }
         if window != nil {
-            ratingKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            canvasKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 guard let self, let window = self.window, event.window === window,
-                      let rating = Self.photoRatingShortcut(event, firstResponder: window.firstResponder,
-                                                          hasSheet: window.attachedSheet != nil),
                       let host = self.host else { return event }
-                host.rateFrame(rating)
-                return nil
+                if Self.isPanelToggleShortcut(event, firstResponder: window.firstResponder,
+                                              hasSheet: window.attachedSheet != nil) {
+                    if !event.isARepeat { host.togglePanels() }
+                    return nil
+                }
+                if let rating = Self.photoRatingShortcut(event, firstResponder: window.firstResponder,
+                                                         hasSheet: window.attachedSheet != nil) {
+                    host.rateFrame(rating)
+                    return nil
+                }
+                return event
             }
         }
         syncViewport()
@@ -678,6 +689,12 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
 
     // MARK: keys
 
+    static func isPanelToggleShortcut(_ event: NSEvent, firstResponder: NSResponder?, hasSheet: Bool) -> Bool {
+        event.keyCode == 48 && !hasSheet && !(firstResponder is NSText)
+            && !(firstResponder is NSTextField)
+            && event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty
+    }
+
     static func photoRatingShortcut(_ event: NSEvent, firstResponder: NSResponder?, hasSheet: Bool) -> Int? {
         guard !hasSheet, !(firstResponder is NSTextView), !(firstResponder is NSTextField),
               event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return nil }
@@ -691,7 +708,7 @@ final class CanvasNSView: MTKView, MTKViewDelegate {
         case 123: host.stepFrame(-1)                                     // ←
         case 124: host.stepFrame(1)                                      // →
         case 6 where !e.modifierFlags.contains(.command) && host.tool != .crop:  // z
-            renderer.viewport.toggleHundred(about: CGPoint(x: bounds.midX, y: bounds.midY))
+            renderer.viewport.toggleHundred(about: renderer.viewport.visibleCentre)
             host.viewportChanged(); scheduleDraw()
         // Return commits the crop, Esc abandons it — every crop tool in every
         // editor, and the pair of keys a photographer's hands already know.

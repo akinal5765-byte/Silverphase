@@ -139,11 +139,11 @@ struct ExportPage: View {
     /// window's own.
     private var labelColumn: CGFloat { M.labelWidth }
     /// A table row's line box.
-    private var bodyRowHeight: CGFloat { Theme.Metric.modernRowHeight }
+    private var bodyRowHeight: CGFloat { Theme.Metric.parameterRowHeight }
     /// Between two rows of one table.
     private var bodyRowSpacing: CGFloat { Theme.Metric.modernRowSpacing }
     /// A control's own height: a field, a pill, a chip.
-    private var bodyControlHeight: CGFloat { Theme.Metric.modernControlHeight }
+    private var bodyControlHeight: CGFloat { Theme.Metric.parameterRowHeight }
 
     /// **Zero, on every surface.** `modernContentInset` (20) is the one
     /// horizontal inset this panel has, and anything added to it is added
@@ -665,9 +665,7 @@ struct ExportPage: View {
                           menu: { AnyView(recipeManagementActions) })
             Menu {
                 ForEach(store.recipes) { item in
-                    Button {
-                        store.selectedID = item.id
-                    } label: {
+                    Button { store.selectedID = item.id } label: {
                         if item.id == store.selected?.id {
                             Label(item.name, systemImage: "checkmark")
                         } else {
@@ -676,19 +674,7 @@ struct ExportPage: View {
                     }
                 }
             } label: {
-                HStack(spacing: Theme.Metric.space8) {
-                    Text(store.selected?.name ?? T("Choose a Recipe", "选择配方"))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: Theme.Metric.recipeMenuGlyph, weight: .semibold))
-                }
-                .font(bodyLabel)
-                .foregroundStyle(Theme.text)
-                .padding(.horizontal, PillFieldGeometry.textInset)
-                .frame(height: bodyControlHeight)
-                .pillSurface(base: Theme.pill)
-                .contentShape(Rectangle())
+                ParameterMenuFace(title: store.selected?.name ?? T("Choose a Recipe", "选择配方"), font: bodyLabel) { EmptyView() }
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -768,7 +754,7 @@ struct ExportPage: View {
                     // column, a control that fills what is left, and one line
                     // box. `PillField` and the field take `.frame(maxWidth:
                     // .infinity)` for the same reason `PillMenu` already did.
-                    row(T("Folder", "文件夹")) {
+                    row(T("Folder", "文件夹"), isMenu: true) {
                         PillField(title: folderLabel(recipe.wrappedValue.folder), font: bodyLabel,
                                   help: folderHelp) {
                             Button(T("Beside the original", "与原片同目录")) {
@@ -798,13 +784,13 @@ struct ExportPage: View {
                         .padding(.horizontal, PillFieldGeometry.textInset)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(height: bodyControlHeight)
-                        .pillSurface(base: Theme.pill)
+                        .modifier(ExportParameterSurface())
                     }
                     // `PillField`, the same shape as the Folder row: the
                     // label is the row's, so the control is only the pill.
                     // `PillMenu` carries its own label column and would have
                     // drawn a second one.
-                    row(T("Existing File", "同名文件")) {
+                    row(T("Existing File", "同名文件"), isMenu: true) {
                         // `PillMenu` with a zero label column: the row above
                         // owns the label, and the pill has to be the same shape
                         // as the Folder row's — which is why this is neither a
@@ -911,7 +897,7 @@ struct ExportPage: View {
         PanelSection(T("Naming", "命名"), key: "exportNaming") {
             Well(padding: wellPadding, vertical: wellVertical, inset: wellInset, fill: false) {
                 VStack(alignment: .leading, spacing: bodyRowSpacing) {
-                    row(T("Format", "格式")) { tokenRow }
+                    row(T("Format", "格式"), surface: false) { tokenRow }
                     resolvedNameRow
                 }
             }
@@ -1015,7 +1001,7 @@ struct ExportPage: View {
                     // The depth therefore lives in the item's own title, where
                     // it is read as part of the choice rather than as a
                     // separate control that sometimes cannot be changed.
-                    row(T("Format", "格式")) {
+                    row(T("Format", "格式"), isMenu: true) {
                         PillMenu(label: "", options: ExportFormat.allCases,
                                  title: { "\($0.shortLabel) · \($0.bitDepth) bit" },
                                  selection: recipe.format,
@@ -1035,7 +1021,7 @@ struct ExportPage: View {
                         // card truncates the long ones. The tooltip carries
                         // the whole of it, so a truncated name costs a hover
                         // rather than the information.
-                        row(T("Color Space", "色彩空间")) {
+                        row(T("Color Space", "色彩空间"), isMenu: true) {
                             PillMenu(label: "", options: ColorSpaceCatalog.all.map(\.space),
                                      title: { ColorSpaceCatalog.name(for: $0) ?? T("Unknown profile", "未知配置文件") },
                                      selection: recipe.colorSpace,
@@ -1130,10 +1116,7 @@ struct ExportPage: View {
             // `spacing: 0` to align the label also glued the pill to the number
             // beside it — one gap was doing two jobs, and only one of them was
             // the label's.
-            HStack(spacing: 0) {
-                Text(T("Size", "尺寸")).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
-                    .lineLimit(1)
-                    .frame(width: labelColumn, alignment: .leading)
+            row(T("Size", "尺寸"), isMenu: true) {
                 HStack(spacing: Theme.Metric.space8) {
                     PillField(title: sizeModeLabel, font: bodyLabel,
                               help: T("Original keeps each frame's own pixels. Long edge resamples every frame so its longer side is the number you set, whichever way round the frame is.",
@@ -1151,8 +1134,6 @@ struct ExportPage: View {
                 // hugged its contents and the gap came out twice the grid's.
                 .frame(maxWidth: .infinity)
             }
-            .frame(height: Theme.Metric.gridControl)
-            .frame(height: bodyRowHeight, alignment: .top)
             Text(resultingSizeLine)
                 .font(bodyValue).foregroundStyle(Theme.Ink.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1233,8 +1214,8 @@ struct ExportPage: View {
             // the shape says what the control *is* — a capsule is something
             // you choose from and a rectangle is something you type into. It
             // was also 22 pt tall against the pills' 16, and a hard 62 pt wide.
-            .frame(width: Theme.Metric.fieldWidth, height: Theme.Metric.gridControl)
-            .controlSurface()
+            .frame(width: Theme.Metric.fieldWidth, height: Theme.Metric.parameterRowHeight)
+            .modifier(ExportParameterSurface())
             .onSubmit { store.save() }
             .help(T("Pixels on the longer side, \(OutputSize.bounds.lowerBound)–\(longEdgeCeiling). Frames are never enlarged.",
                     "长边像素数：\(OutputSize.bounds.lowerBound)–\(longEdgeCeiling)。照片不会被放大。"))
@@ -1286,17 +1267,13 @@ struct ExportPage: View {
     /// them invisible until opened. This is the explicit one and the other two
     /// are gone.
     private var openWithRow: some View {
-        HStack(spacing: 0) {
-            Text(T("Open With", "打开方式")).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
-                .frame(width: labelColumn, alignment: .leading)
+        row(T("Open With", "打开方式"), isMenu: true) {
             PillField(title: recipe.wrappedValue.openWith?.name ?? T("None", "无"), font: bodyLabel,
                       help: T("Hand the finished files to this application when the export ends.",
                               "导出完成后用此应用打开生成的文件。")) {
                 openWithItems
             }
         }
-        .frame(height: Theme.Metric.gridControl)
-        .frame(height: bodyRowHeight, alignment: .top)
     }
 
     @ViewBuilder private var openWithItems: some View {
@@ -1802,25 +1779,26 @@ struct ExportPage: View {
     /// well while every neighbouring row's label is at the column. It filled
     /// by accident before, because every control in a row happened to want all
     /// the width it could get.
-    private func row<C: View>(_ label: String, @ViewBuilder _ content: () -> C) -> some View {
+    private func row<C: View>(_ label: String, isMenu: Bool = false, surface: Bool = true, @ViewBuilder _ content: () -> C) -> some View {
         HStack(spacing: 0) {
-            // `Ink.secondary`, as every label in the editor is: a label is the
-            // thing being asked and the control beside it is the thing being
-            // said. Drawn in `Theme.text` they were the same weight, the same
-            // size and the same colour as the values, which is the "everything
-            // competing, nothing leading" the rails were rebuilt to fix — and
-            // this page had stayed behind. `PillMenu`'s own rows were already
-            // secondary, so the well did not even agree with itself.
-            Text(label).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
-                .lineLimit(1)
-                .frame(width: labelColumn, alignment: .leading)
+            if !isMenu {
+                Text(label).font(bodyLabel).foregroundStyle(Theme.Ink.secondary)
+                    .lineLimit(1)
+                    .frame(width: labelColumn, alignment: .leading)
+            }
             content()
-            Spacer(minLength: 0)
+            if !isMenu { Spacer(minLength: 0) }
         }
+        .padding(.leading, surface && !isMenu ? Theme.Metric.parameterRowInset : 0)
+        .padding(.trailing, surface && !isMenu ? Theme.Metric.parameterRowInset : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // The ink band, then the row box — see `ScrubSlider` for why both.
-        .frame(height: Theme.Metric.gridControl)
-        .frame(height: bodyRowHeight, alignment: .top)
+        .frame(height: Theme.Metric.parameterRowHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.Metric.parameterRowRadius)
+            .fill(surface ? (isMenu ? Theme.pill.opacity(0.8) : Theme.Ink.secondary.opacity(0.13)) : Color.clear))
+        .environment(\.embeddedParameterRow, true)
+        .environment(\.parameterRowLabel, isMenu ? label : nil)
+        .environment(\.parameterRowLabelWidth, isMenu ? labelColumn : nil)
+        .padding(.bottom, Theme.Metric.parameterRowGap)
     }
 
     /// One item of the Existing File menu. The check mark is the mark the
@@ -2189,9 +2167,17 @@ enum PillFieldGeometry {
     /// other's 10 and a 13.9 pt height against its 16 put every `PillField`
     /// row 5 pt right, 2 pt shorter and 4 pt narrower than every `PillMenu`
     /// row — the user's "大大小小" in one section.
-    static let textInset: CGFloat = PillGeometry.textInset
+    static let textInset: CGFloat = Theme.Metric.parameterRowInset
     static let chevronInset: CGFloat = PillGeometry.chevronInset
     static let chevron = PillGeometry.chevron
+}
+
+private struct ExportParameterSurface: ViewModifier {
+    @Environment(\.embeddedParameterRow) private var embedded
+    func body(content: Content) -> some View {
+        content.background(RoundedRectangle(cornerRadius: Theme.Metric.parameterRowRadius)
+            .fill(embedded ? Color.clear : Theme.pill.opacity(0.8)))
+    }
 }
 
 private struct PillField<MenuContent: View>: View {
@@ -2207,25 +2193,7 @@ private struct PillField<MenuContent: View>: View {
 
     var body: some View {
         Menu { menu() } label: {
-            HStack {
-                Text(title).font(font)
-                    .foregroundStyle(dimmed ? Theme.dim : Theme.text)
-                    .padding(.leading, PillFieldGeometry.textInset)
-                Spacer(minLength: 4)
-                // `PillMenu`'s mark, not SF Symbols' double chevron. One
-                // glyph for "there is more under this", everywhere — the two
-                // pills sat in the same row wearing different ones.
-                Triangle()
-                    .stroke(dimmed ? Theme.dim : Theme.text,
-                            style: StrokeStyle(lineWidth: 1, lineJoin: .round))
-                    .frame(width: PillFieldGeometry.chevron.width,
-                           height: PillFieldGeometry.chevron.height)
-                    .padding(.trailing, PillFieldGeometry.chevronInset)
-            }
-            .frame(height: Theme.Metric.gridControl)
-            .frame(maxWidth: .infinity)
-            .controlSurface()
-            .contentShape(RoundedRectangle(cornerRadius: Theme.Metric.modernControlRadius))
+            ParameterMenuFace(title: title, font: font, dimmed: dimmed) { EmptyView() }
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
         .rowEnabled(!dimmed, because: dimmed ? (help ?? "") : "")

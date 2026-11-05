@@ -145,10 +145,23 @@ final class Session: CanvasHost {
               scheduleSave() }
     }
     var decode: DecodeSettings {
-        get { sidecar.decode }
-        set { guard newValue != sidecar.decode else { return }
-              pushUndo()
-              sidecar.decode = newValue; scheduleSave(); scheduleReopen() }
+        get { interactiveDecodeWanted ?? sidecar.decode }
+        set {
+            guard newValue != decode else { return }
+            // Re-decode an existing print as a print, including a restored
+            // cached print whose engine session has not been opened yet.
+            if serviceSessionID != nil || selection.flatMap({ renderer.store.print(for: $0) }) != nil {
+                wantsDevelop = true
+            }
+            pushUndo()
+            if parameterInteractionActive || interactiveDecodeTask != nil {
+                interactiveDecodeWanted = newValue
+                scheduleSave()
+                startInteractiveDecode()
+            } else {
+                sidecar.decode = newValue; scheduleSave(); scheduleReopen()
+            }
+        }
     }
     /// Crop, straighten, quarter turns and flips. Every mutation goes
     /// through `Geometry`'s own fitted-by-construction methods, so nothing
@@ -366,9 +379,11 @@ final class Session: CanvasHost {
     var inspectorStage: InspectorStage = .camera
     /// The right-hand Film stage is the material-selection mode: the bottom
     /// slot becomes the film and paper chooser instead of the navigator.
-    var showsBottomStrip: Bool { !frames.isEmpty }
+    var panelsHidden = false
+    func togglePanels() { panelsHidden.toggle() }
+    var showsBottomStrip: Bool { !panelsHidden && !frames.isEmpty }
     var bottomChromeOcclusion: CGFloat {
-        showsBottomStrip ? Theme.Metric.modernBottomStripHeight + Theme.Metric.modernSurfaceGutter : 0
+        showsBottomStrip && !filmstripCollapsed ? Theme.Metric.modernBottomStripHeight + Theme.Metric.modernSurfaceGutter : 0
     }
 
     var modernFilmChooserActive: Bool {
@@ -388,18 +403,21 @@ final class Session: CanvasHost {
     func selectInspectorStage(_ stage: InspectorStage) {
         let wasExporting = showExport
         showExport = false
-        if !wasExporting && !rightCollapsed && inspectorStage == stage {
+        if !panelsHidden && !wasExporting && !rightCollapsed && inspectorStage == stage {
             rightCollapsed = true
         } else {
-            inspectorStage = stage
-            // A stage is a destination, not a disclosure group. An older
-            // all-sections inspector may have saved this group as folded;
-            // opening a stage must reveal its controls rather than a blank
-            // panel with only a repeated section title.
-            let key = stage == .geometry ? "crop" : stage.rawValue
-            UserDefaults.standard.set(true, forKey: Session.uiKey + "section." + key)
-            rightCollapsed = false
+            panelsHidden = false
+            revealInspectorStage(stage)
         }
+    }
+
+    private func revealInspectorStage(_ stage: InspectorStage) {
+        inspectorStage = stage
+        // A stage is a destination. Restore its controls if the group was
+        // saved as folded by an older inspector layout.
+        let key = stage == .geometry ? "crop" : stage.rawValue
+        UserDefaults.standard.set(true, forKey: Session.uiKey + "section." + key)
+        rightCollapsed = false
     }
     var topCollapsed = UserDefaults.standard.bool(forKey: Session.uiKey + "topCollapsed") { didSet { UserDefaults.standard.set(topCollapsed, forKey: Session.uiKey + "topCollapsed") } }
     var filmstripCollapsed = UserDefaults.standard.bool(forKey: Session.uiKey + "filmstripCollapsed") { didSet { UserDefaults.standard.set(filmstripCollapsed, forKey: Session.uiKey + "filmstripCollapsed") } }
@@ -870,18 +888,8 @@ final class Session: CanvasHost {
         guard clamped != previewLongEdge else { return }
         previewLongEdge = clamped
         UserDefaults.standard.set(clamped, forKey: Session.previewEdgeKey)
-        guard let sid = serviceSessionID, selection != nil else { return }
-        Task { [weak self] in
-            guard let self else { return }
-            _ = try? await self.client.call(.setParams,
-                SetParamsRequest(sessionID: sid,
-                                 paramsDelta: ["preview_long_edge": .double(Double(clamped))]),
-                as: SetParamsResponse.self)
-            guard self.serviceSessionID == sid, self.selection != nil else { return }
-            if let rr = try? await self.client.render(.reprint, RenderRequest(sessionID: sid)) {
-                self.applyRender(rr, generation: self.serviceGeneration)
-            }
-        }
+        guard serviceSessionID != nil, selection != nil else { return }
+        scheduler.setPreviewEdge(clamped)
     }
 
     /// The native render in flight, and whether the canvas is waiting on one.
@@ -958,7 +966,7 @@ final class Session: CanvasHost {
     /// Approximate engine session footprint for a 45 MP frame (PRD/IMPL-RFC-019-memory.md §3.2);
     /// this is an accounting estimate, not a live measurement.
     private static let engineArenaEstimateBytes = 1_200_000_000
-    var serviceSessionIDForExport: String? { serviceSessionID }
+    var serviceSessionIDForExport: String? { interactiveDecodeWanted == nil && decoded?.rawPreviewEdge == nil ? serviceSessionID : nil }
     private var serviceGeneration = 0
 
     // MARK: the develop, on request
@@ -1380,6 +1388,8 @@ final class Session: CanvasHost {
         // The **first** frame of this open gets the negative-to-positive
         // moment; every later one develops the ordinary way. Armed here and
         // consumed by the first print that lands (see `ceremonyArmed`).
+        showExport = false
+        revealInspectorStage(.camera)
         ceremonyArmed = true
         click(new[0].id)
     }
@@ -1391,6 +1401,8 @@ final class Session: CanvasHost {
     /// where it went, because it is also what `remove(_:)` calls when the
     /// open frame is the one dropped.
     private func unloadSelection() {
+        flushSave()
+        cancelInteractiveDecode()
         restoredPrintTask?.cancel(); restoredPrintTask = nil
         exifTask?.cancel(); exifTask = nil
         exifGeneration &+= 1
@@ -1568,6 +1580,7 @@ final class Session: CanvasHost {
         let exifToken = exifGeneration
         restoredPrintTask?.cancel(); restoredPrintTask = nil
         flushSave()
+        cancelInteractiveDecode()
         renderer.store.dropIdleScratch()
         if let leaving = selection, leaving != url {
             enqueuePrintWriteback(for: leaving)
@@ -1800,6 +1813,7 @@ final class Session: CanvasHost {
     }
 
     private func requestNativeOriginal(trigger: String) {
+        guard decoded?.rawPreviewEdge == nil else { return }
         guard let url = selection else { return }
         guard let d = decoded else {
             Task {
@@ -2118,7 +2132,7 @@ final class Session: CanvasHost {
         return nil
     }
 
-    private func load(_ url: URL, generation: Int, requiresDecode: Bool = false) async {
+    private func load(_ url: URL, generation: Int, requiresDecode: Bool = false, rawPreviewEdge: Int? = nil) async {
         status = requiresDecode ? "Decoding \(url.lastPathComponent)…"
                                 : "Opening \(url.lastPathComponent)…"
         // Kept on the session as well as in this scope: a develop asked for
@@ -2193,10 +2207,10 @@ final class Session: CanvasHost {
         decodeCount += 1
         if FeatureFlags.framePipeline {
             decodedImage = try? await pipeline.run(generation: generation) { checkpoint in
-                try ImageDecoder.decode(url, settings: settings, checkpoint: checkpoint)
+                try ImageDecoder.decode(url, settings: settings, rawPreviewEdge: rawPreviewEdge, checkpoint: checkpoint)
             }
         } else {
-            decodedImage = try? ImageDecoder.decode(url, settings: settings)
+            decodedImage = try? ImageDecoder.decode(url, settings: settings, rawPreviewEdge: rawPreviewEdge)
         }
         clock.lap("decode")
         guard !Task.isCancelled, selection == url, let d = decodedImage else {
@@ -2243,7 +2257,7 @@ final class Session: CanvasHost {
         // load: the decode it checks for is already resident. The tail below
         // comes back through it and joins this same `developTask`.
         if wantsDevelop, serviceSessionID == nil, developTask == nil {
-            Task { [weak self] in _ = await self?.ensureDeveloped(clock: clock) }
+            Task { [weak self] in _ = await self?.ensureDeveloped(clock: clock, joiningInteractiveDecode: true) }
         }
         let lease = DecodeLease(d)
         let preview: TextureBox
@@ -2281,7 +2295,7 @@ final class Session: CanvasHost {
             // print may already be up — `applyRender` has settled
             // `previewSoft` for it then, and this must not undo that.
             if renderer.store.print(for: url) == nil { previewSoft = true }
-            if diskCache != nil {
+            if diskCache != nil, d.rawPreviewEdge == nil {
                 let readbackStarted = Date()
                 let cacheKey = Self.displayCacheKey(
                     url: url,
@@ -2329,7 +2343,7 @@ final class Session: CanvasHost {
         // Handed the clock so the develop continues the same line: the decode
         // and the preview it lapped are the first half of *this* open, and a
         // summary that starts at `frame` would hide them.
-        await ensureDeveloped(clock: clock)
+        await ensureDeveloped(clock: clock, joiningInteractiveDecode: true)
     }
 
     /// The develop: the *linear* decode rendered for the engine, the engine's
@@ -2349,8 +2363,10 @@ final class Session: CanvasHost {
     /// first operation that needs scene-linear pixels — develop, white-balance
     /// sampling, neutral picking, export — comes through here and turns the
     /// preview-only landing into a real decode.
-    func ensureDecoded() async -> DecodedImage? {
+    func ensureDecoded(waitForInteractiveDecode: Bool = true) async -> DecodedImage? {
         guard let url = selection else { return nil }
+        if waitForInteractiveDecode { await settleInteractiveDecode() }
+        guard selection == url else { return nil }
 
         while true {
             if !decodeIsStale, decodeResidency.key?.url == url, let image = decoded {
@@ -2387,7 +2403,10 @@ final class Session: CanvasHost {
     /// starting another. Returns the engine's session id, or nil if the frame
     /// did not land.
     @discardableResult
-    func ensureDeveloped(clock: LoadClock = LoadClock()) async -> String? {
+    func ensureDeveloped(clock: LoadClock = LoadClock(), joiningInteractiveDecode: Bool = false) async -> String? {
+        let requestedURL = selection
+        if !joiningInteractiveDecode { await settleInteractiveDecode() }
+        guard selection == requestedURL else { return nil }
         // `load` is what produces a decodable frame, so waiting for it is what
         // makes Solve during an open mean the same thing as Solve a moment
         // later. It is a no-op once the frame is on the canvas, and `load`'s
@@ -2407,9 +2426,12 @@ final class Session: CanvasHost {
         // waits for that one instead. It terminates because a load is only
         // superseded by a newer load — which this then waits on — and every
         // iteration awaits a task that is already cancelled or will finish.
-        guard await ensureDecoded() != nil else { return nil }
-        if let sid = serviceSessionID { return sid }
+        guard await ensureDecoded(waitForInteractiveDecode: false) != nil else { return nil }
+        // An engine handle exists before its first print does. Join the
+        // in-flight develop before returning that handle, or a serial RAW
+        // update can cancel a frame which has never reached the canvas.
         if let task = developTask { return await task.value }
+        if let sid = serviceSessionID { return sid }
         guard let url = selection, let d = decoded else { return nil }
         // The open's clock when there is one (see `openClock`): a develop
         // joining an open in flight continues that path's record.
@@ -2417,7 +2439,7 @@ final class Session: CanvasHost {
         let task = Task { [weak self] in await self?.develop(url, d, clock: clock) }
         developTask = task
         let sid = await task.value
-        developTask = nil
+        if developTask == task { developTask = nil }
         return sid
     }
 
@@ -2492,6 +2514,7 @@ final class Session: CanvasHost {
             resolveFilmPresentation(&resolved)
             sidecar.params = resolved
             var opened = sidecar.params
+            let openedPreviewEdge: Int
             do {
                 // Its own scope, so the 727 MB buffer is gone before the solve
                 // and the first render run — at -Onone too, where a value is
@@ -2508,14 +2531,15 @@ final class Session: CanvasHost {
                         prepared.sceneLatitude = result.first ?? SceneLatitudeSettings()
                         prepared.pairSceneLatitude = result.second
                     }
-                    return (frame: try ImageDecoder.engineFrame(from: image, device: device), params: prepared)
+                    return (frame: try ImageDecoder.engineFrame(from: image, device: device, maxEdge: d.rawPreviewEdge), params: prepared)
 
                 }.value
                 clock.lap("frame")
                 guard selection == url, !Task.isCancelled else { return nil }
                 if pair != nil { sidecar.params.sceneLatitude = frame.params.sceneLatitude; sidecar.params.pairSceneLatitude = frame.params.pairSceneLatitude }
                 opened = sidecar.params
-                let delta = Self.openDelta(sidecar: sidecar, previewLongEdge: previewLongEdge)
+                openedPreviewEdge = previewLongEdge
+                let delta = Self.openDelta(sidecar: sidecar, previewLongEdge: openedPreviewEdge)
                 afterOpenDeltaForTesting?()
                 r = try await client.open(frame.frame, paramsDelta: delta)
             }
@@ -2543,7 +2567,7 @@ final class Session: CanvasHost {
             // app can find out which one it got.
             noteWorkingSpace(r.params["output_color_space"]?.stringValue
                              ?? Self.defaultWorkingSpace)
-            serviceGeneration = scheduler.reset(sessionID: r.sessionID, params: opened)
+            serviceGeneration = scheduler.reset(sessionID: r.sessionID, params: opened, previewEdge: openedPreviewEdge)
             // What the engine's own auto-exposure chose for this frame. The
             // Exp. Comp. slider is an offset from it, so the UI has to know
             // the baseline to show it (HANDOFF §4). `solve(target:"exposure")`
@@ -2567,8 +2591,14 @@ final class Session: CanvasHost {
                       + (warmUpMs.map { "  ·  warm_up \(Int($0)) ms" } ?? "")
                       + "  ·  core=\(renderCore ?? "?")"
                       + (backend?.sessionCache.map { "  ·  \($0.summary)" } ?? ""))
-            guard selection == url else { return nil }
+            guard selection == url, !Task.isCancelled else { return nil }
             applyRender(rr, generation: serviceGeneration)
+            if previewLongEdge != openedPreviewEdge { scheduler.setPreviewEdge(previewLongEdge) }
+            if parameterInteractionActive {
+                let viewport = renderer.viewport
+                let fit = max(viewport.image.width, viewport.image.height) * viewport.fitScale * viewport.backingScale
+                scheduler.setInteraction(true, pixelLongEdge: Double(fit), elapsedMs: lastRenderMs)
+            }
             noteOpen(clock, url: url, mode: "develop",
                      pixels: CGSize(width: r.meta.width, height: r.meta.height))
             // What the status line names is the working space and the space on
@@ -2642,11 +2672,11 @@ final class Session: CanvasHost {
         // decides whether it is a memory boundary (§3).
         let firstPrint = renderer.store.print(for: url) == nil
         let sourceSize = decoded?.pixelSize
-        let printKey = Self.printCacheKey(
+        let printKey: CacheKey? = decoded?.rawPreviewEdge == nil ? Self.printCacheKey(
             url: url, params: scheduler.sent, decode: sidecar.decode, tier: .live,
-            previewLongEdge: previewLongEdge,
+            previewLongEdge: renderedPreviewEdge,
             engineVersion: diagnostics.engineVersion ?? "unknown"
-        )
+        ) : nil
         renderer.store.setPrint(
             tex, stamp: Self.printStamp(scheduler.sent), for: url,
             costMs: r.elapsedMs + (openClock?.setupMs ?? 0),
@@ -2656,7 +2686,7 @@ final class Session: CanvasHost {
         )
         // The frame's own size, and only when it is known: passing nil leaves
         // whatever the decode established (D4).
-        renderer.setLive(tex, logical: filmCanvasLogicalSize(tex))
+        renderer.setLive(tex, logical: filmCanvasLogicalSize(tex, previewEdge: renderedPreviewEdge))
         // This print is at the **preview resolution**. For a frame bigger than
         // that it is interpolated at 100 %, so it is not the finished picture
         // yet — the native render that follows is, and this flag is what says
@@ -2838,65 +2868,132 @@ final class Session: CanvasHost {
 
     func reloadFilmPresentation() { scheduleReopen() }
 
+    private var forceFullInteractiveDecode = false
+    private var interactiveDecodeWanted: DecodeSettings?
+    private var interactiveDecodeTask: Task<Void, Never>?
+    private var interactiveDecodeToken = UUID()
+
+    private var editSnapshot: Sidecar {
+        var result = sidecar
+        if let wanted = interactiveDecodeWanted { result.decode = wanted }
+        return result
+    }
+
+    private func settleInteractiveDecode() async {
+        if decoded?.rawPreviewEdge != nil || interactiveDecodeTask != nil {
+            forceFullInteractiveDecode = true
+            interactiveDecodeWanted = interactiveDecodeWanted ?? sidecar.decode
+            startInteractiveDecode()
+            await interactiveDecodeTask?.value
+        }
+    }
+
+    private func cancelInteractiveDecode() {
+        if interactiveDecodeTask != nil {
+            loadTask?.cancel()
+            developTask?.cancel(); developTask = nil
+        }
+        interactiveDecodeTask?.cancel()
+        interactiveDecodeTask = nil
+        interactiveDecodeWanted = nil
+        forceFullInteractiveDecode = false
+        interactiveDecodeToken = UUID()
+    }
+
+    private func startInteractiveDecode() {
+        guard interactiveDecodeTask == nil, let url = selection else { return }
+        reopenTask?.cancel(); reopenTask = nil
+        let token = UUID()
+        interactiveDecodeToken = token
+        interactiveDecodeTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if interactiveDecodeToken == token { interactiveDecodeTask = nil } }
+            // One decode/develop at a time. Keep its decode settings pinned
+            // until completion so buffers and cache keys describe the same
+            // image; the numeric UI and persistence expose the newest request.
+            while !Task.isCancelled, interactiveDecodeToken == token, selection == url,
+                  let target = interactiveDecodeWanted {
+                sidecar.decode = target
+                let previewEdge = parameterInteractionActive && !forceFullInteractiveDecode ? previewLongEdge : nil
+                await reopenSelectedFrame(url, rawPreviewEdge: previewEdge)
+                guard !Task.isCancelled, interactiveDecodeToken == token, selection == url else { return }
+                if interactiveDecodeWanted == target {
+                    if decoded?.rawPreviewEdge != nil && (!parameterInteractionActive || forceFullInteractiveDecode) { continue }
+                    interactiveDecodeWanted = nil
+                    forceFullInteractiveDecode = false
+                    flushSave()
+                    if !parameterInteractionActive { scheduleFullRender() }
+                    return
+                }
+            }
+        }
+    }
+
     private func scheduleReopen() {
         restoredPrintTask?.cancel(); restoredPrintTask = nil
         reopenTask?.cancel()
         reopenTask = Task {
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled, let url = selection else { return }
-            loadTask?.cancel()
-            // A develop of the *previous* decode is not the develop of this
-            // one: it would open the engine on a TIFF that is already
-            // superseded. `wantsDevelop` is left alone, so a frame that was
-            // never developed is re-decoded and nothing more.
-            developTask?.cancel(); developTask = nil
-            renderer.store.invalidatePrint(for: url)
-            previewSoft = true
-            // The four intents' EVs belong to the decode being replaced, so
-            // they go with it: the label would otherwise be quoting the old
-            // exposure while the new decode is on its way. The develop that
-            // follows is what refills them.
-            exposureEvByMethod = nil
-            // The engine keeps the frame the *previous* decode made, and it
-            // has no idea a decode happened after it. Without this, `load`'s
-            // tail would find that session already there, decide the frame was
-            // developed, and reprint from the old decode — a white-balance
-            // change that changes nothing the user can see. Dropping the
-            // session is what `select` and `unloadSelection` do on a frame change;
-            // a re-decode is a frame change as far as the engine is concerned
-            // (RFC-015 §1.1).
-            scheduler.invalidate()
-            releaseEngineAccounting()
-        serviceSessionID = nil
-            // The native render is made from the engine's frame too, so it
-            // would otherwise keep the old white balance. Both copies have to
-            // go: the renderer's is the one on screen now, and the store's is
-            // the one `applyRender` would find and show again.
-            //
-            // The store's copy is the subtle one. The slot is stamped with
-            // `printStamp`, which is the *film* params — a white balance is a
-            // decode setting and does not appear in it, so the resident render
-            // still matches its own stamp and the cache serves it back as if
-            // it were current, which puts the old colour on screen.
-            fullPending = false
-            fullTask?.cancel(); fullTask = nil
-            client.cancelBackgroundRender()
-            fullGeneration += 1
-            renderer.dropFullRender()
-            renderer.store.dropFullRender()
-            cancelNativeOriginal()
-            decodedGeneration = 0
-            // `decoded` is still the frame the user has just changed *away*
-            // from, and it stays there until the new decode lands — the panel
-            // reads it (`setWhiteBalance`, `pickNeutral`) and clearing it
-            // would blank and refill the white-balance controls on every drag.
-            // So the develop is told instead: until the new decode is in hand,
-            // a develop would open the engine on the old frame, and `load`'s
-            // tail would then keep that session as if it were the new one.
-            decodeIsStale = true
-            let gen = pipeline.supersede()
-            loadTask = Task { await load(url, generation: gen) }
+            await reopenSelectedFrame(url)
         }
+    }
+
+    private func reopenSelectedFrame(_ url: URL, rawPreviewEdge: Int? = nil) async {
+        guard !Task.isCancelled, selection == url else { return }
+        loadTask?.cancel()
+        // A develop of the *previous* decode is not the develop of this
+        // one: it would open the engine on a TIFF that is already
+        // superseded. `wantsDevelop` is left alone, so a frame that was
+        // never developed is re-decoded and nothing more.
+        developTask?.cancel(); developTask = nil
+        renderer.store.invalidatePrint(for: url)
+        previewSoft = true
+        // The four intents' EVs belong to the decode being replaced, so
+        // they go with it: the label would otherwise be quoting the old
+        // exposure while the new decode is on its way. The develop that
+        // follows is what refills them.
+        exposureEvByMethod = nil
+        // The engine keeps the frame the *previous* decode made, and it
+        // has no idea a decode happened after it. Without this, `load`'s
+        // tail would find that session already there, decide the frame was
+        // developed, and reprint from the old decode — a white-balance
+        // change that changes nothing the user can see. Dropping the
+        // session is what `select` and `unloadSelection` do on a frame change;
+        // a re-decode is a frame change as far as the engine is concerned
+        // (RFC-015 §1.1).
+        scheduler.invalidate()
+        releaseEngineAccounting()
+        serviceSessionID = nil
+        // The native render is made from the engine's frame too, so it
+        // would otherwise keep the old white balance. Both copies have to
+        // go: the renderer's is the one on screen now, and the store's is
+        // the one `applyRender` would find and show again.
+        //
+        // The store's copy is the subtle one. The slot is stamped with
+        // `printStamp`, which is the *film* params — a white balance is a
+        // decode setting and does not appear in it, so the resident render
+        // still matches its own stamp and the cache serves it back as if
+        // it were current, which puts the old colour on screen.
+        fullPending = false
+        fullTask?.cancel(); fullTask = nil
+        client.cancelBackgroundRender()
+        fullGeneration += 1
+        renderer.dropFullRender()
+        renderer.store.dropFullRender()
+        cancelNativeOriginal()
+        decodedGeneration = 0
+        // `decoded` is still the frame the user has just changed *away*
+        // from, and it stays there until the new decode lands — the panel
+        // reads it (`setWhiteBalance`, `pickNeutral`) and clearing it
+        // would blank and refill the white-balance controls on every drag.
+        // So the develop is told instead: until the new decode is in hand,
+        // a develop would open the engine on the old frame, and `load`'s
+        // tail would then keep that session as if it were the new one.
+        decodeIsStale = true
+        let gen = pipeline.supersede()
+        loadTask = Task { await load(url, generation: gen, rawPreviewEdge: rawPreviewEdge) }
+        await loadTask?.value
     }
 
     // MARK: - sidecar
@@ -2913,7 +3010,7 @@ final class Session: CanvasHost {
     func flushSave() {
         saveTask?.cancel()
         guard let url = selection else { return }
-        try? sidecar.save(for: url)
+        try? editSnapshot.save(for: url)
         savedGeometry[url] = sidecar.geometry
     }
 
@@ -2995,9 +3092,10 @@ final class Session: CanvasHost {
             // The zoom at which the drawn frame outgrows the preview tier's
             // texture. The trigger is the crossing, not the state: a pan,
             // resize or magnify while already past it must not ask again.
-            let threshold = 100 * Double(previewLongEdge) / Double(croppedLongEdge)
-            let pastPreview = wantsFullRender && Double(zoomPercent) > threshold
+            let pastPreview = wantsFullRender && renderer.viewport.needsDetail(
+                frameLongEdge: croppedLongEdge, previewEdge: renderedPreviewEdge)
             if pastPreview && !wasPastPreview {
+                scheduleFullRender()
                 requestNativeOriginal(trigger: "zoom_past_preview")
             }
             wasPastPreview = pastPreview
@@ -3565,8 +3663,8 @@ final class Session: CanvasHost {
         guard !zoomLocked else { return }
         var v = renderer.viewport
         guard !v.isFit else { return }
-        v.offset = CGPoint(x: v.viewport.width / 2 - n.x * v.image.width * v.scale,
-                           y: v.viewport.height / 2 - n.y * v.image.height * v.scale)
+        v.offset = CGPoint(x: v.visibleCentre.x - n.x * v.image.width * v.scale,
+                           y: v.visibleCentre.y - n.y * v.image.height * v.scale)
         v.clamp()
         renderer.viewport = v
         viewportChanged(); renderer.needsDraw?()
@@ -3574,13 +3672,13 @@ final class Session: CanvasHost {
     func zoomTo(fraction: CGFloat) {
         guard !zoomLocked else { return }
         let v = renderer.viewport
-        renderer.viewport.setScale(fraction * v.hundredScale, about: CGPoint(x: v.viewport.width / 2, y: v.viewport.height / 2))
+        renderer.viewport.setScale(fraction * v.hundredScale, about: v.visibleCentre)
         viewportChanged(); renderer.needsDraw?()
     }
     func zoomStep(_ dir: Int) {
         guard !zoomLocked else { return }
         let v = renderer.viewport
-        renderer.viewport.stepZoom(dir, about: CGPoint(x: v.viewport.width / 2, y: v.viewport.height / 2))
+        renderer.viewport.stepZoom(dir, about: v.visibleCentre)
         viewportChanged(); renderer.needsDraw?()
     }
 
@@ -3659,9 +3757,11 @@ final class Session: CanvasHost {
     }
 
     /// Whether *this* frame has anything a native render would add.
+    var renderedPreviewEdge: Int { scheduler.renderedPreviewEdge ?? previewLongEdge }
+
     private var wantsFullRender: Bool {
         sourceLongEdge > 0 && Session.wantsFullRender(frameLongEdge: croppedLongEdge,
-                                                      previewEdge: previewLongEdge)
+                                                      previewEdge: renderedPreviewEdge)
     }
 
     /// Ask for the frame at its own resolution, once the edit has settled.
@@ -3675,7 +3775,12 @@ final class Session: CanvasHost {
         fullTask?.cancel()
         fullTask = nil
         fullPending = false
-        guard !batchExportActive else { return }
+        guard !batchExportActive, !parameterInteractionActive, interactiveDecodeWanted == nil, decoded?.rawPreviewEdge == nil else { return }
+        // Match the mobile detail policy: retain the developed preview until
+        // the displayed image exceeds its pixel budget, with 15% hysteresis.
+        // Rendering remains whole-frame so metering and spatial physics agree.
+        guard renderer.viewport.needsDetail(frameLongEdge: croppedLongEdge,
+                                           previewEdge: renderedPreviewEdge) else { return }
         guard wantsFullRender, let url = selection, let sid = serviceSessionID else { return }
         fullGeneration += 1
         let gen = fullGeneration
@@ -3787,6 +3892,8 @@ final class Session: CanvasHost {
             if !batchExportActive, selection == url, serviceSessionID == sid { scheduleFullRender() }
             return
         }
+        guard renderer.viewport.needsDetail(frameLongEdge: croppedLongEdge,
+                                           previewEdge: renderedPreviewEdge), !parameterInteractionActive else { return }
         fullPending = true
         startClock()
         // Stamped here, before the call, from what the service holds. The
@@ -3852,12 +3959,40 @@ final class Session: CanvasHost {
 
     /// Snapshot before a mutation, coalesced. A slider drag sets its value
     /// dozens of times and only the state before the drag is worth keeping.
+    private var parameterInteractionActive = false
+
+    func parameterInteraction(_ active: Bool) {
+        guard active != parameterInteractionActive else { return }
+        let viewport = renderer.viewport
+        let fitPixels = max(viewport.image.width, viewport.image.height) * viewport.fitScale * viewport.backingScale
+        scheduler.setInteraction(active, pixelLongEdge: Double(fitPixels), elapsedMs: lastRenderMs)
+        if active {
+            fullTask?.cancel(); fullTask = nil
+            fullGeneration += 1
+            if fullPending { client.cancelBackgroundRender() }
+        }
+        if active {
+            lastUndoAt = .distantPast
+            pushUndo()
+        }
+        parameterInteractionActive = active
+        if !active {
+            if decoded?.rawPreviewEdge != nil || interactiveDecodeTask != nil {
+                interactiveDecodeWanted = interactiveDecodeWanted ?? sidecar.decode
+                startInteractiveDecode()
+            }
+            lastUndoAt = .distantPast
+            if !scheduler.pending { scheduleFullRender() }
+        }
+    }
+
     func pushUndo() {
+        guard !parameterInteractionActive else { return }
         let now = Date()
         guard now.timeIntervalSince(lastUndoAt) > 0.5 else { return }
         lastUndoAt = now
         undoPairs.append(halfFramePair)
-        undoStack.append(sidecar)
+        undoStack.append(editSnapshot)
         if undoStack.count > 60 { undoStack.removeFirst(); undoPairs.removeFirst() }
     }
 
@@ -3871,7 +4006,8 @@ final class Session: CanvasHost {
         let priorPair = undoPairs.popLast() ?? nil
         let changedPair = halfFramePair != priorPair
         if changedPair, let pair = priorPair, let url = selection { try? pair.save(to: url); halfFramePair = pair }
-        let current = sidecar
+        let current = editSnapshot
+        cancelInteractiveDecode()
         sidecar = previous
         renderer.layer2 = previous.adjustments.uniforms
         renderer.legacyGradeActive = usesLegacyGrade
@@ -4077,12 +4213,14 @@ final class Session: CanvasHost {
         p.mFilterShift = 0
         params = p
         scheduler.invalidate()
-        serviceGeneration = scheduler.reset(sessionID: sid, params: p)
+        serviceGeneration = scheduler.reset(sessionID: sid, params: p, previewEdge: scheduler.renderedPreviewEdge ?? previewLongEdge)
     }
 
     /// The Python process can die; `ServiceClient.start()` is idempotent, so a
     /// restart is a stop and a reload from the sidecar (HANDOFF §5).
     func restartService() {
+        flushSave()
+        cancelInteractiveDecode()
         loadTask?.cancel()
         // A develop in flight belongs to the engine that is being stopped.
         developTask?.cancel(); developTask = nil

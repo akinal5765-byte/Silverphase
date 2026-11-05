@@ -83,3 +83,35 @@ kernel void spk_scene_latitude(device const float* rgb [[buffer(0)]],
     out[3u * i + 1u] = g * k;
     out[3u * i + 2u] = b * k;
 }
+
+// Map metered scene luminance in stops about middle grey. Ramp up the
+// highlight/shadow gain and crossfade into the white/black gain early
+// enough to affect subjects within the film's useful exposure range.
+// Apply one gain to all three channels.
+kernel void spk_camera_tone(device const float* rgb [[buffer(0)]],
+                            constant float* p [[buffer(1)]],
+                            constant uint& n [[buffer(2)]],
+                            device float* out [[buffer(3)]],
+                            uint i [[thread_position_in_grid]]) {
+    if (i >= n) return;
+    float3 c = float3(rgb[3u * i], rgb[3u * i + 1u], rgb[3u * i + 2u]);
+    float y = dot(max(c, 0.0f), float3(p[4], p[5], p[6]));
+    if (y > 0.0f && isfinite(y)) {
+        float stops = log2(y) - log2(p[7]);
+        float distance = abs(stops);
+        float region = stops >= 0.0f ? p[0] : p[1];
+        float end = stops >= 0.0f ? p[2] : p[3];
+        float region_gain = region * smoothstep(0.0f, 2.25f, distance);
+        // Whites have a wider useful adjustment on the shoulder of the
+        // film. Keep the black endpoint at its existing response.
+        float end_weight = stops >= 0.0f
+            ? smoothstep(0.2f, 4.2f, distance)
+            : smoothstep(0.5f, 4.0f, distance);
+        float end_gain = (stops >= 0.0f ? 1.55f : 1.25f) * end;
+        float gain = mix(region_gain, end_gain, end_weight);
+        c *= exp2(gain);
+    }
+    out[3u * i] = c.r;
+    out[3u * i + 1u] = c.g;
+    out[3u * i + 2u] = c.b;
+}

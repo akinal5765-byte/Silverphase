@@ -189,6 +189,10 @@ const SchemaField kFields[] = {
     {"scene_latitude_b_shadow_knee",    "camera.scene_latitude.b_shadow_knee",    F, SHOOT, true, -24.0, 24.0, false},
     {"scene_latitude_b_shadow_room",    "camera.scene_latitude.b_shadow_room",    F, SHOOT, true, 0.0, 24.0, false},
     {"camera_filter", "camera.filter", S, SHOOT, false, 0, 0, false},
+    {"camera_tone_highlights", "camera.tone_highlights", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_tone_shadows", "camera.tone_shadows", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_tone_whites", "camera.tone_whites", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_tone_blacks", "camera.tone_blacks", F, SHOOT, true, -100.0, 100.0, false},
     // The app's *preview resolution*: the `live` tier's long edge, and so the
     // size every interactive edit renders at. PRINT layer, because it is a
     // decision about the canvas rather than about the film -- but it is one of
@@ -210,6 +214,10 @@ const SchemaField* find_field(const std::string& name) {
 
 double* float_slot(Params& p, const std::string& path) {
     if (path == "camera.exposure_compensation_ev") return &p.camera.exposure_compensation_ev;
+    if (path == "camera.tone_highlights") return &p.camera.tone_highlights;
+    if (path == "camera.tone_shadows") return &p.camera.tone_shadows;
+    if (path == "camera.tone_whites") return &p.camera.tone_whites;
+    if (path == "camera.tone_blacks") return &p.camera.tone_blacks;
     if (path == "camera.film_format_mm") return &p.camera.film_format_mm;
     if (path == "camera.lens_blur_um") return &p.camera.lens_blur_um;
     if (path == "film_render.halation.headroom_ev") return &p.film_render.halation.headroom_ev;

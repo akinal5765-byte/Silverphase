@@ -332,6 +332,31 @@ final class CanvasViewTests: XCTestCase {
         XCTAssertEqual(canvas.bounds.size, surface)
         XCTAssertEqual(session.renderer.viewport.obscuredRight, opened.obscuredRight)
         XCTAssertEqual(session.renderer.viewport.imageFrame, fitted.imageFrame)
+
+        // Zoom about the clear part of the window, then collapse the panel.
+        session.zoomTo(fraction: 4)
+        let enlarged = session.renderer.viewport
+        let subject = enlarged.imagePoint(atView: enlarged.visibleCentre)
+        session.rightCollapsed = true
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        let recentered = session.renderer.viewport
+        XCTAssertEqual(canvas.bounds.size, surface)
+        XCTAssertEqual(recentered.scale, enlarged.scale)
+        XCTAssertGreaterThan(recentered.visibleCentre.x, enlarged.visibleCentre.x)
+        let point = recentered.imagePoint(atView: recentered.visibleCentre)
+        XCTAssertEqual(point.x, subject.x, accuracy: 1e-6)
+        XCTAssertEqual(point.y, subject.y, accuracy: 1e-6)
+
+        session.rightCollapsed = false
+        session.togglePanels()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(session.renderer.viewport.obscuredRight, 0)
+        XCTAssertFalse(session.rightCollapsed, "hiding panels should preserve the inspector setting")
+
+        session.togglePanels()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(session.renderer.viewport.obscuredRight, opened.obscuredRight)
     }
 
     /// The zoom readout is computed from the viewport, and the viewport only

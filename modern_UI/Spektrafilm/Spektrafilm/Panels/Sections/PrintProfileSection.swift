@@ -180,7 +180,7 @@ struct PrintProfileSection: View {
                                 // Only dragging is limited to the useful span.
                                 range: 0...0.05, entryRange: 0...1, snap: 0.005,
                                 format: { String(format: "%.3f", $0) },
-                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
+                                disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive, resolution: 0.001)
                 }
                 InspectorSubblock(title: T("Optical Diffusion", "光学柔化")) {
                     RailRows {

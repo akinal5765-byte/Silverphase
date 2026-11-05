@@ -5,16 +5,19 @@
 //  all, whether two files share a sidecar, and whether a resident render is
 //  still the truth.
 
+import AppKit
 import Metal
 import XCTest
 
 private actor ControlledSchedulerRender {
     private var pending: [CheckedContinuation<RenderOutcome, Error>] = []
+    private(set) var requests: [RenderRequest] = []
 
     var count: Int { pending.count }
 
     func render(_ method: Method, _ request: RenderRequest) async throws -> RenderOutcome {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RenderOutcome, Error>) in
+        requests.append(request)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RenderOutcome, Error>) in
             pending.append(continuation)
         }
     }
@@ -32,6 +35,149 @@ private actor ControlledSchedulerRender {
 
 @MainActor
 final class RenderSchedulerTests: XCTestCase {
+    func testShootLayerEditsAlsoPresentFramesBeforeRelease() async throws {
+        let controlled = ControlledSchedulerRender()
+        let scheduler = RenderScheduler(debounce: (.milliseconds(300), .milliseconds(300)), render: { method, request in
+            try await controlled.render(method, request)
+        })
+        _ = scheduler.reset(sessionID: "shoot-stream", params: .default, previewEdge: 2560)
+        var applied: [Double] = []
+        scheduler.onResult = { [weak scheduler] _, _ in
+            if let scheduler { applied.append(scheduler.sent.exposureCompensationEV) }
+        }
+        scheduler.setInteraction(true, pixelLongEdge: 2560, elapsedMs: 100)
+        var edit = FilmParams.default
+        edit.exposureCompensationEV = 0.5
+        scheduler.request(edit)
+        try await waitFor { await controlled.count == 1 }
+        edit.exposureCompensationEV = 1
+        scheduler.request(edit)
+        await controlled.finishNext()
+        try await waitFor { let count = await controlled.count; return applied == [0.5] && count == 1 }
+        let requests = await controlled.requests
+        XCTAssertEqual(requests.first?.layer, "shoot")
+        await controlled.finishNext()
+        try await waitFor { applied == [0.5, 1] && !scheduler.pending }
+        scheduler.invalidate()
+    }
+
+    func testDraggingPresentsCompletedFramesWhileNewerEditsArePending() async throws {
+        let controlled = ControlledSchedulerRender()
+        let scheduler = RenderScheduler(debounce: (.zero, .zero), render: { method, request in
+            try await controlled.render(method, request)
+        })
+        _ = scheduler.reset(sessionID: "dragging", params: .default, previewEdge: 2560)
+        var applied: [Double] = []
+        scheduler.onResult = { _, _ in applied.append(scheduler.sent.printBrightnessStops) }
+        scheduler.setInteraction(true, pixelLongEdge: 2560, elapsedMs: 100)
+        var edit = FilmParams.default
+        edit.printBrightnessStops = 0.5
+        scheduler.request(edit)
+        try await waitFor { await controlled.count == 1 }
+        edit.printBrightnessStops = 0.8
+        scheduler.request(edit)
+        await controlled.finishNext()
+        try await waitFor { let count = await controlled.count; return applied == [0.5] && count == 1 }
+        await controlled.finishNext()
+        try await waitFor { applied == [0.5, 0.8] && !scheduler.pending }
+        scheduler.invalidate()
+    }
+
+    func testRulerValueAreaDragsAndOnlyEntersTextOnDoubleClick() throws {
+        let input = DesktopRulerInput.InputView(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.valueEntryWidth = 48
+        var edits = 0
+        var resets = 0
+        var drags: [Double] = []
+        input.editValue = { edits += 1 }
+        input.reset = { resets += 1 }
+        input.change = { drags.append($0) }
+
+        func event(_ type: NSEvent.EventType, x: CGFloat, clicks: Int) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: 12),
+                                           modifierFlags: [], timestamp: 1, windowNumber: 0,
+                                           context: nil, eventNumber: 0, clickCount: clicks, pressure: 1))
+        }
+
+        input.mouseDown(with: try event(.leftMouseDown, x: 180, clicks: 1))
+        input.mouseUp(with: try event(.leftMouseUp, x: 180, clicks: 1))
+        XCTAssertEqual(edits, 0)
+
+        input.mouseDown(with: try event(.leftMouseDown, x: 180, clicks: 2))
+        input.mouseUp(with: try event(.leftMouseUp, x: 180, clicks: 2))
+        XCTAssertEqual(edits, 1)
+        XCTAssertEqual(resets, 0)
+
+        input.mouseDown(with: try event(.leftMouseDown, x: 180, clicks: 2))
+        input.mouseDragged(with: try event(.leftMouseDragged, x: 155, clicks: 2))
+        input.mouseUp(with: try event(.leftMouseUp, x: 155, clicks: 2))
+        XCTAssertEqual(drags, [-25])
+        XCTAssertEqual(edits, 1)
+
+        input.mouseDown(with: try event(.leftMouseDown, x: 80, clicks: 2))
+        input.mouseUp(with: try event(.leftMouseUp, x: 80, clicks: 2))
+        XCTAssertEqual(resets, 1)
+    }
+
+    func testHapticGateOnlyRequestsFeedbackForChangedSliderTicks() {
+        XCTAssertFalse(RulerFeedbackGate.shouldPerform(draggingSlider: false, previousTick: 0, tick: 1, elapsed: 1))
+        XCTAssertFalse(RulerFeedbackGate.shouldPerform(draggingSlider: true, previousTick: nil, tick: 1, elapsed: 1))
+        XCTAssertFalse(RulerFeedbackGate.shouldPerform(draggingSlider: true, previousTick: 1, tick: 1, elapsed: 1))
+        XCTAssertFalse(RulerFeedbackGate.shouldPerform(draggingSlider: true, previousTick: 0, tick: 1, elapsed: 0.01))
+        XCTAssertTrue(RulerFeedbackGate.shouldPerform(draggingSlider: true, previousTick: 0, tick: 1, elapsed: 1))
+    }
+
+    func testReleaseRestoresQualityThroughTheSameSerialLoop() async throws {
+        let controlled = ControlledSchedulerRender()
+        let scheduler = RenderScheduler(debounce: (.zero, .zero), render: { method, request in
+            try await controlled.render(method, request)
+        })
+        _ = scheduler.reset(sessionID: "adaptive", params: .default, previewEdge: 2560)
+        var applied = 0
+        scheduler.onResult = { _, _ in applied += 1 }
+        scheduler.setInteraction(true, pixelLongEdge: 1100, elapsedMs: 1000)
+        var edit = FilmParams.default
+        edit.printBrightnessStops = 0.5
+        scheduler.request(edit)
+        try await waitFor { await controlled.count == 1 }
+        let first = await controlled.requests
+        XCTAssertEqual(first.first?.paramsDelta?["preview_long_edge"], .double(1600))
+        scheduler.setInteraction(false, pixelLongEdge: 1100, elapsedMs: 100)
+        await controlled.finishNext()
+        try await waitFor { await controlled.requests.count == 2 }
+        XCTAssertEqual(applied, 0, "an in-flight soft result must not cover the released value")
+        let requests = await controlled.requests
+        XCTAssertEqual(requests.last?.paramsDelta?["preview_long_edge"], .double(2560))
+        await controlled.finishNext()
+        try await waitFor { !scheduler.pending && applied == 1 }
+        XCTAssertEqual(scheduler.renderedPreviewEdge, 2560)
+        XCTAssertEqual(scheduler.sent, edit)
+    }
+
+    func testMissingSavedMaterialExplainsRecoveryWithoutExposingPaths() {
+        let stock = "fotufilm_astia100f_experimental"
+        let raw = "no profile '\(stock)' (cannot open /private/photo/material.json)"
+        let message = EngineMessage.userFacing(EngineClient.ClientError.engine(raw))
+        XCTAssertTrue(message.contains(stock))
+        XCTAssertFalse(message.contains("/private/photo"))
+        XCTAssertNotEqual(message, raw)
+    }
+
+    func testDesktopRulerUsesIOSPrecisionAndLandmarks() {
+        XCTAssertEqual(ToolRulerScale.quantized(0.85, in: -4...4, resolution: 0.01), 0.85, accuracy: 1e-9)
+        let ticks = ToolRulerScale.ticks(in: -4...4, range: -4...4, step: 1 / 3, anchor: 0, keyMarks: [])
+        XCTAssertEqual(ticks.filter { abs($0.value) < 1e-9 }.count, 1)
+        XCTAssertTrue(ticks.first { abs($0.value - 1) < 1e-9 }?.major == true)
+        XCTAssertEqual(ToolRulerScale.advanced(0.85, forward: true, range: -4...4, resolution: 0.01), 0.86, accuracy: 1e-9)
+    }
+
+    func testInteractionResolutionHasBoundedHysteresis() {
+        XCTAssertEqual(RenderScheduler.nextInteractionEdge(1600, elapsedMs: 201, ceiling: 2560), 1280)
+        XCTAssertEqual(RenderScheduler.nextInteractionEdge(800, elapsedMs: 300, ceiling: 2560), 800)
+        XCTAssertEqual(RenderScheduler.nextInteractionEdge(2500, elapsedMs: 69, ceiling: 2560), 2560)
+        XCTAssertEqual(RenderScheduler.nextInteractionEdge(1600, elapsedMs: 100, ceiling: 2560), 1600)
+    }
+
     func testAnOlderParameterResultNeverReachesTheCanvas() async throws {
         let controlled = ControlledSchedulerRender()
         let scheduler = RenderScheduler(render: { method, request in
@@ -138,6 +284,54 @@ final class RenderSchedulerTests: XCTestCase {
 
 @MainActor
 final class FrontendPolicyTests: XCTestCase {
+    func testGitHubUpdatesReportAnExhaustedRateLimit() throws {
+        let response = try XCTUnwrap(HTTPURLResponse(
+            url: DesktopGitHubRelease.releasesURL, statusCode: 403, httpVersion: "HTTP/2",
+            headerFields: ["X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1793864585"]
+        ))
+        XCTAssertThrowsError(try DesktopGitHubRelease.parse(Data(), response: response)) { error in
+            guard case DesktopGitHubRelease.CheckError.rateLimited(let retryAt) = error else {
+                XCTFail("Unexpected error: \(error)")
+                return
+            }
+            XCTAssertEqual(retryAt, Date(timeIntervalSince1970: 1793864585))
+        }
+    }
+
+    func testGitHubUpdatesUseTheNewestStableMacPackage() throws {
+        func release(_ version: String, mac: Bool = true, prerelease: Bool = false, tagPrefix: String = "v") -> [String: Any] {
+            let name = "Silverphase-\(version)" + (mac ? "-macOS-arm64.dmg" : "-iOS-unsigned.ipa")
+            let url = "https://github.com/akinal5765-byte/Silverphase/releases/download/\(tagPrefix)\(version)/\(name)"
+            return ["tag_name": "\(tagPrefix)\(version)", "draft": false, "prerelease": prerelease,
+                    "assets": [["name": name, "browser_download_url": url]]]
+        }
+
+        let releases = [release("2.0.0", mac: false), release("1.8.0", prerelease: true),
+                        release("1.0.9"), release("1.0.10", tagPrefix: "macos-v")]
+        let latest = try XCTUnwrap(DesktopGitHubRelease.latest(in: JSONSerialization.data(withJSONObject: releases)))
+        XCTAssertEqual(latest.version, "1.0.10")
+        XCTAssertEqual(latest.downloadURL.lastPathComponent, "Silverphase-1.0.10-macOS-arm64.dmg")
+    }
+
+    func testRulerInteractionAndNextEditHaveSeparateUndoSteps() {
+        let session = Session()
+        session.selection = FileManager.default.temporaryDirectory.appending(path: "ruler-undo-\(UUID().uuidString).tif")
+        let original = session.params.exposureCompensationEV
+        session.parameterInteraction(true)
+        var params = session.params
+        params.exposureCompensationEV = 0.85
+        session.params = params
+        params.exposureCompensationEV = 1.23
+        session.params = params
+        session.parameterInteraction(false)
+        params.exposureCompensationEV = 2
+        session.params = params
+        session.undo()
+        XCTAssertEqual(session.params.exposureCompensationEV, 1.23)
+        session.undo()
+        XCTAssertEqual(session.params.exposureCompensationEV, original)
+    }
+
 
     /// The four slide films are the four the catalogue calls positive, and
     /// none of them declares a paper.

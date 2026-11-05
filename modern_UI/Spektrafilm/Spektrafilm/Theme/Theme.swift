@@ -523,6 +523,14 @@ enum Theme {
         /// The ink inside a row: a pill, a field, a checkbox.
         static let gridControl: CGFloat = 16
 
+        // Shared desktop Photos-style bars: menus and adjustments occupy the
+        // same visible surface and leave the same space before the next row.
+        static var parameterRowHeight: CGFloat { max(26, gridRow) }
+        static let parameterRowRadius: CGFloat = 5
+        static let parameterRowInset: CGFloat = 8
+        static let parameterRowGap: CGFloat = 6
+        static let parameterMenuChevron: CGFloat = 9
+
         /// Content inside floating panels; the bare photo row uses only the
         /// common outer inset so its first image aligns with other surfaces.
         ///
@@ -1543,21 +1551,24 @@ struct EditorChromeSurface: ViewModifier {
         }
     }
 
-    @ViewBuilder private func material(_ content: Content) -> some View {
+    private func material(_ content: Content) -> some View {
+        Self.material(content, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
+                      reduceTransparency: reduceTransparency)
+    }
+
+    @ViewBuilder static func material<Chrome: View, Outline: Shape>(
+        _ content: Chrome, in shape: Outline, reduceTransparency: Bool
+    ) -> some View {
         if reduceTransparency {
-            content.background(Theme.windowSurface,
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            content.background(Theme.windowSurface, in: shape)
         } else if #available(macOS 26.0, *) {
             content
-                .background(Theme.chromeBacking,
-                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .background(Theme.chromeBacking, in: shape)
+                .glassEffect(.regular, in: shape)
         } else {
             content
-                .background(Theme.chromeBacking,
-                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .background(.regularMaterial,
-                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .background(Theme.chromeBacking, in: shape)
+                .background(.regularMaterial, in: shape)
         }
     }
 }

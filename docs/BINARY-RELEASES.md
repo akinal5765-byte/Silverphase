@@ -21,6 +21,11 @@ IPA is unsigned. The source commit and SHA-256 files remain attached separately.
 
 ## macOS
 
+The current macOS source version is **1.1.0 (3)**. Use the `macos-v1.1.0` tag
+for its release because `v1.1.0` already identifies an iOS release. The
+macOS update checker also recognizes the existing unprefixed tags.
+
+
 - Apple Silicon (arm64), macOS 15 or later. Intel Macs are not supported.
 - Open `Silverphase-<version>-macOS-arm64.dmg`, then drag Silverphase into Applications.
 - The current release has an ad-hoc signature for Apple Silicon code execution,
@@ -84,7 +89,7 @@ Use the documented Xcode/Metal toolchain. From a clean, committed checkout:
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
 python3 tools/package-public-release.py --platform macos \
-  --tag v1.0.1 --output output/releases/v1.0.1
+  --tag macos-v1.1.0 --output output/releases/macos-v1.1.0
 python3 tools/package-public-release.py --platform ios \
   --tag v1.1.1 --output output/releases/v1.1.1
 ```

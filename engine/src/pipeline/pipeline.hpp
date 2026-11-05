@@ -664,6 +664,8 @@ private:
 
     // RFC-023's Scene Latitude Mapping (`scene_latitude.cpp`): pointwise,
     // before `node_upsample`, and not dispatched at all while it is off.
+    bool camera_tone_wanted() const;
+    bool node_camera_tone(const Image& in, Image& out, std::string& error);
     bool scene_latitude_wanted() const;
     bool node_scene_latitude(const Image& in, Image& out, std::string& error);
 
