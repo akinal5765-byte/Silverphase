@@ -355,3 +355,6 @@ com.apple.DeveloperTools/
 
 # Generated private material catalog and covers; staged only for local builds.
 /modern_UI/Spektrafilm/Spektrafilm/Resources/LocalMaterials/
+
+# Local assistant workspace state (session notes and scratch), never published.
+/.workbuddy/
