@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-11-03. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-05. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -14,7 +14,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | Downloads, unsigned IPA and unnotarized DMG | [Binary releases](BINARY-RELEASES.md) |
 | App Store preparation, privacy and user support | [Release preparation](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
-| macOS 1.0.1 / iOS 1.1.1, CineStill 800T and validation limits | [Current versions](../README.md#当前版本) / [adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
+| CineStill 800T adoption and validation scope | [Dated adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |

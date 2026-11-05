@@ -1,37 +1,19 @@
 # iOS App Store preparation
 
-Beta installation link, supplied 2026-11-04: [Join TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-
-## Current TestFlight build · 2026-11-04
-
-PR #4 was merged as `0340e73`. Signed Release **1.1.2 (4)** was archived
-from that commit and uploaded successfully at 19:07 China time on 2026-11-04.
-Apple finished processing the build. The user confirmed the “none of the above”
-export-compliance answer after source inspection found only Apple CryptoKit
-SHA-256 hashing for cache keys and diagnostics, with no custom/third-party encryption.
-The answer was saved successfully. **Silverphase 内部测试** shows 1.1.2 (4)
-as **Testing**. The build was added to **Silverphase 公开测试** and submitted
-for Beta App Review with Chinese test notes and automatic tester notification;
-the public-group build currently shows **Waiting for Review**. The existing
-public link is unchanged, and 1.1.1 (3) remains available while review is pending.
-Public materials were built
-with `SILVERPHASE_LOCAL_MATERIALS=0`; the archive contains no experimental profiles.
-The archive includes symbols. No new GitHub IPA asset or App Store release was published.
+Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+Use App Store Connect to inspect build availability, group access, and review status.
 
 ## Historical store preparation · 2026-11-03
 
 The preparation and upload status below records the 2026-11-03 session.
 
-
 Status: preparation, 2026-11-03. First release is completely free, targeting global
 availability including China mainland. App Store Connect record **6829987567**
 has been created with SKU `silverphase-ios`, bundle ID `com.silverphase.editor`
 and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
-successfully on 2026-11-03. Apple finished processing it; TestFlight now shows
+successfully on 2026-11-03. Apple finished processing it; TestFlight showed at the time
 “Ready to Submit” after the export-compliance answers were saved. No review
 submission or public app release has been performed.
-The uploaded build for that session was **1.1.1 (3)**; see the current
-TestFlight build above for the later upload.
 The deployment floor is iOS/iPadOS 18.
 
 Chinese promotional text, description, keywords, version 1.1.1, copyright and
@@ -48,7 +30,7 @@ support URL and privacy-policy URL are saved in the store record. The
 “Data Not Collected” privacy answers were published after the user's explicit
 confirmation. The user authorised committing and pushing this release
 preparation to origin/main on 2026-11-03.
-The account currently reports an updated Apple Developer Program agreement;
+At the time, the account reported an updated Apple Developer Program agreement;
 the user chose to handle it later. No agreement was accepted by the agent.
 China mainland ICP applicability remains unresolved: the app processes photos
 locally, but exemption has not been confirmed. No number is supplied or reused

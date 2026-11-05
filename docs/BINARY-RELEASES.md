@@ -5,30 +5,18 @@ iPhone/iPad beta installation and updates use [TestFlight](https://testflight.ap
 The release notes name the exact source tag/commit, system requirements,
 signing state and validation scope. Release builds may have incomplete features.
 
-The platforms use independent application versions and build numbers. Published GitHub
-package versions are macOS **1.0.1 (2)** and iOS **1.1.1 (3)**. Shared engine
-changes can ship in both without making their application versions equal;
-record the source commit and platform in each release.
-
-The current iOS source version is **1.1.2 (4)**. Build **1.1.2 (4)** has been
-uploaded for TestFlight; see [distribution status](../ios/APP-STORE.md).
-No new GitHub IPA asset was published.
-
-GitHub packages (the iOS IPA is historical): [macOS 1.0.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.0.1)
-and [iOS 1.1.1](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.1.1).
-Both Release pages and their attached `INSTALL.md` files use Chinese; the iOS
-IPA is unsigned. The source commit and SHA-256 files remain attached separately.
+The platforms maintain independent versions and build numbers. Use GitHub Releases
+and TestFlight for the versions available to install. Historical GitHub iOS
+packages are unsigned.
 
 ## macOS
 
-The current macOS source version is **1.1.0 (3)**. Use the `macos-v1.1.0` tag
-for its release because `v1.1.0` already identifies an iOS release. The
-macOS update checker also recognizes the existing unprefixed tags.
-
+Use a separate `macos-v<version>` release tag for desktop packages. The desktop
+update checker also recognizes older unprefixed tags that carry a macOS DMG.
 
 - Apple Silicon (arm64), macOS 15 or later. Intel Macs are not supported.
 - Open `Silverphase-<version>-macOS-arm64.dmg`, then drag Silverphase into Applications.
-- The current release has an ad-hoc signature for Apple Silicon code execution,
+- Public builds produced by the repository packaging script use an ad-hoc signature for Apple Silicon code execution,
   **no Developer ID signature, and no notarization**. This is not Apple approval.
 - If macOS blocks opening it, review System Settings → Privacy & Security and
   use Open Anyway only after verifying the source and checksum. No global
@@ -38,7 +26,6 @@ macOS update checker also recognizes the existing unprefixed tags.
 ## iPhone and iPad
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-Build 1.1.2 (4) is available to internal testers; public testing is awaiting Apple Beta App Review.
 Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
 then accept the invitation and install Silverphase. The available beta version is
 the version shown in TestFlight; it can differ from the repository source version.
@@ -48,9 +35,8 @@ Each beta build is available for up to 90 days; see [Apple’s TestFlight overvi
 
 The unsigned IPA instructions below apply to historical GitHub Release assets.
 
-
 - iOS/iPadOS 18 or later, arm64.
-- The current source includes a portrait-only conventional iPhone layout with
+- The source includes a portrait-only conventional iPhone layout with
   floating controls and vertical film/paper lists; see the [phone captures](../screenshots/ios/2026-11-02/README.md). Duo and iPad retain their own navigation.
   Simulator captures do not establish real-device export or memory coverage.
 - `Silverphase-<version>-iOS-unsigned.ipa` is an **unsigned device build**, not a
@@ -89,9 +75,9 @@ Use the documented Xcode/Metal toolchain. From a clean, committed checkout:
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
 python3 tools/package-public-release.py --platform macos \
-  --tag macos-v1.1.0 --output output/releases/macos-v1.1.0
+  --tag macos-v<version> --output output/releases/macos-v<version>
 python3 tools/package-public-release.py --platform ios \
-  --tag v1.1.1 --output output/releases/v1.1.1
+  --tag v<version> --output output/releases/v<version>
 ```
 
 The script enforces Release configuration and `SILVERPHASE_LOCAL_MATERIALS=0`,
