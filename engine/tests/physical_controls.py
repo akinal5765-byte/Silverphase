@@ -168,9 +168,42 @@ def scanner_sharpening() -> None:
     print("scan sharpening: old default, off/strength/reset, negative reuse, strips and DI pass")
 
 
+def camera_tone() -> None:
+    # A moderate scene has no values in the old white/black activation bands.
+    stops = np.linspace(-2, 2, 512, dtype=np.float32)
+    ramp = (0.18 * np.exp2(stops)).astype(np.float32)
+    image = np.broadcast_to(ramp[None, :, None], (160, len(ramp), 3)).copy()
+    common = {"auto_exposure": False, "grain_active": False, "glare_active": False,
+              "halation_active": False, "scanner_sharpening_amount": 0,
+              "preview_long_edge": 800}
+    with Engine() as engine, engine.open(image, common) as session:
+        before = {tier: session.render(tier)[0] for tier in ("live", "full")}
+        for tone in ("highlights", "shadows", "whites", "blacks"):
+            key = f"camera_tone_{tone}"
+            for value in (-50, 50):
+                session.set_params({key: value})
+                for tier in before:
+                    changed, _ = session.render(tier)
+                    delta = changed[:, :, :3].astype(np.int32) - before[tier][:, :, :3]
+                    # Check the direction and require more than quantization noise.
+                    assert np.max(np.sign(value) * delta) >= 128, (tone, value, tier)
+            session.set_params({key: 0})
+            for tier in before:
+                restored, _ = session.render(tier)
+                assert np.array_equal(restored, before[tier]), (tone, tier)
+        session.set_params({"camera_tone_highlights": -80, "camera_tone_whites": 35,
+                            "camera_tone_shadows": 65, "camera_tone_blacks": -40})
+        whole, _ = session.render("full")
+        session.set_params({"striped": True, "strip_rows": 32})
+        striped, _ = session.render("full")
+        assert np.array_equal(whole, striped), "scene tone must match between whole and striped renders"
+    print("camera tone: all four axes act in both directions on live/full, reset exactly and match strips")
+
+
 if __name__ == "__main__":
     print_contrast()
     grain_size()
     preview_and_export_tiers()
     scanner_sharpening()
     grain_softness()
+    camera_tone()

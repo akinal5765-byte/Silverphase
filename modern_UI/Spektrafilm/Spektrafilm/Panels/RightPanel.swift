@@ -65,7 +65,7 @@ struct RightPanel: View {
                     switch session.inspectorStage {
                     case .camera:
                         LatitudeSection(session: session)
-                        if session.halfFramePair == nil { ScenePlacementSection(session: session) } else { HalfFramePairSection(session: session) }
+                        if session.halfFramePair != nil { HalfFramePairSection(session: session) }
                         CameraSection(session: session)
                     case .film: FilmSection(session: session, part: .params)
                     case .development: DevelopmentSection(session: session)
@@ -85,6 +85,7 @@ struct RightPanel: View {
                 .padding(.vertical, Theme.Metric.modernPanelVerticalInset)
             }
         }
+        .environment(\.rulerInteraction, { session.parameterInteraction($0) })
         .disabled(session.batchExporting)
         .frame(maxHeight: .infinity)
         .modifier(EditorChromeSurface())

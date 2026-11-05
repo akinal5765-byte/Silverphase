@@ -103,6 +103,8 @@ final class SelectionModelTests: XCTestCase {
 
     func testModernBatchGridTracksMultiplePicksAndKeepsPhotoNavigator() throws {
         let (session, urls) = try openedSession()
+        XCTAssertEqual(session.inspectorStage, .camera)
+        XCTAssertFalse(session.rightCollapsed)
         session.click(urls[0])
         session.selectInspectorStage(.film)
         XCTAssertTrue(session.modernFilmChooserActive)
@@ -115,6 +117,8 @@ final class SelectionModelTests: XCTestCase {
                        "The photo navigator must remain available for batch selection")
 
         session.open(urls[1])
+        XCTAssertEqual(session.inspectorStage, .film)
+        XCTAssertFalse(session.rightCollapsed)
         XCTAssertEqual(session.selectedFrames, [urls[0], urls[1]])
         XCTAssertTrue(session.modernBatchGridActive)
         session.click(urls[1])

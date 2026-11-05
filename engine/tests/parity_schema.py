@@ -296,6 +296,11 @@ NATIVE_ONLY = {
         "default": "", "live": False, "range": None,
     },
 }
+for tone in ("highlights", "shadows", "whites", "blacks"):
+    NATIVE_ONLY[f"camera_tone_{tone}"] = {
+        "path": f"camera.tone_{tone}", "type": "float", "layer": "shoot",
+        "default": 0.0, "live": False, "range": [-100.0, 100.0],
+    }
 
 
 def close(a, b, tol=1e-12) -> bool:

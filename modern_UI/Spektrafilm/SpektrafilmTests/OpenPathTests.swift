@@ -20,6 +20,121 @@ import XCTest
 
 @MainActor
 final class OpenPathTests: XCTestCase {
+    func testWhiteBalanceReDevelopsExistingPrintWithoutAnotherUserRequest() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "restored-wb-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "synthetic.tif")
+        try PortTestFrame.write(to: url, highContrast: true)
+        let session = Session()
+        session.open(urls: [url])
+        _ = await session.ensureDecoded()
+        let cached = try XCTUnwrap(session.renderer.store.print(for: url))
+        session.parameterInteraction(true)
+        defer { session.parameterInteraction(false) }
+        session.setTemperature(4000)
+        try await waitUntil("a cache-only print to re-develop without Solve or Export", timeout: 30) {
+            session.serviceSessionIDForExport != nil
+                && session.renderer.store.print(for: url).map { $0 !== cached } == true
+        }
+        XCTAssertEqual(session.decode.temperature, 4000)
+    }
+
+    func testRealRAWTemperatureAndTintChangePrintBeforeRelease() async throws {
+        guard let input = ProcessInfo.processInfo.environment["SILVERPHASE_INTERACTIVE_RAW"] else {
+            throw XCTSkip("Set SILVERPHASE_INTERACTIVE_RAW to a hash-verified external RAW")
+        }
+        let directory = FileManager.default.temporaryDirectory.appending(path: "interactive-raw-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: URL(fileURLWithPath: input).lastPathComponent)
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: input), to: url)
+        let session = Session()
+        session.open(urls: [url])
+        var params = session.params
+        params.grainActive = false; params.glareActive = false
+        params.effects.grain = 0; params.effects.glare = 0
+        session.params = params
+        _ = await session.currentServiceSession()
+        XCTAssertEqual(session.decoded?.isRAW, true)
+        let first = try XCTUnwrap(session.renderer.store.print(for: url), session.status)
+        func meanRGB(_ texture: MTLTexture) throws -> [Double] {
+            let bytes = try samples(texture, session.renderer.device)
+            var means = [0.0, 0.0, 0.0]
+            for i in stride(from: 0, to: bytes.count - 3, by: 4) {
+                for c in 0..<3 { means[c] += Double(bytes[i + c]) }
+            }
+            return means.map { $0 / Double(bytes.count / 4) / 65535 }
+        }
+        let initial = try meanRGB(first)
+        let nativeSize = try XCTUnwrap(session.decoded?.pixelSize)
+        session.parameterInteraction(true)
+        defer { session.parameterInteraction(false) }
+        session.setTemperature(3500)
+        try await waitUntil("temperature to update the actual print before drag release", timeout: 180) {
+            session.sidecar.decode.temperature == 3500 && !session.busy
+                && session.renderer.store.print(for: url).map { $0 !== first } == true
+        }
+        let warm = try XCTUnwrap(session.renderer.store.print(for: url))
+        let warmRGB = try meanRGB(warm)
+        XCTAssertGreaterThan(zip(initial, warmRGB).reduce(0.0) { $0 + abs($1.0 - $1.1) }, 0.002)
+        session.setTint(80)
+        try await waitUntil("tint to update the actual print before drag release", timeout: 180) {
+            session.sidecar.decode.tint == 80 && !session.busy
+                && session.renderer.store.print(for: url).map { $0 !== warm } == true
+        }
+        let tinted = try meanRGB(try XCTUnwrap(session.renderer.store.print(for: url)))
+        XCTAssertGreaterThan(zip(warmRGB, tinted).reduce(0.0) { $0 + abs($1.0 - $1.1) }, 0.002)
+        XCTAssertNotNil(session.decoded?.rawPreviewEdge, "dragging should not upload the full RAW")
+        let previewDecode = try XCTUnwrap(session.decoded)
+        let previewFrame = try ImageDecoder.engineFrame(from: previewDecode, device: session.renderer.device)
+        XCTAssertLessThanOrEqual(max(previewFrame.width, previewFrame.height), session.previewLongEdge + 1,
+                                 "the native upload must be bounded, not an upscaled full-size buffer")
+        XCTAssertEqual(session.decoded?.pixelSize, nativeSize, "preview must preserve native geometry")
+        session.parameterInteraction(false)
+        _ = await session.currentServiceSession()
+        XCTAssertNil(session.decoded?.rawPreviewEdge, "export and settled detail need the complete source")
+        XCTAssertEqual(session.decoded?.pixelSize, nativeSize)
+    }
+
+    func testContinuousDecodeCoalescesChangesAndExportsTheFinalValue() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "continuous-decode-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "synthetic.tif")
+        try PortTestFrame.write(to: url, highContrast: true)
+        let session = Session()
+        session.open(urls: [url])
+        _ = await session.ensureDeveloped()
+        let firstCount = session.decodeCount
+        var queuedNewerValue = false
+        session.afterOpenDeltaForTesting = {
+            if !queuedNewerValue {
+                queuedNewerValue = true
+                XCTAssertEqual(session.sidecar.decode.temperature, 4000)
+                session.setTemperature(7000)
+                XCTAssertEqual(session.decode.temperature, 7000)
+                XCTAssertEqual(session.sidecar.decode.temperature, 4000,
+                               "the in-flight decode's cache identity must stay pinned")
+                session.flushSave()
+                XCTAssertEqual(Sidecar.load(for: url)?.decode.temperature, 7000)
+            }
+        }
+        session.parameterInteraction(true)
+        session.setTemperature(4000)
+        try await waitUntil("white balance to develop while the drag remains active", timeout: 30) { queuedNewerValue }
+        // Waiting on the public boundary must join the complete serial loop,
+        // rather than returning the first intermediate engine session.
+        let sid = await session.currentServiceSession()
+        session.parameterInteraction(false)
+        session.afterOpenDeltaForTesting = nil
+        XCTAssertNotNil(sid)
+        XCTAssertTrue(queuedNewerValue)
+        XCTAssertEqual(session.decode.temperature, 7000)
+        XCTAssertEqual(session.sidecar.decode.temperature, 7000)
+        XCTAssertGreaterThanOrEqual(session.decodeCount, firstCount + 2)
+    }
+
 
     /// The 1 MP smoke frame the parity harnesses use for the same reason: it is
     /// a real file, and it opens in a fraction of a second.

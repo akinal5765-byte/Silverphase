@@ -387,6 +387,7 @@ final class ParamsTests: XCTestCase {
         // must be mirrored here or the delta is rejected at runtime.
         let known: Set<String> = ["overscan_active", "date_imprint_active", "scene_latitude_split", "scene_latitude_b_active", "camera_filter", "film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
                                   "grain_active", "grain_sublayers_active", "grain_size_scale", "grain_softness",
+                                  "camera_tone_highlights", "camera_tone_shadows", "camera_tone_whites", "camera_tone_blacks",
                                   "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range",
                                   "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range",
                                   "halation_active", "print_exposure", "print_contrast",

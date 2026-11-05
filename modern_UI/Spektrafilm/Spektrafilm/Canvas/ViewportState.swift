@@ -17,7 +17,7 @@ struct ViewportState: Equatable, Sendable {
     /// Points per device pixel. 100 % means one image pixel per device pixel.
     var backingScale: CGFloat = 2
     /// Floating editor chrome covers the canvas without changing its size.
-    /// Only Fit uses the unobscured rectangle; zoomed views keep their pan.
+    /// Fit and pan use the unobscured rectangle within the Metal surface.
     var obscuredLeft: CGFloat = 0
     var obscuredRight: CGFloat = 0
     var obscuredTop: CGFloat = 0
@@ -33,11 +33,18 @@ struct ViewportState: Equatable, Sendable {
     private var visibleHeight: CGFloat { max(viewport.height - obscuredTop - obscuredBottom, 1) }
     private var visibleMidX: CGFloat { obscuredLeft + visibleWidth / 2 }
     private var visibleMidY: CGFloat { obscuredTop + visibleHeight / 2 }
+    var visibleCentre: CGPoint { CGPoint(x: visibleMidX, y: visibleMidY) }
     var hundredScale: CGFloat { 1 / backingScale }
     var isFit: Bool { abs(scale - fitScale) < 1e-6 }
     /// Zoom relative to 100 %, e.g. 0.5 → "50 %".
     var zoomFraction: CGFloat { scale / hundredScale }
     var zoomPercent: Int { Int((zoomFraction * 100).rounded()) }
+    /// Exact device pixels rather than the rounded zoom-label percentage.
+    func needsDetail(frameLongEdge: CGFloat, previewEdge: Int) -> Bool {
+        frameLongEdge.isFinite && frameLongEdge > 0 && previewEdge > 0
+            && zoomFraction * frameLongEdge > CGFloat(previewEdge) * 1.15
+    }
+
     var imageFrame: CGRect { CGRect(origin: offset, size: CGSize(width: image.width * scale, height: image.height * scale)) }
 
     mutating func fit() {
@@ -52,11 +59,18 @@ struct ViewportState: Equatable, Sendable {
         guard newLeft != obscuredLeft || newRight != obscuredRight
                 || newTop != obscuredTop || newBottom != obscuredBottom else { return }
         let wasFit = isFit
+        let previousCentre = visibleCentre
         obscuredLeft = newLeft
         obscuredRight = newRight
         obscuredTop = newTop
         obscuredBottom = newBottom
-        if wasFit { fit() }
+        if wasFit {
+            fit()
+        } else {
+            offset.x += visibleCentre.x - previousCentre.x
+            offset.y += visibleCentre.y - previousCentre.y
+            clamp()
+        }
     }
 
     /// Fit a rect given in **normalised image coordinates**, leaving `margin`
@@ -96,7 +110,7 @@ struct ViewportState: Equatable, Sendable {
     /// fitted, otherwise keep the centre of view stable.
     mutating func resize(viewport newViewport: CGSize, image newImage: CGSize? = nil) {
         let wasFit = isFit
-        let centreImage = imagePoint(atView: CGPoint(x: viewport.width / 2, y: viewport.height / 2))
+        let centreImage = imagePoint(atView: visibleCentre)
         if let newImage, newImage != image {
             image = newImage
             viewport = newViewport
@@ -105,8 +119,8 @@ struct ViewportState: Equatable, Sendable {
         }
         viewport = newViewport
         if wasFit { fit() } else {
-            offset = CGPoint(x: viewport.width / 2 - centreImage.x * scale,
-                             y: viewport.height / 2 - centreImage.y * scale)
+            offset = CGPoint(x: visibleCentre.x - centreImage.x * scale,
+                             y: visibleCentre.y - centreImage.y * scale)
             clamp()
         }
     }
@@ -149,10 +163,10 @@ struct ViewportState: Equatable, Sendable {
     /// viewport it is centred; where it is larger, its edges stay outside.
     mutating func clamp() {
         let w = image.width * scale, h = image.height * scale
-        if w <= viewport.width { offset.x = (viewport.width - w) / 2 }
-        else { offset.x = offset.x.clamped(to: (viewport.width - w)...0) }
-        if h <= viewport.height { offset.y = (viewport.height - h) / 2 }
-        else { offset.y = offset.y.clamped(to: (viewport.height - h)...0) }
+        if w <= visibleWidth { offset.x = visibleMidX - w / 2 }
+        else { offset.x = offset.x.clamped(to: (obscuredLeft + visibleWidth - w)...obscuredLeft) }
+        if h <= visibleHeight { offset.y = visibleMidY - h / 2 }
+        else { offset.y = offset.y.clamped(to: (obscuredTop + visibleHeight - h)...obscuredTop) }
     }
 
     /// `Z` / double-click: fit ↔ 100 % about a point.

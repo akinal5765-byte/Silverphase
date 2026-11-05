@@ -14,11 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / 'modern_UI/Spektrafilm'
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--platform', choices=['macos', 'ios'], required=True)
-p.add_argument('--tag', required=True, help='For example v1.0.0')
+p.add_argument('--tag', required=True, help='For example macos-v1.1.0 or v1.1.1')
 p.add_argument('--output', type=Path, required=True)
 p.add_argument('--derived-data', type=Path, help='Optional existing Xcode cache; not included in release assets')
 a = p.parse_args()
-if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?', a.tag):
+version_tag = a.tag.removeprefix('macos-') if a.platform == 'macos' else a.tag
+if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?', version_tag):
     p.error('Use a version tag without path characters')
 out = a.output.expanduser().resolve()
 if ROOT not in out.parents or not out.is_relative_to(ROOT / 'output'):
@@ -27,7 +28,7 @@ out.mkdir(parents=True, exist_ok=True)
 if subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT):
     p.error('Commit the source first so the binaries identify an exact clean revision')
 commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-version = a.tag[1:].split('-', 1)[0]
+version = version_tag[1:].split('-', 1)[0]
 env = dict(os.environ, SILVERPHASE_LOCAL_MATERIALS='0')
 log = (out / ('build-' + a.platform + '.log')).open('w')
 
@@ -116,8 +117,8 @@ if a.platform == 'macos':
     os.symlink('/Applications', app.parent / 'Applications')
     shutil.copytree(resources / 'Licenses', app.parent / 'Licenses')
     (app.parent / 'INSTALL.txt').write_text('Silverphase ' + a.tag + '\nApple Silicon; macOS 15 or later.\nDrag Silverphase to Applications.\nThis build has no Developer ID signature and is not notarized.\nIf macOS blocks it, review System Settings > Privacy & Security and use Open Anyway only if you trust this download.\nDo not disable Gatekeeper globally.\nSource: https://github.com/akinal5765-byte/Silverphase/tree/' + a.tag + '\nCommit: ' + commit + '\n')
-    asset = out / ('Silverphase-' + a.tag[1:] + '-macOS-arm64.dmg')
-    run(['hdiutil', 'create', '-volname', 'Silverphase ' + a.tag[1:], '-srcfolder', app.parent,
+    asset = out / ('Silverphase-' + version_tag[1:] + '-macOS-arm64.dmg')
+    run(['hdiutil', 'create', '-volname', 'Silverphase ' + version_tag[1:], '-srcfolder', app.parent,
          '-ov', '-format', 'UDZO', asset])
     run(['hdiutil', 'verify', asset])
 else:
@@ -128,7 +129,7 @@ else:
     for f in app.rglob('_CodeSignature'):
         if f.is_dir(): shutil.rmtree(f)
     assert not list(app.rglob('embedded.mobileprovision'))
-    asset = out / ('Silverphase-' + a.tag[1:] + '-iOS-unsigned.ipa')
+    asset = out / ('Silverphase-' + version_tag[1:] + '-iOS-unsigned.ipa')
     run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--noqtn', '--keepParent', app.parent, asset])
     run(['unzip', '-tq', asset])
 manifest['asset'] = asset.name

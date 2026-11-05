@@ -64,7 +64,7 @@ extension Session {
         } else { p.filmEdge.pair = false; p.dateBack.textB = "" }
     }
 
-    func filmCanvasLogicalSize(_ texture: MTLTexture) -> CGSize? {
+    func filmCanvasLogicalSize(_ texture: MTLTexture, previewEdge: Int? = nil) -> CGSize? {
         guard params.filmPresentationActive else { return decoded?.pixelSize ?? displaySourceSize }
         guard let source = decoded?.pixelSize ?? displaySourceSize else { return nil }
         var picture = geometry.outputSize(for: source)
@@ -75,7 +75,7 @@ extension Session {
             picture.height = picture.width / aspect
         }
         let long = max(picture.width, picture.height)
-        let k = max(1, long / CGFloat(previewLongEdge))
+        let k = max(1, long / CGFloat(previewEdge ?? previewLongEdge))
         return CGSize(width: CGFloat(texture.width) * k, height: CGFloat(texture.height) * k)
     }
 

@@ -38,6 +38,7 @@
 //  the thing that drifts.
 
 import AppKit
+import Foundation
 import SwiftUI
 
 struct SettingsWindow: View {
@@ -53,6 +54,7 @@ struct SettingsWindow: View {
     /// asks for a tall window and this lets the stack fill it.
     @Environment(\.snapshotMode) private var snapshotMode
 
+    @State private var updateCheck: UpdateCheck = .idle
     @State private var bundleResult: String?
     @State private var savingBundle = false
     /// The memory readout refreshes while the page is open and stops when it
@@ -66,6 +68,7 @@ struct SettingsWindow: View {
                 languageSection
                 appearanceSection
                 renderingSection
+                updatesSection
                 diagnosticsSection
                 memorySection
                 diskCacheSection
@@ -169,6 +172,71 @@ struct SettingsWindow: View {
                 }
             }
         }
+    }
+
+    private var updatesSection: some View {
+        PanelSection(L(.setUpdates), systemImage: "arrow.down.circle", key: "setUpdates") {
+            SettingsRows {
+                VStack(alignment: .leading, spacing: Theme.Metric.space8) {
+                    readout(L(.setInstalledVersion), installedVersion)
+                    HStack(spacing: Theme.Metric.space8) {
+                        Button(L(.setCheckGitHub)) {
+                            updateCheck = .checking
+                            Task { await checkForUpdate() }
+                        }
+                        .buttonStyle(.surface)
+                        .disabled(updateCheck == .checking)
+                        Link(L(.setReleaseHistory), destination: DesktopGitHubRelease.releasesURL)
+                            .buttonStyle(.surface)
+                    }
+                    switch updateCheck {
+                    case .idle:
+                        EmptyView()
+                    case .checking:
+                        caption(L(.setCheckingGitHub))
+                    case .upToDate:
+                        caption(L(.setUpdateCurrent))
+                    case .noPackage:
+                        caption(L(.setUpdateNoPackage))
+                    case .failed:
+                        warning(L(.setUpdateFailed))
+                    case .rateLimited(let retryAt):
+                        warning(L(.setUpdateRateLimited))
+                        if let retryAt, retryAt > Date() {
+                            caption(String(format: L(.setUpdateRetryAt),
+                                           retryAt.formatted(date: .abbreviated, time: .shortened)))
+                        }
+                    case .available(let release):
+                        caption(String(format: L(.setUpdateAvailable), release.version))
+                        Link(L(.setUpdateDownload), destination: release.downloadURL)
+                            .buttonStyle(.surface)
+                    }
+                }
+            }
+        }
+    }
+
+    private var installedVersion: String { Diagnostics.bundleInfo.version }
+
+    private func checkForUpdate() async {
+        do {
+            guard let release = try await DesktopGitHubRelease.fetchLatest() else {
+                updateCheck = .noPackage
+                return
+            }
+            updateCheck = release.version.compare(installedVersion, options: .numeric) == .orderedDescending
+                ? .available(release) : .upToDate
+        } catch DesktopGitHubRelease.CheckError.rateLimited(let retryAt) {
+            updateCheck = .rateLimited(retryAt)
+        } catch {
+            updateCheck = .failed
+        }
+    }
+
+    private enum UpdateCheck: Equatable {
+        case idle, checking, upToDate, noPackage, failed
+        case rateLimited(Date?)
+        case available(DesktopGitHubRelease)
     }
 
     // MARK: - diagnostics

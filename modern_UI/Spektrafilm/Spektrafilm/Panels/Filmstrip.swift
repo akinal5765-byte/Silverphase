@@ -210,6 +210,7 @@ struct Filmstrip: View {
                 .buttonStyle(.toolbarSelection(selected: false))
                 .disabled(!session.canPasteSettings).help(L(.menuPasteSettings))
                 .accessibilityLabel(L(.menuPasteSettings))
+                BottomStripModeButton(session: session)
             }
         }
     }
@@ -479,7 +480,6 @@ struct SelectedFramesGrid: View {
             .padding(Theme.Metric.space20)
             .frame(maxWidth: .infinity)
         }
-        .background(Theme.ground)
         .contextMenu { SettingsClipboardMenu(session: session) }
         .accessibilityLabel(T("Selected photos", "已选照片"))
     }
@@ -638,6 +638,7 @@ struct FilmChoiceStrip: View {
             BottomStripToolbarGroup {
                 modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图"))
                 modeButton("list.bullet", list: true, help: T("List", "列表视图"))
+                BottomStripModeButton(session: session)
             }
         }
     }
@@ -666,6 +667,7 @@ struct FilmChoiceStrip: View {
             BottomStripToolbarGroup {
                 modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图"))
                 modeButton("list.bullet", list: true, help: T("List", "列表视图"))
+                BottomStripModeButton(session: session)
             }
 
         }
@@ -884,5 +886,27 @@ private struct SettingsClipboardMenu: View {
         if session.selectedFrames.count <= 1, let frame, frame != session.selection {
             session.click(frame)
         }
+    }
+}
+
+
+private struct BottomStripModeButton: View {
+    @Bindable var session: Session
+
+    var body: some View {
+        let title = session.filmstripCollapsed
+            ? T("Pin Bottom Strip", "固定底部条")
+            : T("Auto-hide Bottom Strip", "自动收起底部条")
+        Button {
+            session.filmstripCollapsed.toggle()
+        } label: {
+            Image(systemName: session.filmstripCollapsed ? "pin" : "chevron.down")
+                .frame(width: Theme.Metric.bottomStripToolbarGlyphSize,
+                       height: Theme.Metric.bottomStripToolbarGlyphSize)
+                .bottomStripToolbarControl(iconOnly: true)
+        }
+        .buttonStyle(.toolbarSelection(selected: false))
+        .help(title)
+        .accessibilityLabel(title)
     }
 }

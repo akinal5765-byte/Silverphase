@@ -124,6 +124,8 @@ enum S: String, CaseIterable, Sendable {
 
     // MARK: the Settings page and the About panel
     case setInterface, setScale, setScaleCaption, setRendering, setPreview, setPreviewCaption, setFastStockPreview, setFastStockPreviewCaption, setCropRemaps, setCropRemapsCaption, setDiagnostics, setLogLevel, setLevelNormal, setLevelNormalDetail, setLevelDetailed, setLevelDetailedDetail, setLevelVerbose, setLevelVerboseDetail, setPerNodeTimings, setPerNodeTimingsNote, setMemory, setFootprint, setSessionPeak, setFree, setNotSampled, setReserve, setReserveNote, setWorkingSetCap, setUnlimited, setCapNote, setHeldByApp, setEvictable, setAllowOverReserve, setAllowOverReserveCaption, setDiskCache, setInUse, setCacheUnavailable, setLimit, setCacheNote, setLocation, setRevealInFinder, setEmptyCache, setEmptyCacheHelp, reasonNoDiskCache, setLogs, setKeepFor, setKeepAtMost, setUnitDays, setUnitFiles, setRetentionCaption, setDestination, setChoose, setChooseLogMessage, setLogDirectoryNote, setClearLogs, setClearLogsHelp, setBundle, setIncludeFileNames, setFileNamesNote, setPlaceholderNames, setSaving, setSaveBundle, setBundleCaption, setWroteBundle, setBundleFailed, setMachine, setApp, setEngine, setRenderCore, setLogFile, setNotReported, setNone, setLastSession, setEndedCleanly, setEndedUnclean, setNoEarlierLog, setUncleanCaption, setLastError, setNoCacheAllocations
+    case bottomStripRevealHint
+    case setUpdates, setInstalledVersion, setCheckGitHub, setReleaseHistory, setCheckingGitHub, setUpdateCurrent, setUpdateNoPackage, setUpdateFailed, setUpdateRateLimited, setUpdateRetryAt, setUpdateAvailable, setUpdateDownload, setUpdateLater
     case aboutTagline, aboutEngine, aboutCreditsProfiles, aboutCreditsApp, aboutLicenceBody, aboutLutBody, aboutLicences, aboutShowLicenceFiles, aboutNoLicences, aboutShowInFinder, aboutDone
     case reasonDisabledInDigitalIntermediate, reasonPlacementInDigitalIntermediate
     case latitudeUnmeasurable, latitudeNoLight, filmFormatSize, railFilmAndPrint, railParameters, tabPreDev, tabPostDev, sectionEnlarger, sectionLatitude, sectionScenePlacement, sectionToneMask, printEffects, filmGrainStrength, filmHalationStrength, filmScatterStrength, filmCouplersStrength, filmGlareStrength, latitudeBelow, latitudeWithin, latitudeAbove, latitudeHeld, latitudeFullSeparation, latitudeEmpty, placementHighlight, placementShadow, maskEnable, maskHighlights, maskShadows, maskCore, maskRadius, maskCurveCaption, enlargerPreflash, helpResetFilmFormat, helpResetPlacement, helpResetToneMask, helpResetEnlarger, helpSubLayerGrain, reasonPrintEffectsOff, reasonNotDeveloped, setResetLayout, setResetLayoutCaption
@@ -510,7 +512,21 @@ extension S {
         case .setScaleCaption: "Scales type across the editor, Settings and Export. Changes apply immediately."
         case .setRendering: "Rendering"
         case .setPreview: "Preview"
-        case .setPreviewCaption: "The resolution every interactive edit renders at. The frame's own resolution is rendered separately once an edit settles, so this trades responsiveness while dragging against nothing in the finished picture. The recorded cost of a reprint on a 45 MP frame is 13.7 ms at 2560 px, and rises roughly with the pixels."
+        case .setPreviewCaption: "Sets the target long edge for the live preview. The app can adjust it while you drag and render finer detail when you zoom in. Export uses its own resolution."
+        case .bottomStripRevealHint: "Hover to reveal"
+        case .setUpdates: "Software Update"
+        case .setInstalledVersion: "Current version"
+        case .setCheckGitHub: "Check GitHub for Updates"
+        case .setReleaseHistory: "Release History"
+        case .setCheckingGitHub: "Checking GitHub…"
+        case .setUpdateCurrent: "You have the latest macOS release."
+        case .setUpdateNoPackage: "No macOS package was found."
+        case .setUpdateFailed: "Couldn’t check GitHub for updates. You can check Release History manually."
+        case .setUpdateRateLimited: "GitHub has limited update checks. You can check Release History now."
+        case .setUpdateRetryAt: "Try again after %@."
+        case .setUpdateAvailable: "Silverphase %@ is available. Open the DMG to install it."
+        case .setUpdateDownload: "Download macOS DMG"
+        case .setUpdateLater: "Later"
         case .setFastStockPreview: "Fast stock preview"
         case .setFastStockPreviewCaption: "When a print stock is picked, show the LUT applied to the negative already on the canvas instead of waiting for the full reprint. It is the same table, so the preview and the print agree."
         case .setCropRemaps: "Crop re-maps the frame"
@@ -933,7 +949,21 @@ extension S {
         case .setScaleCaption: "同步调整主界面、设置与导出页的字体大小；更改立即生效。"
         case .setRendering: "渲染"
         case .setPreview: "预览分辨率"
-        case .setPreviewCaption: "拖动时每次编辑渲染的分辨率。编辑停下后会按画面自身分辨率再渲染一次，所以这里换的是拖动时的响应速度，而不是成品的画质。45 MP 画面在 2560 px 下重印的实测耗时是 13.7 ms，并大致随像素数上升。"
+        case .setPreviewCaption: "设置实时预览的目标长边。拖动时应用会按需调整，放大查看时可渲染更高精度的细节。导出使用独立的分辨率。"
+        case .bottomStripRevealHint: "移到这里展开"
+        case .setUpdates: "软件更新"
+        case .setInstalledVersion: "当前版本"
+        case .setCheckGitHub: "从 GitHub 检查更新"
+        case .setReleaseHistory: "发布记录"
+        case .setCheckingGitHub: "正在检查 GitHub…"
+        case .setUpdateCurrent: "当前已是最新的 macOS 正式版。"
+        case .setUpdateNoPackage: "未找到 macOS 安装包。"
+        case .setUpdateFailed: "无法从 GitHub 检查更新，可打开发布记录手动查看。"
+        case .setUpdateRateLimited: "GitHub 暂时限制了更新查询，可打开发布记录查看。"
+        case .setUpdateRetryAt: "可在 %@ 后重试。"
+        case .setUpdateAvailable: "Silverphase %@ 已发布。下载后打开 DMG 安装。"
+        case .setUpdateDownload: "下载 macOS 安装包"
+        case .setUpdateLater: "稍后"
         case .setFastStockPreview: "相纸快速预览"
         case .setFastStockPreviewCaption: "选择相纸时，把 LUT 直接套在画布上已有的负片上，而不是等完整重印。用的是同一张表，所以预览与成品一致。"
         case .setCropRemaps: "裁剪改变画面物理尺度"

@@ -45,7 +45,7 @@ struct FilmEdgeSection: View {
                          title: { $0 == .white ? T("Scan Light", "扫描光源") : T("Black", "黑色背板") }, selection: edge(\.holes))
                 PillMenu(label: T("Carrier", "片夹"), options: ["none", "black", "open"],
                          title: { $0 == "none" ? T("None", "无") : $0 == "black" ? T("Black", "黑色") : T("Open", "透光") }, selection: edge(\.carrier))
-                ScrubSlider(label: T("Frame", "帧号"), value: Binding(get: { Double(session.params.filmEdge.frameNumber) }, set: { var p = session.params; p.filmEdge.frameNumber = Int($0); session.params = p }), range: 0...99, snap: 1, format: { $0 == 0 ? T("Auto", "自动") : String(Int($0)) })
+                ScrubSlider(label: T("Frame", "帧号"), value: Binding(get: { Double(session.params.filmEdge.frameNumber) }, set: { var p = session.params; p.filmEdge.frameNumber = Int($0); session.params = p }), range: 0...99, snap: 1, format: { $0 == 0 ? T("Auto", "自动") : String(Int($0)) }, resolution: 1)
                 ScrubSlider(label: T("Edge Fog", "边缘灰雾"), value: edge(\.fog), range: 0...4, zero: 1)
                 ScrubSlider(label: T("Light Leaks", "漏光"), value: edge(\.leaks), range: 0...4)
                 HStack {

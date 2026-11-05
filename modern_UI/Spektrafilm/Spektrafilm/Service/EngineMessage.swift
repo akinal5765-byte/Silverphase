@@ -142,6 +142,13 @@ enum EngineMessage {
         // Not recognised: pass it through. A wrong guess about what a user
         // should do is worse than an unfamiliar sentence.
         case .unknown:
+            if raw.lowercased().contains("no profile") {
+                let stock = raw.split(separator: "'", omittingEmptySubsequences: false).dropFirst().first.map(String.init) ?? ""
+                if Locale.preferredLanguages.first?.hasPrefix("zh") == true {
+                    return "保存的材料配置不可用：\(stock)。请在工艺面板重新选择胶片或相纸后显影。原始照片和保存的编辑记录未被更改。"
+                }
+                return "The saved material profile is unavailable: \(stock). Choose another film or paper in the inspector to develop this photo. The original photo and saved edit have been preserved."
+            }
             return raw
         }
     }

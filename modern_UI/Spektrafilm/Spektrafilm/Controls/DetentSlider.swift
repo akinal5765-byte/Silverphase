@@ -63,34 +63,16 @@ struct DetentSlider: View {
     }
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            Capsule()
-                .fill(Theme.dim)
-                .frame(height: metrics.trackHeight)
-                .padding(.horizontal, knobWidth / 2)
+        ScrubSlider(label: "", value: Binding(get: { Double(value) }, set: { value = Int($0.rounded()).clamped(to: range) }),
+                    range: Double(range.lowerBound)...Double(range.upperBound), zero: Double(range.lowerBound),
+                    snap: 1, format: { String(Int($0)) }, metrics: rulerMetrics, resolution: 1)
+            .frame(width: width)
+            .help(help ?? "")
+    }
 
-            // The stops themselves. Without them a control that refuses to
-            // sit where you put it reads as a fault; with them the positions
-            // are the ones it can reach, and the count is legible at a glance.
-            ForEach(stops, id: \.self) { stop in
-                Capsule()
-                    .fill(Theme.text.opacity(stop == value ? 0 : 0.25))
-                    .frame(width: 1, height: metrics.trackHeight + 4)
-                    .offset(x: position(stop) - 0.5)
-            }
-
-            RoundedRectangle(cornerRadius: Theme.Metric.knobRadius, style: .continuous)
-                .fill(Theme.knob)
-                .frame(width: knobWidth, height: Theme.Metric.knobSize.height)
-                .offset(x: position(value) - knobWidth / 2)
-        }
-        .frame(width: width, height: metrics.rowHeight)
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { g in value = nearest(to: g.location.x) }
-        )
-        .help(help ?? "")
-        .accessibilityValue("\(value)")
+    private var rulerMetrics: SliderMetrics {
+        var result = metrics
+        result.labelWidth = 0
+        return result
     }
 }

@@ -67,6 +67,7 @@ struct DecodedImage: @unchecked Sendable {
     /// As-shot values reported by the RAW filter (nil for flat files).
     let asShotTemperature: Double?
     let asShotTint: Double?
+    let rawPreviewEdge: Int?
     let lifetime: DecodeLifetime
 
     init(linear: CIImage, display: CIImage, pixelSize: CGSize, isRAW: Bool,
@@ -74,7 +75,7 @@ struct DecodedImage: @unchecked Sendable {
          sourceURL: URL, sourceEXIF: [CFString: Any]? = nil,
          sourceMetadata: [CFString: Any]? = nil,
          asShotTemperature: Double?, asShotTint: Double?,
-         lifetime: DecodeLifetime = DecodeLifetime()) {
+         lifetime: DecodeLifetime = DecodeLifetime(), rawPreviewEdge: Int? = nil) {
         self.linear = linear
         self.display = display
         self.pixelSize = pixelSize
@@ -85,6 +86,7 @@ struct DecodedImage: @unchecked Sendable {
         self.asShotTemperature = asShotTemperature
         self.asShotTint = asShotTint
         self.lifetime = lifetime
+        self.rawPreviewEdge = rawPreviewEdge
     }
 
     var megapixels: Double { pixelSize.width * pixelSize.height / 1e6 }
@@ -176,14 +178,14 @@ enum ImageDecoder {
 
     // MARK: decode
 
-    static func decode(_ url: URL, settings: DecodeSettings,
+    static func decode(_ url: URL, settings: DecodeSettings, rawPreviewEdge: Int? = nil,
                        checkpoint: () throws -> Void = {}) throws -> DecodedImage {
         let trace = PerformanceTrace.begin("Image Decode")
         defer { PerformanceTrace.end("Image Decode", trace) }
         if url.pathExtension.lowercased() == HalfFramePair.fileExtension { return try PairComposer.decode(url, checkpoint: checkpoint) }
         let metadata = sourceMetadata(from: url)
         return rawExtensions.contains(url.pathExtension.lowercased())
-            ? try decodeRAW(url, settings: settings, sourceMetadata: metadata, checkpoint: checkpoint)
+            ? try decodeRAW(url, settings: settings, sourceMetadata: metadata, rawPreviewEdge: rawPreviewEdge, checkpoint: checkpoint)
             : try decodeFlat(url, sourceMetadata: metadata, checkpoint: checkpoint)
     }
 
@@ -248,26 +250,45 @@ enum ImageDecoder {
 
     private static func decodeRAW(_ url: URL, settings: DecodeSettings,
                                   sourceMetadata: [CFString: Any]?,
-                                  checkpoint: () throws -> Void) throws -> DecodedImage {
+                                  rawPreviewEdge: Int? = nil, checkpoint: () throws -> Void) throws -> DecodedImage {
         // A checkpoint before each filter and before each `outputImage` read
         // (which is where the demosaic actually happens) is what makes a
         // superseded decode cost at most one filter.
         try checkpoint()
         let linearResult = try rawFilter(url, look: .linear, settings: settings)
+        let nativeEdge = max(linearResult.filter.nativeSize.width, linearResult.filter.nativeSize.height)
+        let scale = rawPreviewEdge.map { min(1, CGFloat($0) / max(nativeEdge, 1)) } ?? 1
+        linearResult.filter.scaleFactor = Float(scale)
         try checkpoint()
-        guard let linear = linearResult.filter.outputImage else { throw Failure.unsupported(url) }
+        guard let linearSmall = linearResult.filter.outputImage else { throw Failure.unsupported(url) }
         try checkpoint()
         let displayResult = try rawFilter(url, look: .display, settings: settings)
+        displayResult.filter.scaleFactor = Float(scale)
         let asShotT = displayResult.asShotTemperature
         let asShotTint = displayResult.asShotTint
         try checkpoint()
-        guard let display = displayResult.filter.outputImage else { throw Failure.unsupported(url) }
-        return DecodedImage(linear: linear, display: display, pixelSize: linear.extent.size,
+        guard let displaySmall = displayResult.filter.outputImage else { throw Failure.unsupported(url) }
+        // Keep source/geometry coordinates native. The affine lift is lazy;
+        // engineFrame and the display preview evaluate at the requested edge.
+        var logical = linearResult.filter.nativeSize
+        if (logical.width >= logical.height) != (linearSmall.extent.width >= linearSmall.extent.height) {
+            logical = CGSize(width: logical.height, height: logical.width)
+        }
+        func liftToNative(_ image: CIImage) -> CIImage {
+            let placed = image.transformed(by: .init(translationX: -image.extent.minX, y: -image.extent.minY))
+            return placed.transformed(by: .init(scaleX: logical.width / image.extent.width,
+                                               y: logical.height / image.extent.height))
+                .cropped(to: CGRect(origin: .zero, size: logical))
+        }
+        let linear = scale < 1 ? liftToNative(linearSmall) : linearSmall
+        let display = scale < 1 ? liftToNative(displaySmall) : displaySmall
+        return DecodedImage(linear: linear, display: display, pixelSize: scale < 1 ? logical : linear.extent.size,
                             isRAW: true,
                             lensCorrectionSupported: displayResult.filter.isLensCorrectionSupported,
                             sourceURL: url,
                             sourceMetadata: sourceMetadata,
-                            asShotTemperature: asShotT, asShotTint: asShotTint)
+                            asShotTemperature: asShotT, asShotTint: asShotTint,
+                            rawPreviewEdge: scale < 1 ? rawPreviewEdge : nil)
     }
 
     private static func decodeFlat(_ url: URL, sourceMetadata: [CFString: Any]?,
@@ -358,10 +379,13 @@ enum ImageDecoder {
     /// renders; the engine drops the alpha on the GPU (`spk_take_rgb`, which
     /// is also the copy that ends the borrow).
     static func engineFrame(from decoded: DecodedImage, device: MTLDevice) throws -> EngineFrame {
-        try engineFrame(from: decoded.linear, device: device)
+        try engineFrame(from: decoded.linear, device: device, maxEdge: decoded.rawPreviewEdge)
     }
 
-    static func engineFrame(from image: CIImage, device: MTLDevice) throws -> EngineFrame {
+    static func engineFrame(from source: CIImage, device: MTLDevice, maxEdge: Int? = nil) throws -> EngineFrame {
+        let edge = max(source.extent.width, source.extent.height)
+        let scale = maxEdge.map { min(1, CGFloat($0) / max(1, edge)) } ?? 1
+        let image = source.transformed(by: .init(scaleX: scale, y: scale))
         let trace = PerformanceTrace.begin("Engine Frame")
         defer { PerformanceTrace.end("Engine Frame", trace) }
         guard let space = linearProPhoto else { throw Failure.noColorSpace }

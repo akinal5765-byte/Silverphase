@@ -619,6 +619,7 @@ bool Pipeline::build(const Params& params, std::string& error) {
     node_count_ += params_.camera.auto_exposure ? 1 : 0;                 // auto_exposure
     node_count_ += 1;                                                    // crop_rescale
     node_count_ += scene_latitude_wanted() ? 1 : 0;                      // RFC-023
+    node_count_ += camera_tone_wanted() ? 1 : 0;
     node_count_ += 1;                                                    // upsample
     node_count_ += 1;                                                    // exposure
     node_count_ += 1;                                                    // boost
@@ -2105,6 +2106,7 @@ bool Pipeline::film_scale_and_expose(const Chain& in, Chain& out, std::string& e
     // spectral reconstruction exactly (§12.2), and this is the band-able
     // stage, so the node strips with it.
     if (scene_latitude_wanted()) { SPK_NODE(node_scene_latitude(cur, next, error)); cur = next; }
+    if (camera_tone_wanted()) { SPK_NODE(node_camera_tone(cur, next, error)); cur = next; }
     SPK_NODE(node_upsample(cur, next, error)); cur = next;
     SPK_NODE(node_exposure(cur, next, error)); cur = next;
     out = in;

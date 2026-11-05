@@ -65,7 +65,15 @@ struct CameraSection: View {
                             sublabelView: asShotLine,
                             value: Binding(get: { session.params.exposureCompensationEV },
                                            set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
-                            range: -4...4, snap: 1 / 3, format: { String(format: "%+.1f", $0) })
+                            range: -4...4, snap: 1 / 3, format: { String(format: "%+.2f", $0) })
+            }
+            InspectorSubblock(title: T("Tone", "影调"), menu: { AnyView(toneMenu) }) {
+                RailRows {
+                    toneRow(T("Highlights", "高光"), \.highlights)
+                    toneRow(T("Shadows", "阴影"), \.shadows)
+                    toneRow(T("Whites", "白色色阶"), \.whites)
+                    toneRow(T("Blacks", "黑色色阶"), \.blacks)
+                }
             }
             if session.halfFramePair == nil {
             InspectorSubblock(title: T("White Balance", "白平衡"),
@@ -129,6 +137,33 @@ struct CameraSection: View {
         Button(L(.helpResetFilmExposure)) {
             var p = session.params; p.exposureCompensationEV = 0; session.params = p
         }
+    }
+
+    private var toneMenu: some View {
+        Group {
+            Button(T("Reset Tone", "重置影调")) {
+                var p = session.params
+                p.cameraTone = CameraTone()
+                session.params = p
+            }
+            if session.halfFramePair == nil && session.params.sceneLatitude.active {
+                Button(T("Clear Legacy Scene Placement", "清除旧场景置位")) {
+                    session.resetScenePlacement()
+                }
+            }
+        }
+    }
+
+    private func toneRow(_ title: String, _ keyPath: WritableKeyPath<CameraTone, Double>) -> some View {
+        ScrubSlider(label: title, value: Binding(
+            get: { session.params.cameraTone[keyPath: keyPath] },
+            set: { value in
+                var p = session.params
+                p.cameraTone[keyPath: keyPath] = value
+                session.params = p
+            }), range: CameraTone.range, zero: 0, snap: 1,
+            format: { String(format: "%+.0f", $0) })
+            .help(T("Adjusts scene tones before film exposure.", "在胶片曝光前调整场景影调。"))
     }
 
     private var whiteBalanceMenu: some View {

@@ -390,9 +390,18 @@ struct EffectStrengths: Codable, Equatable, Sendable {
     }
 }
 
+struct CameraTone: Codable, Equatable, Sendable {
+    static let range = -100.0...100.0
+
+    var highlights = 0.0
+    var shadows = 0.0
+    var whites = 0.0
+    var blacks = 0.0
+}
+
 struct FilmParams: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
-        case filmStock, printStock, exposureCompensationEV, autoExposureMethod, autoExposure
+        case filmStock, printStock, exposureCompensationEV, autoExposureMethod, autoExposure, cameraTone
         case filmFormatMM, filmFrame, filmSide, sideLengthMM, grainActive, grainSizeScale, halationActive
         case grainSoftness
         case cameraDiffusion, cameraDiffusionStrength, cameraDiffusionRange
@@ -425,6 +434,7 @@ struct FilmParams: Codable, Equatable, Sendable {
     }
     // --- shoot ---
     var exposureCompensationEV: Double = 0          // -8…8
+    var cameraTone = CameraTone()
     /// Which exposure intent the engine's meter follows (RFC-015 §2.3),
     /// as its wire name.
     ///
@@ -591,6 +601,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         filmStock = "kodak_portra_400"
         printStock = "kodak_supra_endura"
         exposureCompensationEV = 0
+        cameraTone = CameraTone()
         autoExposureMethod = "center_weighted"
         autoExposure = true
         filmFormatMM = 36
@@ -643,6 +654,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         cameraFilter = CameraFilterChoice(rawValue: try c.decodeIfPresent(String.self, forKey: .cameraFilter) ?? "") ?? .off
         paperGrade = PaperGrade(rawValue: try c.decodeIfPresent(String.self, forKey: .paperGrade) ?? "2") ?? .two
         exposureCompensationEV = try c.decode(Double.self, forKey: .exposureCompensationEV)
+        cameraTone = try c.decodeIfPresent(CameraTone.self, forKey: .cameraTone) ?? CameraTone()
         autoExposureMethod = try c.decodeIfPresent(String.self, forKey: .autoExposureMethod)
         autoExposure = try c.decode(Bool.self, forKey: .autoExposure)
         filmFormatMM = try c.decode(Double.self, forKey: .filmFormatMM)
@@ -694,6 +706,10 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("film_stock", .string(StockCatalog.canonicalID(filmStock)), .shoot),
             ("print_stock", .string(StockCatalog.canonicalID(printStock)), .print),
             ("exposure_compensation_ev", .double(exposureCompensationEV), .shoot),
+            ("camera_tone_highlights", .double(cameraTone.highlights.clamped(to: CameraTone.range)), .shoot),
+            ("camera_tone_shadows", .double(cameraTone.shadows.clamped(to: CameraTone.range)), .shoot),
+            ("camera_tone_whites", .double(cameraTone.whites.clamped(to: CameraTone.range)), .shoot),
+            ("camera_tone_blacks", .double(cameraTone.blacks.clamped(to: CameraTone.range)), .shoot),
         ]
         // Only when set. A legacy sidecar has no method, and sending one would
         // change how it meters — the engine's default is what it has always

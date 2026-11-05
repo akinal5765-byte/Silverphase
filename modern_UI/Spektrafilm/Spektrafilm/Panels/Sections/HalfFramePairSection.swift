@@ -26,9 +26,11 @@ struct HalfFramePairSection: View {
                                          title: { $0.title }, selection: Binding(get: { ExposureMethod(rawValue: hole.meterMethod ?? "balanced") ?? .balanced }, set: { value in session.updateHalfFramePair { $0[side]?.meterMethod = value.rawValue } }))
                                     .disabled(!hole.autoExposure)
                                 ScrubSlider(label: T("Exposure · EV", "曝光 · EV"), value: number(side, \.exposureEV), range: -8...8, snap: 1/3)
-                                ToggleRow(label: T("Scene Placement", "场景安置"), isOn: Binding(get: { hole.sceneLatitude.active }, set: { value in session.updateHalfFramePair { $0[side]?.sceneLatitude.active = value } }))
-                                ScrubSlider(label: T("Highlights", "高光回拉"), value: number(side, \.sceneLatitude.highlightPullBack), range: 0...8, disabled: !hole.sceneLatitude.active)
-                                ScrubSlider(label: T("Shadows", "暗部回拉"), value: number(side, \.sceneLatitude.shadowPullBack), range: 0...8, disabled: !hole.sceneLatitude.active)
+                                if hole.sceneLatitude.active {
+                                    Button(T("Clear Legacy Scene Placement", "清除旧场景置位")) {
+                                        session.updateHalfFramePair { $0[side]?.sceneLatitude = SceneLatitudeSettings() }
+                                    }
+                                }
                                 ScrubSlider(label: T("Scale", "取景缩放"), value: number(side, \.placement.scale), range: 1...4, zero: 1)
                                 ScrubSlider(label: T("Horizontal", "水平位置"), value: number(side, \.placement.x), range: -1...1)
                                 ScrubSlider(label: T("Vertical", "垂直位置"), value: number(side, \.placement.y), range: -1...1)

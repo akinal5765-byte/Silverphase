@@ -57,7 +57,7 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
             ["params.cameraFilter", "params.autoExposure", "params.autoExposureMethod", "params.exposureCompensationEV",
              "decode.whiteBalance", "decode.temperature", "decode.tint",
              "params.cameraDiffusion", "params.cameraDiffusionStrength", "params.cameraDiffusionRange",
-             "params.sceneLatitude", "placementNeedsFit"]
+             "params.cameraTone", "params.sceneLatitude", "placementNeedsFit"]
         case .film:
             // The film format sets the physical scale of grain and halation.
             ["params.filmEdge", "params.dateBack", "params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
@@ -144,6 +144,7 @@ struct SettingsClip: Equatable, Sendable {
             out.params.autoExposure = s.params.autoExposure
             out.params.autoExposureMethod = s.params.autoExposureMethod
             out.params.exposureCompensationEV = s.params.exposureCompensationEV
+            out.params.cameraTone = s.params.cameraTone
             // The target's report is of the target's old meter. Nil until its
             // develop, or `retargetSolvedEV`, measures the new one.
             if meterChanged { out.solvedEV = nil }

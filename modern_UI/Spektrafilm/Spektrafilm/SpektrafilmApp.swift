@@ -15,6 +15,10 @@ struct SpektrafilmApp: App {
     private var session: Session { Self.session }
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     private let snapshot = SnapshotRequest.parse(CommandLine.arguments)
+    @AppStorage("ui2.lastAutomaticUpdateCheck") private var lastAutomaticUpdateCheck = 0.0
+    @AppStorage("ui2.lastNotifiedUpdate") private var lastNotifiedUpdate = ""
+    @State private var launchUpdate: DesktopGitHubRelease?
+    @State private var showLaunchUpdate = false
 
     var body: some Scene {
         Window("Silverphase", id: "editor") {
@@ -22,6 +26,13 @@ struct SpektrafilmApp: App {
                 .id(Theme.appearanceKey)
                 .environment(\.snapshotMode, snapshot != nil)
                 .frame(minWidth: Theme.Metric.minWindow.width, minHeight: Theme.Metric.minWindow.height)
+                .task { await checkForLaunchUpdate() }
+                .alert(L(.setUpdates), isPresented: $showLaunchUpdate, presenting: launchUpdate) { release in
+                    Button(L(.setUpdateDownload)) { NSWorkspace.shared.open(release.downloadURL) }
+                    Button(L(.setUpdateLater), role: .cancel) {}
+                } message: { release in
+                    Text(String(format: L(.setUpdateAvailable), release.version))
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unifiedCompact)
@@ -71,6 +82,18 @@ struct SpektrafilmApp: App {
         // The drawing's own window size, so what opens is what was drawn.
         .defaultSize(width: Theme.Metric.Export.width, height: Theme.Metric.Export.height)
         .defaultPosition(.center)
+    }
+    private func checkForLaunchUpdate() async {
+        let now = Date().timeIntervalSince1970
+        guard snapshot == nil, now - lastAutomaticUpdateCheck >= 86_400 else { return }
+        lastAutomaticUpdateCheck = now
+        guard let release = try? await DesktopGitHubRelease.fetchLatest(),
+              !Task.isCancelled,
+              release.version.compare(Diagnostics.bundleInfo.version, options: .numeric) == .orderedDescending,
+              release.version != lastNotifiedUpdate else { return }
+        lastNotifiedUpdate = release.version
+        launchUpdate = release
+        showLaunchUpdate = true
     }
 }
 
@@ -469,9 +492,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // UserDefaults, and a filmstrip collapsed days ago silently removed a
         // whole card from the measurement.
         session.leftCollapsed = req.foldLeft
-        session.rightCollapsed = req.foldRight
-        if let stage = req.inspectorStage { session.inspectorStage = stage }
-        if req.exportRail { session.showExport = true }
         session.filmstripCollapsed = false
         // The same trap, one door along: a **rail width** persists too, and a
         // rail dragged to 328 in some earlier session makes every capture
@@ -516,6 +536,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // snapshot has nobody at the keyboard — so it asks here.
             session.requestPrint()
         }
+        session.rightCollapsed = req.foldRight
+        if let stage = req.inspectorStage { session.inspectorStage = stage }
+        if req.exportRail { session.showExport = true }
         let deadline = Date().addingTimeInterval(req.wait)
         while Date() < deadline {
             try? await Task.sleep(for: .milliseconds(200))

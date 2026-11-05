@@ -18,6 +18,29 @@
 
 namespace spk {
 
+bool Pipeline::camera_tone_wanted() const {
+    const auto& camera = params_.camera;
+    return !params_.debug.lut_mode &&
+           (camera.tone_highlights != 0.0 || camera.tone_shadows != 0.0 ||
+            camera.tone_whites != 0.0 || camera.tone_blacks != 0.0);
+}
+
+bool Pipeline::node_camera_tone(const Image& in, Image& out, std::string& error) {
+    Timer t(this, "filming.expose.camera_tone");
+    const auto& camera = params_.camera;
+    const float p[] = {
+        float(camera.tone_highlights / 100.0), float(camera.tone_shadows / 100.0),
+        float(camera.tone_whites / 100.0), float(camera.tone_blacks / 100.0),
+        float(rgb_to_xyz_ae_.m[1][0]), float(rgb_to_xyz_ae_.m[1][1]), float(rgb_to_xyz_ae_.m[1][2]),
+        float(slm::kMidgray)};
+    const uint32_t n = uint32_t(in.pixels());
+    if (!alloc_like(in, out, error)) return false;
+    return gpu_->dispatch("spk_camera_tone",
+                          {gpu::Arg::buf(in.buf), gpu::Arg::inline_bytes(p, 8),
+                           gpu::Arg::inline_bytes(&n, 1), gpu::Arg::buf(out.buf)},
+                          in.pixels(), error);
+}
+
 bool Pipeline::scene_latitude_wanted() const {
     const SceneLatitudeParams& s = params_.camera.scene_latitude;
     // The print LUT bake renders a neutral chain; a scene transform has no

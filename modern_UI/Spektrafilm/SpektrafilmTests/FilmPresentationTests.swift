@@ -1,9 +1,29 @@
 import XCTest
+import Metal
 import CoreImage
 import ImageIO
 import UniformTypeIdentifiers
 
 final class FilmPresentationTests: XCTestCase {
+    @MainActor
+    func testPreviewTierChangesPreserveTheFilmCanvasSize() throws {
+        let session = Session()
+        session.displaySourceSize = CGSize(width: 6000, height: 3750)
+        var params = session.params
+        params.dateBack.active = true
+        session.params = params
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let small = try XCTUnwrap(device.makeTexture(descriptor: .texture2DDescriptor(
+            pixelFormat: .rgba16Unorm, width: 1280, height: 800, mipmapped: false)))
+        let large = try XCTUnwrap(device.makeTexture(descriptor: .texture2DDescriptor(
+            pixelFormat: .rgba16Unorm, width: 2560, height: 1600, mipmapped: false)))
+        XCTAssertEqual(session.filmCanvasLogicalSize(small, previewEdge: 1280),
+                       session.filmCanvasLogicalSize(large, previewEdge: 2560))
+        XCTAssertEqual(session.filmCanvasLogicalSize(large),
+                       session.filmCanvasLogicalSize(large, previewEdge: session.previewLongEdge),
+                       "cached previews use their configured resolution rather than another frame's transient tier")
+    }
+
     func testLegacyParametersAndPresentationDefaults() throws {
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(FilmParams.default)) as? [String: Any])
         for key in ["filmEdge", "dateBack", "pairSceneLatitude"] { json.removeValue(forKey: key) }
