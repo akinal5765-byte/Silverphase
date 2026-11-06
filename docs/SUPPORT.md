@@ -16,6 +16,8 @@ Issues 是公开渠道。请勿上传私人原片、位置、证件、密码或�
 
 **为什么导出被内存保护中止？** 大尺寸照片及某些效果组合需要更多内存。可尝试降低导出像素数、缩小批次数量，并在设置中释放渲染缓存。导出能力取决于设备、照片和当前可用内存。
 
+**锁屏相机没有响应怎么办？** 设备认证前按实体 Camera Control 时，取景可能短暂冻结或快门不可用。先解锁再按键，或使用控制中心的 Silverphase 相机控件。锁屏拍摄后，在解锁并打开 Silverphase 时检查原片是否已入库。
+
 **为什么不能保存到照片？** 在系统设置中检查 Silverphase 的添加照片权限，也可改为导出到文件。导出的数字中间片文件不作为普通成片写入照片图库。
 
 **为什么两次照片的观感不同？** RAW 解码、白平衡、输入色彩空间、曝光和配方都会影响结果。胶片颗粒及眩光也是成像效果的一部分。反馈颜色问题时，请说明输入格式与配方。
@@ -35,6 +37,7 @@ Contact the maintainer through [GitHub Issues](https://github.com/akinal5765-byt
 - Imported originals and edits remain in the app's local library. Removing an app-library item does not remove the original source in Photos or Files. Export needed work and retain your originals before uninstalling.
 - For RAW import issues, check system support and try the complete original from Files. Cloud originals may need downloading first.
 - For memory-related export failures, reduce output resolution or batch size and release rendering caches in Settings. Capacity depends on your device, image, recipe and available memory.
+- If the lock-screen viewfinder freezes or the shutter is unavailable, unlock before pressing Camera Control or use the Silverphase camera control in Control Center. After a lock-screen capture, unlock and open Silverphase to check that the original reached the library.
 - If saving to Photos fails, check add-only photo permission in system settings or export to Files. Digital intermediate files are not saved to Photos as ordinary images.
 - RAW decoding, white balance, input color space, exposure and recipe affect the result. Include input format and recipe when reporting color problems.
 - Layerlight is optional. Silverphase editing and export work independently of it.

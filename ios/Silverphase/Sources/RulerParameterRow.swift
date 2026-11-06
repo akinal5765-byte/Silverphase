@@ -1,19 +1,5 @@
 import SwiftUI
 
-// Adapted from Lumina-HDR/SharedUIUtils.swift. Scale the animation's comparison
-// value to retain the same rolling transition for fractional photographic units.
-struct AdjustmentNumberTransition: ViewModifier {
-    let value: Double?
-    var fractionDigits = 2
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private var animatedValue: Double? { value.map { ($0 * pow(10, Double(fractionDigits))).rounded() } }
-    func body(content: Content) -> some View {
-        content.monospacedDigit()
-            .contentTransition(animatedValue.map { .numericText(value: $0) } ?? .identity)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: animatedValue)
-    }
-}
-
 struct RulerParameterRow: View {
     let title: String
     @Binding var value: Double

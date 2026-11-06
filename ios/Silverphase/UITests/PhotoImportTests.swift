@@ -245,42 +245,44 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(source.waitForExistence(timeout: 15))
         XCTAssertFalse(app.staticTexts["原图缩略图"].exists)
         XCTAssertFalse(app.staticTexts["编辑预览"].exists)
-        XCTAssertTrue(app.buttons["library.rating-filter"].isHittable)
-        XCTAssertTrue(app.buttons["library.flag-filter"].isHittable)
-        app.buttons["library.flag-filter"].tap()
+        XCTAssertFalse(app.staticTexts["来源"].exists, "Filenames belong in photo information")
+        XCTAssertFalse(app.buttons["星级"].exists)
+        XCTAssertFalse(app.buttons["旗标"].exists)
+        app.buttons["library.menu"].tap()
+        app.buttons["旗标"].tap()
         app.buttons["保留"].tap()
-        XCTAssertTrue(app.buttons["library.flag-filter"].label.contains("保留"))
         XCTAssertFalse(source.exists)
-        app.buttons["library.flag-filter"].tap()
-        app.buttons["全部旗标"].tap()
+        app.buttons["library.menu"].tap()
+        app.buttons["清除筛选"].tap()
         XCTAssertTrue(source.waitForExistence(timeout: 3))
         app.buttons["library.select"].tap()
         let all = app.buttons["library.select-all"]
         XCTAssertTrue(all.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["library.edit-selected"].isEnabled)
+        XCTAssertFalse(app.buttons["library.edit-selected"].exists)
         let controls = XCTAttachment(screenshot: app.screenshot())
         controls.name = "Selection controls before select all"; controls.lifetime = .keepAlways; add(controls)
         all.tap()
         XCTAssertEqual(source.value as? String, "已选择")
         XCTAssertTrue(app.buttons["library.edit-selected"].isEnabled)
         XCTAssertTrue(app.buttons["library.export-selected"].isEnabled)
-        XCTAssertFalse(app.buttons["library.rating-filter"].exists)
-        XCTAssertFalse(app.buttons["library.flag-filter"].exists)
+        XCTAssertFalse(app.buttons["星级"].exists)
+        XCTAssertFalse(app.buttons["旗标"].exists)
         XCTAssertEqual(all.label, "清空选择")
-        for id in ["library.select-all", "library.edit-selected", "library.export-selected", "library.selection-menu"] {
+        XCTAssertTrue(all.isHittable)
+        for id in ["library.edit-selected", "library.export-selected", "library.selection-menu"] {
             let button = app.buttons[id]
-            XCTAssertTrue(button.isHittable, "Native selection action must be directly reachable: " + id)
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                XCTAssertLessThan(button.frame.maxY, source.frame.minY, "iPad uses its native upper toolbar")
+            XCTAssertTrue(button.isHittable, "Selected-photo action must be directly reachable: " + id)
+            if abs(button.frame.midX - all.frame.midX) < button.frame.width / 2 {
+                XCTAssertGreaterThan(button.frame.midY, all.frame.maxY, "Batch actions follow selection controls in the side rail")
             } else {
-                XCTAssertGreaterThan(button.frame.midX, source.frame.maxX, "Duo actions belong in the shared side rail")
+                XCTAssertGreaterThan(button.frame.midY, source.frame.maxY, "Batch actions belong below the photo grid")
             }
         }
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Native gallery toolbar"; attachment.lifetime = .keepAlways; add(attachment)
         all.tap()
         XCTAssertEqual(source.value as? String, "未选择")
-        XCTAssertFalse(app.buttons["library.export-selected"].isEnabled)
+        XCTAssertFalse(app.buttons["library.export-selected"].exists)
         app.terminate()
     }
 
@@ -364,7 +366,8 @@ final class PhotoImportTests: XCTestCase {
         app.launchArguments = ["--library-ui-regression"]
         app.launch()
         XCTAssertTrue(first.waitForExistence(timeout: 10))
-        app.buttons["library.rating-filter"].tap(); app.buttons["至少 4 星"].tap()
+        app.buttons["library.menu"].tap()
+        app.buttons["星级"].tap(); app.buttons["至少 4 星"].tap()
         XCTAssertTrue(first.waitForExistence(timeout: 3)); XCTAssertTrue(second.exists); XCTAssertFalse(source.exists)
         first.tap()
         XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 5))

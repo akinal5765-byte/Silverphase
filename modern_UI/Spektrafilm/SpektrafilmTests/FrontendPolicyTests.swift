@@ -155,7 +155,7 @@ final class RenderSchedulerTests: XCTestCase {
     }
 
     func testMissingSavedMaterialExplainsRecoveryWithoutExposingPaths() {
-        let stock = "fotufilm_astia100f_experimental"
+        let stock = "missing_saved_film"
         let raw = "no profile '\(stock)' (cannot open /private/photo/material.json)"
         let message = EngineMessage.userFacing(EngineClient.ClientError.engine(raw))
         XCTAssertTrue(message.contains(stock))

@@ -42,15 +42,15 @@ struct MobileExportPanel: View {
             }
             ToolSectionTitle(title: "文件与色彩")
             row("格式") { Picker("格式", selection: recipe.format) { ForEach(MobileExportFormat.allCases) { Text($0.rawValue).tag($0) } }.labelsHidden() }
-            row("位深") { Text(document.exportRecipe.format == .jpeg || document.exportRecipe.format == .png ? "8-bit" : "16-bit").monospacedDigit() }
+            row("位深") { Text(document.exportRecipe.format.isEightBit ? "8-bit" : "16-bit").monospacedDigit() }
             if document.exportRecipe.format != .di {
                 row("色彩空间") {
                     Picker("色彩空间", selection: recipe.colorSpace) {
                         ForEach(MobileOutputSpace.allCases.filter { $0 != .prophoto || document.exportRecipe.format == .tiff }) { Text($0.rawValue).tag($0) }
                     }.labelsHidden()
                 }
-                if document.exportRecipe.format == .jpeg {
-                    RulerParameterRow(title: "JPEG 质量 · %", value: Binding(get: { document.exportRecipe.quality * 100 }, set: { document.exportRecipe.quality = $0 / 100 }), range: 10...100, defaultValue: 95, fractionDigits: 0, step: 1, onReset: { document.exportRecipe.quality = 0.95 })
+                if document.exportRecipe.format.hasLossyQuality {
+                    RulerParameterRow(title: "\(document.exportRecipe.format.rawValue) 质量 · %", value: Binding(get: { document.exportRecipe.quality * 100 }, set: { document.exportRecipe.quality = $0 / 100 }), range: 10...100, defaultValue: 95, fractionDigits: 0, step: 1, onReset: { document.exportRecipe.quality = 0.95 })
                 }
             } else {
                 Text("Cineon 对数，ProPhoto 原色，不嵌入 ICC。输出 TIFF 与两个桌面端相同的视图 LUT；正片不支持。").font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)

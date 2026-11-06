@@ -1,6 +1,6 @@
 # Silverphase iOS editor
 
-The editor supports a persistent local library, native process navigation, and batch editing and export.
+The editor supports a persistent local library, an in-app camera that develops captures with the selected film, native process navigation, and batch editing and export. Captures taken from the lock-screen Camera Control cannot be written to Photos while the phone is locked, so the extension stages the original and the app writes the developed print to Photos once the device is unlocked and the capture is in the local library, matching the in-app camera's save policy.
 
 Native iOS editor based on **the current desktop product**, with its full-width
 canvas and floating process panel. Ordinary iPhones open film/paper lists inside
@@ -26,6 +26,24 @@ Duo retains side navigation when folded or landscape and uses floating tools
 when unfolded in portrait. iPad retains top navigation and a right inspector.
 Simulator layout coverage does not establish equal real-device touch, memory or
 export performance. The deployment floor remains iOS18.
+
+### Known limitation: Camera Control before authentication
+
+On iPhone 17 Pro and iPhone Duo, pressing the physical Camera Control before
+device authentication can open the lock-screen capture extension with a live
+viewfinder while the shutter is unavailable, or the viewfinder can briefly
+freeze. On Duo, device logs show the system Camera app's lock-screen prewarm
+taking camera access from the extension. The cause of the 17 Pro shutter issue
+has yet to be confirmed from device logs. Pressing Camera Control after
+authentication worked on both devices during testing. The on-screen Silverphase
+control requests authentication and opens the camera in the main app.
+
+This remains an accepted, unfixed limitation in 1.2.0. The pre-authentication
+entry point is a system-mandated capture extension: the framework requires a
+live camera view on launch and offers no way to demand authentication before
+the extension opens, so the main app cannot take over earlier without dropping
+Camera Control support entirely. In-app capture and the develop, reveal and
+Photos-save handoff that follow it are unaffected.
 
 ## Installation and downloads
 
@@ -83,7 +101,7 @@ The portrait iPhone editor, including unfolded Duo, uses a floating height-limit
 
 Crop now compiles the desktop `Geometry.swift` directly: free/aspect-locked framing, eight touch handles, moving/redrawing, ±45° straighten, orientation, quarter turns and flips. Preview and export use the same inverse pixel mapping. The frame stays level while straightening; framed-film input can be edited on the original before the film gate is applied. Full desktop parity still excludes half-frame pairing.
 
-System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. Imported originals, per-photo recipes, crop geometry, ratings and flags persist in the app-owned local library across cold starts. The library is the launch screen; tapping a photo opens the editor without a filmstrip, while multi-photo editing shows only the chosen batch. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, shows the saved original format in the library, and prefers RAW. With Photos read access it checks the selected asset’s original and alternate resources for RAW. With limited or denied access it can still import the picker representation, and rejects a non-RAW file when the picker identifies the selection as RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
+System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. Imported originals, per-photo recipes, crop geometry, ratings and flags persist in the app-owned local library across cold starts. The library is the launch screen; tapping a photo opens the editor without a filmstrip, while multi-photo editing shows only the chosen batch. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, shows the saved original format in the library’s Photo Info, and prefers RAW. With Photos read access it checks the selected asset’s original and alternate resources for RAW. With limited or denied access it can still import the picker representation, and rejects a non-RAW file when the picker identifies the selection as RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
 
 Preview quality is automatic: screen-sized fit, coalesced live adjustment, and progressive viewport detail up to native pixels. Double-tap or the menu switches fit/1:1. Settings retains low-power priority, crop effect rescaling, DI blue compensation and cache release; no fixed preview resolution picker. Output resolution is independent of preview. Export provides batch scopes, recipes, naming, JPEG/PNG/16-bit TIFF/Cineon DI, output spaces, metadata/location policies, TIFF previews, file-folder collision policies and add-only Photos saving. Per-process memory guards still apply.
 
@@ -163,8 +181,17 @@ originals live beside it with unique relative filenames. Startup does not delete
 this directory. Corrupt/unknown records fail visibly and remain intact. Deletion
 commits the manifest before removing owned originals, leaving the system Photos
 library and import sources untouched. Finished preview thumbnails are disposable
-Caches data keyed to recipe/geometry/settings. Unrendered or changed edits fall back to source thumbnails rather than stale finished pictures. Cards show the photo name, rating and flag without technical preview-origin labels.
-Imports are managed in the library. Editor export is scoped to its current photo or batch; deleting the last photo in that workspace returns to the library. Photo count and original-file storage appear in the scrolling content. Library actions use native toolbars: the shared vertical rail on Duo and the upper navigation toolbar on iPad, including select-all/clear, edit, export and more during selection. Star-rating and flag filters have separate native controls with active-state indicators. Settings/About use their own ellipsis-circle menu; library undo/redo actions are omitted. Native spacers separate import, selection, filters and the application menu. During selection, import, filters and the application menu yield space to selection controls (checkmark / checked photo stack / crossed square), editing/export and a separate More group. Horizontal swipes select a range or deselect it when starting on a selected photo; ordinary vertical swipes scroll. The editor uses a back chevron to return to the library. No separate bottom action surface is drawn. Undo history is limited to the current
+Caches data keyed to recipe/geometry/settings. Unrendered or changed edits fall back to source thumbnails rather than stale finished pictures. The gallery defaults to a dense square grid and remembers its thumbnail size and aspect options. RAW, ratings and flags appear as small badges;
+the filename, original format and available EXIF are in the photo’s context menu
+under Photo Info. Photo count and original-file size are in Settings. The native
+top toolbar shows Import, Select and More. Camera uses the native bottom toolbar.
+More contains thumbnail size and aspect options, filename search, RAW/star/flag
+filters, Settings and About. In selection mode the toolbar
+shows Done and Select All/Clear. Once photos are selected, the native bottom toolbar
+adds Edit, Export and batch actions. Duo places that group below the selection
+controls in its vertical system rail. Horizontal swipes select a range or
+deselect it when starting on a selected photo. Vertical swipes scroll. The editor
+uses a back chevron to return to the library. Undo history is limited to the current
 process; library albums, cloud sync and cross-device transfer are not implemented.
 
 Debug `--library-regression` writes `Documents/library-report.json` with isolated

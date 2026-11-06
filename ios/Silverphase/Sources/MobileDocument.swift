@@ -8,10 +8,12 @@ typealias WireValue = ParamValue
 enum MobileExportDestination { case share, photos }
 
 enum MobileExportFormat: String, Codable, CaseIterable, Identifiable, Sendable {
-    case jpeg = "JPEG", png = "PNG", tiff = "TIFF 16-bit", di = "数字中间片"
+    case jpeg = "JPEG", heif = "HEIF", png = "PNG", tiff = "TIFF 16-bit", di = "数字中间片"
     var id: String { rawValue }
-    var type: UTType { switch self { case .jpeg: .jpeg; case .png: .png; case .tiff, .di: .tiff } }
-    var fileExtension: String { switch self { case .jpeg: "jpg"; case .png: "png"; case .tiff, .di: "tif" } }
+    var hasLossyQuality: Bool { self == .jpeg || self == .heif }
+    var isEightBit: Bool { hasLossyQuality || self == .png }
+    var type: UTType { switch self { case .jpeg: .jpeg; case .heif: .heic; case .png: .png; case .tiff, .di: .tiff } }
+    var fileExtension: String { switch self { case .jpeg: "jpg"; case .heif: "heic"; case .png: "png"; case .tiff, .di: "tif" } }
 }
 
 struct MobilePhoto: Codable, Identifiable {
@@ -26,6 +28,8 @@ struct MobilePhoto: Codable, Identifiable {
     var sourceMegapixels = 0.0
     var sourceAspect = 1.5
     var sourceTypeIdentifier: String?
+    var libraryDay: Int?
+    var libraryDate: Date?
 }
 
 @MainActor @Observable final class MobileDocument {
@@ -186,6 +190,12 @@ struct MobilePhoto: Codable, Identifiable {
     func waitForPreviewCleanup() async { await detailCleanupTask?.value; await previewCleanupTask?.value }
 #endif
     private let exportEngine = MobileEngine()
+    // Camera capture renders through lifecycle-managed engines: backgrounding
+    // cancels the Metal session via the work gate instead of letting a capture
+    // task submit GPU work while the app is in the background. Develop previews
+    // get their own engine; saving to Photos reuses the export engine so it
+    // obeys the same background protection as the normal export path.
+    private let cameraEngine = MobileEngine()
     private var previewAfterExport = false
     private var exportInterruptedByBackground = false
     private var renderTask: Task<Void, Never>?
@@ -237,6 +247,41 @@ struct MobilePhoto: Codable, Identifiable {
     func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
         MobileLibraryPreview.url(photo: photo, cropRemapsEffects: preferences.values.cropRemapsEffects, diBlueCompensation: preferences.values.diBlueCompensation)
     }
+    private func cameraRenderRecipe(_ photo: MobilePhoto) -> [String: WireValue] {
+        var recipe = photo.recipe
+        recipe["_diBlue"] = .bool(preferences.values.diBlueCompensation)
+        recipe["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
+        return recipe
+    }
+
+    func developCameraPhoto(_ photo: MobilePhoto, animate: Bool) async throws -> MobileCameraDevelopment {
+        let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo), animate: animate)
+        cacheLibraryPreview(preview.image, photo: photo)
+        if preview.animation != nil { photosOfferedDevelopment.insert(photo.id) }
+        return preview
+    }
+
+    func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {
+        let source = url(for: photo)
+        let isRAW = photo.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .rawImage) == true
+        let pairedRAW = preferences.values.cameraSavePolicy == .rawAndFinishedPhoto && isRAW ? source : nil
+        let recipe = cameraRenderRecipe(photo)
+        try await PhotoLibraryWriter.authorize()
+        let stem = URL(fileURLWithPath: photo.name).deletingPathExtension().lastPathComponent
+        var options = MobileExportRecipe()
+        if preferences.values.cameraUsesHEIF {
+            options.format = .heif
+            // ImageIO's HEIF and JPEG quality scales behave differently.
+            options.quality = 0.85
+        }
+        let renderer = exportEngine
+        let files = try await renderer.exportFiles(url: source, recipe: recipe, geometry: photo.geometry,
+                                                   options: options, stem: stem)
+        guard let finished = files.first else { throw MobileFailure.message("未生成成片") }
+        defer { try? FileManager.default.removeItem(at: finished.deletingLastPathComponent()) }
+        try await PhotoLibraryWriter.save(finished, pairedRAW: pairedRAW)
+    }
+
     private func cacheLibraryPreview(_ image: CGImage, photo: MobilePhoto) {
         let previewURL = libraryPreviewURL(photo)
         let source = url(for: photo)
@@ -291,11 +336,13 @@ struct MobilePhoto: Codable, Identifiable {
         if resume, active, current != nil { schedule() }
     }
     @discardableResult func importFiles(_ urls: [URL], displayNames: [URL: String] = [:], removeSourcesAfterImport: Bool = false,
-                                        continuingPhotoSelection: Bool = false) -> Task<Void, Never> {
+                                        continuingPhotoSelection: Bool = false, capturedFilm: Stock? = nil,
+                                        announceSuccess: Bool = true) -> Task<Void, Never> {
         let adoptingPicker = continuingPhotoSelection && isImporting && operation?.stage == .receiving
         guard libraryWritable, !delivering, !isInteractionLocked || adoptingPicker else { return Task {} }
         if !adoptingPicker { beginImport(stage: .copying, total: urls.count) }
         guard let importID = operation?.id else { return Task {} }
+        operation?.announcesImportSuccess = announceSuccess
         operation?.stage = .copying; operation?.total = urls.count; operation?.index = 1
         return Task {
             var imported: [MobilePhoto] = []
@@ -324,6 +371,9 @@ struct MobilePhoto: Codable, Identifiable {
                     }
                     photo.sourceTypeIdentifier = metadata.typeIdentifier
                     photo.exifSummary = metadata.exifSummary
+                    let date = metadata.captureDate ?? metadata.captureDay.flatMap(MobileImageMetadata.date(forDay:)) ?? .now
+                    photo.libraryDate = date
+                    photo.libraryDay = metadata.captureDay ?? MobileImageMetadata.day(containing: date)
                     photo.sourceMegapixels = metadata.megapixels
                     photo.sourceAspect = metadata.aspect
                     if let ext = metadata.fileExtension, metadata.isRaw, destination.pathExtension.lowercased() != ext.lowercased() {
@@ -331,6 +381,7 @@ struct MobilePhoto: Codable, Identifiable {
                         try FileManager.default.moveItem(at: destination, to: corrected)
                         photo.filename = corrected.lastPathComponent
                     }
+                    if let capturedFilm { Self.applyFilm(capturedFilm, to: &photo.recipe) }
                     imported.append(photo)
                 } catch {
                     try? FileManager.default.removeItem(at: destination)
@@ -350,7 +401,7 @@ struct MobilePhoto: Codable, Identifiable {
                 if editorVisible { scheduleRender(importID: importID) }
                 else {
                     busy = false; finishImport(id: importID, resumePrevious: false)
-                    if notification == nil { postNotification("已导入 \(imported.count) 张照片", style: .success) }
+                    if announceSuccess, notification == nil { postNotification("已导入 \(imported.count) 张照片", style: .success) }
                 }
             } else { finishImport(id: importID, resumePrevious: true) }
         }
@@ -448,12 +499,13 @@ struct MobilePhoto: Codable, Identifiable {
     func setFilm(_ film: Stock) {
         endParameterInteraction()
         let wasPositive = value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
-        edit {
-            $0.recipe["film_stock"] = .string(film.id)
-            if film.isPositive || wasPositive { $0.recipe["scan_film"] = .bool(film.isPositive) }
-            $0.recipe["digital_intermediate"] = .bool(false)
-            if let paper = film.targetPrint { $0.recipe["print_stock"] = .string(paper) }
-        }
+        edit { Self.applyFilm(film, to: &$0.recipe, wasPositive: wasPositive) }
+    }
+    private static func applyFilm(_ film: Stock, to recipe: inout [String: WireValue], wasPositive: Bool = false) {
+        recipe["film_stock"] = .string(film.id)
+        if film.isPositive || wasPositive { recipe["scan_film"] = .bool(film.isPositive) }
+        recipe["digital_intermediate"] = .bool(false)
+        if let paper = film.targetPrint { recipe["print_stock"] = .string(paper) }
     }
     func setPaper(_ paper: Stock?) {
         endParameterInteraction()
@@ -917,7 +969,7 @@ struct MobilePhoto: Codable, Identifiable {
         finishDevelopment()
         showOriginal = true
     }
-    private func scheduleRender(importID: UUID? = nil) {
+    private func scheduleRender(importID: UUID? = nil, retryingCancellation: Bool = false) {
         finishDevelopment()
         cancelDetail()
         guard !delivering else { previewAfterExport = true; return }
@@ -980,11 +1032,25 @@ struct MobilePhoto: Codable, Identifiable {
                 previewStatus = ""
                 if let importID, operation?.id == importID {
                     let count = operation?.total ?? 0
+                    let announceSuccess = operation?.announcesImportSuccess == true
                     finishImport(id: importID)
-                    if notification == nil { postNotification("已导入 \(count) 张照片", style: .success) }
+                    if announceSuccess, notification == nil { postNotification("已导入 \(count) 张照片", style: .success) }
                 }
                 reconcileDetail()
-            } catch is CancellationError { }
+            } catch is CancellationError {
+                // A replaced render belongs to an earlier revision. A native
+                // cancellation of the current render still owns the spinner.
+                guard !Task.isCancelled, generation == revision, active else { return }
+                if !retryingCancellation, image == nil {
+                    queuePreviewClose()
+                    scheduleRender(importID: importID, retryingCancellation: true)
+                } else {
+                    busy = false
+                    previewStatus = ""
+                    if image == nil { error = "预览已中断，请重新打开照片。" }
+                    finishImport(id: importID)
+                }
+            }
             catch {
                 guard generation == revision else { return }
                 self.error = error.localizedDescription; busy = false
@@ -1047,7 +1113,11 @@ struct MobilePhoto: Codable, Identifiable {
         if !active && background {
             exportInterruptedByBackground = true
             exportEngine.workGate.setActive(false)
-        } else if active && !delivering { exportEngine.workGate.setActive(true) }
+            cameraEngine.workGate.setActive(false)
+        } else if active {
+            if !delivering { exportEngine.workGate.setActive(true) }
+            cameraEngine.workGate.setActive(true)
+        }
         if active {
             if isImporting {
                 if operation?.stage == .preview { scheduleRender(importID: operation?.id) }

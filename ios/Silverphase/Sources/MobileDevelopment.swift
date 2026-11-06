@@ -7,11 +7,13 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
     let id = UUID()
     let device: MTLDevice
     let print: MTLTexture
+    let pipeline: MTLRenderPipelineState
+#if SILVERPHASE_APP
     let scan: MTLTexture
     let scanStyle: Bool
-    let pipeline: MTLRenderPipelineState
     let transform: MTLComputePipelineState
     let setup: (Data, MTLBuffer)
+#endif
 #if DEBUG
     private let auditLock = NSLock()
     private var submittedFrames = 0
@@ -25,6 +27,7 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
     }
 #endif
     static let paperSeconds = 2.2
+#if SILVERPHASE_APP
     static let scanSeconds = 0.35
     var duration: Double { scanStyle ? Self.scanSeconds : Self.paperSeconds }
     init(device: MTLDevice, print: MTLTexture, scan: MTLTexture, transform: MTLComputePipelineState,
@@ -39,18 +42,57 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
         descriptor.colorAttachments[0].pixelFormat = .rgba16Unorm
         pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
     }
+#else
+    var duration: Double { 0.45 }
+
+    init(photo: CGImage) throws {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let colorSpace = CGColorSpace(name: CGColorSpace.rommrgb),
+              let pixels = CGContext(data: nil, width: photo.width, height: photo.height,
+                                     bitsPerComponent: 8, bytesPerRow: photo.width * 4, space: colorSpace,
+                                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+        else { throw MobileFailure.message("无法准备显影预览") }
+        pixels.draw(photo, in: CGRect(x: 0, y: 0, width: photo.width, height: photo.height))
+        let texture = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: photo.width,
+                                                               height: photo.height, mipmapped: false)
+        guard let image = device.makeTexture(descriptor: texture), let data = pixels.data else {
+            throw MobileFailure.message("无法准备显影纹理")
+        }
+        image.replace(region: MTLRegionMake2D(0, 0, photo.width, photo.height), mipmapLevel: 0,
+                      withBytes: data, bytesPerRow: pixels.bytesPerRow)
+        self.device = device
+        self.print = image
+        let library = try device.makeDefaultLibrary(bundle: .main)
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = library.makeFunction(name: "mobileDevelopVertex")
+        descriptor.fragmentFunction = library.makeFunction(name: "lockedCameraDevelopFragment")
+        descriptor.colorAttachments[0].pixelFormat = .rgba16Float
+        pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+    }
+#endif
     func encode(command: MTLCommandBuffer, working: MTLTexture, output: MTLTexture, progress: Float) throws {
         let descriptor = MTLRenderPassDescriptor()
+#if SILVERPHASE_APP
         descriptor.colorAttachments[0].texture = working
+#else
+        descriptor.colorAttachments[0].texture = output
+#endif
         descriptor.colorAttachments[0].loadAction = .dontCare
         descriptor.colorAttachments[0].storeAction = .store
         guard let render = command.makeRenderCommandEncoder(descriptor: descriptor) else { throw MobileFailure.message("无法提交显影动画") }
         render.setRenderPipelineState(pipeline)
+        var t = progress
+#if SILVERPHASE_APP
         render.setFragmentTexture(print, index: 0); render.setFragmentTexture(scan, index: 1)
-        var t = progress, style: UInt32 = scanStyle ? 1 : 0
-        render.setFragmentBytes(&t, length: 4, index: 0); render.setFragmentBytes(&style, length: 4, index: 1)
+        var style: UInt32 = scanStyle ? 1 : 0
+        render.setFragmentBytes(&style, length: 4, index: 1)
+#else
+        render.setFragmentTexture(print, index: 0)
+#endif
+        render.setFragmentBytes(&t, length: 4, index: 0)
         render.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         render.endEncoding()
+#if SILVERPHASE_APP
         guard let stats = device.makeBuffer(length: 16, options: .storageModeShared),
               let encoder = command.makeComputeCommandEncoder() else { throw MobileFailure.message("无法转换显影动画色彩") }
         memset(stats.contents(), 0, 16)
@@ -62,8 +104,9 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
         encoder.dispatchThreads(MTLSize(width: output.width, height: output.height, depth: 1),
             threadsPerThreadgroup: MTLSize(width: width, height: min(8, transform.maxTotalThreadsPerThreadgroup / width), depth: 1))
         encoder.endEncoding()
+#endif
     }
-#if DEBUG
+#if DEBUG && SILVERPHASE_APP
     func auditFrame(_ progress: Float) throws -> Data {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: print.width, height: print.height, mipmapped: false)
         descriptor.storageMode = .shared; descriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
@@ -82,12 +125,19 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
 struct MobileDevelopmentView: UIViewRepresentable {
     let assets: MobileDevelopmentAssets
     let running: Bool
+    var playbackRate: Double = 1
     let finished: () -> Void
-    func makeCoordinator() -> Coordinator { Coordinator(assets: assets, finished: finished) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(assets: assets, duration: assets.duration / playbackRate, finished: finished)
+    }
     func makeUIView(context: Context) -> MTKView {
         let view = MTKView(frame: .zero, device: assets.device)
         view.colorPixelFormat = .rgba16Float
+#if SILVERPHASE_APP
         (view.layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.displayP3)
+#else
+        (view.layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB)
+#endif
         view.framebufferOnly = false; view.isOpaque = true
         view.isUserInteractionEnabled = false // all canvas gestures belong to SwiftUI
         view.isPaused = true; view.enableSetNeedsDisplay = true
@@ -107,13 +157,17 @@ struct MobileDevelopmentView: UIViewRepresentable {
     }
     @MainActor final class Coordinator: NSObject, MTKViewDelegate {
         let assets: MobileDevelopmentAssets
+        let duration: Double
         let queue: MTLCommandQueue?
         var working: MTLTexture?
         var start: CFTimeInterval?
         var completed = false
         var finished: () -> Void
-        init(assets: MobileDevelopmentAssets, finished: @escaping () -> Void) {
-            self.assets = assets; self.finished = finished; queue = assets.device.makeCommandQueue()
+        init(assets: MobileDevelopmentAssets, duration: Double, finished: @escaping () -> Void) {
+            self.assets = assets
+            self.duration = duration
+            self.finished = finished
+            queue = assets.device.makeCommandQueue()
         }
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { working = nil }
         func draw(in view: MTKView) {
@@ -125,6 +179,7 @@ struct MobileDevelopmentView: UIViewRepresentable {
 #endif
                 complete(view); return
             }
+#if SILVERPHASE_APP
             let width = drawable.texture.width, height = drawable.texture.height
             if working?.width != width || working?.height != height {
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: width, height: height, mipmapped: false)
@@ -132,7 +187,10 @@ struct MobileDevelopmentView: UIViewRepresentable {
                 working = assets.device.makeTexture(descriptor: descriptor)
             }
             guard let working else { complete(view); return }
-            let t = Float(start.map { min(1, max(0, (CACurrentMediaTime() - $0) / assets.duration)) } ?? 0)
+#else
+            let working = drawable.texture
+#endif
+            let t = Float(start.map { min(1, max(0, (CACurrentMediaTime() - $0) / duration)) } ?? 0)
             do { try assets.encode(command: command, working: working, output: drawable.texture, progress: t) }
             catch {
 #if DEBUG

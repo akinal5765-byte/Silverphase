@@ -33,7 +33,7 @@ Each beta build is available for up to 90 days; see [Apple’s TestFlight overvi
 
 ### Historical unsigned IPA
 
-The iOS source version is **1.1.3 (5)**. Check TestFlight for the currently available beta. The unsigned IPA instructions below apply to historical GitHub Release assets.
+The iOS source version is **1.2.0 (6)**. Check TestFlight for the currently available beta. The unsigned IPA instructions below apply to historical GitHub Release assets.
 
 - iOS/iPadOS 18 or later, arm64.
 - The source includes a portrait-only conventional iPhone layout with

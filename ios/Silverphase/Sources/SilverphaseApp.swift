@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 import UIKit
 import ImageIO
 import PhotosUI
+import LockedCameraCapture
+import OSLog
 
 @main struct SilverphaseMobileApp: App {
     @UIApplicationDelegateAdaptor(MobileDeviceLayout.self) private var deviceLayout
@@ -11,6 +13,8 @@ import PhotosUI
         document.editorVisible = ProcessInfo.processInfo.arguments.contains { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }
         return document
     }()
+    @State private var importingLockedSessions: Set<URL> = []
+    @State private var pendingPhotoLibrarySaves: Set<UUID> = []
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene { WindowGroup { rootView } }
 
@@ -33,14 +37,131 @@ import PhotosUI
             .preferredColorScheme(.dark)
             .tint(.primary)
             .task { await prepareLaunch() }
+            .task { await receiveLockedCameraPhotos() }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                // A normal Home Screen launch can overlap the system moving
+                // files out of the lock-screen extension.
+                for delay in [0, 250, 750, 1500, 3000] {
+                    do { try await Task.sleep(for: .milliseconds(delay)) } catch { return }
+                    for directory in LockedCameraCaptureManager.shared.sessionContentURLs {
+                        await importLockedCameraSession(directory)
+                    }
+                }
+                // Photos writes that a previous backgrounding interrupted.
+                await flushPhotoLibrarySaves()
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in document.releaseMemory() }
-            .onChange(of: scenePhase) { _, phase in
+            .onChange(of: scenePhase, initial: true) { _, phase in
 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ipad-chrome-regression") || ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") { return }
 #endif
                 document.setActive(phase == .active, background: phase == .background)
             }
     }
+    private func receiveLockedCameraPhotos() async {
+        let manager = LockedCameraCaptureManager.shared
+        for await update in manager.sessionContentUpdates {
+            switch update {
+            case .initial(let urls):
+                for url in urls { await importLockedCameraSession(url) }
+            case .added(let url):
+                await importLockedCameraSession(url)
+            case .removed: continue
+            @unknown default: continue
+            }
+        }
+    }
+
+    private func importLockedCameraSession(_ directory: URL) async {
+        let manager = LockedCameraCaptureManager.shared
+        let log = Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
+        do {
+            while !document.active || document.isInteractionLocked || document.delivering {
+                try await Task.sleep(for: .milliseconds(250))
+            }
+            try Task.checkCancellation()
+            guard importingLockedSessions.insert(directory).inserted else { return }
+            defer { importingLockedSessions.remove(directory) }
+
+            let scoped = directory.startAccessingSecurityScopedResource()
+            defer { if scoped { directory.stopAccessingSecurityScopedResource() } }
+            func publishedFiles() throws -> [URL] {
+                try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil,
+                                                            options: .skipsHiddenFiles)
+            }
+            let files = try publishedFiles()
+            // An empty session is not an acknowledgement. The system may
+            // still be handing off the original after the app becomes active.
+            guard !files.isEmpty else { return }
+            let filenames = Set(files.map(\.lastPathComponent))
+            func copiedNames() -> Set<String> {
+                Set(document.photos.compactMap { photo in
+                    filenames.contains(photo.name) && FileManager.default.fileExists(atPath: document.url(for: photo).path)
+                        ? photo.name : nil
+                })
+            }
+            let existing = copiedNames()
+            let pendingNames = Set(files.map(\.lastPathComponent)).subtracting(existing)
+            let pending = files.filter { pendingNames.contains($0.lastPathComponent) }
+            if !pending.isEmpty { await document.importFiles(pending, announceSuccess: false).value }
+            let importedNames = copiedNames()
+            guard importedNames == filenames, document.save() else {
+                log.error("Locked session retained; verified \(importedNames.count) of \(files.count) file(s)")
+                return
+            }
+            guard Set(try publishedFiles().map(\.lastPathComponent)) == filenames else { return }
+            try await manager.invalidateSessionContent(at: directory)
+            log.notice("Imported and acknowledged \(files.count) file(s)")
+            // The extension cannot write while the phone is locked, so the
+            // capture reaches Photos only after the app imports it. Mirror the
+            // in-app camera: write the developed print once it is in the library.
+            await saveToPhotoLibrary(document.photos.filter { pendingNames.contains($0.name) })
+        } catch is CancellationError {
+            return
+        } catch {
+            let importError = error as NSError
+            // A queued notification can refer to a session already drained by
+            // the foreground scan.
+            if importError.domain == NSCocoaErrorDomain, importError.code == NSFileReadNoSuchFileError { return }
+            log.error("Locked session import error: \(importError.domain, privacy: .public) \(importError.code)")
+            document.error = "读取锁屏拍摄原片失败：\(error.localizedDescription)"
+        }
+    }
+
+    /// Writes lock-screen captures to the system album. The extension stages
+    /// originals while the phone is locked; PhotoKit needs an unlocked device and
+    /// the app's add-only authorization, so the print is rendered here.
+    private func saveToPhotoLibrary(_ photos: [MobilePhoto]) async {
+        guard !photos.isEmpty else { return }
+        let log = Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
+        for photo in photos {
+            // Same gate the import uses: a backgrounding app cannot render.
+            guard document.active, !document.isInteractionLocked, !document.delivering else {
+                pendingPhotoLibrarySaves.insert(photo.id)
+                continue
+            }
+            do {
+                try await document.saveCameraPhotoToPhotos(photo)
+                log.notice("Lock-screen capture saved to Photos")
+            } catch is CancellationError {
+                // Backgrounded mid-render; retry on the next activation.
+                pendingPhotoLibrarySaves.insert(photo.id)
+            } catch {
+                log.error("Photos save failed: \((error as NSError).code)")
+                document.error = "锁屏拍摄的照片未能存入系统相册：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func flushPhotoLibrarySaves() async {
+        guard !pendingPhotoLibrarySaves.isEmpty else { return }
+        // Drop anything deleted from the library while the save was pending.
+        let pending = document.photos.filter { pendingPhotoLibrarySaves.contains($0.id) }
+        pendingPhotoLibrarySaves.removeAll()
+        await saveToPhotoLibrary(pending)
+    }
+
     private func prepareLaunch() async {
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--neutral-close-regression") {
@@ -79,21 +200,6 @@ import PhotosUI
 #endif
     }
 
-}
-
-enum MobileStyle {
-    // Current desktop Theme tokens, kept explicit until Theme's AppKit types
-    // can be isolated. Layout follows EditorWindow.modernLayout, not legacy rails.
-    static let accent = Color(uiColor: .systemOrange)
-    static let canvas = Color(white: 48.0 / 255)
-    static let gutter: CGFloat = 8
-    static let panel: CGFloat = 288
-    static let radius: CGFloat = 16
-    static let row: CGFloat = EditorDesign.hitSize
-    static let surface = Color(white: 0.065)
-    static let well = Color.white.opacity(0.09)
-    static let rule = Color.white.opacity(0.09)
-    static let muted = Color.white.opacity(0.28)
 }
 
 enum MobileStage: String, CaseIterable, Identifiable {
@@ -141,13 +247,22 @@ struct MobileEditor: View {
     @State private var pickingPhotos = false
     @State private var exporting = false
     @State private var about = false
-    @State private var settings = false
+    @State private var settings: MobileSettingsPresentation?
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
     @State private var panelDragStart: Double?
     @GestureState private var panelDragging = false
     @State private var phoneHingeClosed: Bool?
+
+    private var settingsBinding: Binding<Bool> {
+        Binding {
+            settings != nil
+        } set: { visible in
+            settings = visible ? .init(folded: phoneHingeClosed == true) : nil
+        }
+    }
+
     @State private var phoneWindowSize = CGSize.zero
     private var compactPhoneEditor: Bool {
         if ordinaryPhone { return true }
@@ -270,7 +385,7 @@ struct MobileEditor: View {
             .background(MobileStyle.canvas.ignoresSafeArea())
             }
             .modifier(ProcessToolbar(stage: stage, document: document, inspector: $inspector,
-                                     materials: $materials, exporting: $exporting, about: $about, settings: $settings,
+                                     materials: $materials, exporting: $exporting, about: $about, settings: settingsBinding,
                                      importing: $importing, pickingPhotos: $pickingPhotos, enabled: systemProcessToolbar))
             }
             }
@@ -325,7 +440,7 @@ struct MobileEditor: View {
                 if let url = document.exported { ActivitySheet(urls: document.exportedFiles.isEmpty ? [url] : document.exportedFiles) }
             }
             .sheet(isPresented: $about) { MobileAbout() }
-            .sheet(isPresented: $settings) { MobileSettingsView(document: document) }
+            .mobileSettings(document: document, presentation: $settings)
             .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in document.schedule() }
             .onChange(of: document.preferences.values) { _, _ in document.schedule() }
             .onChange(of: stage) { _, stage in document.cropEditing = stage == .geometry }
@@ -349,7 +464,7 @@ struct MobileEditor: View {
         .overlay {
             MobileNotificationCenter(notification: document.currentNotification,
                                      excludedFrame: verticalSystemBar ? systemBarFrame : nil,
-                                     isCovered: document.exported != nil || pickingPhotos || importing || settings || about,
+                                     isCovered: document.exported != nil || pickingPhotos || importing || settings != nil || about,
                                      dismiss: document.dismissNotification)
         }
     }
@@ -452,7 +567,7 @@ struct MobileEditor: View {
                     exporting = true; inspector = true; materials = false
                 }.disabled(document.current == nil || document.isInteractionLocked || document.delivering).accessibilityIdentifier("editor.export")
                 NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                                 exporting: $exporting, about: $about, settings: $settings,
+                                 exporting: $exporting, about: $about, settings: settingsBinding,
                                  importing: $importing, pickingPhotos: $pickingPhotos)
             }.compactHorizontalAxis()
         }
@@ -509,7 +624,7 @@ struct MobileEditor: View {
                 exporting.toggle(); inspector = true; materials = false
             }
             NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                             exporting: $exporting, about: $about, settings: $settings,
+                             exporting: $exporting, about: $about, settings: settingsBinding,
                              importing: $importing, pickingPhotos: $pickingPhotos)
                 .labelStyle(.iconOnly).frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
         }.auditEditorBounds("top.trailing-actions")
@@ -658,7 +773,7 @@ struct MobileEditor: View {
         document.photos.filter { (batchIDs?.contains($0.id) ?? true) && $0.rating >= minimumRating && (flagFilter == "all" || $0.flag == flagFilter) }
     }
     private var filmstrip: some View {
-        MobileFilmstrip(document: document, photos: filteredPhotos, minimumRating: $minimumRating, flagFilter: $flagFilter)
+        MobileFilmstrip(document: document, photos: filteredPhotos, allowsSelection: batchIDs == nil, minimumRating: $minimumRating, flagFilter: $flagFilter)
     }
 
 }
@@ -828,25 +943,50 @@ struct MobileAbout: View {
     }
 }
 
-private struct ThumbnailResult: @unchecked Sendable { let image: CGImage? }
+private actor MobileThumbnailLoader {
+    static let shared = MobileThumbnailLoader()
+    private let cache = NSCache<NSString, CGImage>()
+
+    init() { cache.totalCostLimit = 16 * 1024 * 1024 }
+
+    func thumbnail(at url: URL, key: String) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        let cacheKey = key as NSString
+        if let image = cache.object(forKey: cacheKey) { return image }
+        return autoreleasepool {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else {
+                return nil
+            }
+            var options: [CFString: Any] = [
+                kCGImageSourceThumbnailMaxPixelSize: 192,
+                kCGImageSourceCreateThumbnailWithTransform: true
+            ]
+            // Prefer the camera's embedded thumbnail. Only decode the source
+            // if no embedded image is available, and do it one file at a time.
+            let embedded = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+            options[kCGImageSourceCreateThumbnailFromImageIfAbsent] = true
+            guard let image = embedded ?? CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return nil
+            }
+            cache.setObject(image, forKey: cacheKey, cost: image.bytesPerRow * image.height)
+            return image
+        }
+    }
+}
+
 struct FilmstripThumbnail: View {
     let url: URL
     var fillsFrame = false
     var version = 0
     @State private var image: CGImage?
+    private var thumbnailKey: String { "\(url.absoluteString)#\(version)" }
     var body: some View {
         Group {
             if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: fillsFrame ? .fill : .fit) }
             else { Image(systemName: "photo").foregroundStyle(.secondary) }
-        }.task(id: "\(url.absoluteString)#\(version)") {
-            image = nil
-            let result = await Task.detached(priority: .utility) {
-                let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 192, kCGImageSourceCreateThumbnailWithTransform: true]
-                let source = CGImageSourceCreateWithURL(url as CFURL, nil)
-                return ThumbnailResult(image: source.flatMap { CGImageSourceCreateThumbnailAtIndex($0, 0, options as CFDictionary) })
-            }.value
-            if !Task.isCancelled { image = result.image }
+        }.task(id: thumbnailKey, priority: .utility) {
+            let result = await MobileThumbnailLoader.shared.thumbnail(at: url, key: thumbnailKey)
+            if !Task.isCancelled { image = result }
         }
     }
 }
