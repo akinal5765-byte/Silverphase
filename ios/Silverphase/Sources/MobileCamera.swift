@@ -789,7 +789,12 @@ struct MobileCameraView: View {
                     let ratio = CGFloat(reveal.image.width) / CGFloat(reveal.image.height)
                     let availableWidth = revealSwapsAxes ? proxy.size.height : proxy.size.width
                     let availableHeight = revealSwapsAxes ? proxy.size.width : proxy.size.height
-                    let width = min(availableWidth, availableHeight * ratio)
+                    // Folded (outer display) runs the develop edge to edge, matching
+                    // the full-bleed viewfinder there; other layouts keep the print
+                    // card. Either way the print keeps its aspect ratio and the
+                    // overflow is clipped by the panel.
+                    let width = fillsPanel ? max(availableWidth, availableHeight * ratio)
+                                           : min(availableWidth, availableHeight * ratio)
                     let height = width / ratio
                     Group {
                         if landingPhoto {
@@ -809,7 +814,7 @@ struct MobileCameraView: View {
                         }
                     }
                     .frame(width: width, height: height)
-                    .clipShape(.rect(cornerRadius: 20))
+                    .clipShape(.rect(cornerRadius: fillsPanel ? 0 : 20))
                     .rotationEffect(.degrees(revealRotation))
                     .frame(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
                     .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.preview: $0] }
