@@ -38,6 +38,13 @@ has yet to be confirmed from device logs. Pressing Camera Control after
 authentication worked on both devices during testing. The on-screen Silverphase
 control requests authentication and opens the camera in the main app.
 
+This remains an accepted, unfixed limitation in 1.2.0. The pre-authentication
+entry point is a system-mandated capture extension: the framework requires a
+live camera view on launch and offers no way to demand authentication before
+the extension opens, so the main app cannot take over earlier without dropping
+Camera Control support entirely. In-app capture and the develop, reveal and
+Photos-save handoff that follow it are unaffected.
+
 ## Installation and downloads
 
 Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
