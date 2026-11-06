@@ -29,6 +29,7 @@ struct MobileOperationProgress: Identifiable, Equatable, Sendable {
     var index: Int = 1
     var total: Int
     var filename = ""
+    var announcesImportSuccess = true
     var title: String { kind == .importing ? "正在导入" : "正在导出" }
     var count: String { total > 0 ? "\(min(index, total)) / \(total)" : "" }
     static func exportStage(_ phase: String) -> Stage? {

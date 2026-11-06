@@ -19,6 +19,20 @@ fragment float4 mobileDevelopFragment(MobileDevelopVertex in [[stage_in]],
     float t = saturate((progress - 0.10) / 0.90);
     return float4(mix(film, developPaper(paper, t), smoothstep(0.0, 0.10, progress)), 1);
 }
+#ifdef SILVERPHASE_LOCKED_CAMERA
+fragment float4 lockedCameraDevelopFragment(MobileDevelopVertex in [[stage_in]],
+    texture2d<float> printed [[texture(0)]], constant float &progress [[buffer(0)]]) {
+    constexpr sampler s(filter::linear, address::clamp_to_edge);
+    float3 paper = printed.sample(s, in.uv).rgb;
+    float3 developed = progress >= 1.0 ? paper : developPaper(paper, progress);
+    float3 linear = select(pow(max(developed, 0.0f), 1.8f),
+                           developed / 16.0f, developed < 1.0f / 32.0f);
+    // Linear ROMM RGB (D50) to linear sRGB (D65), with Bradford adaptation.
+    return float4(dot(linear, float3(2.034076, -0.727334, -0.306743)),
+                  dot(linear, float3(-0.228814, 1.231731, -0.002917)),
+                  dot(linear, float3(-0.008570, -0.153287, 1.161857)), 1);
+}
+#endif
 // Same texel-centred Cineon lookup as desktop Shaders.metal's layer2.
 kernel void mobileCineonView(texture2d<float, access::read> src [[texture(0)]],
                              texture2d<float, access::write> dst [[texture(1)]],

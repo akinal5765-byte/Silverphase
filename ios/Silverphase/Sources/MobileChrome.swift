@@ -18,34 +18,6 @@ struct ChromeButton: View {
     }
 }
 
-struct ChromeSurface: ViewModifier {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    var radius: CGFloat = MobileStyle.radius
-    var topBar = false
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            let shape = Self.boundary(radius: radius, topBar: topBar)
-            if reduceTransparency {
-                content.clipShape(shape).background(MobileStyle.surface, in: shape)
-            } else {
-                content.clipShape(shape).background(Color.black.opacity(0.08), in: shape)
-                    .glassEffect(.regular, in: shape)
-            }
-        } else {
-            content.clipShape(RoundedRectangle(cornerRadius: topBar ? 0 : radius)).background(.regularMaterial, in: RoundedRectangle(cornerRadius: topBar ? 0 : radius))
-        }
-    }
-    @available(iOS 26.0, *)
-    static func boundary(radius: CGFloat = MobileStyle.radius, topBar: Bool) -> ConcentricRectangle {
-        ConcentricRectangle(
-            topLeadingCorner: .concentric(minimum: .fixed(radius)),
-            topTrailingCorner: .concentric(minimum: .fixed(radius)),
-            bottomLeadingCorner: topBar ? .fixed(0) : .concentric(minimum: .fixed(radius)),
-            bottomTrailingCorner: topBar ? .fixed(0) : .concentric(minimum: .fixed(radius)))
-    }
-
-}
-
 struct MobileOption: Identifiable {
     let id: String
     let title: String

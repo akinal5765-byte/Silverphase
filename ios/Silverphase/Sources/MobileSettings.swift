@@ -8,12 +8,32 @@ enum MobilePrintAnimationFrequency: String, Codable {
     case perLaunch, perPhoto
 }
 
+enum MobileCameraSavePolicy: String, Codable {
+    case finishedPhoto = "jpegInPhotos"
+    case rawAndFinishedPhoto = "rawAndJPEGInPhotos"
+}
+
 @MainActor @Observable final class MobilePreferences {
     struct Values: Codable, Equatable {
         var previewEdge = 2560 // legacy preference decoder; editor quality is automatic
         var lowerPreviewInLowPower = true
         var cropRemapsEffects = false
         var diBlueCompensation = false
+        private var savedCameraSavePolicy: MobileCameraSavePolicy? = nil
+        var cameraSavePolicy: MobileCameraSavePolicy {
+            get { savedCameraSavePolicy ?? .finishedPhoto }
+            set { savedCameraSavePolicy = newValue }
+        }
+        private var savedCameraUsesHEIF: Bool? = nil
+        var cameraUsesHEIF: Bool {
+            get { savedCameraUsesHEIF ?? false }
+            set { savedCameraUsesHEIF = newValue }
+        }
+        private var savedMirrorsFrontCamera: Bool? = nil
+        var mirrorsFrontCamera: Bool {
+            get { savedMirrorsFrontCamera ?? true }
+            set { savedMirrorsFrontCamera = newValue }
+        }
         private var savedPrintAnimationFrequency: MobilePrintAnimationFrequency? = nil
         var printAnimationFrequency: MobilePrintAnimationFrequency {
             get { savedPrintAnimationFrequency ?? .perLaunch }
@@ -31,12 +51,34 @@ enum MobilePrintAnimationFrequency: String, Codable {
     }
 }
 
+enum MobileSettingsPresentation: Equatable {
+    case sheet, fullScreen
+
+    init(folded: Bool) { self = folded ? .fullScreen : .sheet }
+}
+
+extension View {
+    func mobileSettings(document: MobileDocument, presentation: Binding<MobileSettingsPresentation?>) -> some View {
+        func isPresented(_ mode: MobileSettingsPresentation) -> Binding<Bool> {
+            Binding {
+                presentation.wrappedValue == mode
+            } set: { visible in
+                if !visible && presentation.wrappedValue == mode { presentation.wrappedValue = nil }
+            }
+        }
+        return self
+            .sheet(isPresented: isPresented(.sheet)) { MobileSettingsView(document: document) }
+            .fullScreenCover(isPresented: isPresented(.fullScreen)) { MobileSettingsView(document: document) }
+    }
+}
+
 struct MobileSettingsView: View {
     @Bindable var document: MobileDocument
     @Bindable var preferences: MobilePreferences
     init(document: MobileDocument) { self.document = document; self.preferences = document.preferences }
     @Environment(\.dismiss) private var dismiss
     @State private var availableMemory: UInt64 = 0
+    @State private var originalBytes: Int64?
     var body: some View {
         NavigationStack {
             Form {
@@ -55,10 +97,30 @@ struct MobileSettingsView: View {
                     Text("每张照片一次：本次启动中，每张照片首次进入印相时显示动画。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                Section("相机") {
+                    Toggle("镜像前置镜头", isOn: $preferences.values.mirrorsFrontCamera)
+                        .tint(MobileStyle.accent)
+                    Picker("拍摄保存策略", selection: $preferences.values.cameraSavePolicy) {
+                        Text("相册仅存成片").tag(MobileCameraSavePolicy.finishedPhoto)
+                        Text("相册存 RAW＋成片").tag(MobileCameraSavePolicy.rawAndFinishedPhoto)
+                    }
+                    Picker("相册成片格式", selection: $preferences.values.cameraUsesHEIF) {
+                        Text("JPEG").tag(false)
+                        Text("HEIF").tag(true)
+                    }
+                    Text("原片始终保存在 Silverphase。拍到 RAW 时可与成片合存为相册中的一张照片；当前镜头没有拍到 RAW 时，相册只存成片。HEIF 通常比 JPEG 更省空间。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Section("图库存储") {
                     LabeledContent("照片存储", value: "应用内图库")
                     LabeledContent("照片数量", value: "\(document.photos.count) 张")
-                    Text("导入的原文件和编辑记录保存在本机，重启应用后仍可继续编辑。在图库中移除照片不会影响系统照片库或导入前的原始文件。").font(.caption).foregroundStyle(.secondary)
+                    if let originalBytes {
+                        LabeledContent("原片占用", value: ByteCountFormatter.string(fromByteCount: originalBytes, countStyle: .file))
+                    }
+                    Text("拍摄和导入的原片会保存在 Silverphase 内，占用本机存储空间。保存到系统相册的成片和 RAW 副本由系统相册单独管理。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("从 Silverphase 图库移除照片会删除 App 内的原片和编辑记录。系统相册里的副本和导入前的原文件可在各自位置管理。")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("内存") {
                     LabeledContent("设备内存", value: String(format: "%.1f GB", Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824))
@@ -79,6 +141,15 @@ struct MobileSettingsView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
         }
         .presentationDetents([.large])
+        .task(id: document.photos.map(\.id)) {
+            let sources = document.photos.map { document.url(for: $0) }
+            let bytes = await Task.detached(priority: .utility) {
+                sources.reduce(Int64(0)) { total, source in
+                    total + Int64((try? source.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                }
+            }.value
+            if !Task.isCancelled { originalBytes = bytes }
+        }
         .task {
             while !Task.isCancelled {
                 availableMemory = UInt64(os_proc_available_memory())

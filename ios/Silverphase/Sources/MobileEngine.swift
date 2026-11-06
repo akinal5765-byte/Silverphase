@@ -66,11 +66,6 @@ enum MobileFilmGate {
     }
 }
 
-enum MobileFailure: LocalizedError {
-    case message(String)
-    var errorDescription: String? { if case .message(let s) = self { return s }; return nil }
-}
-
 // Serialized off the main actor. The engine session keeps the negative while
 // editing; backgrounding closes it, and reopening reconstructs it from the recipe.
 final class MobileWorkGate: @unchecked Sendable {
@@ -371,6 +366,17 @@ actor MobileEngine {
     func canvasImage(_ working: CGImage) throws -> CGImage {
         try colorPipeline().convert(working, engine: engine, target: .p3)
     }
+    func cameraDevelopment(url: URL, recipe: [String: WireValue], animate: Bool) throws -> MobileCameraDevelopment {
+        defer { close() }
+        let result = try render(url: url, recipe: recipe, megapixels: 1)
+        let display = try canvasImage(result.image)
+        let animation = animate && result.resolved["scan_film"]?.boolValue != true
+            ? try? developmentAssets(print: result.image, geometry: MobileGeometry(),
+                                     framed: MobileFilmGate.presents(recipe), scanStyle: false)
+            : nil
+        return MobileCameraDevelopment(image: display, animation: animation)
+    }
+
     func developmentAssets(print: CGImage, geometry: MobileGeometry, framed: Bool, scanStyle: Bool) throws -> MobileDevelopmentAssets {
         try Task.checkCancellation()
         guard let session else { throw MobileFailure.message("未准备显影会话") }
@@ -545,7 +551,7 @@ actor MobileEngine {
     private func writeExport(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe, diPreview: CGImage? = nil) throws {
         var written = image
         let context = CIContext(options: [.cacheIntermediates: false])
-        if options.format == .jpeg || options.format == .png {
+        if options.format.isEightBit {
             guard let eight = context.createCGImage(CIImage(cgImage: image), from: CGRect(x: 0, y: 0, width: image.width, height: image.height), format: .RGBA8, colorSpace: image.colorSpace) else { throw MobileFailure.message("无法写入8位图像") }
             written = eight
         }
@@ -566,7 +572,7 @@ actor MobileEngine {
         tiff[kCGImagePropertyTIFFOrientation] = 1
         if options.format == .tiff || options.format == .di { tiff[kCGImagePropertyTIFFCompression] = 1 }
         properties[kCGImagePropertyTIFFDictionary] = tiff
-        if options.format == .jpeg { properties[kCGImageDestinationLossyCompressionQuality] = min(1, max(0.1, options.quality)) }
+        if options.format.hasLossyQuality { properties[kCGImageDestinationLossyCompressionQuality] = min(1, max(0.1, options.quality)) }
         let preview = (options.format == .tiff && options.embedsPreview) || diPreview != nil
         guard let destination = CGImageDestinationCreateWithURL(output as CFURL, options.format.type.identifier as CFString, preview ? 2 : 1, nil) else { throw MobileFailure.message("无法创建导出文件") }
         CGImageDestinationAddImage(destination, written, properties as CFDictionary)

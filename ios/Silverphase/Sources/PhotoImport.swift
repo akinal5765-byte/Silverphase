@@ -7,6 +7,8 @@ import CoreImage
 struct MobileImageMetadata: Sendable {
     var typeIdentifier: String?
     var exifSummary = ""
+    var captureDay: Int?
+    var captureDate: Date?
     var aspect = 1.5
     var megapixels = 0.0
     var isRaw: Bool { typeIdentifier.flatMap(UTType.init)?.conforms(to: .rawImage) == true }
@@ -22,6 +24,49 @@ struct MobileImageMetadata: Sendable {
     static func storedTypeIdentifier(_ url: URL) -> String? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceGetType(source).map { $0 as String }
+    }
+
+    static func libraryDate(forOriginal url: URL) -> (date: Date?, day: Int?) {
+        if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+           let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+            let day = captureDay(in: exif)
+            if let date = captureDate(in: exif) { return (date, day) }
+            if let day { return (date(forDay: day), day) }
+        }
+        let date = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
+        return (date, date.map(day(containing:)))
+    }
+
+    static func date(forDay day: Int) -> Date? {
+        Calendar(identifier: .gregorian).date(from: DateComponents(year: day / 10000, month: day / 100 % 100, day: day % 100))
+    }
+
+    private static func captureDate(in exif: [String: Any]) -> Date? {
+        guard let stamp = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .current
+        if let offset = exif[kCGImagePropertyExifOffsetTimeOriginal as String] as? String {
+            formatter.dateFormat = "yyyy:MM:dd HH:mm:ssXXXXX"
+            if let date = formatter.date(from: stamp + offset) { return date }
+        }
+        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return formatter.date(from: stamp)
+    }
+
+    static func day(containing date: Date) -> Int {
+        let parts = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        return (parts.year ?? 0) * 10000 + (parts.month ?? 0) * 100 + (parts.day ?? 0)
+    }
+
+    private static func captureDay(in exif: [String: Any]) -> Int? {
+        guard let stamp = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String else { return nil }
+        let parts = stamp.prefix(10).split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 3, (1...9999).contains(parts[0]),
+              (1...12).contains(parts[1]), (1...31).contains(parts[2]) else { return nil }
+        return parts[0] * 10000 + parts[1] * 100 + parts[2]
     }
 
     var fileExtension: String? { typeIdentifier.flatMap(UTType.init)?.preferredFilenameExtension }
@@ -67,6 +112,8 @@ struct MobileImageMetadata: Sendable {
             if let orientation = properties?[kCGImagePropertyOrientation as String] as? NSNumber, (5...8).contains(orientation.intValue) { result.aspect = 1 / result.aspect }
         }
         let exif = properties?[kCGImagePropertyExifDictionary as String] as? [String: Any] ?? [:]
+        result.captureDay = captureDay(in: exif)
+        result.captureDate = captureDate(in: exif)
         var fields: [String] = []
         if let aperture = exif[kCGImagePropertyExifFNumber as String] as? NSNumber, aperture.doubleValue > 0 {
             fields.append("f/" + String(format: "%g", aperture.doubleValue))

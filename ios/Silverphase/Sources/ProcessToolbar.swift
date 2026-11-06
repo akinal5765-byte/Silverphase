@@ -207,7 +207,7 @@ struct ProcessNavigation<Content: View>: View {
 /// Read the process picker's actual system-toolbar frame in window coordinates. Align
 /// custom panels to that surface, not to a guessed safe-area bottom inset.
 struct ProcessBarGeometryProbe: UIViewRepresentable {
-    var update: (CGRect?) -> Void
+    var update: ((CGRect?) -> Void)? = nil
     var windowSizeChanged: ((CGSize) -> Void)? = nil
     var hingeChanged: ((Bool?) -> Void)? = nil
     func makeUIView(context: Context) -> Probe { Probe(update: update, windowSizeChanged: windowSizeChanged, hingeChanged: hingeChanged) }
@@ -218,12 +218,12 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
         view.setNeedsLayout()
     }
     final class Probe: UIView {
-        var update: (CGRect?) -> Void
+        var update: ((CGRect?) -> Void)?
         private var last: CGRect?
         private var lastWindowSize: CGSize?
         var windowSizeChanged: ((CGSize) -> Void)?
         var hingeChanged: ((Bool?) -> Void)?
-        init(update: @escaping (CGRect?) -> Void, windowSizeChanged: ((CGSize) -> Void)?, hingeChanged: ((Bool?) -> Void)?) {
+        init(update: ((CGRect?) -> Void)?, windowSizeChanged: ((CGSize) -> Void)?, hingeChanged: ((Bool?) -> Void)?) {
             self.update = update; self.windowSizeChanged = windowSizeChanged; self.hingeChanged = hingeChanged
             super.init(frame: .zero); isUserInteractionEnabled = false
             if #available(iOS 27.1, *) {
@@ -246,10 +246,13 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
                 if self.lastWindowSize != window.bounds.size {
                     self.lastWindowSize = window.bounds.size; self.windowSizeChanged?(window.bounds.size)
                     // System bars finish relocating after the window size notification.
-                    for delay in [0.1, 0.3, 0.6, 1.0] {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.schedule() }
+                    if self.update != nil {
+                        for delay in [0.1, 0.3, 0.6, 1.0] {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.schedule() }
+                        }
                     }
                 }
+                guard let update = self.update else { return }
                 @MainActor func processPicker(in view: UIView) -> UIView? {
                     guard !view.isHidden, view.alpha > 0 else { return nil }
                     if view.accessibilityIdentifier == "editor.side-process-picker" { return view }
@@ -257,7 +260,7 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
                     return nil
                 }
                 guard let picker = processPicker(in: window) else {
-                    if self.last != nil { self.last = nil; self.update(nil) }
+                    if self.last != nil { self.last = nil; update(nil) }
                     return
                 }
                 let frame = picker.convert(picker.bounds, to: window)
@@ -266,7 +269,7 @@ struct ProcessBarGeometryProbe: UIViewRepresentable {
 #endif
                 guard frame != self.last else { return }
                 self.last = frame
-                self.update(frame)
+                update(frame)
             }
         }
     }

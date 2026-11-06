@@ -3,15 +3,18 @@ import SwiftUI
 struct MobileFilmstrip: View {
     @Bindable var document: MobileDocument
     let photos: [MobilePhoto]
+    var allowsSelection = true
     @Binding var minimumRating: Int
     @Binding var flagFilter: String
     @State private var deleting: UUID?
     @State private var copyRequest: MobileSettingsCopyRequest?
 
+    private var isSelectingPhotos: Bool { allowsSelection && document.isSelectingPhotos }
+
     var body: some View {
         VStack(spacing: EditorDesign.browserGap) {
             Group {
-                if document.isSelectingPhotos { selectionToolbar }
+                if isSelectingPhotos { selectionToolbar }
                 else { photoToolbar }
             }
             .padding(.leading, 12).padding(.trailing, 4).frame(height: 44)
@@ -19,7 +22,7 @@ struct MobileFilmstrip: View {
                 LazyHStack(spacing: 8) {
                     ForEach(photos) { photo in
                         Button {
-                            if document.isSelectingPhotos { document.togglePhotoSelection(photo.id) }
+                            if isSelectingPhotos { document.togglePhotoSelection(photo.id) }
                             else { document.select(photo.id) }
                         } label: {
                             BrowserCard(title: nil,
@@ -29,7 +32,7 @@ struct MobileFilmstrip: View {
                                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(.black.opacity(0.15))
                             }
                             .overlay(alignment: .topTrailing) {
-                                if document.isSelectingPhotos {
+                                if isSelectingPhotos {
                                     Image(systemName: document.selectedPhotoIDs.contains(photo.id) ? "checkmark.circle.fill" : "circle")
                                         .font(.system(size: 21, weight: .semibold))
                                         .foregroundStyle(document.selectedPhotoIDs.contains(photo.id) ? MobileStyle.accent : .white)
@@ -40,14 +43,16 @@ struct MobileFilmstrip: View {
                         }
                         .buttonStyle(.plain).accessibilityLabel(photo.name)
                         .accessibilityIdentifier("filmstrip.photo." + photo.name)
-                        .accessibilityValue(document.isSelectingPhotos ? (document.selectedPhotoIDs.contains(photo.id) ? "已选择" : "未选择") : (photo.id == document.selection ? "正在预览" : ""))
+                        .accessibilityValue(isSelectingPhotos ? (document.selectedPhotoIDs.contains(photo.id) ? "已选择" : "未选择") : (photo.id == document.selection ? "正在预览" : ""))
                         .contextMenu {
-                            if document.isSelectingPhotos {
+                            if isSelectingPhotos {
                                 Button("粘贴到所选 \(document.selectedPhotoIDs.count) 张", systemImage: "doc.on.clipboard") { document.pasteSettings() }
                                     .disabled(document.settingsClipboard == nil || document.selectedPhotoIDs.isEmpty)
                                 Button("取消选择", systemImage: "xmark") { document.endPhotoSelection() }
                             } else {
-                                Button("选择多张", systemImage: "checkmark.circle") { document.beginPhotoSelection(photo.id) }
+                                if allowsSelection {
+                                    Button("选择多张", systemImage: "checkmark.circle") { document.beginPhotoSelection(photo.id) }
+                                }
                                 Menu("评分", systemImage: "star") {
                                     ForEach(0...5, id: \.self) { rating in Button(rating == 0 ? "清除评分" : "\(rating) 星") { document.mark(photo.id, rating: rating) } }
                                 }
@@ -68,7 +73,9 @@ struct MobileFilmstrip: View {
         }
         .padding(.vertical, EditorDesign.cardInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onChange(of: photos.map(\.id)) { _, ids in document.restrictPhotoSelection(to: ids) }
+        .onChange(of: photos.map(\.id)) { _, ids in
+            if allowsSelection { document.restrictPhotoSelection(to: ids) }
+        }
         .confirmationDialog("从图库删除照片？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("删除应用内原文件和编辑记录", role: .destructive) { if let deleting { document.remove(deleting) }; deleting = nil }
         } message: { Text("系统相册和导入来源不受影响。") }
@@ -127,11 +134,14 @@ struct MobileFilmstrip: View {
             ChromeButton(title: "复制参数", symbol: "doc.on.doc", enabled: document.current != nil, glyphSize: EditorDesign.filmstripGlyphSize) {
                 if let photo = document.current { requestCopy(photo) }
             }.accessibilityIdentifier("clipboard.copy")
-            ChromeButton(title: "粘贴参数", symbol: "doc.on.clipboard", enabled: document.settingsClipboard != nil && document.current != nil, glyphSize: EditorDesign.filmstripGlyphSize) { document.pasteSettings() }
-                .accessibilityIdentifier("clipboard.paste")
-            ChromeButton(title: "选择多张照片", symbol: "checkmark.circle", enabled: !photos.isEmpty, glyphSize: EditorDesign.filmstripGlyphSize) {
-                document.beginPhotoSelection()
-            }.accessibilityIdentifier("filmstrip.select")
+            ChromeButton(title: "粘贴参数", symbol: "doc.on.clipboard", enabled: document.settingsClipboard != nil && document.current != nil, glyphSize: EditorDesign.filmstripGlyphSize) {
+                if let id = document.selection { document.pasteSettings(to: [id]) }
+            }.accessibilityIdentifier("clipboard.paste")
+            if allowsSelection {
+                ChromeButton(title: "选择多张照片", symbol: "checkmark.circle", enabled: !photos.isEmpty, glyphSize: EditorDesign.filmstripGlyphSize) {
+                    document.beginPhotoSelection()
+                }.accessibilityIdentifier("filmstrip.select")
+            }
         }
     }
 
