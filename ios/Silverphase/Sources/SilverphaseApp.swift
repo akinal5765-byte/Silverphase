@@ -14,6 +14,7 @@ import OSLog
         return document
     }()
     @State private var importingLockedSessions: Set<URL> = []
+    @State private var pendingPhotoLibrarySaves: Set<UUID> = []
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene { WindowGroup { rootView } }
 
@@ -47,6 +48,8 @@ import OSLog
                         await importLockedCameraSession(directory)
                     }
                 }
+                // Photos writes that a previous backgrounding interrupted.
+                await flushPhotoLibrarySaves()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in document.releaseMemory() }
             .onChange(of: scenePhase, initial: true) { _, phase in
@@ -99,7 +102,8 @@ import OSLog
                 })
             }
             let existing = copiedNames()
-            let pending = files.filter { !existing.contains($0.lastPathComponent) }
+            let pendingNames = Set(files.map(\.lastPathComponent)).subtracting(existing)
+            let pending = files.filter { pendingNames.contains($0.lastPathComponent) }
             if !pending.isEmpty { await document.importFiles(pending, announceSuccess: false).value }
             let importedNames = copiedNames()
             guard importedNames == filenames, document.save() else {
@@ -109,6 +113,10 @@ import OSLog
             guard Set(try publishedFiles().map(\.lastPathComponent)) == filenames else { return }
             try await manager.invalidateSessionContent(at: directory)
             log.notice("Imported and acknowledged \(files.count) file(s)")
+            // The extension cannot write while the phone is locked, so the
+            // capture reaches Photos only after the app imports it. Mirror the
+            // in-app camera: write the developed print once it is in the library.
+            await saveToPhotoLibrary(document.photos.filter { pendingNames.contains($0.name) })
         } catch is CancellationError {
             return
         } catch {
@@ -119,6 +127,39 @@ import OSLog
             log.error("Locked session import error: \(importError.domain, privacy: .public) \(importError.code)")
             document.error = "读取锁屏拍摄原片失败：\(error.localizedDescription)"
         }
+    }
+
+    /// Writes lock-screen captures to the system album. The extension stages
+    /// originals while the phone is locked; PhotoKit needs an unlocked device and
+    /// the app's add-only authorization, so the print is rendered here.
+    private func saveToPhotoLibrary(_ photos: [MobilePhoto]) async {
+        guard !photos.isEmpty else { return }
+        let log = Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
+        for photo in photos {
+            // Same gate the import uses: a backgrounding app cannot render.
+            guard document.active, !document.isInteractionLocked, !document.delivering else {
+                pendingPhotoLibrarySaves.insert(photo.id)
+                continue
+            }
+            do {
+                try await document.saveCameraPhotoToPhotos(photo)
+                log.notice("Lock-screen capture saved to Photos")
+            } catch is CancellationError {
+                // Backgrounded mid-render; retry on the next activation.
+                pendingPhotoLibrarySaves.insert(photo.id)
+            } catch {
+                log.error("Photos save failed: \((error as NSError).code)")
+                document.error = "锁屏拍摄的照片未能存入系统相册：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func flushPhotoLibrarySaves() async {
+        guard !pendingPhotoLibrarySaves.isEmpty else { return }
+        // Drop anything deleted from the library while the save was pending.
+        let pending = document.photos.filter { pendingPhotoLibrarySaves.contains($0.id) }
+        pendingPhotoLibrarySaves.removeAll()
+        await saveToPhotoLibrary(pending)
     }
 
     private func prepareLaunch() async {

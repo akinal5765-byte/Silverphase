@@ -1,6 +1,6 @@
 # Silverphase iOS editor
 
-The editor supports a persistent local library, an in-app camera that develops captures with the selected film, native process navigation, and batch editing and export.
+The editor supports a persistent local library, an in-app camera that develops captures with the selected film, native process navigation, and batch editing and export. Captures taken from the lock-screen Camera Control cannot be written to Photos while the phone is locked, so the extension stages the original and the app writes the developed print to Photos once the device is unlocked and the capture is in the local library, matching the in-app camera's save policy.
 
 Native iOS editor based on **the current desktop product**, with its full-width
 canvas and floating process panel. Ordinary iPhones open film/paper lists inside

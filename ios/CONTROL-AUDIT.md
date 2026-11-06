@@ -19,7 +19,9 @@ Duo和iPad保留各自导航方式；截图不等同于真机权限、内存或�
 认证后在主 App 中打开相机）与 LockedCameraCapture 扩展（iPhone 17 Pro
 实体 Camera Control 按键）。锁定相机扩展复用 `MobileCameraView`
 （`SILVERPHASE_LOCKED_CAMERA` 编译），捕获暂存于系统会话容器并交回主 App
-显影，不在扩展进程内渲染。
+显影，不在扩展进程内渲染。扩展在锁屏期间无法写相册，因此解锁后由主 App
+把新导入的锁屏原片按与应用内相机相同的保存策略（仅成片／RAW＋成片）渲染
+并写入系统相册；渲染被切后台打断时延后到下次前台激活重试。
 
 ### 已知限制：锁屏激活卡顿（未解决）
 
