@@ -116,7 +116,7 @@ calls and gives the canvas owned results. `Session+FilmPresentation.swift`,
 material model.
 
 iOS `MobileDocument` coordinates imported photos, per-photo state, operations,
-settings and recipes. Photos import looks up RAW resources for selected assets when Photos read access allows it and can download cloud originals before copying them into the local library. `MobileEngine` wraps the same ABI. Shared desktop sources
+settings and recipes. Photos import looks up RAW resources for selected assets when Photos read access allows it and can download cloud originals before copying them into the local library. `MobileEngine` wraps the same ABI. Since 1.2.0 an in-app camera (`MobileCamera`) develops captures through the same engine into the local library, and a Camera Control widget plus a `LockedCameraCapture` extension (`ios/Silverphase/CameraExtensions/`) stage lock-screen captures into the session container and hand off to the app instead of developing in-process. Shared desktop sources
 are compiled by relative reference: `StockCatalogCore.swift`, `ParamValue.swift`
 and `Geometry.swift`. `DesktopControlDefaults.json` captures desktop defaults;
 `MobileDesktopContractTests` detects drift. Other mobile control code is
