@@ -79,6 +79,7 @@ struct MobileCameraView: View {
     @State private var savingToPhotos = false
     @State private var latestPhotoID: UUID?
     @State private var latestPreview: CGImage?
+    @State private var frozenShot: CGImage?
     @State private var reveal: MobileCameraDevelopment?
     @State private var shotQuarterTurn = 0.0
     @State private var revealOpacity = 0.0
@@ -392,6 +393,9 @@ struct MobileCameraView: View {
         HStack {
             Button(action: returnFromCamera) {
                 Image(systemName: "chevron.left")
+                    // Chrome icons stay white; the button would otherwise inherit
+                    // the system blue accent inside the lock-screen host.
+                    .foregroundStyle(.white)
                     .modifier(controlOrientation)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
@@ -497,6 +501,7 @@ struct MobileCameraView: View {
     private var galleryButton: some View {
         Button(action: openLibrary) {
             Image(systemName: "photo.on.rectangle")
+                .foregroundStyle(.white)
                 .frame(width: 48, height: 48)
                 .modifier(ChromeSurface(radius: 24, interactive: true))
         }
@@ -698,6 +703,22 @@ struct MobileCameraView: View {
                                 .accessibilityHidden(true)
                                 .allowsHitTesting(false)
                         }
+#if SILVERPHASE_APP
+                        // Hold the shot on screen while it develops. This replaces
+                        // the old "显影中…" spinner: the frozen frame reads as the
+                        // photo the user just took, and the develop animation then
+                        // plays over it.
+                        if let frozenShot {
+                            Image(decorative: frozenShot, scale: 1).resizable().scaledToFill()
+                                .frame(width: width, height: height)
+                                // Settle back once the develop animation takes the
+                                // stage, so the print stays the subject.
+                                .opacity(reveal == nil ? 1 : 0.45)
+                                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: reveal == nil)
+                                .accessibilityHidden(true)
+                                .allowsHitTesting(false)
+                        }
+#endif
                     }
                     .clipped()
                     .overlay {
@@ -744,7 +765,10 @@ struct MobileCameraView: View {
                     if !shotInProgress { ProgressView("正在打开相机") }
                 }
 #if SILVERPHASE_APP
-                if developing || (savingToPhotos && reveal == nil) {
+                // No spinner while developing: the frozen shot covers the wait and
+                // the develop animation takes over from it. Keep the fallback for
+                // the rare shot where no viewfinder frame could be frozen.
+                if (savingToPhotos && reveal == nil) || (developing && frozenShot == nil) {
                     VStack(spacing: EditorDesign.gutter) {
                         ProgressView().tint(.primary)
                         Text(developing ? "显影中…" : "保存到相册…").font(EditorDesign.noticeTitle)
@@ -1231,12 +1255,18 @@ struct MobileCameraView: View {
 #if !SILVERPHASE_APP
             var writingCapture = false
             let finderFrame = reduceMotion ? nil : await camera.snapshotPreview()
+#else
+            // Freeze the frame the user composed before capture stops delivering
+            // preview frames; it stays on screen until the shot is developed and
+            // saved.
+            frozenShot = await camera.freezePreview()
 #endif
             defer {
                 capturing = false
 #if SILVERPHASE_APP
                 developing = false
                 savingToPhotos = false
+                frozenShot = nil
 #endif
             }
             do {
