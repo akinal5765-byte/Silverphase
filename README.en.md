@@ -96,7 +96,7 @@ Conventional iPhones now have a dedicated portrait layout; see the [current inte
 
 iOS omits desktop two-photo pairing and some proofing features. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
 
-The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. Library cards show the original file format. With Photos read access, imports prefer RAW originals and download them from iCloud when needed. Settings and export recipes persist independently, and the print animation can run once per launch or once per photo. Since 1.2.0 the app includes an in-app camera: capture with a chosen film, develop straight into the library, and reach the camera from a Control Center widget or the Locked Camera Capture extension; a known lock-screen activation stall is documented in the [iOS guide](ios/README.md).
+The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. RAW photos carry a badge. Photo Info shows the original file format. With Photos read access, imports prefer RAW originals and download them from iCloud when needed. Settings and export recipes persist independently, and the print animation can run once per launch or once per photo. Since 1.2.0 the app includes an in-app camera: capture with a chosen film, develop straight into the library, and reach the camera from a Control Center widget or the Locked Camera Capture extension; a known lock-screen activation stall is documented in the [iOS guide](ios/README.md).
 
 ## Also by the author: Layerlight
 
