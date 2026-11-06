@@ -85,6 +85,7 @@ struct MobileCameraView: View {
     @State private var revealOpacity = 0.0
     @State private var landingPhoto = false
     @State private var photoAtThumbnail = false
+    @State private var holdLanding = false
 #endif
     @State private var previewing = false
     @State private var changingPhysicalLens = false
@@ -328,6 +329,12 @@ struct MobileCameraView: View {
         }
 #if SILVERPHASE_APP
         .onChange(of: reduceMotion) { _, reduced in if reduced { finishReveal() } }
+        .onChange(of: savingToPhotos) { _, saving in
+            // A held print lands as soon as the Photos write returns.
+            guard !saving, holdLanding else { return }
+            holdLanding = false
+            landReveal()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { retry += 1 }
             else if phase == .background {
@@ -1205,7 +1212,14 @@ struct MobileCameraView: View {
     private func landReveal() {
         guard reveal != nil, !landingPhoto else { return }
         if reduceMotion { finishReveal() }
-        else { landingPhoto = true }
+        else if savingToPhotos {
+            // The print is developed but Photos is still writing. Hold the
+            // finished frame instead of dropping a save spinner over it; the
+            // shot lands in the strip as soon as the save returns.
+            holdLanding = true
+        } else {
+            landingPhoto = true
+        }
     }
 
     /// Suspends until the app is active again. Used after backgrounding
@@ -1236,6 +1250,7 @@ struct MobileCameraView: View {
         reveal = nil
         landingPhoto = false
         photoAtThumbnail = false
+        holdLanding = false
     }
 
 #endif
