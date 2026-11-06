@@ -1184,6 +1184,30 @@ struct MobileCameraView: View {
         else { landingPhoto = true }
     }
 
+    /// Suspends until the app is active again. Used after backgrounding
+    /// cancelled a camera save, so the retry runs in the foreground rather
+    /// than submitting Metal work while backgrounded.
+    private func waitForForeground() async {
+        final class Once: @unchecked Sendable {
+            private let lock = NSLock(); private var done = false
+            func run(_ body: () -> Void) { lock.lock(); defer { lock.unlock() }; guard !done else { return }; done = true; body() }
+        }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let once = Once()
+            var observer: NSObjectProtocol?
+            observer = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { _ in
+                if let observer { NotificationCenter.default.removeObserver(observer) }
+                once.run { continuation.resume() }
+            }
+            if UIApplication.shared.applicationState == .active {
+                if let observer { NotificationCenter.default.removeObserver(observer) }
+                once.run { continuation.resume() }
+            }
+        }
+    }
+
     private func finishReveal() {
         reveal = nil
         landingPhoto = false
@@ -1251,6 +1275,12 @@ struct MobileCameraView: View {
                 savingToPhotos = true
                 do {
                     try await savePhoto(photo)
+                } catch is CancellationError {
+                    // Backgrounding cancelled the export engine. The original is
+                    // already in the local library; defer the Photos save to the
+                    // next foreground activation instead of losing it.
+                    await waitForForeground()
+                    do { try await savePhoto(photo) } catch { warnings.append("未能存到系统相册：\(error.localizedDescription)") }
                 } catch {
                     warnings.append("未能存到系统相册：\(error.localizedDescription)")
                 }

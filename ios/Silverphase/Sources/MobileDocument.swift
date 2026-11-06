@@ -190,6 +190,12 @@ struct MobilePhoto: Codable, Identifiable {
     func waitForPreviewCleanup() async { await detailCleanupTask?.value; await previewCleanupTask?.value }
 #endif
     private let exportEngine = MobileEngine()
+    // Camera capture renders through lifecycle-managed engines: backgrounding
+    // cancels the Metal session via the work gate instead of letting a capture
+    // task submit GPU work while the app is in the background. Develop previews
+    // get their own engine; saving to Photos reuses the export engine so it
+    // obeys the same background protection as the normal export path.
+    private let cameraEngine = MobileEngine()
     private var previewAfterExport = false
     private var exportInterruptedByBackground = false
     private var renderTask: Task<Void, Never>?
@@ -249,8 +255,7 @@ struct MobilePhoto: Codable, Identifiable {
     }
 
     func developCameraPhoto(_ photo: MobilePhoto, animate: Bool) async throws -> MobileCameraDevelopment {
-        let previewEngine = MobileEngine()
-        let preview = try await previewEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo), animate: animate)
+        let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo), animate: animate)
         cacheLibraryPreview(preview.image, photo: photo)
         if preview.animation != nil { photosOfferedDevelopment.insert(photo.id) }
         return preview
@@ -269,7 +274,7 @@ struct MobilePhoto: Codable, Identifiable {
             // ImageIO's HEIF and JPEG quality scales behave differently.
             options.quality = 0.85
         }
-        let renderer = MobileEngine()
+        let renderer = exportEngine
         let files = try await renderer.exportFiles(url: source, recipe: recipe, geometry: photo.geometry,
                                                    options: options, stem: stem)
         guard let finished = files.first else { throw MobileFailure.message("未生成成片") }
@@ -1108,7 +1113,11 @@ struct MobilePhoto: Codable, Identifiable {
         if !active && background {
             exportInterruptedByBackground = true
             exportEngine.workGate.setActive(false)
-        } else if active && !delivering { exportEngine.workGate.setActive(true) }
+            cameraEngine.workGate.setActive(false)
+        } else if active {
+            if !delivering { exportEngine.workGate.setActive(true) }
+            cameraEngine.workGate.setActive(true)
+        }
         if active {
             if isImporting {
                 if operation?.stage == .preview { scheduleRender(importID: operation?.id) }
