@@ -162,6 +162,16 @@ A public checkout contains only the supported materials. Maintainer builds can a
 3. **Work in process order.** Set input exposure and white balance, then development, grain, halation, and print. Preview crop and film edges together.
 4. **Choose a delivery path.** Export a ready-to-use image or a film intermediate for further color work.
 
+### Lightroom Classic external editing (macOS)
+
+Send one JPEG or TIFF through **Edit In → Silverphase**. The dedicated editor
+provides **Save** to write back to Lightroom’s copy and close the editor window.
+No separate `.lrplugin` installation is required. See the
+[illustrated setup and workflow guide (Chinese)](docs/LIGHTROOM-CLASSIC.md).
+Lightroom adjustments are baked into the input; identical settings do not promise
+the same result as direct RAW input. No automatic Lightroom-specific exposure or
+contrast compensation is added.
+
 ### Export paths
 
 | Path | Output | Intended use |

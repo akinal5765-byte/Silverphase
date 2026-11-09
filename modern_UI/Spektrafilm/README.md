@@ -121,3 +121,16 @@ Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
 
 全局结构见 [ARCHITECTURE](../../ARCHITECTURE.md)，本轮门禁见
 [2026-10-28 验证记录](../../performance/VALIDATION-REPORT-2026-10-28.md)。
+
+## Lightroom Classic 外部编辑
+
+macOS 1.2.0（构建 4）新增单张 JPEG／TIFF 外部编辑：Lightroom Classic
+创建含调整的副本，交给 Silverphase 专用编辑界面，右上角「保存」（⌘S）
+全尺寸写回并关闭窗口。无需另装 `.lrplugin`。
+
+安装配置、截图、重复编辑规则与影调边界见
+[Lightroom Classic 使用指南](../../docs/LIGHTROOM-CLASSIC.md)。
+源码版本范围及验证缺口见 [1.2.0 记录](releases/1.2.0.md)。
+
+开发诊断可使用 `--lightroom-editor <path>` 显式进入外部编辑模式。
+来源识别依据 macOS 打开事件的发送应用；发送方缺失时不猜测。

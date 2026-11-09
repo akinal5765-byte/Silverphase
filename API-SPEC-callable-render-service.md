@@ -223,3 +223,18 @@ preserves non-spatial DIR, scanner references, film/paper colour and pointwise
 print EDR. Source, saved params and cached document negatives remain unchanged.
 The result has ordinary `spk_render` ownership. This is for preview-table baking;
 it cannot replace spatial photo development.
+
+## Lightroom Classic file integration (macOS 1.2.0)
+
+This host-only workflow introduces no C ABI entry point or schema change.
+Lightroom's JPEG/TIFF copy goes through the existing ICC-aware decoder and
+`spk_open_device`; Save uses the normal full-resolution render and host output
+conversion/ImageIO writer. The engine does not discover Lightroom, manage its
+catalog, retain originals on disk, close windows or perform file replacement.
+
+Linearization of an externally rendered image is not inversion of its camera
+profile or tone mapping. It does not guarantee direct-RAW equivalence. The host
+retains the first input separately from the writeback target; cancellation before
+Save leaves the target unmodified, though settings can persist separately.
+TIFF writeback is 16-bit and JPEG is 8-bit, tagged ProPhoto RGB. Single-photo SDR
+is the supported scope. See [setup, repeat edits and limitations](docs/LIGHTROOM-CLASSIC.md).

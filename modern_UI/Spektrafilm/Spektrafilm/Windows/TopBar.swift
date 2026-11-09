@@ -38,6 +38,7 @@ import SwiftUI
 
 struct TopBar: View {
     @Bindable var session: Session
+    @Environment(\.dismissWindow) private var dismissWindow
     @State private var zoomHovered = false
 
     // **The full-screen button and its state are gone.** Full screen is the
@@ -96,6 +97,7 @@ struct TopBar: View {
             // one surface and only one control may claim it.
             HStack(spacing: 0) {
                 inspectorStages
+                if !session.isLightroomEditing {
                 BarIcon(name: "square.and.arrow.up", help: L(.helpExport) + " (⌘E)",
                         disabled: session.selection == nil,
                         selected: !session.panelsHidden && session.showExport) {
@@ -107,6 +109,7 @@ struct TopBar: View {
                             session.showExport.toggle()
                         }
                     }
+                }
                 }
             }
             clusterDivider()
@@ -181,7 +184,17 @@ struct TopBar: View {
             // without the button — only its ink comes and goes.
             clusterDivider()
             ZStack {
-                if session.negativePending {
+                if session.isLightroomEditing {
+                    Button(T("Save", "保存")) {
+                        Task {
+                            if await session.saveAndReturnToLightroom() { dismissWindow(id: "editor") }
+                        }
+                    }
+                    .buttonStyle(.primarySurface)
+                    .keyboardShortcut("s", modifiers: .command)
+                    .disabled(!session.canSaveToLightroom)
+                    .help(T("Save to Lightroom and close", "保存到 Lightroom 并关闭窗口"))
+                } else if session.negativePending {
                     Button { session.printNegative() } label: {
                         Text(L(.actionPrintNegative))
                             .font(Theme.Font.label)
@@ -211,7 +224,7 @@ struct TopBar: View {
                         Text(session.modernBatchGridActive
                              ? T("\(session.selectedFrames.count) photos selected",
                                  "已选 \(session.selectedFrames.count) 张照片")
-                             : session.selection?.lastPathComponent ?? T("Preview", "预览"))
+                             : (session.lightroomDestination ?? session.selection)?.lastPathComponent ?? T("Preview", "预览"))
                             .font(Theme.Font.railTitle)
                             .foregroundStyle(Theme.Ink.primary)
                             .lineLimit(1)

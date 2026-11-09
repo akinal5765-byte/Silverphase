@@ -148,6 +148,7 @@
 		4C07B1119F36C944BB4E90CA /* PaperGrade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaperGrade.swift"; sourceTree = "<group>"; };
 		2AFE54D96D2505F69D272CBC /* Params.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Params.swift"; sourceTree = "<group>"; };
 		8B64ED87BED9C4B6A1F5E1CE /* ParamValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ParamValue.swift"; sourceTree = "<group>"; };
+		40A055D93D551C2E6DAE4C1A /* Session+ExternalEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session+ExternalEditing.swift"; sourceTree = "<group>"; };
 		B23C08B73F03D394213FF791 /* Session+FilmPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session+FilmPresentation.swift"; sourceTree = "<group>"; };
 		5E28E5289A5F9446065A3593 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session.swift"; sourceTree = "<group>"; };
 		5D2036B1E86CE9C074686839 /* SettingsClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsClipboard.swift"; sourceTree = "<group>"; };
@@ -175,6 +176,7 @@
 				4C07B1119F36C944BB4E90CA /* PaperGrade.swift */,
 				2AFE54D96D2505F69D272CBC /* Params.swift */,
 				8B64ED87BED9C4B6A1F5E1CE /* ParamValue.swift */,
+				40A055D93D551C2E6DAE4C1A /* Session+ExternalEditing.swift */,
 				B23C08B73F03D394213FF791 /* Session+FilmPresentation.swift */,
 				5E28E5289A5F9446065A3593 /* Session.swift */,
 				5D2036B1E86CE9C074686839 /* SettingsClipboard.swift */,
@@ -352,6 +354,7 @@
 		A80314DB52E95A2058ED6D6E /* GeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GeometryTests.swift"; sourceTree = "<group>"; };
 		D21FA14465ADF0C32032374E /* LayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LayoutTests.swift"; sourceTree = "<group>"; };
 		CE8421F06D7963E4B9992184 /* LicensingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LicensingTests.swift"; sourceTree = "<group>"; };
+		7D37F35F7A6CE9A2285C3C13 /* LightroomInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LightroomInputTests.swift"; sourceTree = "<group>"; };
 		CF61BA9413EC99F2810BB4DE /* MaskTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MaskTests.swift"; sourceTree = "<group>"; };
 		62E7270FDC2929C3D06F6385 /* MobileDesktopContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MobileDesktopContractTests.swift"; sourceTree = "<group>"; };
 		45C149FF40A899D49E1562B3 /* ModernCalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ModernCalibrationTests.swift"; sourceTree = "<group>"; };
@@ -412,6 +415,7 @@
 				A80314DB52E95A2058ED6D6E /* GeometryTests.swift */,
 				D21FA14465ADF0C32032374E /* LayoutTests.swift */,
 				CE8421F06D7963E4B9992184 /* LicensingTests.swift */,
+				7D37F35F7A6CE9A2285C3C13 /* LightroomInputTests.swift */,
 				CF61BA9413EC99F2810BB4DE /* MaskTests.swift */,
 				62E7270FDC2929C3D06F6385 /* MobileDesktopContractTests.swift */,
 				45C149FF40A899D49E1562B3 /* ModernCalibrationTests.swift */,
@@ -605,6 +609,7 @@
 		F7443A30FA437845FA45077F /* PaperGrade.swift */ = {isa = PBXBuildFile; fileRef = 4C07B1119F36C944BB4E90CA; };
 		6822B6E3426D49DCE0044D28 /* Params.swift */ = {isa = PBXBuildFile; fileRef = 2AFE54D96D2505F69D272CBC; };
 		29510B692EB0CE6DCF1F214D /* ParamValue.swift */ = {isa = PBXBuildFile; fileRef = 8B64ED87BED9C4B6A1F5E1CE; };
+		CAED23CD3A6C2D6B54AFC00E /* Session+ExternalEditing.swift */ = {isa = PBXBuildFile; fileRef = 40A055D93D551C2E6DAE4C1A; };
 		B2619874AE3D099205A1BE72 /* Session+FilmPresentation.swift */ = {isa = PBXBuildFile; fileRef = B23C08B73F03D394213FF791; };
 		88BD30B14D98C97D23F43C21 /* Session.swift */ = {isa = PBXBuildFile; fileRef = 5E28E5289A5F9446065A3593; };
 		9E50813C5CDDEEF0BDEE986A /* SettingsClipboard.swift */ = {isa = PBXBuildFile; fileRef = 5D2036B1E86CE9C074686839; };
@@ -727,6 +732,7 @@
 				F7443A30FA437845FA45077F /* PaperGrade.swift */,
 				6822B6E3426D49DCE0044D28 /* Params.swift */,
 				29510B692EB0CE6DCF1F214D /* ParamValue.swift */,
+				CAED23CD3A6C2D6B54AFC00E /* Session+ExternalEditing.swift */,
 				B2619874AE3D099205A1BE72 /* Session+FilmPresentation.swift */,
 				88BD30B14D98C97D23F43C21 /* Session.swift */,
 				9E50813C5CDDEEF0BDEE986A /* SettingsClipboard.swift */,
@@ -842,6 +848,7 @@
 		2209A1D226457302F50FFEE6 /* GeometryTests.swift */ = {isa = PBXBuildFile; fileRef = A80314DB52E95A2058ED6D6E; };
 		79A4427684DDABB45B19288D /* LayoutTests.swift */ = {isa = PBXBuildFile; fileRef = D21FA14465ADF0C32032374E; };
 		302F9DB7C81BCB801B293621 /* LicensingTests.swift */ = {isa = PBXBuildFile; fileRef = CE8421F06D7963E4B9992184; };
+		1FCB0AD3B86D581757D28875 /* LightroomInputTests.swift */ = {isa = PBXBuildFile; fileRef = 7D37F35F7A6CE9A2285C3C13; };
 		6FA174F7F62365ED82151A39 /* MaskTests.swift */ = {isa = PBXBuildFile; fileRef = CF61BA9413EC99F2810BB4DE; };
 		C9440EBAA4C27AE01B88FDFB /* MobileDesktopContractTests.swift */ = {isa = PBXBuildFile; fileRef = 62E7270FDC2929C3D06F6385; };
 		35558C4019E6666977989247 /* ModernCalibrationTests.swift */ = {isa = PBXBuildFile; fileRef = 45C149FF40A899D49E1562B3; };
@@ -925,6 +932,7 @@
 		76BF39819A0997C2A0BB565F /* PaperGrade.swift */ = {isa = PBXBuildFile; fileRef = 4C07B1119F36C944BB4E90CA; };
 		E90F7C134FA143167A66ED5F /* Params.swift */ = {isa = PBXBuildFile; fileRef = 2AFE54D96D2505F69D272CBC; };
 		A122F819793E1E479C69F642 /* ParamValue.swift */ = {isa = PBXBuildFile; fileRef = 8B64ED87BED9C4B6A1F5E1CE; };
+		15FFD937F65F90607F2E0D2B /* Session+ExternalEditing.swift */ = {isa = PBXBuildFile; fileRef = 40A055D93D551C2E6DAE4C1A; };
 		1CD07FA2F318F0FC98EA19FD /* Session+FilmPresentation.swift */ = {isa = PBXBuildFile; fileRef = B23C08B73F03D394213FF791; };
 		9BB0059CCEA6F6A2DDE94304 /* Session.swift */ = {isa = PBXBuildFile; fileRef = 5E28E5289A5F9446065A3593; };
 		C4928129500601E057DE95B8 /* SettingsClipboard.swift */ = {isa = PBXBuildFile; fileRef = 5D2036B1E86CE9C074686839; };
@@ -1019,6 +1027,7 @@
 				2209A1D226457302F50FFEE6 /* GeometryTests.swift */,
 				79A4427684DDABB45B19288D /* LayoutTests.swift */,
 				302F9DB7C81BCB801B293621 /* LicensingTests.swift */,
+				1FCB0AD3B86D581757D28875 /* LightroomInputTests.swift */,
 				6FA174F7F62365ED82151A39 /* MaskTests.swift */,
 				C9440EBAA4C27AE01B88FDFB /* MobileDesktopContractTests.swift */,
 				35558C4019E6666977989247 /* ModernCalibrationTests.swift */,
@@ -1102,6 +1111,7 @@
 				76BF39819A0997C2A0BB565F /* PaperGrade.swift */,
 				E90F7C134FA143167A66ED5F /* Params.swift */,
 				A122F819793E1E479C69F642 /* ParamValue.swift */,
+				15FFD937F65F90607F2E0D2B /* Session+ExternalEditing.swift */,
 				1CD07FA2F318F0FC98EA19FD /* Session+FilmPresentation.swift */,
 				9BB0059CCEA6F6A2DDE94304 /* Session.swift */,
 				C4928129500601E057DE95B8 /* SettingsClipboard.swift */,
@@ -1225,7 +1235,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1243,7 +1253,7 @@
 				INFOPLIST_FILE = Spektrafilm/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1274,7 +1284,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1290,7 +1300,7 @@
 				INFOPLIST_FILE = Spektrafilm/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1347,7 +1357,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1363,7 +1373,7 @@
 				);
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1393,7 +1403,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1407,7 +1417,7 @@
 				);
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

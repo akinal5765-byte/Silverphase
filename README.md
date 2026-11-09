@@ -162,6 +162,13 @@ xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
 3. **按工艺调整。** 先处理输入曝光与白平衡，再调显影、颗粒、光晕和印相。裁切与片边一起预览。
 4. **选择交付方式。** 导出可直接使用的成片，或输出供后续调色的胶片中间文件。
 
+### Lightroom Classic 外部编辑（macOS）
+
+支持从「在应用程序中编辑 → 在 Silverphase 中编辑」进入单张 JPEG／TIFF
+编辑。右上角「保存」写回 Lightroom 副本并关闭窗口。配置截图和完整流程见
+[使用指南](docs/LIGHTROOM-CLASSIC.md)。LR 影调会烘焙进输入，同参数不保证与
+直接 RAW 一致；不自动增加曝光或反差补偿。
+
 ### 导出方式
 
 | 路径 | 输出 | 适合用途 |

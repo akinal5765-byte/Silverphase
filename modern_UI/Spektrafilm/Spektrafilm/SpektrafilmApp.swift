@@ -117,8 +117,8 @@ struct EditorCommands: Commands {
                 .keyboardShortcut(",", modifiers: .command)
         }
         CommandGroup(replacing: .newItem) {
-            Button(L(.menuOpen)) { session.openPanel() }.keyboardShortcut("o")
-            Button(L(.menuExport)) { session.showExport = true }.keyboardShortcut("e").disabled(session.selection == nil)
+            Button(L(.menuOpen)) { session.openPanel() }.keyboardShortcut("o").disabled(session.isLightroomEditing)
+            Button(L(.menuExport)) { session.showExport = true }.keyboardShortcut("e").disabled(session.selection == nil || session.isLightroomEditing)
         }
         CommandGroup(replacing: .undoRedo) {
             Button(L(.menuUndo)) { session.undo() }.keyboardShortcut("z").disabled(!session.canUndo)
@@ -408,7 +408,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        session?.open(urls: urls)
+        if LightroomInput.currentSenderIsLightroom() {
+            session?.openFromLightroom(urls)
+        } else {
+            session?.open(urls: urls)
+        }
     }
 
     /// A path passed on the command line opens too, so a capture or a script
@@ -417,7 +421,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func openCommandLineArguments() {
         let paths = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
         let urls = paths.map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) }
-        if !urls.isEmpty { session?.open(urls: urls) }
+        if !urls.isEmpty {
+            if CommandLine.arguments.contains("--lightroom-editor") { session?.openFromLightroom(urls) }
+            else { session?.open(urls: urls) }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
