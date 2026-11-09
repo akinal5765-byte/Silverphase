@@ -43,3 +43,9 @@ Contact the maintainer through [GitHub Issues](https://github.com/akinal5765-byt
 - Layerlight is optional. Silverphase editing and export work independently of it.
 
 See the [privacy policy](PRIVACY.md) and [source and licences](https://github.com/akinal5765-byte/Silverphase). Silverphase is an independent derivative of Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm.
+
+## 1.2.1 取景与定位 / Viewfinder and location
+
+近似取景用于构图，不是 RAW 成片打样；测光、柔光和系统视频处理均可能影响差异。设置可选择近似、系统或实验性原生预览。拍摄定位默认开启但需授权，可随时关闭；导出是否保留位置由导出设置决定。iOS 18 参数标签修复见 [发布准备](../ios/releases/1.2.1.md)。单张 GPU 导出错误截图尚不足以定位原因，本版不加入针对错误字符串的重试。
+
+Approximate preview is for composition and cannot proof a RAW result. Choose approximate, system or experimental native preview in settings. Capture location defaults on but needs permission, can be disabled, and follows export metadata policy. See [release preparation](../ios/releases/1.2.1.md) for the iOS 18 text fix and known limits. The reported GPU export failure remains unconfirmed; no error-string-specific retry is added.

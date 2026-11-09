@@ -89,6 +89,7 @@ import OSLog
             func publishedFiles() throws -> [URL] {
                 try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil,
                                                             options: .skipsHiddenFiles)
+                    .filter { !$0.lastPathComponent.hasSuffix(".camera.json") }
             }
             let files = try publishedFiles()
             // An empty session is not an acknowledgement. The system may
@@ -104,7 +105,16 @@ import OSLog
             let existing = copiedNames()
             let pendingNames = Set(files.map(\.lastPathComponent)).subtracting(existing)
             let pending = files.filter { pendingNames.contains($0.lastPathComponent) }
-            if !pending.isEmpty { await document.importFiles(pending, announceSuccess: false).value }
+            var recipes: [URL: MobileCameraRecipe] = [:]
+            for original in pending {
+                let sidecar = MobileCameraRecipe.sidecar(for: original)
+                if FileManager.default.fileExists(atPath: sidecar.path) {
+                    recipes[original] = try JSONDecoder().decode(MobileCameraRecipe.self, from: Data(contentsOf: sidecar))
+                }
+            }
+            if !pending.isEmpty {
+                await document.importFiles(pending, capturedRecipes: recipes, announceSuccess: false).value
+            }
             let importedNames = copiedNames()
             guard importedNames == filenames, document.save() else {
                 log.error("Locked session retained; verified \(importedNames.count) of \(files.count) file(s)")
@@ -189,6 +199,14 @@ import OSLog
             do {
                 if FileManager.default.fileExists(atPath: report.path) { try FileManager.default.removeItem(at: report) }
             } catch { document.error = error.localizedDescription }
+        } else if ProcessInfo.processInfo.arguments.contains("--locked-camera-regression") {
+            await MobileLockedCameraChecks.run()
+        } else if ProcessInfo.processInfo.arguments.contains("--camera-location-regression") {
+            await MobileCameraLocationChecks.run()
+        } else if ProcessInfo.processInfo.arguments.contains("--camera-exposure-regression") {
+            MobileCameraExposureProbe.runChecks()
+        } else if ProcessInfo.processInfo.arguments.contains("--camera-look-regression") {
+            await MobileCameraLookChecks.run()
         } else if ProcessInfo.processInfo.arguments.contains("--flat-import-regression") {
             await MobileSmokeChecks.flatImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {

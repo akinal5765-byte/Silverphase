@@ -12,6 +12,10 @@ enum MobileStyle {
     static let surface = Color(white: 0.065)
     static let well = Color.white.opacity(0.09)
     static let rule = Color.white.opacity(0.09)
+    // Explicit semantic colour: hierarchical .secondary can disappear inside
+    // a ScrollView over regularMaterial on iOS 18. Keep text independent of
+    // material vibrancy, while retaining dark/light/accessibility adaptation.
+    static let secondaryText = Color(uiColor: .secondaryLabel)
     static let muted = Color.white.opacity(0.28)
 }
 

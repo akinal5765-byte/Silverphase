@@ -76,9 +76,13 @@ struct MobileFilmstrip: View {
         .onChange(of: photos.map(\.id)) { _, ids in
             if allowsSelection { document.restrictPhotoSelection(to: ids) }
         }
-        .confirmationDialog("从图库删除照片？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
-            Button("删除应用内原文件和编辑记录", role: .destructive) { if let deleting { document.remove(deleting) }; deleting = nil }
-        } message: { Text("系统相册和导入来源不受影响。") }
+        .alert("从图库删除照片？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+               presenting: deleting) { id in
+            Button("取消", role: .cancel) { deleting = nil }
+            Button("删除", role: .destructive) { document.remove(id); deleting = nil }
+        } message: { _ in
+            Text("将删除应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。")
+        }
         .sheet(item: $copyRequest) { request in MobileCopySettingsSheet(document: document, request: request) }
     }
 

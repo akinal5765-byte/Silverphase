@@ -98,6 +98,8 @@ iOS omits desktop two-photo pairing and some proofing features. See the [iOS gui
 
 The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. RAW photos carry a badge. Photo Info shows the original file format. With Photos read access, imports prefer RAW originals and download them from iCloud when needed. Settings and export recipes persist independently, and the print animation can run once per launch or once per photo. Since 1.2.0 the app includes an in-app camera: capture with a chosen film, develop straight into the library, and reach the camera from a Control Center widget or the Locked Camera Capture extension; a known lock-screen activation stall is documented in the [iOS guide](ios/README.md).
 
+1.2.1 (7) is in release preparation: a default fluent approximate film viewfinder, metering/diffusion selection, processed shutter/lens/portrait freezes, and a fixed camera layout with rotating controls. Settings retain system and experimental native previews plus capture location tagging (enabled by default, subject to system permission). iOS 18 parameter labels are fixed. Video preview does not equal RAW development; locked capture still uses system preview without a film picker. See [1.2.1 preparation](ios/releases/1.2.1.md) for validation, limits and remaining checks. This does not claim an upload or public release.
+
 ## Also by the author: Layerlight
 
 <table>

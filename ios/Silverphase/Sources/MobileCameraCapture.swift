@@ -82,6 +82,13 @@ struct MobileCameraConfiguration: @unchecked Sendable {
 // the session only to connect its preview layer and observe notifications.
 final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
+#if SILVERPHASE_APP
+    let lookFrames = MobileCameraLookFrames()
+
+    @MainActor func lookGeometry() -> (angle: CGFloat, mirrored: Bool) {
+        (previewLayer?.connection?.videoRotationAngle ?? 0, previewLayer?.connection?.isVideoMirrored == true)
+    }
+#endif
     @MainActor private var rotation: AVCaptureDevice.RotationCoordinator?
     @MainActor private weak var previewLayer: AVCaptureVideoPreviewLayer?
     private let queue = DispatchQueue(label: "silverphase.camera")
@@ -156,6 +163,11 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         previewBuffer = buffer
         previewBufferRotation = connection.videoRotationAngle
         previewFrameCount = min(previewFrameCount + 1, 3)
+#if SILVERPHASE_APP
+        lookFrames.store(buffer, rotation: connection.videoRotationAngle,
+                         sensorISO: input.map { Double($0.device.iso) },
+                         sensorDuration: input.map { CMTimeGetSeconds($0.device.exposureDuration) })
+#endif
     }
 
     func hasSettledPreview() async -> Bool {
@@ -173,6 +185,12 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     let rampsZoom = self.session.isRunning && !portrait && !self.portraitCapture &&
                         self.activeLens?.physicalLens == lens.physicalLens && self.activeLens != lens
                     let device = try self.configure(lens: lens, portrait: portrait)
+#if SILVERPHASE_APP
+                    // Same queue as the video delegate. Old physical-output
+                    // callbacks are rejected by output identity; zoom frames
+                    // from this configuration remain live throughout the ramp.
+                    self.lookFrames.beginConfiguration()
+#endif
                     if portrait && !self.output.isDepthDataDeliveryEnabled {
                         throw MobileFailure.message("当前镜头或拍摄配置不支持人像深度。")
                     }
@@ -227,6 +245,9 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             self.focusRequest += 1
             if self.session.isRunning { self.session.stopRunning() }
             self.previewBuffer = nil
+#if SILVERPHASE_APP
+            self.lookFrames.clear()
+#endif
             self.previewFrameCount = 0
         }
     }
@@ -255,6 +276,9 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             if session.outputs.contains(output) { session.removeOutput(output) }
             if let previewOutput { session.removeOutput(previewOutput) }
             previewOutput = nil
+#if SILVERPHASE_APP
+            lookFrames.clear()
+#endif
             previewBuffer = nil
             previewFrameCount = 0
             if let input { session.removeInput(input) }
@@ -273,6 +297,11 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             session.addOutput(nextOutput)
             let frames = AVCaptureVideoDataOutput()
             frames.alwaysDiscardsLateVideoFrames = true
+#if SILVERPHASE_APP
+            frames.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+            frames.automaticallyConfiguresOutputBufferDimensions = false
+            frames.deliversPreviewSizedOutputBuffers = true
+#endif
             if session.canAddOutput(frames) {
                 session.addOutput(frames)
 #if !SILVERPHASE_APP
@@ -462,8 +491,18 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     }
 
     @MainActor func capture(flash: AVCaptureDevice.FlashMode, portrait: Bool,
-                            mirrored: Bool) async throws -> (data: Data, format: MobileCaptureFormat) {
-        let angle = rotation?.videoRotationAngleForHorizonLevelCapture
+                            mirrored: Bool, pose: MobileCameraCapturePose? = nil,
+                            location: MobileCaptureLocation? = nil) async throws -> (data: Data, format: MobileCaptureFormat) {
+        let angle: CGFloat?
+        if #available(iOS 27, *), let pose {
+            guard let rotation else { throw MobileFailure.message("相机拍摄方向尚未准备好，请重试。") }
+            // Capture uses the physical pose latched at shutter press.
+            // AVFoundation resolves the sensor's mounting; never infer capture
+            // orientation from the rotating extension host or the preview layer.
+            angle = rotation.videoRotationAngleRelative(toDeviceOrientation: pose.videoOrientation)
+        } else {
+            angle = rotation?.videoRotationAngleForHorizonLevelCapture
+        }
         return try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 guard self.session.isRunning, let connection = self.output.connection(with: .video),
@@ -474,7 +513,14 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 }
                 // RAW availability can change after the startup or lens configuration snapshot.
                 let format = self.captureFormat()
-                if let angle, connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
+                if let angle {
+                    if connection.isVideoRotationAngleSupported(angle) {
+                        connection.videoRotationAngle = angle
+                    } else if pose != nil {
+                        continuation.resume(throwing: MobileFailure.message("当前相机不支持本次拍摄方向。"))
+                        return
+                    }
+                }
                 if connection.isVideoMirroringSupported {
                     connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = mirrored
@@ -495,6 +541,9 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 case .heic, .jpeg:
                     settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: format == .heic ? AVVideoCodecType.hevc : .jpeg])
                 }
+                if let location {
+                    settings.metadata = [kCGImagePropertyGPSDictionary as String: location.gps]
+                }
                 if format == .bayer { settings.photoQualityPrioritization = .speed }
                 if portrait {
                     settings.isDepthDataDeliveryEnabled = true
@@ -514,6 +563,17 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 self.captureDelegate = delegate
                 self.output.capturePhoto(with: settings, delegate: delegate)
             }
+        }
+    }
+}
+
+private extension MobileCameraCapturePose {
+    var videoOrientation: AVCaptureVideoOrientation {
+        switch self {
+        case .portrait: .portrait
+        case .landscapeLeft: .landscapeLeft
+        case .portraitUpsideDown: .portraitUpsideDown
+        case .landscapeRight: .landscapeRight
         }
     }
 }
@@ -547,7 +607,6 @@ struct MobileCameraPreview: UIViewRepresentable {
     let device: AVCaptureDevice
     @Binding var portrait: Bool
     @Binding var previewing: Bool
-    @Binding var interfaceQuarterTurn: Double
     let mirrored: Bool
     let hardwareShutterEnabled: Bool
     let shutter: () -> Void
@@ -571,9 +630,8 @@ struct MobileCameraPreview: UIViewRepresentable {
         view.rotation = rotation
         view.mirrored = mirrored
         view.updateConnectionOrientation()
-        view.orientationChanged = { isPortrait, quarterTurn in
+        view.orientationChanged = { isPortrait in
             if portrait != isPortrait { portrait = isPortrait }
-            if interfaceQuarterTurn != quarterTurn { interfaceQuarterTurn = quarterTurn }
         }
         view.previewObservation = view.previewLayer.observe(\.isPreviewing, options: [.initial, .new]) { [weak view] _, change in
             guard let value = change.newValue else { return }
@@ -613,7 +671,7 @@ struct MobileCameraPreview: UIViewRepresentable {
         var rotationObservation: NSKeyValueObservation?
         var previewObservation: NSKeyValueObservation?
         var rotation: AVCaptureDevice.RotationCoordinator?
-        var orientationChanged: ((Bool, Double) -> Void)?
+        var orientationChanged: ((Bool) -> Void)?
         var mirrored = false
         var captureInteraction: AVCaptureEventInteraction?
         var shutter: (() -> Void)?
@@ -679,19 +737,6 @@ struct MobileCameraPreview: UIViewRepresentable {
 
         func updateConnectionOrientation() {
             guard let rotation, let connection = previewLayer.connection else { return }
-            let orientation: UIInterfaceOrientation?
-            if #available(iOS 26, *) {
-                orientation = window?.windowScene?.effectiveGeometry.interfaceOrientation
-            } else {
-                orientation = window?.windowScene?.interfaceOrientation
-            }
-            let quarterTurn: Double
-            switch orientation {
-            case .landscapeLeft: quarterTurn = 90
-            case .landscapeRight: quarterTurn = -90
-            case .portraitUpsideDown: quarterTurn = 180
-            default: quarterTurn = 0
-            }
             let angle = rotation.videoRotationAngleForHorizonLevelPreview
             if connection.isVideoRotationAngleSupported(angle), connection.videoRotationAngle != angle {
                 connection.videoRotationAngle = angle
@@ -702,7 +747,7 @@ struct MobileCameraPreview: UIViewRepresentable {
             }
             let radians = angle * .pi / 180
             let portrait = abs(sin(radians)) > abs(cos(radians))
-            Task { @MainActor [weak self] in self?.orientationChanged?(portrait, quarterTurn) }
+            Task { @MainActor [weak self] in self?.orientationChanged?(portrait) }
         }
     }
 }

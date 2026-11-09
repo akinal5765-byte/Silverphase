@@ -58,16 +58,24 @@ app_info = plistlib.loads((root / 'Info.plist').read_bytes())
 extension_targets, extension_dependencies, extension_phases = [], [], []
 for name, suffix, extra_sources, extensionkit in [
     ('CameraControl', 'camera-control', [], False),
-    ('LockedCamera', 'locked-camera', ['MobileCamera', 'MobileCameraCapture', 'MobileCameraChrome', 'MobileDevelopment', 'MobileFailure', 'EditorDesign'], True),
+    ('LockedCamera', 'locked-camera', ['MobileCameraCanvas', 'MobileCameraCapturePose', 'MobileCaptureLocation', 'MobileCamera', 'MobileCameraCapture', 'MobileCameraChrome', 'MobileDevelopment', 'MobileFailure', 'EditorDesign'], True),
 ]:
     entry = f'CameraExtensions/{name}.swift'
     ref = obj(entry, f'isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {quote(entry)}; sourceTree = SOURCE_ROOT;')
     refs.append(ref)
     extension_builds = [obj('build:' + entry, f'isa = PBXBuildFile; fileRef = {ref};')]
-    for source in ['SilverphaseCameraCaptureIntent'] + extra_sources:
+    for source in ['SilverphaseCameraCaptureIntent', 'MobileCameraRecipe'] + extra_sources:
         ref = uid(f'Sources/{source}.swift')
         extension_builds.append(obj(f'{name}:build:{source}', f'isa = PBXBuildFile; fileRef = {ref};'))
+    extension_resource_phases = []
     if extensionkit:
+        catalog_source = os.path.relpath(shared / 'StockCatalogCore.swift', root)
+        extension_builds.append(obj(f'{name}:build:StockCatalogCore', f'isa = PBXBuildFile; fileRef = {uid(catalog_source)};'))
+        catalog_path = os.path.relpath(shared.parent / 'Resources/StockCatalog.json', root)
+        catalog_ref = obj(name + ':catalog-ref', f'isa = PBXFileReference; lastKnownFileType = text.json; path = {quote(catalog_path)}; sourceTree = SOURCE_ROOT;')
+        refs.append(catalog_ref)
+        catalog_build = obj(name + ':catalog-build', f'isa = PBXBuildFile; fileRef = {catalog_ref};')
+        extension_resource_phases.append(obj(name + ':catalog-copy', f'isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = AppResources; dstSubfolderSpec = 7; files = ({catalog_build}); runOnlyForDeploymentPostprocessing = 0;'))
         for shader in [root / 'Shaders/MobileView.metal', repo / 'modern_UI/Spektrafilm/Spektrafilm/Canvas/Shaders.metal']:
             path = os.path.relpath(shader, root)
             ref = obj(path, f'isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = {quote(path)}; sourceTree = SOURCE_ROOT;')
@@ -96,7 +104,7 @@ for name, suffix, extra_sources, extensionkit in [
                              ''.join(k + ' = ' + quote(v) + ';' for k, v in settings.items()) + '};')
                          for configuration in ['Debug', 'Release']]
     extension_config_list = obj(name + ':configs', f'isa = XCConfigurationList; buildConfigurations = ({",".join(extension_configs)}); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')
-    extension_target = obj(name + ':target', f'isa = PBXNativeTarget; name = {name}; productName = {name}; productReference = {extension_product}; productType = "com.apple.product-type.{extension_type}"; buildConfigurationList = {extension_config_list}; buildPhases = ({phase}); buildRules = (); dependencies = ();')
+    extension_target = obj(name + ':target', f'isa = PBXNativeTarget; name = {name}; productName = {name}; productReference = {extension_product}; productType = "com.apple.product-type.{extension_type}"; buildConfigurationList = {extension_config_list}; buildPhases = ({",".join([phase] + extension_resource_phases)}); buildRules = (); dependencies = ();')
     extension_targets.append(extension_target)
     proxy = obj(name + ':proxy', f'isa = PBXContainerItemProxy; containerPortal = {uid("project")}; proxyType = 1; remoteGlobalIDString = {extension_target}; remoteInfo = {name};')
     extension_dependencies.append(obj(name + ':dependency', f'isa = PBXTargetDependency; target = {extension_target}; targetProxy = {proxy};'))

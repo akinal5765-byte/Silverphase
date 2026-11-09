@@ -38,7 +38,7 @@ has yet to be confirmed from device logs. Pressing Camera Control after
 authentication worked on both devices during testing. The on-screen Silverphase
 control requests authentication and opens the camera in the main app.
 
-This remains an accepted, unfixed limitation in 1.2.0. The pre-authentication
+This remains an accepted, unfixed limitation from 1.2.0, still pending acceptance for 1.2.1. The pre-authentication
 entry point is a system-mandated capture extension: the framework requires a
 live camera view on launch and offers no way to demand authentication before
 the extension opens, so the main app cannot take over earlier without dropping
@@ -95,6 +95,8 @@ python3 modern_UI/Spektrafilm/Tools/gen-project.py
 python3 ios/Silverphase/Tools/gen-project.py --check
 ```
 
+Current source candidate: **1.2.1 (7)**. See [release preparation](releases/1.2.1.md) for changes, verification scope and remaining submission checks. No upload or release is implied.
+
 ## Current behavior
 
 The portrait iPhone editor, including unfolded Duo, uses a floating height-limited inspector over a stable canvas and a compact seven-item process bar with a native toolbar segmented control for glass selection and tracking. Folded Duo and Duo landscape place a vertical seven-item segmented control inside the system side toolbar instead of relying on tab-bar overflow; the system hinge state distinguishes folded from unfolded portrait. Export/menu actions and hold-to-compare, glass panels and shared tick rulers remain available. iPad shares the native segmented process picker as a horizontal icon-only control in the same native top toolbar row as back/export/menu actions, with its right inspector and bottom browser. Its canvas extends behind transparent chrome while controls respect the safe area. The layout and components are specified in [DESIGN.md](DESIGN.md).
@@ -109,10 +111,174 @@ The desktop scalar defaults are captured in `DesktopControlDefaults.json` and ch
 
 See [CONTROL-AUDIT.md](CONTROL-AUDIT.md) for every process control, default/range, feature gate, known missing desktop feature and colour measurement scope. Full desktop feature parity is not claimed.
 
+## Locked-camera film and orientation
+
+The secure capture extension has no film selection menu. It inherits film,
+meter and filter from `CameraCaptureIntent.appContext`; meter/filter changes
+inside the extension use session state rather than unavailable shared
+preferences. Its public film catalogue validates the inherited film ID. Every
+published original carries its own film ID in the existing camera sidecar.
+Import resolves that film and its target paper/direct-scan policy before the
+first render. Older sidecars without a film ID retain their existing policy;
+unknown film IDs fail visibly while leaving the session original intact.
+
+Both in-app and locked cameras keep one device-relative portrait canvas on
+phones, tablets and Duo in either hinge state. The shutter and controls keep
+that layout while glyphs/labels follow gravity. The hinge selects only the
+full-bleed viewfinder treatment. Camera pages request portrait orientation;
+`MobileCameraCanvas` also compensates an actually rotated host window, including
+hosts that ignore orientation restrictions. This is scoped to capture: leaving
+the camera restores the library/editor's existing direction policy.
+
+At shutter press, both cameras latch physical device pose. On iOS27+
+AVFoundation resolves the sensor's rotation for that explicit pose independently
+of the fixed camera canvas or host window. Earlier systems retain the capture
+rotation coordinator. No captured pixels receive an ad-hoc import rotation.
+
+Code/package checks cover the extension's orientation declaration, matching
+25-film public catalogue, camera-canvas sizes under four host orientations,
+camera-only policy acquisition/release, old/new sidecar compatibility,90 recipe
+combinations and four TIFF/EXIF orientation representations through the real
+file reader and native engine. These are synthetic checks. They do not establish physical sensor
+mounting, locked-host rotation, folded/unfolded handoff, RAW orientation or
+pre-authentication capture on a phone. The existing startup limitation above
+remains separate.
+
+Camera diagnostics can be repeated with the checked-in runner after a Debug
+simulator build. It deletes the previous report before launch, waits for the
+selected diagnostic and checks its `passed` result:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer \
+  ios/Silverphase/Tools/check-simulator.sh SIMULATOR_UDID /absolute/path/Silverphase.app --camera-look-regression
+```
+
+The same runner supports `--locked-camera-regression`,
+`--camera-location-regression` and `--camera-exposure-regression`; their scopes
+remain synthetic and do not grant real-camera/permission/export acceptance.
+
+## Live film viewfinder
+
+Settings → 相机 → 实时胶片取景 and the camera composition menu share three
+persisted modes. New/default selection is “流畅近似预览”. A one-time migration
+also moves previously saved experimental native selections to approximate;
+subsequent manual choices persist. An older explicit preview-off preference
+remains off until changed. “系统取景（关闭效果）” uses
+AVFoundation's ordinary preview. “原生引擎预览（实验）” retains the native rendering path for comparison.
+These choices affect composition only; saved photos always use the native
+recipe. The secure lock-screen extension still uses the system viewfinder.
+
+Approximate mode is the recommended/default composition path. It bakes a 49³
+scene-linear ProPhoto→Display-P3 film/paper table, with a logarithmic shaper from
+0 to 16 linear units (toe 0.002), once per film. The engine's dedicated
+`spk_render_color_samples` path excludes spatial/stochastic processing: adjacent
+RGB lattice cells must never share DIR diffusion or scanner sharpening. Native
+non-spatial colour interactions, scanner references and pointwise print EDR
+remain active. Table permutation and chart shape must produce identical samples.
+
+Video and the small six-intent meter use the same linear ProPhoto boundary as
+native rendering. Exposure and family-specific approximate bloom happen before
+the film table. Values above SDR white are retained by the shaper; they are not
+clamped to 1 before film response. Scene reconstruction, grain, glare and
+physical halation are not simulated. Diffusion stays enabled under reduced
+power. Normal preview requests 960px/30Hz, reduced-power/serious thermal state
+640px/20Hz; these are scheduling ceilings, not device frame-rate acceptance.
+The viewfinder explicitly labels this mode “近似预览”.
+
+Digital zoom keeps processing video throughout the ramp. Physical-lens and
+portrait-mode switches freeze the currently displayed processed image, preserving
+the selected preview mode. The freeze fades only after hardware settles and a
+matching processed frame from the new input configuration is available; stale
+frames from the previous configuration cannot release it. System preview and
+processing-error fallback still use hardware readiness. Generation/lifetime
+checks cover this handoff; real lens/portrait transitions require phone validation.
+
+At most two tables are retained in LRU order. During an active capture, the
+larger native baker/context/work buffers are released while those small owned
+textures survive; returning to the same film does not recreate the engine or
+rebake the table. Leaving capture, backgrounding or disabling preview releases
+all preview resources. No original or material profile is changed.
+
+Native mode uses the photo engine's metering, halation, spatial diffusion and
+display transform, omitting grain and stochastic glare. Its current input is
+8-bit BGRA SDR video, already exposed/tone-mapped by the camera ISP. The preview
+therefore sets `halation_headroom_ev=0`: it does not infer another four stops of
+scene energy from display highlights. This avoids exaggerated CineStill red
+halos around broad clipped video highlights. Physical halation remains active;
+material profiles, captured recipes and still-photo headroom are unchanged.
+The name “原生引擎预览（实验）” describes the renderer, not RAW equivalence.
+Core Image shares the file decoder's linear ProPhoto boundary. Consecutive frames
+reuse the session, material setup, pipeline, input allocation and device pool;
+`spk_replace_device_frame` invalidates all image-derived state, including the
+meter. Recipe/dimension changes reopen the session. The input/meter stays at up to 1600px independently of the display tier.
+This mode requests 640px/30Hz, or 480px/15Hz under reduced power via the dedicated
+`spk_render_viewfinder` entry point, without the document preview-size floor.
+It retains a short-lived owned negative instead of an mmap copy. When auto
+exposure is off, unused whole-frame meter analysis is skipped. The earlier
+384px/256px input reduction has been removed; the sensor/meter source remains
+independent of the smaller display tier. With auto exposure off, system video
+and RAW brightness may differ because their input scene estimates differ; the
+menu describes this instead of calling it a matched RAW baseline. Actual rendering
+may be slower: these are scheduling ceilings, not camera frame-rate promises.
+Metering sees the full frame, with display cropping applied afterwards.
+
+Both effect modes retain one latest input and one render in flight, drop stale
+recipe/mode results, cancel when inactive and release work when leaving capture.
+The shutter freezes the displayed processed image with owned immutable pixels.
+Preview off/not ready falls back to the system preview. Failure shows
+“原始取景 · 预览不可用” without blocking capture.
+
+System-processed video differs from RAW, and low resolution changes spatial
+detail. Neither mode is a final-print proof. Synthetic interleaved timings are
+recorded with input, recipe, resolution and power/thermal context; they do not
+establish actual camera frame rate or sustained thermal acceptance.
+
+## Development exposure input report
+
+In Debug builds only, a normal in-app RAW/ProRAW capture with film metering off,
+flash off and portrait mode off writes one latest
+`Documents/camera-exposure-report.json`. It pairs a recent pre-shutter video
+buffer with the original RAW data. Both use the production linear ProPhoto
+conversion; RAW uses the exact shared no-boost/no-local-tone-map preparation.
+The report contains numerical luminance percentiles, relative EV by midtone
+quantile, RAW baseline exposure, sensor ISO/time and frame age. It contains no
+image pixels or GPS and does not apply a gain, alter the original/recipe or
+store a camera calibration. Old video frames and differing aspect coverage are
+flagged; nonuniform quantile ratios must not be treated as a constant exposure
+shift. Near-shutter frames are not guaranteed simultaneous or registered.
+The asynchronous utility task does not delay the shutter or photo save.
+Production Release builds do not collect this report.
+
+## Camera location and status
+
+The preview status occupies its own row below the camera toolbar, outside the
+full-bleed image, so it cannot sit under the return button on Duo or ordinary
+phones. Camera layout UI tests exercise both device families and rotations.
+
+Settings → 相机 → 记录拍摄位置 defaults on. The app requests When In Use
+permission on entering capture (or explicitly enabling the switch), updates only
+while the app camera is active, and stops/clears the fix when leaving, disabling
+or backgrounding. It takes a valid location no older than 60 seconds at shutter
+press; missing/denied permission or a missing fix never delays capture. Reduced
+accuracy supplied by the user is respected. Coordinates/UTC timestamp/available
+altitude are passed as AVCapture metadata, preserving RAW/HEIC/JPEG originals and
+portrait-file metadata. Native exports retain or strip GPS according to the
+existing metadata/location choices. Photos asset location is taken from the
+finished file's GPS, including for RAW+finished pairs. Turning off capture
+location affects future captures, not previously tagged photographs.
+
+This initial location support is for the in-app camera. The secure lock-screen
+extension does not request location or reuse a cached coordinate from the app;
+its capture behavior is unchanged. No background tracking is enabled.
+
 ## Validation
 
 Explicit Debug flags run diagnostics inside this app without a phone automation service:
 
+- `--locked-camera-regression`: physical-pose normalization, phone/tablet/foldable camera-canvas invariance, camera-only orientation policy acquisition/release, legacy sidecars,90 film/meter/filter round trips, unknown-film rejection and actual native rendering of equivalent EXIF-tagged/physically rotated synthetic TIFF files. Writes `Documents/locked-camera-report.json`. It does not launch the lock-screen host or use a physical camera/RAW fixture.
+- `--camera-exposure-regression`: synthetic Core Image encoded/linear input invariance and signed EV measurement; writes `Documents/camera-exposure-checks.json`. It does not calibrate the actual camera or collect RAW/video pairs.
+- `--camera-location-regression`: synthetic freshness/permission-off snapshot policy, AVCapture GPS dictionary, hemisphere/UTC/altitude, JPEG/HEIC/TIFF round trips through native rendering and the production JPEG encoder, metadata stripping and Photos-coordinate parsing. Writes `Documents/camera-location-report.json`. It requests no real location or Photos access and does not prove device authorization, GPS acquisition, captured RAW metadata or the large-export memory gate.
+- `--camera-look-regression`: native replacement argument/transaction/borrowed-buffer/result-lifetime checks; 18 film/meter video-vs-file comparisons and 18 alternating-source comparisons; native and approximate diffusion at normal/reduced sizes; orientation/mirroring, processed-frame ownership, default-mode migration with isolated preferences and cancellation/restart. Includes interleaved reopened/streaming render timings and warm approximate timings, with no performance assertion. Writes `Documents/camera-look-report.json`. It requests no camera or Photos access and does not establish camera-video/RAW equivalence, real-camera performance, lock-screen preview or thermal acceptance.
 - `--flat-import-regression`: synthetic Photos-provider JPEG (sRGB/P3/Adobe RGB), HEIC and PNG import, names, linear grey, EXIF rotation, first editor preview and JPEG export dimensions/ICC; rejects invalid files and RAW-to-JPEG substitution, and writes `Documents/flat-import-report.json`. The report separately records `exportsValidated`; a simulator with insufficient reported process memory runs input checks but explicitly leaves export unverified. Add `--flat-import-large` for native 4032×3024 JPEG/HEIC render and JPEG export. Test images, imported copies and export directories are removed automatically. After copying the report to the host, launch `--clear-flat-import-regression` to delete the device report.
 - `--smoke-test`: synthetic GPU, defaults, calibration, negative reuse, layout constraints, film gates, undo/reset, export decode/ICC/depth, TIFF previews and DI/LUT packaging; writes `Documents/smoke-report.json`.
 - `--cinestill-regression`: focused synthetic CineStill 800T checks for shared catalogue, ISO 800, packaged cover, default highlight headroom and warm/fresh halation-preset agreement; writes `Documents/cinestill-report.json`. This does not claim full smoke, full-resolution export or phone acceptance.

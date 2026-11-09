@@ -43,3 +43,17 @@ kernel void mobileCineonView(texture2d<float, access::read> src [[texture(0)]],
     float3 c = lut.sample(s, (clamp(src.read(gid).rgb, 0.0f, 1.0f) * (n - 1.0f) + 0.5f) / n).rgb;
     dst.write(float4(c, 1), gid);
 }
+
+// Input is scene-linear ProPhoto from the shared CI decode; the shaper
+// preserves exposure above SDR white. Cube values are encoded Display P3.
+kernel void mobileCameraFastLook(device const float4 *input [[buffer(0)]],
+    constant float2 &domain [[buffer(1)]],
+    texture2d<float, access::write> output [[texture(0)]],
+    texture3d<float> cube [[texture(1)]], uint2 p [[thread_position_in_grid]]) {
+    if (p.x >= output.get_width() || p.y >= output.get_height()) return;
+    constexpr sampler s(filter::linear, address::clamp_to_edge, coord::normalized);
+    float n = float(cube.get_width());
+    float3 linear = max(input[p.y * output.get_width() + p.x].rgb, 0.0f);
+    float3 coordinate = clamp(log2(1.0f + linear / domain.x) / domain.y, 0.0f, 1.0f);
+    output.write(float4(cube.sample(s, (coordinate * (n - 1) + 0.5f) / n).rgb, 1), p);
+}

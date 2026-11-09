@@ -28,12 +28,12 @@ struct MobileCameraView: View {
     let initialHingeClosed: Bool?
     let libraryThumbnail: URL?
     let mirrorsFrontCamera: Bool
-    let importPhoto: (URL, Stock?) async throws -> MobilePhoto
+    let importPhoto: (URL, Stock?, MobileCameraRecipe) async throws -> MobilePhoto
     let developPhoto: (MobilePhoto, Bool) async throws -> MobileCameraDevelopment
     let savePhoto: (MobilePhoto) async throws -> Void
     let returnToLibrary: (UUID) -> Void
 #else
-    let storeCapture: (Data, MobileCaptureFormat) async throws -> Void
+    let storeCapture: (Data, MobileCaptureFormat, MobileCameraRecipe) async throws -> Void
     let openLibrary: () -> Void
     let lockedHingeClosed: Bool?
     private let mirrorsFrontCamera = false
@@ -45,10 +45,28 @@ struct MobileCameraView: View {
     @Environment(\.displayScale) private var displayScale
 #if SILVERPHASE_APP
     @AppStorage("mobile.camera.film") private var filmID = ""
-#endif
+    @AppStorage(MobileCameraPreviewMode.key) private var previewMode = MobileCameraPreviewMode.initial()
+    private var showsFilmPreview: Bool { previewMode != .system }
+    @AppStorage(MobileCaptureLocation.preferenceKey) private var recordsLocation = true
+    @State private var lookEngine = MobileCameraLookEngine()
+    @State private var fastLookEngine = MobileCameraFastLookEngine()
+    @State private var lookFrame: MobileCameraLookResult?
+    @State private var lookUnavailable = false
+    @AppStorage("mobile.camera.metering") private var metering = MobileMeteringMode.center_weighted
+    @AppStorage("mobile.camera.diffusion") private var diffusion = MobileDiffusionFilter.off
     @AppStorage("mobile.camera.goldenGrid") private var showsGoldenGrid = true
     @AppStorage("mobile.camera.useGoldenRatio") private var usesGoldenRatio = false
     @AppStorage("mobile.camera.level") private var showsLevel = true
+#else
+    // The secure capture extension cannot persist UserDefaults. Keep controls
+    // in session state, seeded from CameraCaptureIntent.appContext below.
+    @State private var filmID = ""
+    @State private var metering = MobileMeteringMode.center_weighted
+    @State private var diffusion = MobileDiffusionFilter.off
+    @State private var showsGoldenGrid = true
+    @State private var usesGoldenRatio = false
+    @State private var showsLevel = true
+#endif
 #if SILVERPHASE_APP
     @State private var hingeClosed: Bool?
 #endif
@@ -67,10 +85,12 @@ struct MobileCameraView: View {
     @State private var portraitMode = false
     @State private var levelRoll: Double?
     @State private var deviceQuarterTurn = 0.0
-    @State private var interfaceQuarterTurn = 0.0
+    @State private var measuredCapturePose: MobileCameraCapturePose?
+    // MobileCameraCanvas keeps the camera's own coordinate system portrait.
+    private let interfaceQuarterTurn = 0.0
     @State private var controlRotation = 0.0
-#if SILVERPHASE_APP
     @State private var filmLabelHeight: CGFloat = 60
+#if SILVERPHASE_APP
     @State private var showingFilms = false
 #endif
     @State private var capturing = false
@@ -90,15 +110,31 @@ struct MobileCameraView: View {
     @State private var previewing = false
     @State private var changingPhysicalLens = false
     @State private var switchFrame: CGImage?
+#if SILVERPHASE_APP
+    @State private var frozenSwitchGeneration: UInt64 = 0
+#endif
     @State private var issue: String?
     @State private var failure: String?
     @State private var retry = 0
 
-#if SILVERPHASE_APP
     private var films: [Stock] { StockCatalog.shared.filmsForPicker }
     private var film: Stock? {
-        let id = filmID.isEmpty ? MobileProcessContract.defaults["film_stock"]?.stringValue : filmID
+#if SILVERPHASE_APP
+        let defaultID = MobileProcessContract.defaults["film_stock"]?.stringValue ?? MobileCameraRecipe.defaultFilmID
+#else
+        let defaultID = MobileCameraRecipe.defaultFilmID
+#endif
+        let id = filmID.isEmpty ? defaultID : filmID
         return films.first { $0.id == id } ?? films.first
+    }
+    private var captureRecipe: MobileCameraRecipe {
+        MobileCameraRecipe(filmID: film?.id, metering: metering, diffusion: diffusion)
+    }
+
+#if SILVERPHASE_APP
+    private var lookRequest: MobileCameraRecipe? {
+        guard !isLayoutCheck, showsFilmPreview, canRunCamera, !shotInProgress, film != nil else { return nil }
+        return captureRecipe
     }
 
     private var shotInProgress: Bool { capturing || developing || savingToPhotos || reveal != nil }
@@ -106,6 +142,14 @@ struct MobileCameraView: View {
     private var shotInProgress: Bool { capturing }
     private let showingFilms = false
 #endif
+    private var isLayoutCheck: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--camera-layout-check")
+#else
+        false
+#endif
+    }
+
     private var canRunCamera: Bool {
 #if SILVERPHASE_APP
         scenePhase == .active
@@ -117,15 +161,16 @@ struct MobileCameraView: View {
 #if !SILVERPHASE_APP
         guard !sessionInterrupted else { return false }
 #endif
-        return configuration != nil && previewing && !switching && !shotInProgress && canRunCamera
+        return configuration != nil && previewing && !switching && switchFrame == nil && !shotInProgress && canRunCamera
     }
 
 #if SILVERPHASE_APP
     private var fillsPanel: Bool { (hingeClosed ?? initialHingeClosed) == true }
     private var revealRotation: Double { (interfaceQuarterTurn - shotQuarterTurn).remainder(dividingBy: 360) }
     private var revealSwapsAxes: Bool { abs(revealRotation.remainder(dividingBy: 180)) == 90 }
-    private var usesSideShutter: Bool { (hingeClosed ?? initialHingeClosed) == false }
+
 #else
+    private var fillsPanel: Bool { lockedHingeClosed != false }
     @State private var sessionInterrupted = false
     @State private var contentionRecoveryPending = false
     @State private var attemptedContentionRecovery = false
@@ -137,80 +182,32 @@ struct MobileCameraView: View {
 #endif
 
     private var cameraLayout: some View {
-#if SILVERPHASE_APP
         ZStack {
+            viewfinder(fillsPanel: fillsPanel)
+                .ignoresSafeArea(.container, edges: fillsPanel ? .all : [])
             VStack(spacing: 8) {
-                if !fillsPanel && !usesSideShutter { topControls }
-                viewfinder(fillsPanel: fillsPanel)
-                    .padding(.horizontal, usesSideShutter ? 80 : 0)
-                    .ignoresSafeArea(edges: fillsPanel ? .all : usesSideShutter ? .vertical : [])
-                if !fillsPanel && !usesSideShutter { captureDock }
-            }
-            if fillsPanel {
-                topControls.frame(maxHeight: .infinity, alignment: .top)
-                VStack(spacing: 8) {
-                    if let configuration { finderControls(configuration) }
-                    captureDock
-                }
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                topControls
 #if SILVERPHASE_APP
-                .ignoresSafeArea(.container, edges: .horizontal)
+                previewStatus
 #endif
-            }
-            if usesSideShutter {
-                topControls.frame(maxHeight: .infinity, alignment: .top)
-                shutterButton
-                    .padding(.trailing, 8)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                HStack {
-                    galleryButton
-                    Spacer()
-                    filmButton
-                }
-                .padding(12)
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                Spacer(minLength: 0)
+                if let configuration { finderControls(configuration) }
+                captureDock
             }
         }
-#else
-        GeometryReader { geometry in
-            // The hinge selects the display mode. The host's actual safe-area
-            // geometry selects the dock, independently of camera rotation.
-            let wide = geometry.size.width > geometry.size.height
-            let usesInnerDisplay = lockedHingeClosed == false
-            ZStack {
-                viewfinder(fillsPanel: !usesInnerDisplay)
-                    .padding(.horizontal, usesInnerDisplay && wide ? 80 : 0)
-                    .ignoresSafeArea(.container, edges: lockedHingeClosed == true ? .all : [])
-
-                Color.clear
-                    .allowsHitTesting(false)
-                    .overlay(alignment: .top) { topControls }
-                    .overlay(alignment: .bottom) {
-                        if wide {
-                            if let configuration { finderControls(configuration).padding(.bottom, 8) }
-                        } else {
-                            VStack(spacing: 8) {
-                                if let configuration { finderControls(configuration) }
-                                captureDock
-                            }
-                        }
-                    }
-                    .overlay(alignment: .trailing) {
-                        if wide { shutterButton.padding(.trailing, 8) }
-                    }
-                    .overlay(alignment: .leading) {
-                        if wide { galleryButton.padding(.leading, 12) }
-                    }
-            }
-        }
-#endif
     }
 
     var body: some View {
+        MobileCameraCanvas { cameraBody }
+    }
+
+    private var cameraBody: some View {
         cameraLayout
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #if SILVERPHASE_APP
         .background {
+            MobileCameraOrientationObserver()
+                .allowsHitTesting(false)
             if #available(iOS 27.1, *), UIDevice.current.userInterfaceIdiom == .phone {
                 ProcessBarGeometryProbe(hingeChanged: { hingeClosed = $0 })
                     .allowsHitTesting(false)
@@ -276,7 +273,7 @@ struct MobileCameraView: View {
             Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
                 .notice("Camera layout: \(String(describing: frame), privacy: .public)")
         }
-        .onChange(of: interfaceQuarterTurn) { _, _ in lockedDevelopment = nil }
+        .onChange(of: deviceQuarterTurn) { _, _ in lockedDevelopment = nil }
         .onChange(of: previewing) { _, visible in
             if visible, !sessionInterrupted {
                 if !hasShownPreview {
@@ -289,14 +286,88 @@ struct MobileCameraView: View {
         }
 #endif
 #if SILVERPHASE_APP
-        .task(id: retry) { if canRunCamera { await startCamera() } }
+        .task(id: canRunCamera && recordsLocation) {
+            if !isLayoutCheck { MobileCameraLocation.shared.setCameraActive(canRunCamera, enabled: recordsLocation) }
+        }
+        .task(id: captureRecipe) {
+            do { try await SilverphaseCameraCaptureIntent.updateAppContext(captureRecipe) }
+            catch {
+                Logger(subsystem: "com.silverphase.editor", category: "Camera")
+                    .notice("Could not update lock-screen camera preferences")
+            }
+        }
+        .task(id: MobileCameraLookTaskID(request: lookRequest, cameraRetry: retry, mode: previewMode)) {
+            lookEngine.workGate.setActive(false)
+            fastLookEngine.workGate.setActive(false)
+            lookUnavailable = false
+            guard let request = lookRequest else {
+                lookFrame = nil
+                await lookEngine.close()
+                await fastLookEngine.close(keepingColorTables: shotInProgress && canRunCamera)
+                return
+            }
+            if lookFrame?.recipe != request { lookFrame = nil }
+            let mode = previewMode
+            if mode == .approximate { await lookEngine.close(); fastLookEngine.workGate.setActive(true) }
+            else { await fastLookEngine.close(); lookEngine.workGate.setActive(true) }
+            var previousSerial: UInt64?
+            do {
+                while !Task.isCancelled, lookRequest == request {
+                    guard previewing, !changingPhysicalLens,
+                          let frame = camera.lookFrames.latest(), frame.serial != previousSerial else {
+                        try await Task.sleep(for: .milliseconds(30))
+                        continue
+                    }
+                    let started = ProcessInfo.processInfo.systemUptime
+                    let reduced = ProcessInfo.processInfo.isLowPowerModeEnabled ||
+                        ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue
+                    let budget = MobileCameraLookBudget(reducedPower: reduced)
+                    let geometry = camera.lookGeometry()
+                    let result: MobileCameraLookResult
+                    if mode == .approximate {
+                        result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
+                                                                recipe: request, longEdge: reduced ? 640 : 960)
+                    } else {
+                        result = try await lookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
+                                                            recipe: request, longEdge: budget.longEdge)
+                    }
+                    try Task.checkCancellation()
+                    guard lookRequest == request, previewMode == mode else { return }
+                    guard result.sourceGeneration == camera.lookFrames.currentGeneration() else { continue }
+                    lookFrame = result; previousSerial = frame.serial
+                    let pause = max(0.001, (mode == .approximate ? (reduced ? 1.0 / 20 : 1.0 / 30) : budget.interval) - (ProcessInfo.processInfo.systemUptime - started))
+                    try await Task.sleep(for: .seconds(pause))
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled, lookRequest == request, previewMode == mode else { return }
+                lookUnavailable = true; lookFrame = nil
+                Logger(subsystem: "com.silverphase.editor", category: "CameraLook")
+                    .error("Film preview unavailable: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        .task(id: retry) { if canRunCamera && !isLayoutCheck { await startCamera() } }
 #else
+        .task {
+            let initial = captureRecipe
+            do {
+                guard let saved = try await SilverphaseCameraCaptureIntent.appContext,
+                      captureRecipe == initial, !shotInProgress else { return }
+                // Do not overwrite a choice made while context was loading.
+                if let id = saved.filmID, films.contains(where: { $0.id == id }) { filmID = id }
+                metering = saved.metering; diffusion = saved.diffusion
+            } catch {
+                Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
+                    .notice("Using default camera preferences; app context unavailable")
+            }
+        }
         .task(id: hasMountedViewfinder ? retry : nil) {
-            if hasMountedViewfinder { await startCamera() }
+            if hasMountedViewfinder && !isLayoutCheck { await startCamera() }
         }
 #endif
         .task(id: canRunCamera) {
-            if canRunCamera { await trackDeviceOrientation() }
+            if canRunCamera && !isLayoutCheck { await trackDeviceOrientation() }
         }
         .onChange(of: interfaceQuarterTurn - deviceQuarterTurn, initial: true) { _, target in
             controlRotation += (target - controlRotation).remainder(dividingBy: 360)
@@ -318,6 +389,14 @@ struct MobileCameraView: View {
             guard previewing, switchFrame != nil else { return }
             while !Task.isCancelled {
                 if await camera.hasSettledPreview() {
+#if SILVERPHASE_APP
+                    guard MobileCameraPreviewTransition.canReveal(mode: previewMode, unavailable: lookUnavailable,
+                        result: lookFrame, recipe: captureRecipe, frozenGeneration: frozenSwitchGeneration,
+                        currentGeneration: camera.lookFrames.currentGeneration()) else {
+                        do { try await Task.sleep(for: .milliseconds(16)) } catch { return }
+                        continue
+                    }
+#endif
                     // Give the preview layer time to present the newly delivered frames.
                     try? await Task.sleep(for: .milliseconds(100))
                     guard !Task.isCancelled, previewing else { return }
@@ -336,6 +415,7 @@ struct MobileCameraView: View {
             landReveal()
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase != .active { measuredCapturePose = nil }
             if phase == .active { retry += 1 }
             else if phase == .background {
                 finishReveal()
@@ -396,6 +476,24 @@ struct MobileCameraView: View {
         CameraControlOrientation(rotation: controlRotation, animated: !reduceMotion)
     }
 
+#if SILVERPHASE_APP
+    private var previewStatus: some View {
+        HStack {
+            if showsFilmPreview, !shotInProgress {
+                Text(lookUnavailable ? "原始取景 · 预览不可用" : lookFrame?.snapshot(for: captureRecipe) == nil ? "正在准备胶片预览…" : (previewMode == .approximate ? "近似预览" : "原生引擎预览"))
+                    .font(.caption2).lineLimit(1)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(.black.opacity(0.35), in: Capsule())
+                    .accessibilityIdentifier("camera.look-status")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .allowsHitTesting(false)
+    }
+#endif
+
     private var topControls: some View {
         HStack {
             Button(action: returnFromCamera) {
@@ -408,6 +506,7 @@ struct MobileCameraView: View {
                     .contentShape(Rectangle())
             }
                 .accessibilityLabel("返回图库")
+                .accessibilityIdentifier("camera.back")
                 .modifier(ChromeSurface(radius: 22, interactive: true))
                 .disabled(shotInProgress)
             Spacer()
@@ -420,6 +519,7 @@ struct MobileCameraView: View {
                         .padding(.leading, 10)
                 }
                 flashMenu
+                meteringMenu
                 Menu {
                     Toggle("构图网格", isOn: $showsGoldenGrid)
                     Picker("网格样式", selection: $usesGoldenRatio) {
@@ -428,6 +528,12 @@ struct MobileCameraView: View {
                     }
                     .disabled(!showsGoldenGrid)
                     Toggle("水平仪", isOn: $showsLevel)
+#if SILVERPHASE_APP
+                    Divider()
+                    Picker("实时胶片取景", selection: $previewMode) {
+                        ForEach(MobileCameraPreviewMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+#endif
                 } label: {
                     Image(systemName: "grid")
                         .foregroundStyle(showsGoldenGrid || showsLevel ? MobileStyle.accent : .white)
@@ -436,12 +542,36 @@ struct MobileCameraView: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("构图辅助")
+                .accessibilityIdentifier("camera.options")
             }
             .padding(4)
             .modifier(ChromeSurface(radius: 24, interactive: true))
         }
         .padding(.horizontal, 12)
         .padding(.top, 4)
+    }
+
+    private var meteringMenu: some View {
+        Menu {
+            Picker("测光模式", selection: $metering) {
+                ForEach(MobileMeteringMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            if metering == .custom {
+                Text("保留输入曝光；系统视频取景与 RAW 成片的亮度可能不同。")
+            }
+        } label: {
+            Image(systemName: "camera.metering.center.weighted")
+                .foregroundStyle(metering == .custom ? .white : MobileStyle.accent)
+                .modifier(controlOrientation)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("测光模式")
+        .accessibilityValue(metering.title)
+        .accessibilityIdentifier("camera.metering")
+        .disabled(shotInProgress)
     }
 
     private func returnFromCamera() {
@@ -456,12 +586,43 @@ struct MobileCameraView: View {
         HStack(spacing: 8) {
             galleryButton.frame(maxWidth: .infinity)
             shutterButton
-            filmButton.frame(maxWidth: .infinity)
+            filmControls.frame(maxWidth: .infinity)
         }
         .padding(8)
         .frame(maxWidth: 420)
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
+    }
+
+    private var filmControls: some View {
+        HStack(alignment: .top, spacing: 4) {
+#if SILVERPHASE_APP
+            filmButton
+#endif
+            diffusionMenu
+        }
+        .disabled(shotInProgress)
+    }
+
+    private var diffusionMenu: some View {
+        Menu {
+            Picker("拍摄柔光镜", selection: $diffusion) {
+                ForEach(MobileDiffusionFilter.allCases, id: \.self) { filter in
+                    Text(filter.title).tag(filter)
+                }
+            }
+        } label: {
+            CameraDiffusionFilterGlyph()
+                .foregroundStyle(diffusion == .off ? .white : MobileStyle.accent)
+                // Rotate inside the original fixed label, before its frame and
+                // glass are applied. The menu keeps the original layout bounds.
+                .modifier(controlOrientation)
+                .frame(width: 44, height: 44)
+                .modifier(ChromeSurface(radius: 22, interactive: true))
+        }
+        .accessibilityLabel("拍摄柔光镜")
+        .accessibilityValue(diffusion.title)
+        .accessibilityIdentifier("camera.diffusion")
     }
 
     private func finderControls(_ configuration: MobileCameraConfiguration) -> some View {
@@ -509,11 +670,11 @@ struct MobileCameraView: View {
         Button(action: openLibrary) {
             Image(systemName: "photo.on.rectangle")
                 .foregroundStyle(.white)
+                .modifier(controlOrientation)
                 .frame(width: 48, height: 48)
                 .modifier(ChromeSurface(radius: 24, interactive: true))
         }
         .buttonStyle(.plain)
-        .modifier(controlOrientation)
         .accessibilityLabel("解锁并打开图库")
         .accessibilityIdentifier("camera.latest")
         .disabled(shotInProgress)
@@ -599,32 +760,33 @@ struct MobileCameraView: View {
     }
 
     private var filmButton: some View {
-        Button {
-            setFilmPicker(true)
-        } label: {
-            ZStack(alignment: .top) {
-                Color.clear.frame(width: 44, height: 44)
-                    .modifier(ChromeSurface(radius: 22, interactive: true))
-                VStack(spacing: 3) {
-                    Image(systemName: "film").font(.title3)
-                        .frame(width: 44, height: 44)
-                    let title = film?.name ?? "胶片"
-                    Text(title).font(.caption2).lineLimit(1)
-                        .modifier(AdjustmentNumberTransition(value: nil, label: title))
-                        .frame(maxWidth: 88)
-                }
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { filmLabelHeight = $0 }
-                .modifier(CameraControlOrientation(
-                    rotation: controlRotation, animated: !reduceMotion,
-                    anchor: UnitPoint(x: 0.5, y: 22 / max(44, filmLabelHeight))
-                ))
-            }
-        }
+        Button { setFilmPicker(true) } label: { filmButtonLabel }
         .buttonStyle(.plain)
         .disabled(shotInProgress || films.isEmpty)
         .accessibilityLabel("选择胶片")
         .accessibilityValue(film?.name ?? "")
         .accessibilityIdentifier("camera.film")
+    }
+
+    private var filmButtonLabel: some View {
+        ZStack(alignment: .top) {
+            Color.clear.frame(width: 44, height: 44)
+                .modifier(ChromeSurface(radius: 22, interactive: true))
+            VStack(spacing: 3) {
+                Image(systemName: "film").font(.title3)
+                    .frame(width: 44, height: 44)
+                let title = film?.name ?? "胶片"
+                Text(title).font(.caption2).lineLimit(1)
+                    .modifier(AdjustmentNumberTransition(value: nil, label: title))
+                    .frame(maxWidth: 88)
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { filmLabelHeight = $0 }
+            .modifier(CameraControlOrientation(
+                rotation: controlRotation, animated: !reduceMotion,
+                anchor: UnitPoint(x: 0.5, y: 22 / max(44, filmLabelHeight))
+            ))
+        }
+        .foregroundStyle(.white)
     }
 
     private var latestThumbnail: some View {
@@ -645,8 +807,6 @@ struct MobileCameraView: View {
         .opacity(reveal == nil ? 1 : 0)
     }
 
-#else
-    private var filmButton: some View { Color.clear.frame(width: 48, height: 48) }
 #endif
     private var previewHardwareShutterEnabled: Bool {
 #if SILVERPHASE_APP
@@ -676,13 +836,22 @@ struct MobileCameraView: View {
                         if !changingPhysicalLens {
                             MobileCameraPreview(camera: camera, device: previewDevice,
                                                 portrait: $portraitPreview, previewing: $previewing,
-                                                interfaceQuarterTurn: $interfaceQuarterTurn,
                                                 mirrored: lens == .front && mirrorsFrontCamera,
                                                 hardwareShutterEnabled: previewHardwareShutterEnabled, shutter: takePhoto,
                                                 canAdjustExposure: ready && focusPoint != nil && !focusLocked && configuration?.exposureRange != nil,
                                                 exposureRotation: controlRotation,
                                                 focus: focus, adjustExposure: dragExposure)
                                 .id(previewDevice.uniqueID)
+#if SILVERPHASE_APP
+                                .overlay {
+                                    if let image = lookFrame?.snapshot(for: captureRecipe), !lookUnavailable,
+                                       !shotInProgress, canRunCamera {
+                                        Image(decorative: image, scale: 1).resizable().scaledToFill()
+                                            .frame(width: width, height: height).clipped()
+                                            .allowsHitTesting(false).accessibilityHidden(true)
+                                    }
+                                }
+#endif
 #if !SILVERPHASE_APP
                                 .onAppear { hasMountedViewfinder = true }
 #else
@@ -757,9 +926,6 @@ struct MobileCameraView: View {
                     }
 #endif
 #if SILVERPHASE_APP
-                    .overlay(alignment: .bottom) {
-                        if !fillsPanel, let configuration { finderControls(configuration).padding(.bottom, 8) }
-                    }
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: previewing)
 #endif
                 }
@@ -769,7 +935,9 @@ struct MobileCameraView: View {
                         Button("重试", action: retryCamera).buttonStyle(.bordered)
                     }.padding().background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
                 } else if configuration == nil {
-                    if !shotInProgress { ProgressView("正在打开相机") }
+                    if !shotInProgress && !isLayoutCheck {
+                        ProgressView("正在打开相机").modifier(controlOrientation)
+                    }
                 }
 #if SILVERPHASE_APP
                 // No spinner while developing: the frozen shot covers the wait and
@@ -780,6 +948,7 @@ struct MobileCameraView: View {
                         ProgressView().tint(.primary)
                         Text(developing ? "显影中…" : "保存到相册…").font(EditorDesign.noticeTitle)
                     }
+                    .modifier(controlOrientation)
                     .frame(width: 104, height: 104)
                     .modifier(ChromeSurface(radius: 20))
                     .accessibilityElement(children: .combine)
@@ -946,6 +1115,7 @@ struct MobileCameraView: View {
     }
 
     private func trackDeviceOrientation() async {
+        measuredCapturePose = nil
         let motion = CMMotionManager()
         guard motion.isDeviceMotionAvailable else { return }
         motion.deviceMotionUpdateInterval = 1.0 / 30
@@ -958,6 +1128,7 @@ struct MobileCameraView: View {
                 if abs((roll - deviceQuarterTurn).remainder(dividingBy: 360)) > 52 {
                     deviceQuarterTurn = (roll / 90).rounded() * 90
                 }
+                measuredCapturePose = MobileCameraCapturePose(quarterTurn: deviceQuarterTurn)
                 if showsLevel { levelRoll = (roll * 2).rounded() / 2 }
             } else {
                 levelRoll = nil
@@ -1003,18 +1174,34 @@ struct MobileCameraView: View {
     }
 
     private func switchCamera(to option: MobileCameraLens, portrait: Bool, changesInput: Bool) {
+#if SILVERPHASE_APP
+        // Capture the composed, processed image synchronously before switch
+        // state or task cancellation can hide/replace it. Includes portrait.
+        let displayedFrame = showsFilmPreview && !lookUnavailable ? lookFrame?.snapshot(for: captureRecipe) : nil
+        let oldGeneration = camera.lookFrames.currentGeneration()
+#endif
         switching = true
         focusPoint = nil
         focusLocked = false
         Task {
             if changesInput {
-                guard let frame = await camera.freezePreview() else {
+#if SILVERPHASE_APP
+                let frozen: CGImage?
+                if let displayedFrame { frozen = displayedFrame }
+                else { frozen = await camera.freezePreview() }
+#else
+                let frozen = await camera.freezePreview()
+#endif
+                guard let frame = frozen else {
                     switching = false
                     failure = "取景画面尚未准备好，请重试切换镜头。"
                     return
                 }
                 guard canRunCamera, configuration != nil else { switching = false; return }
                 switchFrame = frame
+#if SILVERPHASE_APP
+                frozenSwitchGeneration = oldGeneration
+#endif
                 // Publish the frozen image before disconnecting the live layer.
                 try? await Task.sleep(for: .milliseconds(40))
                 guard canRunCamera, configuration != nil else { switching = false; return }
@@ -1178,6 +1365,9 @@ struct MobileCameraView: View {
 #endif
         } catch {
             guard !Task.isCancelled, canRunCamera else { return }
+#if SILVERPHASE_APP
+            switchFrame = nil
+#endif
 #if !SILVERPHASE_APP
             let cameraError = error as NSError
             Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
@@ -1200,6 +1390,15 @@ struct MobileCameraView: View {
     }
 
     private func stopCamera() {
+        measuredCapturePose = nil
+#if SILVERPHASE_APP
+        if !isLayoutCheck { MobileCameraLocation.shared.setCameraActive(false, enabled: recordsLocation) }
+        lookEngine.workGate.setActive(false)
+        lookFrame = nil
+        fastLookEngine.workGate.setActive(false)
+        let renderer = lookEngine, fastRenderer = fastLookEngine
+        Task { await renderer.close(); await fastRenderer.close() }
+#endif
         focusPoint = nil
         focusLocked = false
         switchFrame = nil
@@ -1264,9 +1463,25 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
         let selectedFilm = film
         shotQuarterTurn = deviceQuarterTurn
+        frozenShot = showsFilmPreview && !lookUnavailable ? lookFrame?.snapshot(for: captureRecipe) : nil
 #else
         lockedDevelopment = nil
 #endif
+#if SILVERPHASE_APP
+        let selectedLocation = MobileCameraLocation.shared.snapshot(enabled: recordsLocation)
+#else
+        let selectedLocation: MobileCaptureLocation? = nil
+#endif
+#if DEBUG && SILVERPHASE_APP
+        let exposureFrame = camera.lookFrames.latest()
+        let exposureGeometry = camera.lookGeometry()
+        let shutterUptime = ProcessInfo.processInfo.systemUptime
+#endif
+        let selectedRecipe = captureRecipe
+        // No motion sample (including denied/unavailable motion) must not be
+        // mistaken for a measured portrait pose. Retain the native coordinator
+        // fallback until a physical orientation has actually been observed.
+        let selectedPose = measuredCapturePose
         let selectedFlash = flash
         let usesDepth = portraitMode
         let mirrored = lens == .front && mirrorsFrontCamera
@@ -1279,7 +1494,7 @@ struct MobileCameraView: View {
             // Freeze the frame the user composed before capture stops delivering
             // preview frames; it stays on screen until the shot is developed and
             // saved.
-            frozenShot = await camera.freezePreview()
+            if frozenShot == nil { frozenShot = await camera.freezePreview() }
 #endif
             defer {
                 capturing = false
@@ -1291,7 +1506,17 @@ struct MobileCameraView: View {
             }
             do {
                 let (data, format) = try await camera.capture(flash: selectedFlash, portrait: usesDepth,
-                                                              mirrored: mirrored)
+                                                              mirrored: mirrored, pose: selectedPose, location: selectedLocation)
+#if DEBUG && SILVERPHASE_APP
+                if selectedRecipe.metering == .custom, selectedFlash == .off, !usesDepth,
+                   format == .proRAW || format == .bayer, let exposureFrame {
+                    Task.detached(priority: .utility) {
+                        MobileCameraExposureProbe.record(rawData: data, frame: exposureFrame,
+                            angle: exposureGeometry.angle, mirrored: exposureGeometry.mirrored,
+                            shutterUptime: shutterUptime, recipe: selectedRecipe)
+                    }
+                }
+#endif
                 var warnings: [String] = []
                 let portraitImage = usesDepth ? await Task.detached(priority: .userInitiated) {
                     MobilePortraitCapture.render(data, format: format)
@@ -1308,7 +1533,7 @@ struct MobileCameraView: View {
                 try await Task.detached(priority: .userInitiated) { try imageData.write(to: url, options: .atomic) }.value
                 developing = true
                 capturing = false
-                let photo = try await importPhoto(url, selectedFilm)
+                let photo = try await importPhoto(url, selectedFilm, selectedRecipe)
                 latestPhotoID = photo.id
                 latestPreview = nil
                 do {
@@ -1339,7 +1564,7 @@ struct MobileCameraView: View {
                 }
 #else
                 writingCapture = true
-                try await storeCapture(imageData, format)
+                try await storeCapture(imageData, format, selectedRecipe)
                 Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
                     .notice("Original persisted: \(imageData.count) bytes")
                 if let finderFrame, !reduceMotion {
@@ -1378,6 +1603,25 @@ struct MobileCameraView: View {
         }.value
     }
 #endif
+}
+
+// A screw-in optical filter: the outer ring surrounds the glass and its reflections.
+private struct CameraDiffusionFilterGlyph: View {
+    var body: some View {
+        ZStack {
+            Circle().strokeBorder(lineWidth: 1.5)
+            Circle().strokeBorder(lineWidth: 1).padding(3)
+            Path { path in
+                path.move(to: CGPoint(x: 7, y: 13))
+                path.addLine(to: CGPoint(x: 13, y: 7))
+                path.move(to: CGPoint(x: 11, y: 16))
+                path.addLine(to: CGPoint(x: 16, y: 11))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
+        }
+        .frame(width: 23, height: 23)
+        .accessibilityHidden(true)
+    }
 }
 
 private struct CameraControlOrientation: ViewModifier {

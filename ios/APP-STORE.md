@@ -3,6 +3,15 @@
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 Use App Store Connect to inspect build availability, group access, and review status.
 
+## 1.2.1 (7) candidate · 2026-11-09
+
+See [release preparation](releases/1.2.1.md) for changes, validation and the
+remaining signing/device/store gates. Main app, widget and locked extension use
+matching versions. Capture location is enabled by default but requires When In
+Use permission; privacy/support copy now describes local GPS metadata and export
+stripping. Recheck store privacy answers against this behavior before upload.
+This source preparation does not upload, submit for review, merge or publish.
+
 ## Historical store preparation · 2026-11-03
 
 The preparation and upload status below records the 2026-11-03 session.

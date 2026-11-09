@@ -91,6 +91,26 @@ final class MobileWorkGate: @unchecked Sendable {
     }
 }
 
+/// Shared file/video input boundary; keep the same ColorSync conversion and
+/// calibrated linear ProPhoto primaries rather than interpreting video as RAW.
+enum MobileInputColor {
+    static func prepareSceneLinearRAW(_ raw: CIRAWFilter) {
+        raw.boostAmount = 0; raw.boostShadowAmount = 0
+        raw.isGamutMappingEnabled = false
+        raw.localToneMapAmount = 0; raw.extendedDynamicRangeAmount = 0
+    }
+    static func context(device: MTLDevice) -> CIContext {
+        CIContext(mtlDevice: device, options: [.cacheIntermediates: false,
+            .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!,
+            .workingFormat: CIFormat.RGBAh, .highQualityDownsample: true])
+    }
+    static func linearProPhoto() -> CGColorSpace? {
+        var wp: [CGFloat] = [0.9642, 1, 0.8249], bp: [CGFloat] = [0, 0, 0], gamma: [CGFloat] = [1, 1, 1]
+        var matrix: [CGFloat] = [0.7976749, 0.2880402, 0, 0.1351917, 0.7118741, 0, 0.0313534, 0.0000857, 0.8252100]
+        return CGColorSpace(calibratedRGBWhitePoint: &wp, blackPoint: &bp, gamma: &gamma, matrix: &matrix)
+    }
+}
+
 actor MobileEngine {
     nonisolated let workGate = MobileWorkGate()
     private var engine: OpaquePointer?
@@ -548,6 +568,14 @@ actor MobileEngine {
         }
     }
 
+#if DEBUG
+    // Exercise the real encoder/metadata boundary on an already rendered tiny
+    // image, without claiming the large-export memory gate passed on a simulator.
+    func writeExportForChecks(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe) throws {
+        try writeExport(image, source: source, output: output, options: options)
+    }
+#endif
+
     private func writeExport(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe, diPreview: CGImage? = nil) throws {
         var written = image
         let context = CIContext(options: [.cacheIntermediates: false])
@@ -638,9 +666,7 @@ actor MobileEngine {
             if let tint = recipe["_tint"]?.doubleValue { display.neutralTint = Float(tint) }
             comparison = display.outputImage
             }
-            raw.boostAmount = 0; raw.boostShadowAmount = 0
-            raw.isGamutMappingEnabled = false
-            raw.localToneMapAmount = 0; raw.extendedDynamicRangeAmount = 0
+            MobileInputColor.prepareSceneLinearRAW(raw)
             guard let output = raw.outputImage else { throw MobileFailure.message("RAW 解码没有输出") }
             image = output
         } else {
@@ -672,13 +698,10 @@ actor MobileEngine {
             throw MobileFailure.message("图像尺寸超出当前移动端内存预算")
         }
         let placed = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
-        let context = CIContext(mtlDevice: device, options: [.cacheIntermediates: false, .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!, .workingFormat: CIFormat.RGBAh, .highQualityDownsample: true])
+        let context = MobileInputColor.context(device: device)
         defer { context.clearCaches() }
-        // Same linear ProPhoto matrix as the desktop decoder and the iOS PoC.
-        var wp: [CGFloat] = [0.9642, 1, 0.8249], bp: [CGFloat] = [0, 0, 0], gamma: [CGFloat] = [1, 1, 1]
-        var matrix: [CGFloat] = [0.7976749, 0.2880402, 0, 0.1351917, 0.7118741, 0, 0.0313534, 0.0000857, 0.8252100]
         let originalScale = recipe["_exporting"]?.boolValue == true || recipe["_interactivePreview"]?.boolValue == true ? min(1, 256 / Double(max(width, height))) : 1
-        guard let linear = CGColorSpace(calibratedRGBWhitePoint: &wp, blackPoint: &bp, gamma: &gamma, matrix: &matrix),
+        guard let linear = MobileInputColor.linearProPhoto(),
               let working = CGColorSpace(name: CGColorSpace.rommrgb),
               let display = comparison,
               let original = context.createCGImage(display.transformed(by: .init(translationX: -display.extent.minX, y: -display.extent.minY)).transformed(by: .init(scaleX: originalScale, y: originalScale)), from: CGRect(x: 0, y: 0, width: Double(width) * originalScale, height: Double(height) * originalScale).integral, format: .RGBA16, colorSpace: working) else {

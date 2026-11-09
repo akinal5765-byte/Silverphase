@@ -1,6 +1,6 @@
 # Silverphase native render API
 
-Current integration reference, reviewed 2026-10-28. The filename is historical:
+Current integration reference, reviewed 2026-11-09. The filename is historical:
 there is no callable Python service in the product. The authoritative declarations
 are [spk_engine.h](engine/include/spektrafilm/spk_engine.h); parameter metadata and
 validation live in [params.cpp](engine/src/core/params.cpp). The [earlier service
@@ -18,6 +18,7 @@ cross through native structs, never temporary JSON-RPC pixel files.
 | Lifecycle/data root | `spk_engine_create`, `spk_engine_destroy` |
 | Discover methods/parameters | `spk_capabilities`, `spk_params_schema` |
 | Open scene-linear float32 RGB/RGBA | `spk_open`, `spk_open_device` |
+| Replace continuous same-size device frame | `spk_replace_device_frame` |
 | Read/update parameters | `spk_get_params`, `spk_set_params` |
 | Exposure/filter-pack solve | `spk_solve` (`exposure`, `filter_pack`, `both`) |
 | Film + print / reuse eligible negative | `spk_render`, `spk_reprint` |
@@ -192,3 +193,33 @@ geometry/result sizes, never a fixed border percentage. Lens filtering changes
 image exposure sensitivity with compensation, but edge printers/date backs use
 the unfiltered sensitivity. Source/provenance and assumptions are in
 `engine/resources_product/UPSTREAM.json` and the film-edge source notes.
+
+### Continuous camera frames
+
+`spk_replace_device_frame(session, input)` replaces only the source of an existing
+session. Width/height must match and channels must be 3 or 4 float32 values in
+the session's input colour space. Caller GPU writes must finish before the call;
+the buffer is borrowed only until this synchronous call returns. Invalid input
+or upload failure preserves the old source. Parameters, pipeline and material
+setup survive; every tier image, negative, meter and scene statistic is
+invalidated. Material-only Scene Latitude calibration survives. Existing result
+textures retain their pixels. Session operations remain serialized; this adds no
+parameter/schema field and changes no file-render defaults.
+
+`spk_render_viewfinder(session, long_edge, result)` renders an ephemeral camera
+display at 256..1600px without changing saved parameters or the three document
+tiers. It retains an owned device negative rather than an mmap copy; result
+textures still own immutable pixels. Metering uses the independent session
+source, never the display size. Disabled auto exposure does not run unused
+meter analysis; explicit exposure solve remains available.
+
+### Independent camera-preview colour samples
+
+`spk_render_color_samples(session, out)` evaluates the session's source as
+independent colour samples through a temporary parameter/pipeline copy. It
+disables spatial and stochastic operations, geometry, auto exposure, scene latitude,
+highlight reconstruction/boost, border/date and contrast-mask analysis. It
+preserves non-spatial DIR, scanner references, film/paper colour and pointwise
+print EDR. Source, saved params and cached document negatives remain unchanged.
+The result has ordinary `spk_render` ownership. This is for preview-table baking;
+it cannot replace spatial photo development.

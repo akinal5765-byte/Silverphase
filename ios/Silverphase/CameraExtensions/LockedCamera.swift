@@ -30,7 +30,7 @@ private struct LockedCameraContent: View {
         }
     }
 
-    private func storeCapture(_ data: Data, format: MobileCaptureFormat) async throws {
+    private func storeCapture(_ data: Data, format: MobileCaptureFormat, recipe: MobileCameraRecipe) async throws {
         let destination = session.sessionContentURL
             .appendingPathComponent("Silverphase-" + UUID().uuidString)
             .appendingPathExtension(format.fileExtension)
@@ -43,7 +43,14 @@ private struct LockedCameraContent: View {
             // The system may move this original before the phone is unlocked
             // again, after the extension has closed the file.
             try data.write(to: staging, options: [.withoutOverwriting, .completeFileProtectionUntilFirstUserAuthentication])
-            try FileManager.default.moveItem(at: staging, to: destination)
+            let sidecar = MobileCameraRecipe.sidecar(for: destination)
+            // Publish the recipe first, so every visible original has its settings.
+            try JSONEncoder().encode(recipe).write(to: sidecar, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            do { try FileManager.default.moveItem(at: staging, to: destination) }
+            catch {
+                try? FileManager.default.removeItem(at: sidecar)
+                throw error
+            }
         }.value
     }
 
