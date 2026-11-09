@@ -1353,6 +1353,10 @@ final class Session: CanvasHost {
     // MARK: - library
 
     func open(urls: [URL]) {
+        if isLightroomEditing && urls != lightroomInput.map({ [$0] }) {
+            status = "Finish or close the Lightroom edit before opening another photo."
+            return
+        }
         guard !batchExporting else { status = "An export is running."; return }
         let new = Library.frames(from: urls)
         guard !new.isEmpty else { status = "Nothing openable in the selection."; return }

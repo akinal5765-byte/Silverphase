@@ -44,9 +44,13 @@ extension Session {
         } catch { status = "Could not open Lightroom input: \(error.localizedDescription)" }
     }
 
+    var lightroomRenderSettled: Bool {
+        !busy && !scheduler.pending && params == scheduler.sent
+    }
+
     var canSaveToLightroom: Bool {
         lightroomDestination != nil && selection == lightroomInput &&
-        serviceSessionIDForExport != nil && !batchExporting && !busy
+        serviceSessionIDForExport != nil && !batchExporting && lightroomRenderSettled
     }
 
     func saveAndReturnToLightroom() async -> Bool {
