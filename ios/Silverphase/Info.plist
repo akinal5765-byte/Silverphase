@@ -13,9 +13,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleVersion</key>
-	<string>6</string>
+	<string>7</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchScreen</key>
@@ -34,6 +34,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>拍摄照片并在 Silverphase 中用所选胶片显影。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>在你开启“记录拍摄位置”后，为应用内拍摄的照片记录位置。</string>
 	<key>NSMotionUsageDescription</key>
 	<string>读取设备倾斜角度，在相机取景框中显示水平仪。</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -196,6 +196,16 @@ spk_session* spk_open(spk_engine* engine, const spk_image* input,
 spk_session* spk_open_device(spk_engine* engine, const spk_device_image* input,
                              const char* params_delta_json, char** out_json);
 
+/* Replace a continuous stream's source, retaining parameters and pipeline.
+ * Input must have the session's current width/height and 3 or 4 float32
+ * channels in the session's input colour space. The buffer is borrowed only
+ * during this synchronous call; its producer must have completed GPU writes.
+ * Invalidates every tier, negative, meter and scene statistic, retaining only
+ * material-derived setup. Existing spk_result textures remain immutable.
+ * Invalid input or GPU failure leaves the previous source intact. Serialize
+ * with render/set_params on this session; cancellation remains independent. */
+spk_status spk_replace_device_frame(spk_session* session, const spk_device_image* input);
+
 /* `out_json` receives `{"invalidated": ..., "params": {...}}`. */
 spk_status spk_set_params(spk_session* session, const char* params_delta_json,
                           char** out_json);
@@ -228,6 +238,22 @@ spk_status spk_scene_latitude(spk_session* session, const char* request_json, ch
 /* Tiers are the three API-SPEC §6 names: "live", "preview", "full". */
 spk_status spk_reprint(spk_session* session, const char* tier, spk_result* out);
 spk_status spk_render(spk_session* session, const char* tier, spk_result* out);
+
+/* Ephemeral camera display, 256..1600px long edge, without upscaling. Uses
+ * the same native film/print pipeline and independent session meter. Does not
+ * change saved params or live/preview/full tier sizes. Its temporary negative
+ * retains an owned pooled handle instead of creating a long-lived mmap copy.
+ * Results have the same immutable lifetime as spk_render. */
+spk_status spk_render_viewfinder(spk_session* session, uint32_t long_edge, spk_result* out);
+
+/* Render independent colour samples using a temporary pointwise pipeline.
+ * Source pixels are samples, not spatial neighbours: no grain/glare, blur,
+ * sharpening, diffusion, halation/headroom, auto exposure, geometry, border/date or
+ * contrast mask. Film curves, non-spatial DIR, scanner references, print EDR
+ * and output colour processing retain their resolved values. Params/source/
+ * cached document negatives are unchanged. Output ownership matches spk_render.
+ * For preview table generation, not a substitute for photograph development. */
+spk_status spk_render_color_samples(spk_session* session, spk_result* out);
 
 /* --- the baked print+scan LUTs ----------------------------------------
  *

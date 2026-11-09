@@ -146,11 +146,11 @@ struct MobileLibrary: View {
         }) {
             MobileCameraView(initialHingeClosed: phoneHingeClosed, libraryThumbnail: newestPhoto.map(cameraThumbnail(for:)),
                              mirrorsFrontCamera: document.preferences.values.mirrorsFrontCamera,
-                             importPhoto: { url, film in
+                             importPhoto: { url, film, recipe in
                 let previous = document.selection
                 let stamp = Date.now.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: true).timeSeparator(.omitted))
                 let name = "Silverphase-" + stamp + "." + url.pathExtension
-                await document.importFiles([url], displayNames: [url: name], capturedFilm: film, announceSuccess: false).value
+                await document.importFiles([url], displayNames: [url: name], capturedFilm: film, capturedRecipes: [url: recipe], announceSuccess: false).value
                 guard document.error == nil, let photo = document.current, photo.id != previous else {
                     throw MobileFailure.message(document.error ?? "无法保存拍摄的照片")
                 }
@@ -224,9 +224,13 @@ struct MobileLibrary: View {
                 }
             }
         }
-        .confirmationDialog("从图库删除 \(deleting.count) 张照片？", isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } })) {
-            Button("删除应用内原文件和编辑记录", role: .destructive) { document.removePhotos(deleting); deleting = [] }
-        } message: { Text("此操作无法撤销。系统相册和导入来源不受影响。") }
+        .alert("从图库删除照片？", isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } }),
+               presenting: deleting.isEmpty ? nil : deleting) { ids in
+            Button("取消", role: .cancel) { deleting = [] }
+            Button("删除", role: .destructive) { document.removePhotos(ids); deleting = [] }
+        } message: { ids in
+            Text("将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。")
+        }
         .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about || copyRequest != nil || photoInfo != nil) }
     }
     @ViewBuilder private var libraryTopBar: some View {

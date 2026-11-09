@@ -1,6 +1,181 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testParameterLabelsAcrossChineseLocales() throws {
+        for language in ["yue-Hant-HK", "zh-Hant-TW", "zh-Hans-CN"] {
+            let app = XCUIApplication()
+            app.launchArguments = ["--ipad-chrome-regression", "--parameter-label-regression",
+                                   "-AppleLanguages", "(\(language))", "-AppleLocale", language]
+            app.launch()
+            XCTAssertTrue(app.processStage("film").waitForExistence(timeout: 15))
+            app.processStage("film").tap()
+            for label in ["颗粒强度 · 倍率", "颗粒", "胶片光晕"] {
+                let title = app.staticTexts[label].firstMatch
+                XCTAssertTrue(title.waitForExistence(timeout: 5))
+                XCTAssertGreaterThan(title.frame.width, 20)
+                // AX existence passed while the actual glyphs were invisible.
+                // The uniform material fixture isolates their painted contrast.
+                let image = try XCTUnwrap(title.screenshot().image.cgImage)
+                let w = image.width, h = image.height
+                var bytes = [UInt8](repeating: 0, count: w * h * 4)
+                try bytes.withUnsafeMutableBytes { storage in
+                    let context = try XCTUnwrap(CGContext(data: storage.baseAddress, width: w, height: h,
+                        bitsPerComponent: 8, bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                    context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+                }
+                let luminances = stride(from: 0, to: bytes.count, by: 4).map {
+                    (Int(bytes[$0]) * 54 + Int(bytes[$0 + 1]) * 183 + Int(bytes[$0 + 2]) * 19) / 256
+                }
+                let background = luminances.sorted()[luminances.count / 2]
+                XCTAssertGreaterThan(luminances.filter { $0 > background + 20 }.count, 12,
+                                     "\(label) must be painted for \(language), not just exposed to accessibility")
+            }
+            let capture = XCTAttachment(screenshot: app.screenshot())
+            capture.name = "Parameter labels \(language)"
+            capture.lifetime = .keepAlways
+            add(capture)
+            app.terminate()
+        }
+    }
+
+    @MainActor func testCameraPreviewStatusAvoidsNavigation() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--camera-layout-check",
+                               "-mobile.camera.previewMode", "approximate"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        let back = app.buttons["camera.back"], status = app.staticTexts["camera.look-status"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10)); XCTAssertTrue(status.waitForExistence(timeout: 5))
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft, .landscapeRight, .portraitUpsideDown] {
+            XCUIDevice.shared.orientation = orientation
+            let overlap = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                status.frame.intersects(back.frame) || status.frame.isEmpty ||
+                    !app.frame.insetBy(dx: -2, dy: -2).contains(status.frame)
+            }, object: nil)
+            overlap.isInverted = true
+            XCTAssertEqual(XCTWaiter.wait(for: [overlap], timeout: 2), .completed,
+                           "Status must remain inside the camera and clear of navigation")
+        }
+    }
+
+    @MainActor func testCameraChromeKeepsFixedLayoutWhenDeviceTurns() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--camera-layout-check", "-mobile.camera.previewMode", "approximate"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15))
+        camera.tap()
+        let shutter = app.buttons["camera.shutter"]
+        XCTAssertTrue(shutter.waitForExistence(timeout: 10))
+        let film = app.buttons["camera.film"]
+        let diffusion = app.buttons["camera.diffusion"]
+        XCTAssertTrue(film.exists); XCTAssertTrue(diffusion.exists)
+        let status = app.staticTexts["camera.look-status"]
+        let back = app.buttons["camera.back"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5)); XCTAssertTrue(back.exists)
+        XCTAssertGreaterThanOrEqual(status.frame.minY, back.frame.maxY)
+        XCTAssertFalse(status.frame.intersects(back.frame))
+        XCTAssertGreaterThan(app.frame.height, app.frame.width)
+        let controls = [shutter, film, diffusion]
+        let original = controls.map(\.frame)
+        XCTAssertGreaterThan(original[0].midY, app.frame.height * 0.6)
+        for orientation in [UIDeviceOrientation.landscapeLeft, .landscapeRight, .portraitUpsideDown, .portrait] {
+            XCUIDevice.shared.orientation = orientation
+            XCTAssertFalse(status.frame.intersects(back.frame), "Preview status must not overlap the return button")
+            let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                zip(controls, original).contains { control, frame in
+                    abs(control.frame.midX - frame.midX) > 2 || abs(control.frame.midY - frame.midY) > 2 ||
+                    abs(control.frame.width - frame.width) > 2 || abs(control.frame.height - frame.height) > 2
+                }
+            }, object: nil)
+            moved.isInverted = true
+            XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 2), .completed,
+                           "Camera controls keep their device-relative bounds when the phone turns")
+        }
+        app.buttons["camera.latest"].tap()
+        XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let libraryRotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.frame.width > app.frame.height
+        }, object: nil)
+        libraryRotated.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [libraryRotated], timeout: 2), .completed,
+                       "Ordinary-phone library retains its portrait policy after camera dismissal")
+    }
+
+    @MainActor func testTabletCameraCanvasAndWorkspaceRotation() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Run on an iPad simulator") }
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--camera-layout-check", "-mobile.camera.previewMode", "approximate"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        let shutter = app.buttons["camera.shutter"]
+        XCTAssertTrue(shutter.waitForExistence(timeout: 10))
+        let diameter = shutter.frame.width
+        var hostTurns = Set<Int>()
+        func verifyCanvas() throws {
+            let canvas = app.otherElements["camera.canvas"]
+            XCTAssertTrue(canvas.exists)
+            let turn = try XCTUnwrap(Int(canvas.value as? String ?? ""))
+            hostTurns.insert(turn)
+            let frame = app.frame, button = shutter.frame
+            XCTAssertEqual(button.width, diameter, accuracy: 2)
+            XCTAssertEqual(button.height, diameter, accuracy: 2)
+            // Assert device-relative layout using the actual host coordinates.
+            // The OS may keep a host direction when the physical device turns.
+            switch turn {
+            case -90:
+                XCTAssertGreaterThan(button.midX, frame.width * 0.7)
+                XCTAssertGreaterThan(button.midY, frame.height * 0.3)
+                XCTAssertLessThan(button.midY, frame.height * 0.7)
+            case 90:
+                XCTAssertLessThan(button.midX, frame.width * 0.3)
+                XCTAssertGreaterThan(button.midY, frame.height * 0.3)
+                XCTAssertLessThan(button.midY, frame.height * 0.7)
+            case 180, -180: XCTAssertLessThan(button.midY, frame.height * 0.3)
+            default: XCTAssertGreaterThan(button.midY, frame.height * 0.6)
+            }
+            XCTAssertTrue(app.buttons["camera.film"].exists)
+            XCTAssertTrue(app.buttons["camera.diffusion"].exists)
+        }
+        for orientation in [UIDeviceOrientation.landscapeLeft, .landscapeRight, .portrait] {
+            XCUIDevice.shared.orientation = orientation
+            try verifyCanvas()
+        }
+        app.buttons["camera.latest"].tap()
+        XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        // Enter from each landscape workspace as well. This exercises both
+        // host directions even on systems that suppress in-camera 180° turns.
+        for orientation in [UIDeviceOrientation.landscapeLeft, .landscapeRight] {
+            XCUIDevice.shared.orientation = orientation
+            camera.tap()
+            XCTAssertTrue(shutter.waitForExistence(timeout: 5))
+            try verifyCanvas()
+            app.buttons["camera.latest"].tap()
+            XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        }
+        let evidence = XCTAttachment(string: "Observed camera host quarter turns: \(hostTurns.sorted())")
+        evidence.lifetime = .keepAlways; add(evidence)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.frame.width > app.frame.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 5), .completed,
+                       "iPad library recovers its existing landscape behaviour after camera dismissal")
+    }
+
     @MainActor func testOrdinaryPhonePortraitAndVerticalMaterials() throws {
         XCUIDevice.shared.orientation = .landscapeLeft
         defer { XCUIDevice.shared.orientation = .portrait }

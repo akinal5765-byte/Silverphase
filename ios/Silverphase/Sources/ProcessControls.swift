@@ -9,11 +9,11 @@ struct ProcessControls: View {
             switch stage {
             case .camera:
                 if let latitude = document.latitude {
-                    Text(materialPair).font(EditorDesign.panelSummary).foregroundStyle(.secondary).padding(.top, 8).padding(.bottom, 12)
+                    Text(materialPair).font(EditorDesign.panelSummary).foregroundStyle(MobileStyle.secondaryText).padding(.top, 8).padding(.bottom, 12)
                     MobileLatitudeGraph(latitude: latitude).padding(.bottom, 8)
                 } else {
                     Text(document.busy ? "正在测量当前胶片与相纸的宽容度…" : (document.value("_latitudeFailure")?.stringValue ?? "当前组合的宽容度测量不可用"))
-                        .font(EditorDesign.help).foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 64)
+                        .font(EditorDesign.help).foregroundStyle(MobileStyle.secondaryText).frame(maxWidth: .infinity, minHeight: 64)
                 }
                 if (document.value("_placementHighlight")?.doubleValue ?? 0) > 0 ||
                     (document.value("_placementShadow")?.doubleValue ?? 0) > 0 {
@@ -22,7 +22,7 @@ struct ProcessControls: View {
                     }.buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
                 }
                 section("测光与曝光")
-                choice("测光模式", "_meter", [("custom", "关闭自动曝光（RAW 基准）"), ("balanced", "均衡"), ("center", "中央主体"), ("protect_highlights", "保护高光"), ("protect_shadows", "保护阴影"), ("center_weighted", "中央加权")])
+                choice("测光模式", "_meter", MobileMeteringMode.allCases.map { ($0.rawValue, $0.title) })
                 number("曝光补偿 · EV", "exposure_compensation_ev", -4...4)
                 section("影调")
                 number("高光", "camera_tone_highlights", MobileProcessContract.cameraToneRange, fractionDigits: 0)
@@ -40,16 +40,16 @@ struct ProcessControls: View {
                     asShotAxis("色调使用拍摄时设置", key: "_tint")
                     Button(document.pickingNeutral ? "取消中性点取样" : "取中性点", systemImage: "eyedropper") { document.beginNeutralPick() }
                         .buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
-                    if document.pickingNeutral { Text("在完整原图上轻点中性色区域").font(EditorDesign.help).foregroundStyle(.secondary) }
+                    if document.pickingNeutral { Text("在完整原图上轻点中性色区域").font(EditorDesign.help).foregroundStyle(MobileStyle.secondaryText) }
                     Button("恢复拍摄时白平衡") { document.resetKeys(["_temperature", "_tint"]) }
                         .buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: 44)
                 } else {
-                    Text("此文件已完成白平衡；RAW 可调整拍摄色温与色调。").font(EditorDesign.help).foregroundStyle(.secondary).padding(.vertical, 8)
+                    Text("此文件已完成白平衡；RAW 可调整拍摄色温与色调。").font(EditorDesign.help).foregroundStyle(MobileStyle.secondaryText).padding(.vertical, 8)
                 }
                 section("镜头与柔光")
                 if document.value("_lensSupported")?.boolValue == true {
                     Button { document.setDiscrete("_lens", .bool(!(document.value("_lens")?.boolValue ?? false))) } label: {
-                        HStack { Text("镜头校正").foregroundStyle(.secondary); Spacer(); Image(systemName: document.value("_lens")?.boolValue == true ? "checkmark.square.fill" : "square") }.font(EditorDesign.parameter).frame(minHeight: 44)
+                        HStack { Text("镜头校正").foregroundStyle(MobileStyle.secondaryText); Spacer(); Image(systemName: document.value("_lens")?.boolValue == true ? "checkmark.square.fill" : "square") }.font(EditorDesign.parameter).frame(minHeight: 44)
                     }.buttonStyle(.plain)
                 }
                 choice("光谱滤镜", "camera_filter", [("", "关闭"), ("w8", "8号 · 黄"), ("w11", "11号 · 黄绿"), ("w12", "12号 · 深黄"), ("w15", "15号 · 深黄"), ("w21", "21号 · 橙"), ("w25", "25号 · 红"), ("w47", "47号 · 蓝"), ("w58", "58号 · 绿")])
@@ -101,7 +101,7 @@ struct ProcessControls: View {
                     number("相纸预闪", "preflash_exposure", 0...0.05, entryRange: 0...1).disabled(document.value("_printEffects")?.boolValue == false)
                     diffusion("柔光放大", prefix: "enlarger")
                 } else {
-                    Text("直接扫描与数字中间片绕过相纸印相。").font(EditorDesign.help).foregroundStyle(.secondary).padding(.vertical, 8)
+                    Text("直接扫描与数字中间片绕过相纸印相。").font(EditorDesign.help).foregroundStyle(MobileStyle.secondaryText).padding(.vertical, 8)
                 }
             case .output:
                 section("扫描呈现")
@@ -141,7 +141,7 @@ struct ProcessControls: View {
                 number("水平边距 · mm", "date_imprint_inset_x", 0...30)
                 number("垂直边距 · mm", "date_imprint_inset_y", 0...30)
                 Text("未填文字时使用照片的 EXIF 拍摄日期；无拍摄日期时不打印。120 日期需要片边，全景画幅不支持日期背。")
-                    .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
+                    .font(EditorDesign.help).foregroundStyle(MobileStyle.secondaryText).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
             case .geometry:
                 section("构图")
                 MobileCropControls(document: document)
@@ -163,7 +163,7 @@ struct ProcessControls: View {
     }
     private func diffusion(_ title: String, prefix: String) -> some View {
         Group {
-            choice(title, "_" + prefix + "Diffusion", [("off", "关闭"), ("glimmerglass", "Glimmerglass"), ("black_pro_mist", "Black Pro-Mist"), ("pro_mist", "Pro-Mist"), ("cinebloom", "Cinebloom")])
+            choice(title, "_" + prefix + "Diffusion", MobileDiffusionFilter.allCases.map { ($0.rawValue, $0.title) })
             Group {
                 number("柔光强度", prefix + "_diffusion_strength", 0.125...2)
                 number("扩散范围", prefix + "_diffusion_range", 0.5...2)
@@ -181,7 +181,7 @@ struct ProcessControls: View {
     private func asShotAxis(_ title: String, key: String) -> some View {
         Button { document.resetKeys([key]) } label: {
             HStack { Text(title); Spacer(); Image(systemName: document.current?.recipe[key] == nil ? "checkmark.square.fill" : "square") }
-                .font(EditorDesign.parameter).foregroundStyle(.secondary).frame(minHeight: EditorDesign.hitSize)
+                .font(EditorDesign.parameter).foregroundStyle(MobileStyle.secondaryText).frame(minHeight: EditorDesign.hitSize)
         }.buttonStyle(.plain)
     }
     private var printBrightness: some View {
@@ -193,7 +193,7 @@ struct ProcessControls: View {
                 ForEach(["00", "0", "1", "2", "3", "4", "5"], id: \.self) { Text($0).tag($0) }
             }
         } label: {
-            HStack { Text("相纸等级").foregroundStyle(.secondary); Spacer(); Text(document.value("_paperGrade")?.stringValue ?? "2").font(EditorDesign.selectedValue).monospacedDigit(); Image(systemName: "chevron.up.chevron.down") }.font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
+            HStack { Text("相纸等级").foregroundStyle(MobileStyle.secondaryText); Spacer(); Text(document.value("_paperGrade")?.stringValue ?? "2").font(EditorDesign.selectedValue).monospacedDigit(); Image(systemName: "chevron.up.chevron.down") }.font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
         }.tint(.primary)
     }
     private func applyPaperGrade(_ grade: String) {
@@ -201,7 +201,7 @@ struct ProcessControls: View {
     }
     @ViewBuilder private func text(_ title: String, _ key: String) -> some View {
         if let value = document.value(key)?.stringValue {
-            HStack { Text(title).foregroundStyle(.secondary); TextField(title, text: Binding(get: { document.value(key)?.stringValue ?? value }, set: { document.setDiscrete(key, .string($0)) })).textFieldStyle(.plain).font(EditorDesign.selectedValue).multilineTextAlignment(.trailing) }
+            HStack { Text(title).foregroundStyle(MobileStyle.secondaryText); TextField(title, text: Binding(get: { document.value(key)?.stringValue ?? value }, set: { document.setDiscrete(key, .string($0)) })).textFieldStyle(.plain).font(EditorDesign.selectedValue).multilineTextAlignment(.trailing) }
                 .font(EditorDesign.parameter).frame(minHeight: 44)
         }
     }
@@ -216,7 +216,7 @@ struct ProcessControls: View {
         if let value = document.value(key)?.boolValue {
             Button { document.setDiscrete(key, .bool(!value)) } label: {
                 HStack {
-                    Text(title).font(EditorDesign.parameter).foregroundStyle(.secondary)
+                    Text(title).font(EditorDesign.parameter).foregroundStyle(MobileStyle.secondaryText)
                     Spacer()
                     ZStack {
                         RoundedRectangle(cornerRadius: 3).strokeBorder(value ? MobileStyle.accent : .white.opacity(0.3), lineWidth: 1)
@@ -229,7 +229,7 @@ struct ProcessControls: View {
     @ViewBuilder private func choice(_ title: String, _ key: String, _ options: [(String, String)]) -> some View {
         if let value = document.value(key)?.stringValue {
             HStack(spacing: 8) {
-                Text(title).font(EditorDesign.parameter).foregroundStyle(.secondary)
+                Text(title).font(EditorDesign.parameter).foregroundStyle(MobileStyle.secondaryText)
                     .frame(width: EditorDesign.labelWidth, alignment: .leading)
                 Menu {
                     Picker(title, selection: Binding(get: { document.value(key)?.stringValue ?? value }, set: { document.setDiscrete(key, .string($0)) })) {

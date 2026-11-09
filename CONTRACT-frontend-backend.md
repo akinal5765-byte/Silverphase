@@ -1,6 +1,6 @@
 # Silverphase host/engine contract
 
-Current contract, reviewed 2026-10-28. This filename predates the native engine.
+Current contract, reviewed 2026-11-09. This filename predates the native engine.
 The product has two native hosts and one shared C++/Metal engine. The earlier
 Python service/two-session contract is preserved in
 [docs/history](docs/history/CONTRACT-frontend-backend.md); its file ownership,
@@ -103,3 +103,33 @@ mobile import/export progress plus bounded JPEG rendering. Attribution is in
 Check source and dated validation reports for proven behavior. Historical
 performance numbers or prior-device reports must not be presented as a fresh
 run of the current commit.
+
+### Continuous camera-frame replacement
+
+iOS live film view uses `spk_replace_device_frame` for consecutive frames of the
+same dimensions and recipe, retaining native setup rather than reopening a
+session each time. The frontend finishes its linear ProPhoto upload before the
+call. The engine copies that borrowed input and invalidates all image-derived
+state, including exposure measurement. Recipe/dimension changes open a new
+session. Display/frozen frames own their pixels; neither source replacement nor
+shutdown may mutate them. This does not affect still-photo open/render semantics.
+
+Camera display uses `spk_render_viewfinder` at 640px (480px under reduced power),
+while keeping the up-to-1600px metering input. The display tier has no schema
+field and cannot lower editor/export quality. Auto exposure off preserves each
+input's brightness; it does not assert a system video frame is a RAW scene
+estimate. No guessed exposure gain or material alteration is applied.
+
+Approximate-camera colour tables use `spk_render_color_samples`, not ordinary
+photo rendering of an RGB lattice. Adjacent table entries are unrelated colours
+and must not share blur, DIR diffusion or sharpening. The helper preserves
+pointwise print EDR/scanner colour references and does not mutate the recipe.
+Table layout/permutation invariance is a required native check. Preview modes
+remain composition approximations on ISP video, not inverses of a RAW decode.
+
+For iOS 1.2.1 the approximate path is the default composition mode, with a
+one-time migration from the saved experimental native selection; explicit off
+and subsequent manual choices persist. Host-side input generations prevent an
+old processed frame from releasing a lens/portrait freeze. Digital zoom continues
+processing during the ramp. Lock-screen capture retains system preview. None of
+these choices changes the captured recipe or supplies an inverse RAW decode.

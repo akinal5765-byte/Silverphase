@@ -18,7 +18,7 @@ struct RulerParameterRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center) {
-                Text(title).font(EditorDesign.parameter).foregroundStyle(.secondary)
+                Text(title).font(EditorDesign.parameter).foregroundStyle(MobileStyle.secondaryText)
                     .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
                 Button {
                     onInteraction?(false)

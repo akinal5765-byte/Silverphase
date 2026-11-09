@@ -1060,8 +1060,9 @@ bool negative_for(spk_session* session, const Tier& tier, Progress* progress, Im
     Image source;
     if (!tier_image(session, tier, source, error)) return false;
     // Every tier's node applies the frame's one EV (RFC-015 P.1).
-    if (!ensure_meter(session, error)) return false;
     const CameraParams& camera = session->params.camera;
+    // No readback, sort or seven-method analysis when its result is unused.
+    if (camera.auto_exposure && !ensure_meter(session, error)) return false;
     session->pipeline->set_auto_exposure_ev(
         camera.auto_exposure ? std::optional<double>(session->meter.evs.of(camera.auto_exposure_method))
                              : std::nullopt);
@@ -1076,6 +1077,15 @@ bool negative_for(spk_session* session, const Tier& tier, Progress* progress, Im
     // never redrawn.
     gpu::Gpu* gpu = session->engine->gpu;
     if (!gpu->flush(error)) return false;
+    if (std::strcmp(tier.name, "viewfinder") == 0) {
+        // Short-lived video negatives may retain their pooled device handle.
+        // The next frame invalidates it; unlike a still editor, there is no
+        // long-lived file-backed holding to copy. Flush/lifetime rules remain.
+        state.negative = negative;
+        state.has_negative = true;
+        out = negative;
+        return true;
+    }
     Image kept;
     kept.h = negative.h; kept.w = negative.w; kept.c = 3;
     // The cached negative is the other holding RFC-020 §4.7 names: every
@@ -1128,9 +1138,9 @@ bool materialise(spk_session* session, const Image& rgb, spk_result* out, std::s
 }
 
 spk_status render_tier(spk_session* session, const char* tier_name, bool use_reprint,
-                       spk_result* out) {
+                       spk_result* out, const Tier* supplied_tier = nullptr) {
     if (!session || !out) { g_error = "session or result is null"; return SPK_ERR_INVALID_ARG; }
-    const Tier* tier = find_tier(tier_name);
+    const Tier* tier = supplied_tier ? supplied_tier : find_tier(tier_name);
     if (!tier) {
         g_error = std::string("unknown tier '") + (tier_name ? tier_name : "(null)") +
                   "'; expected live, preview or full";
@@ -1198,6 +1208,59 @@ spk_status spk_reprint(spk_session* session, const char* tier, spk_result* out) 
 }
 spk_status spk_render(spk_session* session, const char* tier, spk_result* out) {
     return render_tier(session, tier, /*use_reprint=*/false, out);
+}
+
+spk_status spk_render_viewfinder(spk_session* session, uint32_t long_edge, spk_result* out) {
+    if (long_edge < 256 || long_edge > 1600) {
+        g_error = "viewfinder long edge must be between 256 and 1600";
+        return SPK_ERR_INVALID_ARG;
+    }
+    const Tier tier{"viewfinder", long_edge};
+    return render_tier(session, tier.name, false, out, &tier);
+}
+
+spk_status spk_render_color_samples(spk_session* session, spk_result* out) {
+    if (!session || !out) { g_error = "session or result is null"; return SPK_ERR_INVALID_ARG; }
+    std::lock_guard<std::mutex> guard(session->lock);
+    g_error.clear();
+    std::memset(out, 0, sizeof *out);
+    auto* engine = session->engine;
+    auto* gpu = engine->gpu;
+    const auto started = std::chrono::steady_clock::now();
+    // A copy of runtime parameters, never changes to measured material data or
+    // the session's saved recipe. Do not use lut_mode: it also replaces scanner
+    // references and print exposure, which are colour decisions, not spatial.
+    Params params = session->params;
+    params.debug.deactivate_spatial_effects = true;
+    params.debug.deactivate_stochastic_effects = true;
+    params.camera.auto_exposure = false;
+    params.io.geometry = GeometryParams{};
+    params.camera.scene_latitude.active = false;
+    params.film_render.halation.headroom_ev = 0.0;
+    params.film_render.halation.boost_ev = 0.0;
+    params.film_render.overscan.active = false;
+    params.film_render.overscan.pair = false;
+    params.film_render.date_imprint.active = false;
+    params.print_render.contrast_mask.active = false;
+    std::string error;
+    if (!digest(params, engine->neutral_filters, error)) { g_error = error; return SPK_ERR_USER; }
+    Pipeline pipeline(gpu, &engine->colour, &engine->blob, &engine->setup_cache);
+    if (!pipeline.build(params, error)) { g_error = error; return SPK_ERR_USER; }
+    session->progress = Progress{};
+    session->progress.progress_id = "p" + std::to_string(next_id());
+    gpu->begin_frame();
+    pipeline.set_source_long_edge(std::max(session->source.w, session->source.h),
+                                  std::max(session->source.w, session->source.h));
+    Image negative, rgb;
+    const bool ok = pipeline.run_film(session->source, negative, &session->progress, error) &&
+                    pipeline.run_print(negative, rgb, &session->progress, error) &&
+                    gpu->flush(error) && materialise(session, rgb, out, error);
+    gpu->end_frame();
+    if (!ok) { g_error = error; return error == "render cancelled" ? SPK_ERR_CANCELLED : SPK_ERR_GPU; }
+    out->elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    std::snprintf(out->progress_id, sizeof out->progress_id, "%s", session->progress.progress_id.c_str());
+    session->progress.done = true;
+    return SPK_OK;
 }
 
 spk_status spk_preview_scan(spk_session* session, const char* tier_name, spk_result* out) {
@@ -1712,6 +1775,44 @@ spk_status spk_render_digital_intermediate(spk_session* session, spk_result* out
         reply.set("printing_density_paper", Json(params.di_paper.info.stock));
         *out_json = dup_json(reply);
     }
+    return SPK_OK;
+}
+
+spk_status spk_replace_device_frame(spk_session* session, const spk_device_image* input) {
+    g_error.clear();
+    if (!session || !input || !input->buffer) {
+        g_error = "session or buffer is null";
+        return SPK_ERR_INVALID_ARG;
+    }
+    std::lock_guard<std::mutex> guard(session->lock);
+    if (input->width != session->source.w || input->height != session->source.h ||
+        (input->channels != 3 && input->channels != 4)) {
+        g_error = "replacement frame must match session dimensions and have 3 or 4 channels";
+        return SPK_ERR_INVALID_ARG;
+    }
+    auto* gpu = session->engine->gpu;
+    std::string error;
+    gpu->begin_frame();
+    // A new plane makes failure transactional. Unlike stored originals these
+    // small streaming frames stay in the reusable device pool, not mmap files.
+    Image rgb;
+    rgb.w = input->width; rgb.h = input->height; rgb.c = 3;
+    auto borrowed = gpu->borrow(input->buffer, size_t(rgb.pixels()) * input->channels * sizeof(float), error);
+    if (borrowed) rgb.buf = gpu->alloc(rgb.bytes(), error);
+    const uint32_t meta[2] = {uint32_t(rgb.pixels()), input->channels};
+    const bool ok = borrowed && rgb.buf &&
+        gpu->dispatch("spk_take_rgb", {gpu::Arg::buf(borrowed), gpu::Arg::inline_bytes(meta, 2),
+                                       gpu::Arg::buf(rgb.buf)}, rgb.pixels(), error) &&
+        gpu->flush(error);
+    gpu->end_frame();
+    if (!ok) { g_error = error; return SPK_ERR_GPU; }
+    session->source = std::move(rgb);
+    session->tiers.clear();
+    session->meter = spk_session::Meter{};
+    session->scene_latitude.scene_key.clear();
+    session->scene_latitude.scene = slm::SceneStats{};
+    session->mask_field.clear();
+    session->progress = Progress{};
     return SPK_OK;
 }
 

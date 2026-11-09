@@ -76,6 +76,9 @@ struct MobileSettingsView: View {
     @Bindable var document: MobileDocument
     @Bindable var preferences: MobilePreferences
     init(document: MobileDocument) { self.document = document; self.preferences = document.preferences }
+    @AppStorage(MobileCaptureLocation.preferenceKey) private var recordsLocation = true
+    @State private var cameraLocation = MobileCameraLocation.shared
+    @AppStorage(MobileCameraPreviewMode.key) private var previewMode = MobileCameraPreviewMode.initial()
     @Environment(\.dismiss) private var dismiss
     @State private var availableMemory: UInt64 = 0
     @State private var originalBytes: Int64?
@@ -98,6 +101,22 @@ struct MobileSettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("相机") {
+                    Picker("实时胶片取景", selection: $previewMode) {
+                        ForEach(MobileCameraPreviewMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                        .accessibilityIdentifier("settings.camera.filmPreview")
+                    Text("建议使用流畅近似预览，胶片色彩与柔光用于构图参考，不模拟颗粒与胶片光晕。原生引擎预览为实验选项，刷新较慢，两种模式均不保证与 RAW 成片曝光相同。系统取景关闭预览效果；成片始终应用所选配方。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Toggle("记录拍摄位置", isOn: $recordsLocation)
+                        .tint(MobileStyle.accent)
+                        .accessibilityIdentifier("settings.camera.location")
+                    Text("在应用内拍摄时，将可用位置写入原片和成片。默认开启；无法定位时仍正常拍照。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if recordsLocation && cameraLocation.denied {
+                        Button("在系统设置中允许定位") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                    }
                     Toggle("镜像前置镜头", isOn: $preferences.values.mirrorsFrontCamera)
                         .tint(MobileStyle.accent)
                     Picker("拍摄保存策略", selection: $preferences.values.cameraSavePolicy) {
@@ -132,7 +151,7 @@ struct MobileSettingsView: View {
                 Section("诊断") {
                     LabeledContent("渲染引擎", value: "Native Metal")
                     LabeledContent("色彩工作空间", value: "ProPhoto RGB")
-                    Button("恢复默认设置", role: .destructive) { document.preferences.values = MobilePreferences.Values() }
+                    Button("恢复默认设置", role: .destructive) { document.preferences.values = MobilePreferences.Values(); previewMode = .approximate; recordsLocation = true }
                 }
                 MobileSupportSection()
                 MobileRelatedAppSection()
@@ -141,6 +160,7 @@ struct MobileSettingsView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
         }
         .presentationDetents([.large])
+        .onChange(of: recordsLocation) { _, enabled in cameraLocation.setEnabled(enabled, requestPermission: enabled) }
         .task(id: document.photos.map(\.id)) {
             let sources = document.photos.map { document.url(for: $0) }
             let bytes = await Task.detached(priority: .utility) {

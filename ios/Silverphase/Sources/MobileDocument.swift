@@ -337,6 +337,7 @@ struct MobilePhoto: Codable, Identifiable {
     }
     @discardableResult func importFiles(_ urls: [URL], displayNames: [URL: String] = [:], removeSourcesAfterImport: Bool = false,
                                         continuingPhotoSelection: Bool = false, capturedFilm: Stock? = nil,
+                                        capturedRecipes: [URL: MobileCameraRecipe] = [:],
                                         announceSuccess: Bool = true) -> Task<Void, Never> {
         let adoptingPicker = continuingPhotoSelection && isImporting && operation?.stage == .receiving
         guard libraryWritable, !delivering, !isInteractionLocked || adoptingPicker else { return Task {} }
@@ -354,6 +355,13 @@ struct MobilePhoto: Codable, Identifiable {
                                         filename: UUID().uuidString + "." + source.pathExtension)
                 let destination = url(for: photo)
                 do {
+                    // Validate the captured film before copying/renaming its
+                    // original. An obsolete extension recipe must not leave an
+                    // untracked RAW copy behind on each handoff retry.
+                    if let capturedFilm { Self.applyFilm(capturedFilm, to: &photo.recipe) }
+                    if let capturedRecipe = capturedRecipes[source] {
+                        try Self.applyCapturedRecipe(capturedRecipe, to: &photo.recipe)
+                    }
                     let metadata = try await Task.detached(priority: .userInitiated) {
                         let scoped = source.startAccessingSecurityScopedResource()
                         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
@@ -381,7 +389,6 @@ struct MobilePhoto: Codable, Identifiable {
                         try FileManager.default.moveItem(at: destination, to: corrected)
                         photo.filename = corrected.lastPathComponent
                     }
-                    if let capturedFilm { Self.applyFilm(capturedFilm, to: &photo.recipe) }
                     imported.append(photo)
                 } catch {
                     try? FileManager.default.removeItem(at: destination)
@@ -501,7 +508,17 @@ struct MobilePhoto: Codable, Identifiable {
         let wasPositive = value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
         edit { Self.applyFilm(film, to: &$0.recipe, wasPositive: wasPositive) }
     }
-    private static func applyFilm(_ film: Stock, to recipe: inout [String: WireValue], wasPositive: Bool = false) {
+    nonisolated static func applyCapturedRecipe(_ captured: MobileCameraRecipe, to recipe: inout [String: WireValue]) throws {
+        if let id = captured.filmID {
+            guard let stock = StockCatalog.shared.stock(id), stock.isFilm else {
+                throw MobileFailure.message("无法读取锁屏拍摄所选胶片：" + id)
+            }
+            applyFilm(stock, to: &recipe)
+        }
+        recipe.merge(captured.values) { _, new in new }
+    }
+
+    nonisolated private static func applyFilm(_ film: Stock, to recipe: inout [String: WireValue], wasPositive: Bool = false) {
         recipe["film_stock"] = .string(film.id)
         if film.isPositive || wasPositive { recipe["scan_film"] = .bool(film.isPositive) }
         recipe["digital_intermediate"] = .bool(false)

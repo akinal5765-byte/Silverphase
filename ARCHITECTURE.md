@@ -1,6 +1,6 @@
 # Silverphase architecture
 
-Current implementation map, reviewed 2026-10-28. Silverphase derives from Hanze
+Current implementation map, reviewed 2026-11-09. Silverphase derives from Hanze
 Qiu's SpektraLab and Andrea Volpato's spektrafilm model. Product name changes do
 not change source or profile attribution. The [documentation index](docs/README.md)
 identifies current guides; the [earlier architecture](docs/history/ARCHITECTURE.md)
@@ -121,6 +121,19 @@ are compiled by relative reference: `StockCatalogCore.swift`, `ParamValue.swift`
 and `Geometry.swift`. `DesktopControlDefaults.json` captures desktop defaults;
 `MobileDesktopContractTests` detects drift. Other mobile control code is
 platform-specific and must be audited explicitly.
+
+iOS 1.2.1 adds a default approximate film viewfinder: `MobileCameraFastLook`
+bakes independent colour samples through `spk_render_color_samples` and applies
+an HDR-shaped Metal table to the latest video frame. Exposure/diffusion remain
+approximate; system preview and experimental native `spk_render_viewfinder`
+remain selectable. `spk_replace_device_frame` reuses native session setup.
+Video is ISP-processed SDR and is not equivalent to RAW. Still development and
+material profiles retain their ordinary semantics. Processed freezes and input
+generations cover shutter, lens and portrait transitions; camera layout stays
+in device coordinates while its controls rotate. Lock-screen capture uses the
+system viewfinder, inherits film and exposes metering/diffusion only. Optional
+foreground location tagging belongs to the main app and honours export policy.
+See [1.2.1 release preparation](ios/releases/1.2.1.md) for validation and limits.
 
 Source or session changes invalidate in-flight work; stale results must not
 replace the current photograph. Import/export operations own a modal progress

@@ -1,6 +1,7 @@
 import AppIntents
 
 struct SilverphaseCameraCaptureIntent: CameraCaptureIntent {
+    typealias AppContext = MobileCameraRecipe
     static let title: LocalizedStringResource = "打开 Silverphase 相机"
 
     @MainActor func perform() async throws -> some IntentResult {

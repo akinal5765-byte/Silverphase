@@ -314,6 +314,9 @@ enum MobileSmokeChecks {
         guard let image = CIContext().createCGImage(color, from: color.extent) else { return }
         var photo = MobilePhoto(name: "Chrome boundary fixture", filename: "chrome-fixture.tif")
         photo.sourceMegapixels = 0.016384; photo.sourceAspect = 1
+        if ProcessInfo.processInfo.arguments.contains("--parameter-label-regression") {
+            document.resolved = MobileProcessContract.defaults
+        }
         document.photos = [photo]; document.selection = photo.id
         document.image = image; document.original = image
         document.canvasState.scale = 12
