@@ -17,6 +17,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | App Store preparation, privacy and user support | [Release preparation](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
 | CineStill 800T adoption and validation scope | [Dated adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
+| Lightroom Classic external editing, setup and tone boundaries | [Illustrated workflow](LIGHTROOM-CLASSIC.md) / [macOS 1.2.0](../modern_UI/Spektrafilm/releases/1.2.0.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
 | Mobile build, in-app camera capture, RAW import, print animation, export and diagnostics | [iOS engineering](../ios/README.md) |

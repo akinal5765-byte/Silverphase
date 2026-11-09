@@ -869,6 +869,27 @@
       "kind": "historical-ui-reference",
       "evidence": "Inherited upstream UI/design history; some later typography captures reuse historical material.",
       "rights_scope": "No new Silverphase photograph or third-party UI licence grant. Not a current product example."
+    },
+    {
+      "path": "docs/images/lightroom-classic/01-external-editing-preferences.png",
+      "sha256": "6555b468dfa94c618f23fcf6d23f66aab6d0f0564d9988b45e435846b72bfb64",
+      "kind": "third-party-ui-workflow-reference",
+      "evidence": "User-supplied annotated screenshots on 2026-11-09, supplied with a request to document Lightroom Classic external editing.",
+      "rights_scope": "Workflow documentation only. Adobe and Apple UI and trademarks retain their respective rights; no new third-party UI licence grant is asserted."
+    },
+    {
+      "path": "docs/images/lightroom-classic/02-select-silverphase.png",
+      "sha256": "6091db655e91db19fae0bf20e4b81624142598faf423a225fb25179583f52764",
+      "kind": "third-party-ui-workflow-reference",
+      "evidence": "User-supplied annotated screenshots on 2026-11-09, supplied with a request to document Lightroom Classic external editing.",
+      "rights_scope": "Workflow documentation only. Adobe and Apple UI and trademarks retain their respective rights; no new third-party UI licence grant is asserted."
+    },
+    {
+      "path": "docs/images/lightroom-classic/03-edit-in-silverphase.png",
+      "sha256": "90edf0f722075a53ccdf8ef93caaa09f736a0fa967e8229f3a2699179cd23f02",
+      "kind": "third-party-ui-workflow-reference",
+      "evidence": "User-supplied annotated screenshots on 2026-11-09, supplied with a request to document Lightroom Classic external editing.",
+      "rights_scope": "Workflow documentation only. Adobe and Apple UI and trademarks retain their respective rights; no new third-party UI licence grant is asserted."
     }
   ]
 }

@@ -381,7 +381,7 @@ final class Session: CanvasHost {
     /// slot becomes the film and paper chooser instead of the navigator.
     var panelsHidden = false
     func togglePanels() { panelsHidden.toggle() }
-    var showsBottomStrip: Bool { !panelsHidden && !frames.isEmpty }
+    var showsBottomStrip: Bool { !panelsHidden && !frames.isEmpty && (!isLightroomEditing || modernFilmChooserActive) }
     var bottomChromeOcclusion: CGFloat {
         showsBottomStrip && !filmstripCollapsed ? Theme.Metric.modernBottomStripHeight + Theme.Metric.modernSurfaceGutter : 0
     }
@@ -715,6 +715,8 @@ final class Session: CanvasHost {
     /// `open(urls:)`, the arrow keys through `click` — is a no-op, so a click
     /// mid-batch cannot put a different frame under the file being written.
     /// `select` itself is not gated: it is the run's own door.
+    var lightroomDestination: URL?
+    var lightroomInput: URL?
     var batchExporting = false
 
     /// Every library frame's geometry as last saved, for the thumbnails that
@@ -1351,6 +1353,10 @@ final class Session: CanvasHost {
     // MARK: - library
 
     func open(urls: [URL]) {
+        if isLightroomEditing && urls != lightroomInput.map({ [$0] }) {
+            status = "Finish or close the Lightroom edit before opening another photo."
+            return
+        }
         guard !batchExporting else { status = "An export is running."; return }
         let new = Library.frames(from: urls)
         guard !new.isEmpty else { status = "Nothing openable in the selection."; return }
@@ -3640,7 +3646,7 @@ final class Session: CanvasHost {
     @objc private func copyMenu() { requestCopySettings() }
     @objc private func pasteMenu() { pasteSettings() }
     @objc private func resetCrop() { geometry = .default }
-    @objc private func exportMenu() { showExport = true }
+    @objc private func exportMenu() { if !isLightroomEditing { showExport = true } }
 
     /// What the engine's auto-exposure solved for this frame. The Exp. Comp.
     /// slider is an offset from it, so the UI has to say what the zero means

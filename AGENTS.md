@@ -1,6 +1,6 @@
 # AGENTS.md — working notes for Silverphase
 
-Current repository guidance, reviewed 2026-10-28. Silverphase is an independent
+Current repository guidance, reviewed 2026-11-09. Silverphase is an independent
 derivative of SpektraLab. Preserve Git history, GPL / CC BY-SA obligations,
 and visible credit to Hanze Qiu and Andrea Volpato. `upstream` is the original
 SpektraLab repository: never push there. Commit or push only when asked.
@@ -57,6 +57,22 @@ Desktop half-frame pairs are `.spektrapair` JSON documents referencing source
 photos, with pair edits in sidecars. Keep source photographs and personal
 sidecars out of Git. iOS imported originals and edit records persist in the app-owned local library;
 they are user data, not repository assets.
+
+## Lightroom Classic external editing
+
+macOS 1.2.0 adds a single-photo JPEG/TIFF external-editor workflow, not a new
+engine or a `.lrplugin`. Follow `docs/LIGHTROOM-CLASSIC.md` for setup, retained-input
+naming and repeat edits. Preserve the distinction between the hidden first input
+and Lightroom's registered writeback target. Save renders full resolution and
+closes the editor only after a successful atomic write. These inputs/sidecars
+are user data and must stay out of Git.
+
+Decoded LR TIFF/JPEG is linear RGB with baked rendering, not recovered scene
+radiance. Do not silently compensate exposure, lower material contrast, or claim
+RAW equivalence. Automatic exposure remains a recipe choice. UI event sender
+identification, cold/warm launches, cancel/error recovery and preview/save
+consistency need their own validation; passing input-retention tests is partial
+coverage. No native ABI/schema version changed for this host integration.
 
 ## Build and verify
 

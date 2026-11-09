@@ -52,6 +52,33 @@ See [macOS engineering](modern_UI/Spektrafilm/README.md), [iOS engineering](ios/
 RFCs record design decisions at their dates; missing upstream RFC numbers cited
 in adopted source do not imply those files exist locally.
 
+### macOS Lightroom Classic external editing (1.2.0)
+
+Lightroom renders one adjusted JPEG/TIFF copy and sends a macOS file-open event.
+`LightroomInput.currentSenderIsLightroom()` checks the sender application;
+`Session.openFromLightroom` retains a hidden input copy and opens the dedicated
+single-photo editor. `TopBar` replaces export with Save; the photo navigator is
+hidden, while the material chooser remains available. Save uses
+`Exporter.filePixels` at full resolution and `writeFinishedTexture` to atomically
+replace Lightroom's registered copy, then closes the editor on success. Errors
+retain the window. This is a host file workflow, not an additional engine backend
+or a separately installed `.lrplugin`.
+
+The source TIFF/JPEG's ICC transfer function is decoded by the normal image
+reader. This yields linear RGB values but does not reverse Lightroom's camera
+profile or tone rendering, nor recover scene radiance. The physical engine still
+operates under its scene-light assumption; matching direct-RAW parameters does
+not promise matching pictures. No Lightroom-specific exposure compensation,
+inverse tone curve or softer material default is applied.
+
+The hidden `.<filename>.silverphase-input.<extension>` retains the first input;
+its sidecar stores the edit. The registered Lightroom copy is only the writeback
+target. Reusing the same path resumes the retained input; new Lightroom changes
+require a new copy/path. These are private user files, never repository assets.
+Sender-less or forwarded events are not guessed from filenames. HDR, PSD and batch
+round trips are outside this implementation. Setup and screenshots:
+[Lightroom guide](docs/LIGHTROOM-CLASSIC.md).
+
 ## 1. The physical model
 
 Scene light passes through camera exposure/filtration, film exposure and

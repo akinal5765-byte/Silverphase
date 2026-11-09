@@ -25,7 +25,8 @@ records current surface/semantics, including Cineon DI versus the legacy API.
 ### 1.2 Invariants
 
 - Input pixels match their declared color space and transfer function; after
-  decode they are scene-linear. Both hosts normally supply linear ProPhoto
+  decode they are linear RGB. Rendered JPEG/TIFF inputs can retain baked tone
+  rendering and are not thereby recovered scene radiance. Both hosts normally supply linear ProPhoto
   float32. Never compensate for decode errors in material profiles.
 - `shoot` edits invalidate the negative; `print` edits may reuse it. Film edge,
   lens filter, date back and paired scene placement are shoot-side. Paper grades
@@ -38,6 +39,19 @@ records current surface/semantics, including Cineon DI versus the legacy API.
 - Selection/session/parameter generations guard asynchronous results.
 - Bundled resources, profile overlays and notices must come from the source
   revision being built. A stale bundle is not a valid acceptance result.
+
+### 1.3 Lightroom external-edit host contract
+
+macOS 1.2.0 accepts a single Lightroom Classic JPEG/TIFF copy, retains its initial
+input and writes the developed result to the registered target only on Save.
+Saving uses full-resolution normal rendering and an atomic ImageIO write;
+success closes the editor, failure leaves it open. It adds no native method,
+parameter, cache layer, transport or schema version. TIFF writeback is 16-bit;
+JPEG is re-encoded at 8-bit. Both carry the chosen ProPhoto RGB output ICC.
+The ordinary file reader decodes the incoming ICC; it cannot undo baked Lightroom
+adjustments. No silent exposure or material compensation is part of the contract.
+The first retained input is reused for a repeated path, so newly baked LR edits
+must arrive under a new path. See [workflow and limits](docs/LIGHTROOM-CLASSIC.md).
 
 ## 2. Version negotiation
 

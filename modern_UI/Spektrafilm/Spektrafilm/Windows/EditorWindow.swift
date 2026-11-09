@@ -52,7 +52,7 @@ struct EditorWindow: View {
                     if let u = try? await p.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? Data,
                        let url = URL(dataRepresentation: u, relativeTo: nil) { urls.append(url) }
                 }
-                if !urls.isEmpty { session.open(urls: urls) }
+                if !urls.isEmpty && !session.isLightroomEditing { session.open(urls: urls) }
             }
             return true
         }
@@ -153,7 +153,7 @@ struct EditorWindow: View {
                 // The material catalogue lives in the bottom chooser, so the
                 // window has one rail: the inspector, or the export page.
                 Spacer(minLength: 0)
-                if session.showExport { modernExportRail }
+                if session.showExport && !session.isLightroomEditing { modernExportRail }
                 else if !session.rightCollapsed { inspectorRail }
             }
             .opacity(session.panelsHidden ? 0 : 1)
@@ -200,7 +200,7 @@ struct EditorWindow: View {
                    outputProofRequested: modernProofRecipe != nil,
                    onHideOutputProof: { modernProofRecipe = nil })
             .overlay(alignment: .bottom) {
-                if !session.frames.isEmpty {
+                if !session.frames.isEmpty && (!session.isLightroomEditing || session.modernFilmChooserActive) {
                     bottomStrip
                         .opacity(session.panelsHidden ? 0 : 1)
                         .allowsHitTesting(!session.panelsHidden)
