@@ -132,7 +132,7 @@ struct Filmstrip: View {
             // taken when the strip was empty and was not re-evaluated when it
             // filled. Opacity depends on the same value every pass, so it
             // cannot go stale.
-            Text(compact ? T("No photos match these filters", "没有符合筛选条件的照片") : L(.statusEmptyFilmstrip))
+            Text(compact ? T("No photos match these filters", "没有符合筛选条件的照片", "沒有符合篩選條件的照片") : L(.statusEmptyFilmstrip))
                 .font(Theme.Font.label).foregroundStyle(Theme.dim)
                 .opacity((compact ? visibleFrames.isEmpty && markFilter.isActive : session.frames.isEmpty) ? 1 : 0)
                 .allowsHitTesting(false)
@@ -145,7 +145,7 @@ struct Filmstrip: View {
         BottomStripToolbar {
             HStack(spacing: Theme.Metric.space8) {
                 Text(session.selectedFrames.count > 1
-                     ? T("\(session.selectedFrames.count) photos selected", "已选 \(session.selectedFrames.count) 张照片")
+                     ? T("\(session.selectedFrames.count) photos selected", "已选 \(session.selectedFrames.count) 张照片", "已選 \(session.selectedFrames.count) 張照片")
                      : (session.selection?.lastPathComponent ?? ""))
                     .foregroundStyle(Theme.text)
                     .lineLimit(1).truncationMode(.middle).layoutPriority(1)
@@ -156,32 +156,32 @@ struct Filmstrip: View {
             Spacer(minLength: Theme.Metric.space8)
             BottomStripToolbarGroup {
                 BottomStripToolbarMenu(selected: markFilter.minimumRating > 0 || markFilter.unratedOnly) {
-                    BottomStripFilterOption(title: T("All ratings", "全部星级"), selected: markFilter.minimumRating == 0 && !markFilter.unratedOnly) { markFilter.minimumRating = 0; markFilter.unratedOnly = false }
-                    BottomStripFilterOption(title: T("Unrated", "未评分"), selected: markFilter.unratedOnly) { markFilter.minimumRating = 0; markFilter.unratedOnly = true }
+                    BottomStripFilterOption(title: T("All ratings", "全部星级", "全部星級"), selected: markFilter.minimumRating == 0 && !markFilter.unratedOnly) { markFilter.minimumRating = 0; markFilter.unratedOnly = false }
+                    BottomStripFilterOption(title: T("Unrated", "未评分", "未評分"), selected: markFilter.unratedOnly) { markFilter.minimumRating = 0; markFilter.unratedOnly = true }
                     Divider()
                     ForEach(1...5, id: \.self) { rating in
-                        BottomStripFilterOption(title: T("At least \(rating) stars", "至少 \(rating) 星"), selected: markFilter.minimumRating == rating && !markFilter.unratedOnly) {
+                        BottomStripFilterOption(title: T("At least \(rating) stars", "至少 \(rating) 星", "至少 \(rating) 星"), selected: markFilter.minimumRating == rating && !markFilter.unratedOnly) {
                             markFilter.minimumRating = rating; markFilter.unratedOnly = false
                         }
                     }
                 } label: {
                     RoundedFavoriteStar().fill()
                         .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
-                    Text(markFilter.unratedOnly ? T("Unrated", "未评分") : (markFilter.minimumRating > 0
-                        ? "≥ \(markFilter.minimumRating)" : T("All ratings", "全部星级")))
+                    Text(markFilter.unratedOnly ? T("Unrated", "未评分", "未評分") : (markFilter.minimumRating > 0
+                        ? "≥ \(markFilter.minimumRating)" : T("All ratings", "全部星级", "全部星級")))
                 }
-                .help(T("Filter photos by rating", "按照片星级筛选"))
+                .help(T("Filter photos by rating", "按照片星级筛选", "按照片星級篩選"))
                 BottomStripToolbarMenu(selected: markFilter.flag != nil) {
-                    BottomStripFilterOption(title: T("All flags", "全部旗标"), selected: markFilter.flag == nil) { markFilter.flag = nil }
-                    BottomStripFilterOption(title: T("Unflagged", "无旗标"), selected: markFilter.flag == FrameMarks.Flag.none) { markFilter.flag = FrameMarks.Flag.none }
-                    BottomStripFilterOption(title: T("Pick", "保留"), selected: markFilter.flag == .pick) { markFilter.flag = .pick }
-                    BottomStripFilterOption(title: T("Reject", "淘汰"), selected: markFilter.flag == .reject) { markFilter.flag = .reject }
+                    BottomStripFilterOption(title: T("All flags", "全部旗标", "全部旗標"), selected: markFilter.flag == nil) { markFilter.flag = nil }
+                    BottomStripFilterOption(title: T("Unflagged", "无旗标", "無旗標"), selected: markFilter.flag == FrameMarks.Flag.none) { markFilter.flag = FrameMarks.Flag.none }
+                    BottomStripFilterOption(title: T("Pick", "保留", "保留"), selected: markFilter.flag == .pick) { markFilter.flag = .pick }
+                    BottomStripFilterOption(title: T("Reject", "淘汰", "淘汰"), selected: markFilter.flag == .reject) { markFilter.flag = .reject }
                 } label: {
                     Image(systemName: "flag")
                         .frame(width: Theme.Metric.bottomStripToolbarGlyphSize, height: Theme.Metric.bottomStripToolbarGlyphSize)
                     Text(flagFilterTitle)
                 }
-                .help(T("Filter photos by flag", "按照片旗标筛选"))
+                .help(T("Filter photos by flag", "按照片旗标筛选", "按照片旗標篩選"))
                 if markFilter.isActive {
                     Button { markFilter = PhotoMarkFilter() } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle.fill")
@@ -189,8 +189,8 @@ struct Filmstrip: View {
                             .bottomStripToolbarControl(iconOnly: true)
                     }
                     .buttonStyle(.toolbarSelection(selected: true))
-                    .help(T("Clear photo filters", "清除照片筛选"))
-                    .accessibilityLabel(T("Clear photo filters", "清除照片筛选"))
+                    .help(T("Clear photo filters", "清除照片筛选", "清除照片篩選"))
+                    .accessibilityLabel(T("Clear photo filters", "清除照片筛选", "清除照片篩選"))
                 }
             }
             BottomStripToolbarGroup {
@@ -217,10 +217,10 @@ struct Filmstrip: View {
 
     private var flagFilterTitle: String {
         switch markFilter.flag {
-        case nil: T("All flags", "全部旗标")
-        case .some(.none): T("Unflagged", "无旗标")
-        case .some(.pick): T("Pick", "保留")
-        case .some(.reject): T("Reject", "淘汰")
+        case nil: T("All flags", "全部旗标", "全部旗標")
+        case .some(.none): T("Unflagged", "无旗标", "無旗標")
+        case .some(.pick): T("Pick", "保留", "保留")
+        case .some(.reject): T("Reject", "淘汰", "淘汰")
         }
     }
 
@@ -303,9 +303,9 @@ private struct ThumbnailMarks: View {
             HStack {
                 Spacer(minLength: 0)
                 Menu {
-                    Button(T("Unflagged", "无旗标")) { update(flag: FrameMarks.Flag.none) }
-                    Button(T("Pick", "保留")) { update(flag: .pick) }
-                    Button(T("Reject", "淘汰")) { update(flag: .reject) }
+                    Button(T("Unflagged", "无旗标", "無旗標")) { update(flag: FrameMarks.Flag.none) }
+                    Button(T("Pick", "保留", "保留")) { update(flag: .pick) }
+                    Button(T("Reject", "淘汰", "淘汰")) { update(flag: .reject) }
                 } label: {
                     Image(systemName: marks.flag == .reject ? "flag.slash.fill" : (marks.flag == .pick ? "flag.fill" : "flag"))
                         .font(Theme.Font.label)
@@ -314,8 +314,8 @@ private struct ThumbnailMarks: View {
                 .menuStyle(.borderlessButton).menuIndicator(.hidden)
                 .opacity(hovered || marks.flag != .none ? 1 : 0)
                 .allowsHitTesting(hovered || marks.flag != .none)
-                .help(T("Flag photo", "照片旗标"))
-                .accessibilityLabel(T("Flag photo", "照片旗标"))
+                .help(T("Flag photo", "照片旗标", "照片旗標"))
+                .accessibilityLabel(T("Flag photo", "照片旗标", "照片旗標"))
             }
             Spacer(minLength: 0)
         }
@@ -340,9 +340,9 @@ private struct ThumbnailMarks: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help(T("Set \(rating) stars (key \(rating)); click again to clear", "设为 \(rating) 星（数字键 \(rating)），再次点击清除"))
-                    .accessibilityLabel(T("Set \(rating) stars", "设为 \(rating) 星"))
-                    .accessibilityValue(rating <= marks.rating ? T("Rated", "已评分") : T("Unrated", "未评分"))
+                    .help(T("Set \(rating) stars (key \(rating)); click again to clear", "设为 \(rating) 星（数字键 \(rating)），再次点击清除", "設為 \(rating) 星（數位鍵 \(rating)），再次點按清除"))
+                    .accessibilityLabel(T("Set \(rating) stars", "设为 \(rating) 星", "設為 \(rating) 星"))
+                    .accessibilityValue(rating <= marks.rating ? T("Rated", "已评分", "已評分") : T("Unrated", "未评分", "未評分"))
                 }
             }
             .padding(.leading, hovered ? Theme.Metric.space4 : Theme.Metric.photoRatingDotLeadingInset)
@@ -352,9 +352,9 @@ private struct ThumbnailMarks: View {
         }
         .foregroundStyle(Theme.text)
         .shadow(color: .black.opacity(0.8), radius: Theme.Metric.rule)
-        .alert(T("Unable to save photo marks", "无法保存照片标记"), isPresented: Binding(
+        .alert(T("Unable to save photo marks", "无法保存照片标记", "無法儲存照片標記"), isPresented: Binding(
             get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
-                Button(T("OK", "好")) { saveError = nil }
+                Button(T("OK", "好", "好")) { saveError = nil }
             } message: { Text(saveError ?? "") }
     }
     private func update(rating: Int? = nil, flag: FrameMarks.Flag? = nil) {
@@ -481,7 +481,7 @@ struct SelectedFramesGrid: View {
             .frame(maxWidth: .infinity)
         }
         .contextMenu { SettingsClipboardMenu(session: session) }
-        .accessibilityLabel(T("Selected photos", "已选照片"))
+        .accessibilityLabel(T("Selected photos", "已选照片", "已選照片"))
     }
 }
 
@@ -548,9 +548,9 @@ struct FilmChoiceStrip: View {
                                       recent: session.materialLibrary.recent)
     }
     private var emptyMessage: String {
-        if filter == .favorites { return T("No favorites yet. Use a card’s star to add one.", "还没有收藏的材质，点卡片上的星标添加。") }
-        if filter == .recent { return T("Materials you choose will appear here.", "使用过的材质会显示在这里。") }
-        return T("No matching materials", "没有符合条件的材质")
+        if filter == .favorites { return T("No favorites yet. Use a card’s star to add one.", "还没有收藏的材质，点卡片上的星标添加。", "還沒有收藏的材質，點卡片上的星標加入。") }
+        if filter == .recent { return T("Materials you choose will appear here.", "使用过的材质会显示在这里。", "使用過的材質會顯示在這裡。") }
+        return T("No matching materials", "没有符合条件的材质", "沒有符合條件的材質")
     }
     private var selectedID: String {
         if tab == .film { return session.params.filmStock }
@@ -636,8 +636,8 @@ struct FilmChoiceStrip: View {
             }
             Spacer(minLength: Theme.Metric.space8)
             BottomStripToolbarGroup {
-                modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图"))
-                modeButton("list.bullet", list: true, help: T("List", "列表视图"))
+                modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图", "卡片視圖"))
+                modeButton("list.bullet", list: true, help: T("List", "列表视图", "列表視圖"))
                 BottomStripModeButton(session: session)
             }
         }
@@ -665,8 +665,8 @@ struct FilmChoiceStrip: View {
             }
             Spacer(minLength: Theme.Metric.space8)
             BottomStripToolbarGroup {
-                modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图"))
-                modeButton("list.bullet", list: true, help: T("List", "列表视图"))
+                modeButton("rectangle.grid.1x2", list: false, help: T("Cards", "卡片视图", "卡片視圖"))
+                modeButton("list.bullet", list: true, help: T("List", "列表视图", "列表視圖"))
                 BottomStripModeButton(session: session)
             }
 
@@ -685,13 +685,13 @@ struct FilmChoiceStrip: View {
 
     private func filterTitle(_ value: MaterialBrowserFilter) -> String {
         switch value {
-        case .all: return T("All", "全部")
+        case .all: return T("All", "全部", "全部")
         case .negative: return L(filmGroup: "Negative")
         case .positive: return L(filmGroup: "Positive")
-        case .blackwhite: return T("B&W", "黑白")
-        case .experimental: return T("Experimental", "实验")
-        case .favorites: return T("Favorites", "收藏")
-        case .recent: return T("Recently used", "最近使用")
+        case .blackwhite: return T("B&W", "黑白", "黑白")
+        case .experimental: return T("Experimental", "实验", "實驗")
+        case .favorites: return T("Favorites", "收藏", "收藏")
+        case .recent: return T("Recently used", "最近使用", "最近使用")
         }
     }
     private func filterButton(_ value: MaterialBrowserFilter) -> some View {
@@ -807,7 +807,7 @@ private struct MaterialBrowserCard: View {
         .buttonStyle(.plain).disabled(disabled)
         .opacity(disabled ? Theme.disabledOpacity : 1)
         .onHover { hovered = $0 }
-        .help(disabled ? T("Paper printing is unavailable for reversal film", "正片不使用相纸印放") : (choice.stock?.name ?? choice.title))
+        .help(disabled ? T("Paper printing is unavailable for reversal film", "正片不使用相纸印放", "正片不使用相紙印放") : (choice.stock?.name ?? choice.title))
         .accessibilityLabel((choice.stock?.name ?? choice.title) + ", " + choice.subtitle)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
         .overlay(alignment: .topTrailing) {
@@ -828,8 +828,8 @@ private struct MaterialBrowserCard: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(favorite ? T("Remove favorite", "取消收藏") : T("Add favorite", "收藏材质"))
-            .accessibilityLabel(favorite ? T("Remove favorite", "取消收藏") : T("Add favorite", "收藏材质"))
+            .help(favorite ? T("Remove favorite", "取消收藏", "取消收藏") : T("Add favorite", "收藏材质", "收藏材質"))
+            .accessibilityLabel(favorite ? T("Remove favorite", "取消收藏", "取消收藏") : T("Add favorite", "收藏材质", "收藏材質"))
             .padding(Theme.Metric.browserFavoriteInset)
         }
     }
@@ -895,8 +895,8 @@ private struct BottomStripModeButton: View {
 
     var body: some View {
         let title = session.filmstripCollapsed
-            ? T("Pin Bottom Strip", "固定底部条")
-            : T("Auto-hide Bottom Strip", "自动收起底部条")
+            ? T("Pin Bottom Strip", "固定底部条", "固定底部條")
+            : T("Auto-hide Bottom Strip", "自动收起底部条", "自動收起底部條")
         Button {
             session.filmstripCollapsed.toggle()
         } label: {

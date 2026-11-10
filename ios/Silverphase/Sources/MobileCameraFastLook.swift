@@ -51,19 +51,19 @@ actor MobileCameraFastLookEngine {
     }
 
     private func prepare(needsBaker: Bool = true) throws {
-        guard let device else { throw MobileFailure.message("没有 Metal 设备") }
+        guard let device else { throw MobileFailure.message(TDetached("No Metal device", "没有 Metal 设备", "沒有 Metal 設備")) }
         if engine == nil && needsBaker {
-            guard let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message("缺少胶片预览资源") }
+            guard let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message(TDetached("The film preview resources are missing", "缺少胶片预览资源", "缺少膠片預覽資源")) }
             engine = spk_engine_create(resources.path, Unmanaged.passUnretained(device as AnyObject).toOpaque())
         }
-        if needsBaker && engine == nil { throw MobileFailure.message("无法准备胶片预览") }
+        if needsBaker && engine == nil { throw MobileFailure.message(TDetached("The film preview could not be prepared", "无法准备胶片预览", "無法準備膠片預覽")) }
         if context == nil { context = MobileInputColor.context(device: device) }
         if linearSpace == nil { linearSpace = MobileInputColor.linearProPhoto() }
         if needsBaker && colors == nil { colors = try MobileColorPipeline(device: device) }
         if queue == nil { queue = device.makeCommandQueue() }
         if pipeline == nil {
             guard let url = Bundle.main.url(forResource: "SilverphaseUI", withExtension: "metallib", subdirectory: StockCatalog.resourceDirectory),
-                  let function = try device.makeLibrary(URL: url).makeFunction(name: "mobileCameraFastLook") else { throw MobileFailure.message("无法准备流畅取景") }
+                  let function = try device.makeLibrary(URL: url).makeFunction(name: "mobileCameraFastLook") else { throw MobileFailure.message(TDetached("The smooth viewfinder could not be prepared", "无法准备流畅取景", "無法準備流暢取景")) }
             pipeline = try device.makeComputePipelineState(function: function)
         }
     }
@@ -86,7 +86,7 @@ actor MobileCameraFastLookEngine {
             cubeOrder.removeAll { $0 == id }; cubeOrder.append(id)
             return cached
         }
-        guard let device, let engine, let colors else { throw MobileFailure.message("胶片预览未准备") }
+        guard let device, let engine, let colors else { throw MobileFailure.message(TDetached("The film preview is not prepared", "胶片预览未准备", "膠片預覽未準備")) }
         let n = MobileCameraLookDomain.dimension, width = n * n, height = n
         var samples = [Float](repeating: 0, count: n * n * n * 3)
         // Red varies fastest, then green, then blue, matching Metal 3D texture x/y/z.
@@ -116,14 +116,14 @@ actor MobileCameraFastLookEngine {
               let image = CGImage(width: width, height: height, bitsPerComponent: 16, bitsPerPixel: 64,
                 bytesPerRow: Int(result.row_stride_px) * 8, space: space,
                 bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
-                provider: provider, decode: nil, shouldInterpolate: false, intent: .relativeColorimetric) else { throw MobileFailure.message("无法读取胶片颜色表") }
+                provider: provider, decode: nil, shouldInterpolate: false, intent: .relativeColorimetric) else { throw MobileFailure.message(TDetached("The film colour table could not be read", "无法读取胶片颜色表", "無法讀取膠片顏色表")) }
         let display = try colors.convert(image, engine: engine, target: .p3)
         let descriptor = MTLTextureDescriptor()
         descriptor.textureType = .type3D; descriptor.pixelFormat = .rgba32Float
         descriptor.width = n; descriptor.height = n; descriptor.depth = n
         descriptor.storageMode = .shared; descriptor.usage = .shaderRead
         guard let texture = device.makeTexture(descriptor: descriptor), let bytes = display.dataProvider?.data,
-              let base = CFDataGetBytePtr(bytes) else { throw MobileFailure.message("无法创建胶片颜色表") }
+              let base = CFDataGetBytePtr(bytes) else { throw MobileFailure.message(TDetached("The film colour table could not be created", "无法创建胶片颜色表", "無法創建膠片顏色表")) }
         var table = [Float](repeating: 1, count: n * n * n * 4)
         for b in 0..<n { for g in 0..<n { for r in 0..<n {
             let source = base + b * display.bytesPerRow + (g * n + r) * 8
@@ -146,7 +146,7 @@ actor MobileCameraFastLookEngine {
             try Task.checkCancellation(); try workGate.check()
             try prepare(needsBaker: cubes[recipe.filmID ?? MobileCameraRecipe.defaultFilmID] == nil)
             let cube = try cube(for: recipe)
-            guard let device, let context, let queue, let pipeline else { throw MobileFailure.message("预览未准备") }
+            guard let device, let context, let queue, let pipeline else { throw MobileFailure.message(TDetached("The preview is not prepared", "预览未准备", "預覽未準備")) }
             let source = MobileCameraLookGeometry.orientedImage(frame, angle: angle, mirrored: mirrored)
             let ev = try meteredEV(source, mode: recipe.metering, context: context)
             let now = ProcessInfo.processInfo.systemUptime
@@ -180,7 +180,7 @@ actor MobileCameraFastLookEngine {
                 output = device.makeTexture(descriptor: descriptor)
             }
             guard let input, let output, let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder(),
-                  let space = linearSpace else { throw MobileFailure.message("无法分配取景缓冲") }
+                  let space = linearSpace else { throw MobileFailure.message(TDetached("The viewfinder buffer could not be allocated", "无法分配取景缓冲", "無法分配取景緩衝")) }
             context.render(image, toBitmap: input.contents(), rowBytes: width * 16, bounds: CGRect(x: 0, y: 0, width: width, height: height), format: .RGBAf, colorSpace: space)
             encoder.setComputePipelineState(pipeline); encoder.setBuffer(input, offset: 0, index: 0)
             var domain = SIMD2<Float>(MobileCameraLookDomain.toe, MobileCameraLookDomain.logRange)
@@ -195,7 +195,7 @@ actor MobileCameraFastLookEngine {
             guard let provider = CGDataProvider(data: data as CFData), let p3 = CGColorSpace(name: CGColorSpace.displayP3),
                   let display = CGImage(width: width, height: height, bitsPerComponent: 16, bitsPerPixel: 64, bytesPerRow: width * 8,
                     space: p3, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
-                    provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message("无法显示胶片预览") }
+                    provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message(TDetached("The film preview could not be drawn", "无法显示胶片预览", "無法顯示膠片預覽")) }
             return MobileCameraLookResult(image: display, recipe: recipe, sourceSerial: frame.serial, sourceGeneration: frame.generation)
         }
     }
@@ -249,7 +249,7 @@ actor MobileCameraFastLookEngine {
         let edge = max(source.extent.width, source.extent.height)
         let w = max(1, Int(64 * source.extent.width / edge)), h = max(1, Int(64 * source.extent.height / edge))
         let image = source.transformed(by: .init(scaleX: CGFloat(w) / source.extent.width, y: CGFloat(h) / source.extent.height))
-        guard let linearSpace else { throw MobileFailure.message("缺少测光颜色空间") }
+        guard let linearSpace else { throw MobileFailure.message(TDetached("No metering colour space", "缺少测光颜色空间", "缺少測光顏色空間")) }
         meter.withUnsafeMutableBytes { context.render(image, toBitmap: $0.baseAddress!, rowBytes: w * 16,
             bounds: CGRect(x: 0, y: 0, width: w, height: h), format: .RGBAf, colorSpace: linearSpace) }
         var luminance = [Double](); luminance.reserveCapacity(w * h)

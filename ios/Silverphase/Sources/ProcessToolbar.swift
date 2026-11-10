@@ -39,7 +39,7 @@ struct ProcessToolbar: ViewModifier {
                         ToolbarItem(placement: .topBarLeading) {
                             Color.clear.frame(width: 44, height: 120)
                                 .accessibilityElement(children: .ignore)
-                                .accessibilityLabel("侧栏空间测试占位")
+                                .accessibilityLabel(T("Sidebar space placeholder", "侧栏空间测试占位", "側欄空間測試佔位"))
                                 .accessibilityIdentifier("editor.toolbar-pressure")
                         }.axisBehavior(.verticalPreferred).visibilityPriority(.high)
                         ToolbarSpacer(.fixed, placement: .topBarLeading).axisBehavior(.verticalPreferred)
@@ -48,7 +48,7 @@ struct ProcessToolbar: ViewModifier {
 
                     if let returnToLibrary {
                         ToolbarItem(placement: .topBarLeading) {
-                            Button("返回", systemImage: "chevron.left") { returnToLibrary() }
+                            Button(T("Back", "返回", "返回"), systemImage: "chevron.left") { returnToLibrary() }
                                 .tint(.primary).disabled(document.isInteractionLocked)
                                 .accessibilityIdentifier("editor.library")
                         }.axisBehavior(.horizontalOnly)
@@ -56,7 +56,7 @@ struct ProcessToolbar: ViewModifier {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             exporting = true; inspector = true; materials = false
-                        } label: { Label("导出", systemImage: "square.and.arrow.up") }
+                        } label: { Label(T("Export", "导出", "匯出"), systemImage: "square.and.arrow.up") }
                             .tint(.primary)
                             .disabled(document.image == nil || document.isInteractionLocked)
                             .accessibilityIdentifier("editor.export")
@@ -71,18 +71,18 @@ struct ProcessToolbar: ViewModifier {
             content
                 .toolbar(.visible, for: .navigationBar)
                 .toolbarBackground(.hidden, for: .navigationBar)
-                .navigationTitle(document.current == nil ? "" : exporting ? "导出成片" : stage.rawValue)
+                .navigationTitle(document.current == nil ? "" : exporting ? T("Export Photos", "导出成片", "匯出成片") : stage.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         if let returnToLibrary {
-                            Button("返回", systemImage: "chevron.left") { returnToLibrary() }
+                            Button(T("Back", "返回", "返回"), systemImage: "chevron.left") { returnToLibrary() }
                                 .disabled(document.isInteractionLocked)
                                 .accessibilityIdentifier("editor.library")
                         }
                     }
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button("导出", systemImage: "square.and.arrow.up") {
+                        Button(T("Export", "导出", "匯出"), systemImage: "square.and.arrow.up") {
                             exporting = true; inspector = true; materials = false
                         }
                         .disabled(document.image == nil || document.isInteractionLocked || document.delivering)
@@ -111,30 +111,30 @@ struct NativeEditorMenu: View {
     var body: some View {
         Menu {
             if let returnToLibrary {
-                Button("返回", systemImage: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library-menu")
+                Button(T("Back", "返回", "返回"), systemImage: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library-menu")
             }
             if returnToLibrary == nil {
-                Section("导入照片") {
-                    Button("从照片导入", systemImage: "photo.on.rectangle") { pickingPhotos = true }
+                Section(T("Import Photos", "导入照片", "導入照片")) {
+                    Button(T("Import from Photos", "从照片导入", "從照片導入"), systemImage: "photo.on.rectangle") { pickingPhotos = true }
                         .accessibilityIdentifier("import.photos")
-                    Button("从文件导入", systemImage: "folder") { importing = true }
+                    Button(T("Import from Files", "从文件导入", "從檔案導入"), systemImage: "folder") { importing = true }
                         .accessibilityIdentifier("import.files")
                 }
             }
             Section {
-                Button("撤销", systemImage: "arrow.uturn.backward") { document.undo() }.disabled(!document.canUndo)
-                Button("重做", systemImage: "arrow.uturn.forward") { document.redo() }.disabled(!document.canRedo)
-                Button("重置当前照片", systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
+                Button(T("Undo", "撤销", "還原"), systemImage: "arrow.uturn.backward") { document.undo() }.disabled(!document.canUndo)
+                Button(T("Redo", "重做", "重做"), systemImage: "arrow.uturn.forward") { document.redo() }.disabled(!document.canRedo)
+                Button(T("Reset This Photo", "重置当前照片", "重設目前照片"), systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
             }
             Section {
-                Button("适合窗口", systemImage: "arrow.down.right.and.arrow.up.left") { document.zoomToFit() }.disabled(document.image == nil || document.cropEditing)
-                Button("1:1 原始像素", systemImage: "1.magnifyingglass") { document.zoomToNative() }.disabled(document.image == nil || document.cropEditing)
+                Button(T("Zoom to Fit", "适合窗口", "適合視窗"), systemImage: "arrow.down.right.and.arrow.up.left") { document.zoomToFit() }.disabled(document.image == nil || document.cropEditing)
+                Button(T("1:1 native pixels", "1:1 原始像素", "1:1 原始像素"), systemImage: "1.magnifyingglass") { document.zoomToNative() }.disabled(document.image == nil || document.cropEditing)
             }
             Section {
-                Button("设置", systemImage: "gearshape") { settings = true }
-                Button("关于 Silverphase", systemImage: "info.circle") { about = true }
+                Button(T("Settings", "设置", "設定"), systemImage: "gearshape") { settings = true }
+                Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = true }
             }
-        } label: { Label("菜单", systemImage: "ellipsis") }
+        } label: { Label(T("Menu", "菜单", "選單"), systemImage: "ellipsis") }
         .tint(.primary)
         .disabled(document.isInteractionLocked)
         .accessibilityIdentifier("editor.menu")

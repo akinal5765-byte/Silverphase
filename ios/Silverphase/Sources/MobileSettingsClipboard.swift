@@ -6,26 +6,35 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
     case camera, film, development, print, output, filmEdge, geometry
     var id: String { rawValue }
     static let defaults = Set(allCases.filter { $0 != .geometry })
-    var title: String {
+    /// The group's name in the clipboard sheet. `@MainActor` for the same
+    /// reason `MobileStage.title` is: the copy comes from the language setting.
+    @MainActor var title: String {
         switch self {
-        case .camera: MobileStage.camera.rawValue
-        case .film: MobileStage.film.rawValue
-        case .development: MobileStage.development.rawValue
-        case .print: MobileStage.print.rawValue
-        case .output: MobileStage.output.rawValue
-        case .filmEdge: "片边与日期"
-        case .geometry: "裁切比例"
+        case .camera: MobileStage.camera.title
+        case .film: MobileStage.film.title
+        case .development: MobileStage.development.title
+        case .print: MobileStage.print.title
+        case .output: MobileStage.output.title
+        case .filmEdge: T("Film edge and date", "片边与日期", "片邊與日期")
+        case .geometry: T("Crop ratio", "裁切比例", "裁切比例")
         }
     }
-    var detail: String {
+    @MainActor var detail: String {
         switch self {
-        case .camera: "测光、曝光、影调、白平衡、滤镜与场景置位。"
-        case .film: "胶片型号、物理画幅、颗粒、光晕与散射。"
-        case .development: "显影反差与 DIR 效应。"
-        case .print: "相纸、直扫／中间片、放大曝光、滤色与柔光放大。"
-        case .output: "扫描锐化、相纸眩光与高光层次展开。"
-        case .filmEdge: "片门、片边、灰雾、漏光及日期后背；自动日期取目标照片。"
-        case .geometry: "仅复制宽高比例，横竖跟随目标；保留目标的构图中心、校直、旋转与翻转。"
+        case .camera:
+            T("Metering, exposure, tone, white balance, filters and scene placement.", "测光、曝光、影调、白平衡、滤镜与场景置位。", "測光、曝光、影調、白平衡、濾鏡與場景置位。")
+        case .film:
+            T("Film stock, physical frame, grain, halation and scatter.", "胶片型号、物理画幅、颗粒、光晕与散射。", "膠片型號、物理畫幅、顆粒、光暈與散射。")
+        case .development:
+            T("Development contrast and the DIR effect.", "显影反差与 DIR 效应。", "顯影反差與 DIR 效應。")
+        case .print:
+            T("Paper, direct scan or Digital Intermediate, enlarger exposure, filtration and soft-focus enlargement.", "相纸、直扫／中间片、放大曝光、滤色与柔光放大。", "相紙、直掃／中間片、放大曝光、濾色與柔光放大。")
+        case .output:
+            T("Scan sharpening, paper glare and highlight expansion.", "扫描锐化、相纸眩光与高光层次展开。", "掃描銳化、相紙眩光與高光層次展開。")
+        case .filmEdge:
+            T("Gate, edge, fog, light leaks and the date back; an automatic date comes from the target photo.", "片门、片边、灰雾、漏光及日期后背；自动日期取目标照片。", "片門、片邊、灰霧、漏光及日期背；自動日期取目標照片。")
+        case .geometry:
+            T("Copies the aspect ratio only, following the target's orientation; the target's crop centre, straightening, rotation and flip are kept.", "仅复制宽高比例，横竖跟随目标；保留目标的构图中心、校直、旋转与翻转。", "僅複製寬高比例，橫豎跟隨目標；保留目標的構圖中心、校直、旋轉與翻轉。")
         }
     }
     var keys: Set<String> {
@@ -69,7 +78,13 @@ struct MobileSettingsClip {
         let ratio = max(0.001, crop.width * source.sourceAspect / max(0.001, crop.height))
         cropRatio = max(ratio, 1 / ratio)
     }
-    var summary: String { MobileClipboardGroup.allCases.filter { groups.contains($0) }.map(\.title).joined(separator: "、") }
+    @MainActor var summary: String {
+        // The enumeration comma is a word, not punctuation: English joins with
+        // ", " and both Chinese columns with "、".
+        MobileClipboardGroup.allCases.filter { groups.contains($0) }
+            .map(\.title)
+            .joined(separator: T(", ", "、", "、"))
+    }
     func applied(to target: MobilePhoto) -> MobilePhoto {
         var result = target
         for key in groups.reduce(into: Set<String>()) { $0.formUnion($1.keys) } {

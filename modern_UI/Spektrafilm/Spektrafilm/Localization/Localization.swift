@@ -20,32 +20,51 @@
 //  Read `design/UI-SPEC.md` §7 before adding copy — the term table, the range
 //  that deliberately stays English, and the five hard rules. It is the spec for
 //  what is translated and, just as much, for what is deliberately not.
+//
+//  Three languages as of 2026-11-10: English, Simplified Chinese, Traditional
+//  Chinese. Traditional was **not** a case before this pass, and the reasoning
+//  that kept it out is worth keeping, because it still decides what the table
+//  must contain. The earlier note argued that showing a Taiwanese reader
+//  Simplified Chinese because it is the nearest script available is worse than
+//  showing them English — true, and it is why `zh-TW` used to resolve to
+//  English. It is also why the third language is a **written** table rather
+//  than a conversion of the second: 简体 is not a lossy encoding of 繁體, and a
+//  character-substitution pass turns 设置 into 設置 where a reader in Taipei
+//  writes 設定, 文件 into 文件 where they write 檔案, and 默認 into 默認 where
+//  they write 預設. Script conversion answers "which glyph", and the question
+//  here is "which word". `Strings.swift`'s three switches are written out for
+//  that reason — see its header.
 
 import Foundation
 import Observation
 
 /// A language this app has copy for.
 ///
-/// Two cases, and the small number is the point: `zh-Hant` is not one of them.
-/// See `Localization.resolve` for what happens to a traditional-Chinese reader.
+/// The two Chinese cases are separate languages rather than two spellings of
+/// one. That is a statement about the table, not about linguistics: there is no
+/// `zh` entry whose script is decided at draw time, because every dependent
+/// string — the terminology in `design/UI-SPEC.md`'s table included — has to be
+/// chosen per case. See `Strings.swift`.
 enum Language: String, CaseIterable, Sendable {
     case english
     case simplifiedChinese
+    case traditionalChinese
 }
 
-/// What the Settings menu offers: the two languages, plus "whatever the system
-/// says" — which is the default, and which is not the same thing as English.
+/// What the Settings menu offers: the three languages, plus "whatever the
+/// system says" — which is the default, and which is not the same thing as
+/// English.
 enum LanguageSetting: String, CaseIterable, Sendable {
-    case system, english, simplifiedChinese
+    case system, english, simplifiedChinese, traditionalChinese
 
     /// The menu's own label.
     ///
-    /// `.english` and `.simplifiedChinese` are written **in their own
-    /// language** and never in the active one. A language menu is the one menu
-    /// a user reaches for *because* the current language is wrong, so
-    /// "Simplified Chinese" rendered in a language its reader cannot read is
-    /// the one label guaranteed not to help. Only `.system` follows the active
-    /// language, because it has no language of its own to be written in.
+    /// Every language case is written **in its own language** and never in the
+    /// active one. A language menu is the one menu a user reaches for *because*
+    /// the current language is wrong, so "Simplified Chinese" rendered in a
+    /// language its reader cannot read is the one label guaranteed not to help.
+    /// Only `.system` follows the active language, because it has no language
+    /// of its own to be written in.
     ///
     /// The active language is passed in rather than read from
     /// `Localization.shared` here. `PillMenu` takes a plain `(T) -> String`, so
@@ -53,18 +72,38 @@ enum LanguageSetting: String, CaseIterable, Sendable {
     /// view's body without a concurrency error; taking the value as an
     /// argument keeps this a pure function of its inputs, which is also what
     /// makes it checkable without a running app.
-    /// The two fixed names are literals here rather than table entries: they
+    ///
+    /// The three fixed names are literals here rather than table entries: they
     /// are the *names of languages*, and the table's job is copy that changes
     /// meaning under translation. `.system` has no such name of its own, so it
     /// is the one that lives in the table and follows the active language.
+    ///
+    /// The script tags in the Chinese labels are not decoration. Someone whose
+    /// system is set to `zh-HK` and who is looking at an interface they cannot
+    /// read needs to know which of the two Chinese entries is theirs, and
+    /// 简体中文 / 繁體中文 is the shortest honest answer; `zh-Hans` / `zh-Hant`
+    /// is what the rest of the system calls them, and someone who has been
+    /// through a language picker before recognises it.
     nonisolated func label(in active: Language) -> String {
         switch self {
         case .system:
-            return active == .simplifiedChinese
-                ? S.languageFollowSystem.simplifiedChinese
-                : S.languageFollowSystem.english
+            return L(.languageFollowSystem, in: active)
         case .english: return "English"
         case .simplifiedChinese: return "简体中文 (zh-Hans)"
+        case .traditionalChinese: return "繁體中文 (zh-Hant)"
+        }
+    }
+
+    /// The language this setting asks for, or `nil` when it defers to the
+    /// system. The one place the setting and the language are related; both
+    /// `Localization.resolved` and `label(in:)` read it rather than repeating
+    /// the switch, so a fourth language arrives in one place.
+    nonisolated var explicit: Language? {
+        switch self {
+        case .system: nil
+        case .english: .english
+        case .simplifiedChinese: .simplifiedChinese
+        case .traditionalChinese: .traditionalChinese
         }
     }
 }
@@ -104,11 +143,7 @@ final class Localization {
     /// `@Observable` dependency — a stored property would work too, but this
     /// keeps the derivation in one place.
     var resolved: Language {
-        switch language {
-        case .english: return .english
-        case .simplifiedChinese: return .simplifiedChinese
-        case .system: return Self.resolve(Self.systemPreferredLanguages)
-        }
+        language.explicit ?? Self.resolve(Self.systemPreferredLanguages)
     }
 
     /// The user's preferred languages, read **once**.
@@ -157,15 +192,12 @@ final class Localization {
     /// wins — the system's own rule, and the reason the check is per-tag rather
     /// than a scan of the whole list.
     ///
-    /// A traditional-Chinese tag is **not** a match for Simplified. The app
-    /// ships no `zh-Hant` copy, and silently showing a Taiwanese reader
-    /// Simplified because it is the nearest thing available is worse than
-    /// showing them English: English is at least a language they chose to read,
-    /// and the two scripts are not the same reading experience for someone who
-    /// cannot read one of them. So `["zh-Hant"]` alone falls through to
-    /// English, while `["zh-Hant", "zh-Hans"]` reaches Simplified on its second
-    /// tag — that second tag is a real statement of preference, and honouring
-    /// it is not the same thing as assuming it.
+    /// A traditional-Chinese tag is no longer a near-miss for Simplified: since
+    /// 2026-11-10 the app has `zh-Hant` copy of its own, so `["zh-Hant"]` alone
+    /// reaches Traditional, and `["zh-Hant", "zh-Hans"]` reaches Traditional on
+    /// its first tag and never looks at the second. What has *not* changed is
+    /// that the two scripts are never substituted for each other: a tag is
+    /// answered by the language it names or by nothing.
     ///
     /// Pure and `nonisolated` on purpose: every branch below is checkable by
     /// passing a list of tags, without a running app or a system to configure.
@@ -187,14 +219,20 @@ final class Localization {
             return .english
         case "zh":
             // Script beats region when both are present: `zh-Hans-TW` is
-            // Simplified and `zh-Hant-CN` is not ours.
-            if parts.contains("hant") { return nil }
+            // Simplified and `zh-Hant-CN` is Traditional. A tag that names a
+            // script is a direct statement of which one the reader wants, so
+            // it is answered before the region is consulted at all.
+            if parts.contains("hant") { return .traditionalChinese }
             if parts.contains("hans") { return .simplifiedChinese }
-            // No script given, so the region decides — and only the regions
-            // that are Simplified by default are claimed. `zh-TW`, `zh-HK` and
-            // `zh-MO` are traditional and fall through unmatched, which is
-            // what sends them to English.
-            if parts.contains("tw") || parts.contains("hk") || parts.contains("mo") { return nil }
+            // No script given, so the region decides. `zh-TW`, `zh-HK` and
+            // `zh-MO` are the traditional regions and are now answered
+            // directly rather than falling through — macOS writes a bare
+            // `zh-TW` for a system whose language list came from a region
+            // picker, and that is as clear a statement of preference as
+            // `zh-Hant` is.
+            if parts.contains("tw") || parts.contains("hk") || parts.contains("mo") {
+                return .traditionalChinese
+            }
             // Bare `zh` and the remaining regions: Simplified. macOS writes a
             // bare `zh` when the script is unstated, and Simplified is the
             // majority reading of an unstated `zh`.

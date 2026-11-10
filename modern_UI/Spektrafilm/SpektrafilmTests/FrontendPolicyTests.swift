@@ -154,6 +154,7 @@ final class RenderSchedulerTests: XCTestCase {
         XCTAssertEqual(scheduler.sent, edit)
     }
 
+    @MainActor
     func testMissingSavedMaterialExplainsRecoveryWithoutExposingPaths() {
         let stock = "missing_saved_film"
         let raw = "no profile '\(stock)' (cannot open /private/photo/material.json)"

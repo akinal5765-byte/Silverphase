@@ -7,11 +7,13 @@ enum MobileCameraPreviewMode: String, CaseIterable, Sendable {
     case system, approximate, native
     static let key = "mobile.camera.previewMode"
     static let defaultMigrationKey = "mobile.camera.approximateDefault.v1"
-    var title: String {
+    /// The picker's label. `@MainActor` because the copy comes from the
+    /// language setting; every read of it is in a view or a settings form.
+    @MainActor var title: String {
         switch self {
-        case .system: "系统取景（关闭效果）"
-        case .approximate: "流畅近似预览"
-        case .native: "原生引擎预览（实验）"
+        case .system: T("System viewfinder (no effects)", "系统取景（关闭效果）", "系統取景（關閉效果）")
+        case .approximate: T("Smooth approximate preview", "流畅近似预览", "流暢近似預覽")
+        case .native: T("Native engine preview (experimental)", "原生引擎预览（实验）", "原生引擎預覽（實驗）")
         }
     }
     static func initial(in defaults: UserDefaults = .standard) -> Self {
@@ -168,19 +170,19 @@ actor MobileCameraLookEngine {
                 recipe: MobileCameraRecipe, longEdge: Int) throws -> MobileCameraLookResult {
         try autoreleasepool {
             try Task.checkCancellation(); try workGate.check()
-            guard let device else { throw MobileFailure.message("没有 Metal 设备") }
+            guard let device else { throw MobileFailure.message(TDetached("No Metal device", "没有 Metal 设备", "沒有 Metal 設備")) }
             if engine == nil {
                 guard let resources = Bundle.main.url(forResource: "engine", withExtension: nil,
                                                        subdirectory: StockCatalog.resourceDirectory) else {
-                    throw MobileFailure.message("缺少随包引擎资源")
+                    throw MobileFailure.message(TDetached("The bundled engine resources are missing", "缺少随包引擎资源", "缺少隨包引擎資源"))
                 }
                 engine = spk_engine_create(resources.path, Unmanaged.passUnretained(device as AnyObject).toOpaque())
             }
-            guard let engine else { throw MobileFailure.message("无法准备胶片预览") }
+            guard let engine else { throw MobileFailure.message(TDetached("The film preview could not be prepared", "无法准备胶片预览", "無法準備膠片預覽")) }
             if context == nil { context = MobileInputColor.context(device: device) }
             if colors == nil { colors = try MobileColorPipeline(device: device) }
             guard let context, let colors, let linear = MobileInputColor.linearProPhoto() else {
-                throw MobileFailure.message("无法准备输入颜色空间")
+                throw MobileFailure.message(TDetached("The input colour space could not be prepared", "无法准备输入颜色空间", "無法準備輸入顏色空間"))
             }
             let source = MobileCameraLookGeometry.orientedImage(frame, angle: angle, mirrored: mirrored)
             // Metering sees a stable 1600px sensor frame, independently of the
@@ -198,7 +200,7 @@ actor MobileCameraLookEngine {
                 inputBuffer = device.makeBuffer(length: width * height * 16, options: .storageModeShared)
             }
             guard let buffer = inputBuffer else {
-                throw MobileFailure.message("胶片预览内存不足")
+                throw MobileFailure.message(TDetached("Not enough memory for the film preview", "胶片预览内存不足", "膠片預覽記憶體不足"))
             }
             // The exact same ColorSync/linear ProPhoto boundary as file decode.
             context.render(image, toBitmap: buffer.contents(), rowBytes: width * 16,
@@ -226,7 +228,7 @@ actor MobileCameraLookEngine {
                 }
                 session = opened; sessionRecipe = recipe; sessionSize = size
             }
-            guard let session else { throw MobileFailure.message("无法准备连续取景") }
+            guard let session else { throw MobileFailure.message(TDetached("Continuous preview could not be prepared", "无法准备连续取景", "無法準備連續取景")) }
             workGate.register(session)
             defer {
                 workGate.register(nil)
@@ -259,7 +261,7 @@ actor MobileCameraLookEngine {
                     bitsPerPixel: 64, bytesPerRow: Int(output.row_stride_px) * 8, space: space,
                     bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
                     provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else {
-                throw MobileFailure.message("无法读取胶片预览")
+                throw MobileFailure.message(TDetached("The film preview could not be read", "无法读取胶片预览", "無法讀取膠片預覽"))
             }
             let display = try colors.convert(working, engine: engine, target: .p3)
             try Task.checkCancellation(); try workGate.check()

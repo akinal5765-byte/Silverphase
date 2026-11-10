@@ -132,7 +132,7 @@ struct PrintProfileSection: View {
     /// The print's own parameters, on the right rail.
     private var paramSection: some View {
         PanelSection(L(.sectionPrint), key: "print",
-                     blockTitle: T("Exposure & Filtration", "曝光与滤色"),
+                     blockTitle: T("Exposure & Filtration", "曝光与滤色", "曝光與濾色"),
                      menu: { AnyView(menu) }) {
             VStack(alignment: .leading, spacing: 0) {
                 RailRows {
@@ -143,14 +143,14 @@ struct PrintProfileSection: View {
                                 format: { String(format: "%+.2f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                     if StockCatalog.canonicalID(session.params.printStock) == "ilford_multigrade_iv_rc" {
-                        PillMenu(label: T("Paper Grade", "相纸等级"),
+                        PillMenu(label: T("Paper Grade", "相纸等级", "相紙等級"),
                                  options: PaperGrade.allCases,
                                  title: { $0.rawValue },
                                  selection: Binding(get: { session.params.paperGrade },
                                                     set: { var p = session.params; p.paperGrade = $0; session.params = p }))
                             .disabled(session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive)
                             .help(T("00 is softest; 5 is hardest. Exposure compensation is applied automatically. Default: 2.",
-                                    "00 最柔和，5 反差最高；自动补偿等级对应的曝光。默认 2 级。"))
+                                    "00 最柔和，5 反差最高；自动补偿等级对应的曝光。默认 2 级。", "00 最柔和，5 反差最高；自動補償等級對應的曝光。預設 2 級。"))
                     }
                     ScrubSlider(label: L(.printContrast),
                                 value: Binding(get: { session.params.printContrast },
@@ -165,14 +165,14 @@ struct PrintProfileSection: View {
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive || session.paperIsMonochrome)
-                        .help(T("Use Paper Grade to control Multigrade filtration.", "使用相纸等级控制 Multigrade 滤色。"))
+                        .help(T("Use Paper Grade to control Multigrade filtration.", "使用相纸等级控制 Multigrade 滤色。", "使用相紙等級控制 Multigrade 濾色。"))
                     ScrubSlider(label: L(.printMagenta), sublabel: "Kodak CC",
                                 value: Binding(get: { session.params.mFilterShift },
                                                set: { var p = session.params; p.mFilterShift = $0; session.params = p }),
                                 range: -50...50, snap: 1,
                                 format: { String(format: "%+.1f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive || session.paperIsMonochrome)
-                        .help(T("Use Paper Grade to control Multigrade filtration.", "使用相纸等级控制 Multigrade 滤色。"))
+                        .help(T("Use Paper Grade to control Multigrade filtration.", "使用相纸等级控制 Multigrade 滤色。", "使用相紙等級控制 Multigrade 濾色。"))
                     ScrubSlider(label: L(.printPreflash),
                                 value: Binding(get: { session.params.preflashExposure },
                                                set: { var p = session.params; p.preflashExposure = $0; session.params = p }),
@@ -182,7 +182,7 @@ struct PrintProfileSection: View {
                                 format: { String(format: "%.3f", $0) },
                                 disabled: session.params.scanFilm || filmIsPositive || session.digitalIntermediateActive, resolution: 0.001)
                 }
-                InspectorSubblock(title: T("Optical Diffusion", "光学柔化")) {
+                InspectorSubblock(title: T("Optical Diffusion", "光学柔化", "光學柔化")) {
                     RailRows {
                         PillMenu(label: L(.enlargerDiffusion), options: DiffusionChoice.allCases,
                                  title: { $0.title },

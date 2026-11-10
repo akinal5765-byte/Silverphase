@@ -12,7 +12,7 @@ struct MobileCameraExposureSummary: Codable, Sendable {
     static func make(_ values: [Double], aspect: Double) throws -> Self {
         guard !values.isEmpty, aspect.isFinite, aspect > 0,
               values.allSatisfy({ $0.isFinite && $0 >= 0 }) else {
-            throw MobileFailure.message("曝光诊断输入无效")
+            throw MobileFailure.message(TDetached("The exposure diagnostic input is invalid", "曝光诊断输入无效", "曝光診斷輸入無效"))
         }
         let sorted = values.sorted()
         return Self(aspect: max(aspect, 1 / aspect), percentiles: [1, 10, 25, 50, 75, 90, 99].map { sorted[$0 * (sorted.count - 1) / 100] })
@@ -36,7 +36,7 @@ enum MobileCameraExposureProbe {
     static func summarize(_ image: CIImage, context: CIContext) throws -> MobileCameraExposureSummary {
         let extent = image.extent
         guard !extent.isEmpty, !extent.isInfinite, let linear = MobileInputColor.linearProPhoto() else {
-            throw MobileFailure.message("曝光诊断画面无效")
+            throw MobileFailure.message(TDetached("The exposure diagnostic frame is invalid", "曝光诊断画面无效", "曝光診斷畫面無效"))
         }
         let placed = image.transformed(by: .init(translationX: -extent.minX, y: -extent.minY))
             .transformed(by: .init(scaleX: 64 / extent.width, y: 64 / extent.height))
@@ -53,7 +53,7 @@ enum MobileCameraExposureProbe {
         let report = URL.documentsDirectory.appendingPathComponent("camera-exposure-checks.json")
         var checks: [String] = []
         do {
-            guard let device = MTLCreateSystemDefaultDevice() else { throw MobileFailure.message("没有 Metal 设备") }
+            guard let device = MTLCreateSystemDefaultDevice() else { throw MobileFailure.message(TDetached("No Metal device", "没有 Metal 设备", "沒有 Metal 設備")) }
             let context = MobileInputColor.context(device: device)
             defer { context.clearCaches() }
             func image(_ value: Float, space: CGColorSpace) -> CIImage {
@@ -65,12 +65,12 @@ enum MobileCameraExposureProbe {
             let linear = try summarize(image(0.21404114, space: CGColorSpace(name: CGColorSpace.linearSRGB)!), context: context)
             guard abs(encoded.percentiles[3] - 0.21404114) < 0.001,
                   abs((MobileCameraExposureSummary.compare(raw: linear, video: encoded)["medianEV"] as? Double) ?? 10) < 0.01 else {
-                throw MobileFailure.message("编码／线性输入的曝光统计不一致")
+                throw MobileFailure.message(TDetached("The exposure statistics disagree between the encoded and linear inputs", "编码／线性输入的曝光统计不一致", "編碼／線性輸入的曝光統計不一致"))
             }
             checks.append("sRGB encoded 0.5 and linear 0.21404114 produce the same measured scene luminance; no double gamma")
             let half = try summarize(image(0.10702057, space: CGColorSpace(name: CGColorSpace.linearSRGB)!), context: context)
             guard abs(((MobileCameraExposureSummary.compare(raw: half, video: encoded)["medianEV"] as? Double) ?? 10) + 1) < 0.01 else {
-                throw MobileFailure.message("实际 CI 输入的一档亮度差方向错误")
+                throw MobileFailure.message(TDetached("A one-stop brightness difference reads in the wrong direction on the actual Core Image input", "实际 CI 输入的一档亮度差方向错误", "實際 CI 輸入的一檔亮度差方向錯誤"))
             }
             checks.append("actual ColorSync/CI measurement reports raw input one stop darker with the correct sign")
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks,
@@ -91,15 +91,15 @@ enum MobileCameraExposureProbe {
                 "scope": "near-shutter video vs original RAW input statistics; no images/GPS, no automatic correction"]
             do {
                 guard shutterUptime - frame.receivedUptime >= 0, shutterUptime - frame.receivedUptime < 0.25 else {
-                    throw MobileFailure.message("快门前的视频帧已过期")
+                    throw MobileFailure.message(TDetached("The video frame before the shutter is stale", "快门前的视频帧已过期", "快門前的影片幀已過期"))
                 }
                 guard let source = CGImageSourceCreateWithData(rawData as CFData, nil),
                       let raw = CIRAWFilter(imageData: rawData, identifierHint: CGImageSourceGetType(source) as String?),
-                      let device = MTLCreateSystemDefaultDevice() else { throw MobileFailure.message("无法准备 RAW 输入对照") }
+                      let device = MTLCreateSystemDefaultDevice() else { throw MobileFailure.message(TDetached("The RAW input reference could not be prepared", "无法准备 RAW 输入对照", "無法準備 RAW 輸入對照")) }
                 raw.scaleFactor = Float(min(1, 256 / max(raw.nativeSize.width, raw.nativeSize.height)))
                 raw.isDraftModeEnabled = false; raw.isLensCorrectionEnabled = false
                 MobileInputColor.prepareSceneLinearRAW(raw)
-                guard let image = raw.outputImage else { throw MobileFailure.message("RAW 输入对照解码失败") }
+                guard let image = raw.outputImage else { throw MobileFailure.message(TDetached("The RAW input reference failed to decode", "RAW 输入对照解码失败", "RAW 輸入對照解碼失敗")) }
                 let context = MobileInputColor.context(device: device)
                 defer { context.clearCaches() }
                 let video = try summarize(MobileCameraLookGeometry.orientedImage(frame, angle: angle, mirrored: mirrored), context: context)

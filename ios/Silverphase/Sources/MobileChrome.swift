@@ -48,7 +48,7 @@ struct ChoiceOverlay: View {
                         HStack {
                             Text(choice.title).font(EditorDesign.noticeTitle)
                             Spacer()
-                            ChromeButton(title: "关闭", symbol: "xmark") { overlays.choice = nil }
+                            ChromeButton(title: T("Close", "关闭", "關閉"), symbol: "xmark") { overlays.choice = nil }
                         }.padding(.leading, 12)
                         Rectangle().fill(MobileStyle.rule).frame(height: 1)
                         ScrollView {

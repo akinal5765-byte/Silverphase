@@ -69,7 +69,7 @@ actor MobileDetailRenderer {
         if source == nil || sourceURL != url || self.recipe != recipe || self.geometry != geometry || sourceMP < mp * 0.9999 {
             source = nil
             guard Double(os_proc_available_memory()) > (mp * 70 + 600) * 1e6 else {
-                throw MobileFailure.message("当前内存不足以载入原始细节，保留现有预览")
+                throw MobileFailure.message(TDetached("Not enough memory to load the original detail; keeping the current preview", "当前内存不足以载入原始细节，保留现有预览", "目前記憶體不足以載入原始細節，保留現有預覽"))
             }
             var settings = recipe
             settings["_exporting"] = .bool(true) // bounded bands; no full-size before image
@@ -104,7 +104,7 @@ actor MobileDetailRenderer {
         guard w > 0, h > 0, x >= 0, y >= 0, x + w <= source.width, y + h <= source.height,
               source.bitsPerComponent == 16, source.bitsPerPixel == 64, let bytes = source.dataProvider?.data,
               let base = CFDataGetBytePtr(bytes), CFDataGetLength(bytes) >= source.bytesPerRow * source.height else {
-            throw MobileFailure.message("无法读取细节预览像素")
+            throw MobileFailure.message(TDetached("The detail preview pixels could not be read", "无法读取细节预览像素", "無法讀取細節預覽像素"))
         }
         var packed = Data(count: w * h * 8)
         packed.withUnsafeMutableBytes { destination in
@@ -115,7 +115,7 @@ actor MobileDetailRenderer {
         guard let provider = CGDataProvider(data: packed as CFData), let space = source.colorSpace,
               let output = CGImage(width: w, height: h, bitsPerComponent: 16, bitsPerPixel: 64, bytesPerRow: w * 8,
                                    space: space, bitmapInfo: source.bitmapInfo, provider: provider, decode: nil,
-                                   shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message("无法创建细节预览") }
+                                   shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message(TDetached("The detail preview could not be created", "无法创建细节预览", "無法創建細節預覽")) }
         return output
     }
 }

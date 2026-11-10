@@ -185,7 +185,7 @@ struct TopBar: View {
             clusterDivider()
             ZStack {
                 if session.isLightroomEditing {
-                    Button(T("Save", "保存")) {
+                    Button(T("Save", "保存", "儲存")) {
                         Task {
                             if await session.saveAndReturnToLightroom() { dismissWindow(id: "editor") }
                         }
@@ -193,7 +193,7 @@ struct TopBar: View {
                     .buttonStyle(.primarySurface)
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(!session.canSaveToLightroom)
-                    .help(T("Save to Lightroom and close", "保存到 Lightroom 并关闭窗口"))
+                    .help(T("Save to Lightroom and close", "保存到 Lightroom 并关闭窗口", "儲存到 Lightroom 並關閉視窗"))
                 } else if session.negativePending {
                     Button { session.printNegative() } label: {
                         Text(L(.actionPrintNegative))
@@ -223,8 +223,8 @@ struct TopBar: View {
                     VStack(spacing: Theme.Metric.space2) {
                         Text(session.modernBatchGridActive
                              ? T("\(session.selectedFrames.count) photos selected",
-                                 "已选 \(session.selectedFrames.count) 张照片")
-                             : (session.lightroomDestination ?? session.selection)?.lastPathComponent ?? T("Preview", "预览"))
+                                 "已选 \(session.selectedFrames.count) 张照片", "已選 \(session.selectedFrames.count) 張照片")
+                             : (session.lightroomDestination ?? session.selection)?.lastPathComponent ?? T("Preview", "预览", "預覽"))
                             .font(Theme.Font.railTitle)
                             .foregroundStyle(Theme.Ink.primary)
                             .lineLimit(1)
@@ -236,8 +236,8 @@ struct TopBar: View {
                             }
                             Text(session.modernBatchGridActive
                                  ? (session.exportProgress == nil
-                                    ? T("Ready for batch export", "可批量导出")
-                                    : T("Exporting batch…", "正在批量导出…"))
+                                    ? T("Ready for batch export", "可批量导出", "可批量匯出")
+                                    : T("Exporting batch…", "正在批量导出…", "正在批量匯出…"))
                                  : documentDetail)
                                 .font(Theme.Font.caption)
                                 .foregroundStyle(session.stockWarning == nil ? Theme.Ink.tertiary : Theme.accent)
@@ -392,8 +392,8 @@ struct TopBar: View {
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .help(session.isFit
               ? T("Fitted to the window — \(session.zoomPercent) % (⌘0)",
-                  "适合窗口 — \(session.zoomPercent) % (⌘0)")
-              : T("Zoom — \(session.zoomPercent) %", "缩放 — \(session.zoomPercent) %"))
+                  "适合窗口 — \(session.zoomPercent) % (⌘0)", "適合視窗 — \(session.zoomPercent) % (⌘0)")
+              : T("Zoom — \(session.zoomPercent) %", "缩放 — \(session.zoomPercent) %", "縮放 — \(session.zoomPercent) %"))
     }
 }
 

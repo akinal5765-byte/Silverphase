@@ -20,16 +20,18 @@ enum MobileCameraLens: String, Identifiable, Sendable {
     case ultraWide, wide, wide35, wideCrop, wideCrop3, telephoto, telephotoCrop8, front
 
     var id: Self { self }
-    var title: String {
+    /// `@MainActor` because two of the lens names are copy; the rest are
+    /// magnifications, which do not translate.
+    @MainActor var title: String {
         switch self {
-        case .ultraWide: "超广角"
+        case .ultraWide: T("Ultra Wide", "超广角", "超廣角")
         case .wide: "1×"
         case .wide35: "35 mm"
         case .wideCrop: "2×"
         case .wideCrop3: "3×"
-        case .telephoto: "长焦"
+        case .telephoto: T("Telephoto", "长焦", "長焦")
         case .telephotoCrop8: "8×"
-        case .front: "前置"
+        case .front: T("Front", "前置", "前置")
         }
     }
     var transitionValue: Double? {
@@ -192,7 +194,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     self.lookFrames.beginConfiguration()
 #endif
                     if portrait && !self.output.isDepthDataDeliveryEnabled {
-                        throw MobileFailure.message("当前镜头或拍摄配置不支持人像深度。")
+                        throw MobileFailure.message(TDetached("The current lens or capture configuration does not support portrait depth.", "当前镜头或拍摄配置不支持人像深度。", "目前鏡頭或拍攝設定檔不支援人像深度。"))
                     }
                     if !self.session.isRunning {
 #if !SILVERPHASE_APP
@@ -204,7 +206,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                         log.notice("Session start returned, running: \(self.session.isRunning)")
 #endif
                     }
-                    guard self.session.isRunning else { throw MobileFailure.message("无法启动相机") }
+                    guard self.session.isRunning else { throw MobileFailure.message(TDetached("The camera could not be started", "无法启动相机", "無法啟動相機")) }
                     try self.applyControls(lens: lens, exposure: exposure, device: device, rampsZoom: rampsZoom)
                     if rampsZoom {
                         self.finishZoom(lens: lens, exposure: exposure, request: self.focusRequest,
@@ -264,7 +266,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
 
     private func configure(lens: MobileCameraLens, portrait: Bool) throws -> AVCaptureDevice {
         guard let device = portrait ? portraitDevice(for: lens) : lens.physicalLens.findDevice() else {
-            throw MobileFailure.message("此设备没有所选镜头")
+            throw MobileFailure.message(TDetached("This device has no lens of that kind", "此设备没有所选镜头", "此設備沒有所選鏡頭"))
         }
         if input?.device.uniqueID != device.uniqueID || portraitCapture != portrait {
             let next = try AVCaptureDeviceInput(device: device)
@@ -285,14 +287,14 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             input = nil
             activeLens = nil
             guard session.canAddInput(next) else {
-                throw MobileFailure.message("无法切换镜头")
+                throw MobileFailure.message(TDetached("The lens could not be switched", "无法切换镜头", "無法切換鏡頭"))
             }
             session.addInput(next)
             if session.canSetSessionPreset(.photo) { session.sessionPreset = .photo }
             let nextOutput = AVCapturePhotoOutput()
             guard session.canAddOutput(nextOutput) else {
                 session.removeInput(next)
-                throw MobileFailure.message("无法配置照片输出")
+                throw MobileFailure.message(TDetached("The photo output could not be configured", "无法配置照片输出", "無法設定檔照片輸出"))
             }
             session.addOutput(nextOutput)
             let frames = AVCaptureVideoDataOutput()
@@ -347,7 +349,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             default: zoom = 1
             }
             guard let zoom, (device.minAvailableVideoZoomFactor...device.maxAvailableVideoZoomFactor).contains(zoom) else {
-                throw MobileFailure.message("当前镜头不支持该焦段")
+                throw MobileFailure.message(TDetached("The current lens does not support that focal length", "当前镜头不支持该焦段", "目前鏡頭不支援該焦段"))
             }
             if device.isRampingVideoZoom { device.cancelVideoZoomRamp() }
             if device.videoZoomFactor != zoom {
@@ -495,7 +497,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                             location: MobileCaptureLocation? = nil) async throws -> (data: Data, format: MobileCaptureFormat) {
         let angle: CGFloat?
         if #available(iOS 27, *), let pose {
-            guard let rotation else { throw MobileFailure.message("相机拍摄方向尚未准备好，请重试。") }
+            guard let rotation else { throw MobileFailure.message(TDetached("The capture orientation is not ready yet. Try again.", "相机拍摄方向尚未准备好，请重试。", "相機拍攝方向尚未準備好，請重試。")) }
             // Capture uses the physical pose latched at shutter press.
             // AVFoundation resolves the sensor's mounting; never infer capture
             // orientation from the rotating extension host or the preview layer.
@@ -508,7 +510,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 guard self.session.isRunning, let connection = self.output.connection(with: .video),
                       connection.isActive, self.captureDelegate == nil,
                       self.portraitCapture == portrait, !portrait || self.output.isDepthDataDeliveryEnabled else {
-                    continuation.resume(throwing: MobileFailure.message("相机尚未准备好"))
+                    continuation.resume(throwing: MobileFailure.message(TDetached("The camera is not ready", "相机尚未准备好", "相機尚未準備好")))
                     return
                 }
                 // RAW availability can change after the startup or lens configuration snapshot.
@@ -517,7 +519,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     if connection.isVideoRotationAngleSupported(angle) {
                         connection.videoRotationAngle = angle
                     } else if pose != nil {
-                        continuation.resume(throwing: MobileFailure.message("当前相机不支持本次拍摄方向。"))
+                        continuation.resume(throwing: MobileFailure.message(TDetached("The camera does not support this capture orientation.", "当前相机不支持本次拍摄方向。", "目前相機不支援本次拍攝方向。")))
                         return
                     }
                 }
@@ -534,7 +536,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                         : AVCapturePhotoOutput.isBayerRAWPixelFormat($0)
                     }
                     guard let raw else {
-                        continuation.resume(throwing: MobileFailure.message("当前相机不支持所选 RAW 格式"))
+                        continuation.resume(throwing: MobileFailure.message(TDetached("The camera does not support the selected RAW format", "当前相机不支持所选 RAW 格式", "目前相機不支援所選 RAW 格式")))
                         return
                     }
                     settings = AVCapturePhotoSettings(rawPixelFormatType: raw)
@@ -550,7 +552,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     settings.isPortraitEffectsMatteDeliveryEnabled = self.output.isPortraitEffectsMatteDeliveryEnabled
                 }
                 if flash == .on, self.input?.device.isFlashAvailable != true {
-                    continuation.resume(throwing: MobileFailure.message("闪光灯暂时不可用，请关闭闪光灯后重试"))
+                    continuation.resume(throwing: MobileFailure.message(TDetached("The flash is unavailable. Turn it off and try again.", "闪光灯暂时不可用，请关闭闪光灯后重试", "閃光燈暫時不可用，請關閉閃光燈後重試")))
                     return
                 }
                 if self.output.supportedFlashModes.contains(flash) { settings.flashMode = flash }
@@ -598,7 +600,7 @@ private final class StillCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
         if let error = error ?? processingError { finish(.failure(error)) }
         else if let data { finish(.success(data)) }
-        else { finish(.failure(MobileFailure.message("相机未返回原片"))) }
+        else { finish(.failure(MobileFailure.message(TDetached("The camera did not return an original", "相机未返回原片", "相機未返回原片")))) }
     }
 }
 

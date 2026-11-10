@@ -16,23 +16,23 @@ struct CopySettingsDialog: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metric.space20) {
             VStack(alignment: .leading, spacing: Theme.Metric.space4) {
-                Text(T("Copy Settings", "复制设置"))
+                Text(T("Copy Settings", "复制设置", "複製設定"))
                     .font(Theme.Font.railTitle).foregroundStyle(Theme.Ink.primary)
                 Text(T("Copy the following settings from \(request.sourceName).",
-                       "从 \(request.sourceName) 复制以下设置。")).font(Theme.Font.caption)
+                       "从 \(request.sourceName) 复制以下设置。", "從 \(request.sourceName) 複製以下設定。")).font(Theme.Font.caption)
                     .foregroundStyle(Theme.Ink.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: Theme.Metric.space12) {
                 HStack(spacing: Theme.Metric.space12) {
-                    Text(T("Select Settings", "选择设置"))
+                    Text(T("Select Settings", "选择设置", "選擇設定"))
                         .font(Theme.Font.modernSectionTitle).foregroundStyle(Theme.Ink.primary)
                     Spacer()
-                    Button(T("Select All", "全选")) { groups = Set(ClipboardGroup.offered) }
+                    Button(T("Select All", "全选", "全選")) { groups = Set(ClipboardGroup.offered) }
                         .buttonStyle(.plain).font(Theme.Font.label).foregroundStyle(Theme.accent)
                     Rectangle().fill(Theme.ruleSoft)
                         .frame(width: Theme.Metric.rule, height: Theme.Metric.gridControl)
-                    Button(T("Clear", "清除")) { groups.removeAll() }
+                    Button(T("Clear", "清除", "清除")) { groups.removeAll() }
                         .buttonStyle(.plain).font(Theme.Font.label).foregroundStyle(Theme.Ink.secondary)
                 }
                 Rectangle().fill(Theme.ruleSoft).frame(height: Theme.Metric.rule)
@@ -46,10 +46,10 @@ struct CopySettingsDialog: View {
             }
             Rectangle().fill(Theme.ruleSoft).frame(height: Theme.Metric.rule)
             HStack(spacing: Theme.Metric.space12) {
-                Text(T("\(groups.count) selected", "已选 \(groups.count) 项"))
+                Text(T("\(groups.count) selected", "已选 \(groups.count) 项", "已選 \(groups.count) 項"))
                     .font(Theme.Font.caption).foregroundStyle(Theme.Ink.tertiary)
                 Spacer()
-                Button(T("Cancel", "取消")) { dismiss() }
+                Button(T("Cancel", "取消", "取消")) { dismiss() }
                     .buttonStyle(.surface)
                     .keyboardShortcut(.cancelAction)
                 Button(L(.clipCopy)) {
@@ -72,7 +72,7 @@ struct CopySettingsDialog: View {
                     if on { groups.insert(group) } else { groups.remove(group) }
                 }))
                 .accessibilityLabel(group.title)
-                .accessibilityValue(groups.contains(group) ? T("Selected", "已选") : T("Not selected", "未选"))
+                .accessibilityValue(groups.contains(group) ? T("Selected", "已选", "已選") : T("Not selected", "未选", "未選"))
             Button {
                 if groups.contains(group) { groups.remove(group) } else { groups.insert(group) }
             } label: {

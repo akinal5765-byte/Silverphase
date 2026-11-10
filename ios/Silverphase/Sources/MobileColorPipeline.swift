@@ -14,25 +14,25 @@ final class MobileColorPipeline {
     init(device: MTLDevice) throws {
         self.device = device
         guard let queue = device.makeCommandQueue(),
-              let url = Bundle.main.url(forResource: "SilverphaseUI", withExtension: "metallib", subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message("缺少输出色彩着色器") }
+              let url = Bundle.main.url(forResource: "SilverphaseUI", withExtension: "metallib", subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message(TDetached("The output colour shader is missing", "缺少输出色彩着色器", "缺少輸出色彩著色器")) }
         self.queue = queue
         let library = try device.makeLibrary(URL: url)
-        guard let output = library.makeFunction(name: "outputTransform"), let view = library.makeFunction(name: "mobileCineonView") else { throw MobileFailure.message("无法创建输出色彩着色器") }
+        guard let output = library.makeFunction(name: "outputTransform"), let view = library.makeFunction(name: "mobileCineonView") else { throw MobileFailure.message(TDetached("The output colour shader could not be created", "无法创建输出色彩着色器", "無法創建輸出色彩著色器")) }
         transform = try device.makeComputePipelineState(function: output)
         cineon = try device.makeComputePipelineState(function: view)
     }
     private func texture(_ image: CGImage) throws -> MTLTexture {
-        guard image.bitsPerComponent == 16, let bytes = image.dataProvider?.data else { throw MobileFailure.message("输出输入必须为16位") }
+        guard image.bitsPerComponent == 16, let bytes = image.dataProvider?.data else { throw MobileFailure.message(TDetached("Colour output input must be 16-bit", "输出输入必须为16位", "輸出輸入必須為16位")) }
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: image.width, height: image.height, mipmapped: false)
         d.storageMode = .shared; d.usage = [.shaderRead, .shaderWrite]
-        guard let t = device.makeTexture(descriptor: d), let p = CFDataGetBytePtr(bytes) else { throw MobileFailure.message("无法分配输出色彩纹理") }
+        guard let t = device.makeTexture(descriptor: d), let p = CFDataGetBytePtr(bytes) else { throw MobileFailure.message(TDetached("The output colour texture could not be allocated", "无法分配输出色彩纹理", "無法分配輸出色彩紋理")) }
         t.replace(region: MTLRegionMake2D(0, 0, image.width, image.height), mipmapLevel: 0, withBytes: p, bytesPerRow: image.bytesPerRow)
         return t
     }
     private func output(_ src: MTLTexture) throws -> MTLTexture {
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: src.width, height: src.height, mipmapped: false)
         d.storageMode = .shared; d.usage = [.shaderRead, .shaderWrite]
-        guard let value = device.makeTexture(descriptor: d) else { throw MobileFailure.message("输出色彩纹理内存不足") }
+        guard let value = device.makeTexture(descriptor: d) else { throw MobileFailure.message(TDetached("Not enough memory for the output colour texture", "输出色彩纹理内存不足", "輸出色彩紋理記憶體不足")) }
         return value
     }
     private func image(_ texture: MTLTexture, space: CGColorSpace) throws -> CGImage {
@@ -40,11 +40,11 @@ final class MobileColorPipeline {
         bytes.withUnsafeMutableBytes { p in texture.getBytes(p.baseAddress!, bytesPerRow: texture.width * 8, from: MTLRegionMake2D(0, 0, texture.width, texture.height), mipmapLevel: 0) }
         guard let provider = CGDataProvider(data: bytes as CFData),
               let image = CGImage(width: texture.width, height: texture.height, bitsPerComponent: 16, bitsPerPixel: 64, bytesPerRow: texture.width * 8, space: space,
-                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little), provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message("无法创建输出图像") }
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little), provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message(TDetached("The output image could not be created", "无法创建输出图像", "無法創建輸出影像")) }
         return image
     }
     private func dispatch(_ pipeline: MTLComputePipelineState, source: MTLTexture, destination: MTLTexture, encode: (MTLComputeCommandEncoder) -> Void) throws {
-        guard let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder() else { throw MobileFailure.message("无法提交输出色彩处理") }
+        guard let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder() else { throw MobileFailure.message(TDetached("The output colour pass could not be submitted", "无法提交输出色彩处理", "無法提交輸出色彩處理")) }
         encoder.setComputePipelineState(pipeline)
         encoder.setTexture(source, index: 0); encoder.setTexture(destination, index: 1)
         encode(encoder)
@@ -60,7 +60,7 @@ final class MobileColorPipeline {
         if target == .prophoto { return source }
         let setup = try outputSetup(engine: engine, target: target)
         let src = try texture(source), dst = try output(src)
-        guard let stats = device.makeBuffer(length: 16, options: .storageModeShared) else { throw MobileFailure.message("无法分配输出统计") }
+        guard let stats = device.makeBuffer(length: 16, options: .storageModeShared) else { throw MobileFailure.message(TDetached("The output statistics buffer could not be allocated", "无法分配输出统计", "無法分配輸出統計")) }
         memset(stats.contents(), 0, 16)
         try dispatch(transform, source: src, destination: dst) { encoder in
             setup.0.withUnsafeBytes { encoder.setBytes($0.baseAddress!, length: $0.count, index: 0) }
@@ -72,7 +72,7 @@ final class MobileColorPipeline {
         let setup: (Data, MTLBuffer)
         if let cached = setups[target.rawValue] { setup = cached }
         else {
-            guard let engine else { throw MobileFailure.message("未准备输出色彩配置") }
+            guard let engine else { throw MobileFailure.message(TDetached("The output colour configuration is not prepared", "未准备输出色彩配置", "未準備輸出色彩設定檔")) }
             var reply: UnsafeMutablePointer<CChar>?
             var cmax: UnsafePointer<Float>?
             var count: UInt32 = 0
@@ -82,14 +82,14 @@ final class MobileColorPipeline {
             let object = try JSONSerialization.jsonObject(with: Data(String(cString: reply).utf8)) as? [String: Any] ?? [:]
             let g = object["gamut_compress"] as? [String: Any] ?? [:]
             let arrays = [object["matrix"] as? [Double] ?? [], g["m_to_xyz"] as? [Double] ?? [], g["m_to_rgb"] as? [Double] ?? [], g["k"] as? [Double] ?? []]
-            guard arrays.map(\.count) == [9, 9, 9, 22], let table = device.makeBuffer(bytes: cmax, length: Int(count) * 4, options: .storageModeShared) else { throw MobileFailure.message("输出色彩参数不完整") }
+            guard arrays.map(\.count) == [9, 9, 9, 22], let table = device.makeBuffer(bytes: cmax, length: Int(count) * 4, options: .storageModeShared) else { throw MobileFailure.message(TDetached("The output colour parameters are incomplete", "输出色彩参数不完整", "輸出色彩參數不完整")) }
             let floats = arrays.flatMap { $0 }.map(Float.init)
             var packed = floats.withUnsafeBytes { Data($0) }
             let integers: [UInt32] = [UInt32(object["source_cctf_mode"] as? Int ?? 0), UInt32(object["target_cctf_mode"] as? Int ?? 0),
                                       g["algorithm"] as? String == "off" ? 0 : 1, g["lightness_compression_active"] as? Bool == true ? 1 : 0,
                                       UInt32(g["cmax_rows"] as? Int ?? 0), UInt32(g["cmax_cols"] as? Int ?? 0), 0, 0]
             integers.withUnsafeBytes { packed.append(contentsOf: $0) }
-            guard packed.count == 228 else { throw MobileFailure.message("输出色彩参数布局不匹配") }
+            guard packed.count == 228 else { throw MobileFailure.message(TDetached("The output colour parameters do not match the expected layout", "输出色彩参数布局不匹配", "輸出色彩參數布局不匹配")) }
             setup = (packed, table); setups[target.rawValue] = setup
         }
         return setup
@@ -104,16 +104,16 @@ final class MobileColorPipeline {
     }
     private func cineonViewInPool(_ source: CGImage) throws -> CGImage {
         if lut == nil {
-            guard let url = Bundle.main.url(forResource: "SpektraLab DI view, Cineon to ProPhoto RGB", withExtension: "cube", subdirectory: StockCatalog.resourceDirectory + "/DI") else { throw MobileFailure.message("缺少数字中间片视图 LUT") }
+            guard let url = Bundle.main.url(forResource: "SpektraLab DI view, Cineon to ProPhoto RGB", withExtension: "cube", subdirectory: StockCatalog.resourceDirectory + "/DI") else { throw MobileFailure.message(TDetached("The Digital Intermediate view LUT is missing", "缺少数字中间片视图 LUT", "缺少數位中間片視圖 LUT")) }
             var size = 0, values: [Float] = []
             for line in try String(contentsOf: url, encoding: .utf8).split(whereSeparator: \.isNewline) {
                 if line.hasPrefix("LUT_3D_SIZE ") { size = Int(line.split(separator: " ").last!) ?? 0 }
                 let components = line.split(whereSeparator: \.isWhitespace)
                 if components.count == 3, let r = Float(components[0]), let g = Float(components[1]), let b = Float(components[2]) { values += [r, g, b, 1] }
             }
-            guard size > 1, values.count == size * size * size * 4 else { throw MobileFailure.message("数字中间片 LUT 不完整") }
+            guard size > 1, values.count == size * size * size * 4 else { throw MobileFailure.message(TDetached("The Digital Intermediate LUT is incomplete", "数字中间片 LUT 不完整", "數位中間片 LUT 不完整")) }
             let d = MTLTextureDescriptor(); d.textureType = .type3D; d.pixelFormat = .rgba32Float; d.width = size; d.height = size; d.depth = size; d.storageMode = .shared; d.usage = .shaderRead
-            guard let texture = device.makeTexture(descriptor: d) else { throw MobileFailure.message("无法分配数字中间片 LUT") }
+            guard let texture = device.makeTexture(descriptor: d) else { throw MobileFailure.message(TDetached("The Digital Intermediate LUT could not be allocated", "无法分配数字中间片 LUT", "無法分配數位中間片 LUT")) }
             values.withUnsafeBytes { texture.replace(region: MTLRegionMake3D(0, 0, 0, size, size, size), mipmapLevel: 0, slice: 0, withBytes: $0.baseAddress!, bytesPerRow: size * 16, bytesPerImage: size * size * 16) }
             lut = texture
         }

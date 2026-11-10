@@ -360,14 +360,14 @@ struct CanvasArea: View {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 34, weight: .light))
                         .foregroundStyle(Theme.Ink.secondary)
-                    Text(T("Open photos to start editing", "打开照片开始编辑"))
+                    Text(T("Open photos to start editing", "打开照片开始编辑", "開啟照片開始編輯"))
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(Theme.Ink.primary)
                     Text(L(.statusEmptyFilmstrip))
                         .font(Theme.Font.label)
                         .foregroundStyle(Theme.Ink.secondary)
                         .multilineTextAlignment(.center)
-                    Button(T("Open Photos", "打开照片")) { session.openPanel() }
+                    Button(T("Open Photos", "打开照片", "開啟照片")) { session.openPanel() }
                         .buttonStyle(.primarySurface)
                         .padding(.top, Theme.Metric.space4)
                 }
@@ -394,7 +394,7 @@ struct CanvasArea: View {
                                 }
                             } label: {
                                 HStack(spacing: Theme.Metric.space4) {
-                                    Text(T("More Information", "更多信息"))
+                                    Text(T("More Information", "更多信息", "更多資訊"))
                                     Image(systemName: showsMoreInformation ? "chevron.up" : "chevron.down")
                                         .font(.system(size: Theme.Metric.modernRowGlyph, weight: .medium))
                                 }
@@ -423,15 +423,15 @@ struct CanvasArea: View {
             if !session.panelsHidden && outputProofRequested {
                 HStack(spacing: Theme.Metric.space8) {
                     if outputProof == nil { ProgressView().controlSize(.mini) }
-                    Text(outputProof.map { T("Output Proof · \($0.targetName)", "输出软打样 · \($0.targetName)") }
-                         ?? T("Preparing output proof…", "正在生成输出软打样…"))
+                    Text(outputProof.map { T("Output Proof · \($0.targetName)", "输出软打样 · \($0.targetName)", "輸出軟打樣 · \($0.targetName)") }
+                         ?? T("Preparing output proof…", "正在生成输出软打样…", "正在生成輸出軟打樣…"))
                         .font(Theme.Font.caption)
                     Button { onHideOutputProof?() } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: Theme.Metric.modernRowGlyph, weight: .semibold))
                     }
                     .buttonStyle(.plain)
-                    .help(T("Return to editing", "返回编辑"))
+                    .help(T("Return to editing", "返回编辑", "返回編輯"))
                 }
                 .foregroundStyle(Theme.Ink.primary)
                 .padding(.horizontal, Theme.Metric.space12)
@@ -451,12 +451,12 @@ struct CanvasArea: View {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 22, weight: .regular))
                         .foregroundStyle(Theme.accent)
-                    Text(T("The render service cannot be used", "渲染服务不可用"))
+                    Text(T("The render service cannot be used", "渲染服务不可用", "渲染服務不可用"))
                         .font(Theme.Font.sectionTitle).foregroundStyle(Theme.text)
                     Text(why)
                         .font(Theme.Font.caption).foregroundStyle(Theme.secondaryText)
                         .multilineTextAlignment(.center).frame(maxWidth: 380)
-                    Button(T("Restart the render service", "重启渲染服务")) { session.restartService() }
+                    Button(T("Restart the render service", "重启渲染服务", "重啟渲染服務")) { session.restartService() }
                         .buttonStyle(.plain).font(Theme.Font.caption).foregroundStyle(Theme.accent)
                         .padding(.top, Theme.Metric.space2)
                 }

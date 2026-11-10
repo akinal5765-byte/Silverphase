@@ -4,14 +4,23 @@ import UIKit
 struct MobileOperationProgress: Identifiable, Equatable, Sendable {
     enum Kind: Sendable { case importing, exporting }
     enum Stage: String, Sendable {
-        case receiving = "读取原始文件"
-        case copying = "导入文件"
-        case preview = "生成首张预览"
-        case preparing = "准备导出"
-        case rendering = "处理照片"
-        case color = "转换输出色彩"
-        case writing = "写入文件"
-        case photos = "保存到照片"
+        case receiving, copying, preview, preparing, rendering, color, writing, photos
+        /// What the progress card prints. The raw value is an identifier — it is
+        /// compared in `exportStage(_:)` and nowhere drawn, so the copy moved
+        /// here when the interface gained three languages and the case names
+        /// could stop doubling as sentences.
+        @MainActor var title: String {
+            switch self {
+            case .receiving: T("Reading the original", "读取原始文件", "讀取原始檔案")
+            case .copying: T("Importing the file", "导入文件", "匯入檔案")
+            case .preview: T("Making the first preview", "生成首张预览", "產生首張預覽")
+            case .preparing: T("Preparing the export", "准备导出", "準備匯出")
+            case .rendering: T("Rendering the photo", "处理照片", "處理照片")
+            case .color: T("Converting the output colour", "转换输出色彩", "轉換輸出色彩")
+            case .writing: T("Writing the file", "写入文件", "寫入檔案")
+            case .photos: T("Saving to Photos", "保存到照片", "儲存到照片")
+            }
+        }
         var outputOrder: Int {
             switch self {
             case .preparing: 0
@@ -30,7 +39,9 @@ struct MobileOperationProgress: Identifiable, Equatable, Sendable {
     var total: Int
     var filename = ""
     var announcesImportSuccess = true
-    var title: String { kind == .importing ? "正在导入" : "正在导出" }
+    @MainActor var title: String {
+        kind == .importing ? T("Importing", "正在导入", "正在匯入") : T("Exporting", "正在导出", "正在匯出")
+    }
     var count: String { total > 0 ? "\(min(index, total)) / \(total)" : "" }
     static func exportStage(_ phase: String) -> Stage? {
         switch phase {
@@ -66,9 +77,9 @@ struct MobileNotification: Identifiable, Equatable, Sendable {
         case .progress: "arrow.trianglehead.2.clockwise.rotate.90"
         }
     }
-    static func operation(_ progress: MobileOperationProgress) -> Self {
+    @MainActor static func operation(_ progress: MobileOperationProgress) -> Self {
         Self(id: progress.id, style: .progress, title: progress.title,
-             detail: [progress.stage.rawValue, progress.count, progress.filename].filter { !$0.isEmpty }.joined(separator: " · "))
+             detail: [progress.stage.title, progress.count, progress.filename].filter { !$0.isEmpty }.joined(separator: " · "))
     }
 }
 

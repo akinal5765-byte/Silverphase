@@ -138,6 +138,7 @@ final class EngineMessageTests: XCTestCase {
 
     private struct Engine: Error, CustomStringConvertible { let description: String }
 
+    @MainActor
     func testAnIncompleteInstallDoesNotTellTheUserToRunABuildScript() {
         let message = EngineMessage.userFacing(Engine(
             description: "the engine's resources are missing at /Applications/SpektraLab.app; "
@@ -151,6 +152,7 @@ final class EngineMessageTests: XCTestCase {
                       "the technical detail was thrown away")
     }
 
+    @MainActor
     func testTheFastMathRefusalSaysTheBuildIsWrongRatherThanTheApp() {
         let message = EngineMessage.userFacing(Engine(
             description: "the Metal library was compiled with fast math: `a*b - a*b` came back "
@@ -159,6 +161,7 @@ final class EngineMessageTests: XCTestCase {
         XCTAssertTrue(message.contains("report"))
     }
 
+    @MainActor
     func testACancelledRenderDoesNotReadAsAFailure() {
         let message = EngineMessage.userFacing(Engine(description: "render cancelled"))
         XCTAssertEqual(message, "The render was cancelled.")
@@ -166,6 +169,7 @@ final class EngineMessageTests: XCTestCase {
 
     /// An unrecognised failure is passed through, not replaced with a guess.
     /// A confidently wrong instruction is worse than an unfamiliar sentence.
+    @MainActor
     func testAnUnrecognisedFailureIsPassedThrough() {
         let raw = "curve_interp: xa and y disagree on K (256 vs 255)"
         XCTAssertEqual(EngineMessage.userFacing(Engine(description: raw)), raw)

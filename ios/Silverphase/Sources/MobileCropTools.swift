@@ -7,14 +7,14 @@ struct MobileCropControls: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack {
-                Text("裁切比例").foregroundStyle(.secondary)
+                Text(T("Crop ratio", "裁切比例", "裁切比例")).foregroundStyle(.secondary)
                 Spacer()
-                Picker("裁切比例", selection: Binding(get: { g.aspect.canonical }, set: { aspect in
+                Picker(T("Crop ratio", "裁切比例", "裁切比例"), selection: Binding(get: { g.aspect.canonical }, set: { aspect in
                     var next = g; next.aspect = g.aspect.isPortrait ? aspect.transposed : aspect
                     document.setGeometry(next.constrained(in: size))
                 })) {
                     ForEach(CropAspect.pickerCases) { aspect in
-                        Text(aspect == .free ? "自由" : aspect == .original ? "原始比例" : aspect.label).tag(aspect)
+                        Text(aspect == .free ? T("Free", "自由", "自由") : aspect == .original ? T("Original ratio", "原始比例", "原始比例") : aspect.label).tag(aspect)
                     }
                 }.labelsHidden().pickerStyle(.menu).font(EditorDesign.selectedValue)
                 Button {
@@ -22,19 +22,19 @@ struct MobileCropControls: View {
                     document.setGeometry(next.constrained(in: size))
                 } label: { Image(systemName: g.aspect.isPortrait ? "rectangle.portrait" : "rectangle") }
                     .frame(width: 44, height: 44).disabled(!g.aspect.hasOrientation)
-                    .accessibilityLabel("切换裁切方向")
+                    .accessibilityLabel(T("Switch crop orientation", "切换裁切方向", "切換裁切方向"))
             }.frame(minHeight: 44)
-            RulerParameterRow(title: "校直 · °", value: Binding(get: { g.angle }, set: {
+            RulerParameterRow(title: T("Straighten · °", "校直 · °", "校直 · °"), value: Binding(get: { g.angle }, set: {
                 document.setGeometry(g.straightened(to: $0, in: size))
             }), range: -45...45, defaultValue: 0, fractionDigits: 1, step: 0.1,
                               onInteraction: document.parameterInteraction, onReset: { document.setGeometry(g.straightened(to: 0, in: size)) })
             HStack {
-                tool("rotate.left", "向左旋转") { document.setGeometry(g.turned(by: -1)) }
-                tool("rotate.right", "向右旋转") { document.setGeometry(g.turned(by: 1)) }
-                tool("arrow.left.and.right.righttriangle.left.righttriangle.right", "水平翻转", active: g.flipH) {
+                tool("rotate.left", T("Rotate left", "向左旋转", "向左旋轉")) { document.setGeometry(g.turned(by: -1)) }
+                tool("rotate.right", T("Rotate right", "向右旋转", "向右旋轉")) { document.setGeometry(g.turned(by: 1)) }
+                tool("arrow.left.and.right.righttriangle.left.righttriangle.right", T("Flip horizontally", "水平翻转", "水平翻轉"), active: g.flipH) {
                     var next = g; next.flipH.toggle(); document.setGeometry(next)
                 }
-                tool("arrow.up.and.down.righttriangle.up.righttriangle.down", "垂直翻转", active: g.flipV) {
+                tool("arrow.up.and.down.righttriangle.up.righttriangle.down", T("Flip vertically", "垂直翻转", "垂直翻轉"), active: g.flipV) {
                     var next = g; next.flipV.toggle(); document.setGeometry(next)
                 }
                 Spacer(minLength: 0)
@@ -43,13 +43,13 @@ struct MobileCropControls: View {
             Text(String(format: "%d × %d · %.1f MP", Int(output.width), Int(output.height), output.width * output.height / 1e6)).font(EditorDesign.panelSummary)
                 .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                 .modifier(AdjustmentNumberTransition(value: output.width * output.height / 1e6, fractionDigits: 1))
-            Text("拖动框内移动裁切；拖动边缘或四角调整范围。空白处拖动可重新框选。")
+            Text(T("Drag inside the frame to move the crop, drag an edge or corner to resize it, and drag on empty space to draw a new one.", "拖动框内移动裁切；拖动边缘或四角调整范围。空白处拖动可重新框选。", "拖曳框內移動裁切；拖曳邊緣或四角調整範圍。空白處拖曳可重新框選。"))
                 .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Button("恢复完整画面") { document.setGeometry(Geometry()) }
+            Button(T("Restore the whole frame", "恢复完整画面", "恢復完整畫面")) { document.setGeometry(Geometry()) }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         }.font(EditorDesign.parameter).buttonStyle(.plain)
         if MobileFilmGate.presents(document.current?.recipe ?? [:]) {
-            Text("当前使用原始画面编辑裁切，完成后再装入胶片画幅并应用片边／日期背。")
+            Text(T("The crop is edited on the original frame; the film format, rebate and date back are applied afterwards.", "当前使用原始画面编辑裁切，完成后再装入胶片画幅并应用片边／日期背。", "目前使用原始畫面編輯裁切，完成後再裝入膠片畫幅並應用片邊／日期背。"))
                 .font(EditorDesign.help).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -113,7 +113,7 @@ struct MobileCropCanvas: View {
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                         .position(point(anchor, in: rect)).gesture(drag(handle, in: rect))
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("调整裁切范围")
+                        .accessibilityLabel(T("Adjust the crop", "调整裁切范围", "調整裁切範圍"))
                         .accessibilityIdentifier("crop.handle." + handle.rawValue)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)

@@ -184,7 +184,8 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
                         } else if let file = try await Self.load(result.itemProvider) {
                             files.append(file)
                         } else if Self.rawHint(for: result.itemProvider) != nil {
-                            errors.append("无法读取 RAW 原片：\(result.itemProvider.suggestedName ?? "未命名照片")")
+                            let name = result.itemProvider.suggestedName ?? T("Untitled photo", "未命名照片", "未命名照片")
+                            errors.append(T("Could not read the RAW original: ", "无法读取 RAW 原片：", "無法讀取 RAW 原片：") + name)
                         } else { skipped += 1 }
                     } catch { errors.append(error.localizedDescription) }
                 }
@@ -224,12 +225,12 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
                     MobileImageMetadata.read(destination, hint: hint)
                 }.value
                 guard info.isRaw, info.megapixels > 0 else {
-                    throw MobileFailure.message("照片图库返回的文件无法识别为 RAW 原片。")
+                    throw MobileFailure.message(T("The file Photos returned is not a readable RAW original.", "照片图库返回的文件无法识别为 RAW 原片。", "照片圖庫返回的檔案無法識別為 RAW 原片。"))
                 }
                 return LibraryPhotoImport(url: destination, name: info.displayName(suggested: name, fallback: destination.lastPathComponent))
             } catch {
                 try? FileManager.default.removeItem(at: destination)
-                throw MobileFailure.message("无法读取 RAW 原片 \(name)：\(error.localizedDescription)")
+                throw MobileFailure.message(TDetached("Could not read the RAW original \(name): \(error.localizedDescription)", "无法读取 RAW 原片 \(name)：\(error.localizedDescription)", "無法讀取 RAW 原片 \(name)：\(error.localizedDescription)"))
             }
         }
 
@@ -244,7 +245,7 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
                 provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
                     do {
                         if let error { throw error }
-                        guard let url else { throw MobileFailure.message("系统照片未提供可读取的文件。") }
+                        guard let url else { throw MobileFailure.message(T("Photos did not provide a readable file.", "系统照片未提供可读取的文件。", "系統照片未提供可讀取的檔案。")) }
                         let info = MobileImageMetadata.read(url, hint: hint)
                         let flat = info.typeIdentifier.flatMap(UTType.init).map { type in
                             LibraryPhotoPicker.flatTypes.contains { type.conforms(to: $0) }
@@ -254,7 +255,7 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
                         let ext = info.fileExtension ?? (info.isRaw ? "raw" : "jpg")
                         let destination = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
                         try FileManager.default.copyItem(at: url, to: destination)
-                        let name = info.displayName(suggested: suggested, fallback: "未提供原始文件名." + ext)
+                        let name = info.displayName(suggested: suggested, fallback: T("untitled.", "未提供原始文件名.", "未提供原始檔案名.") + ext)
                         continuation.resume(returning: LibraryPhotoImport(url: destination, name: name))
                     } catch { continuation.resume(throwing: error) }
                 }

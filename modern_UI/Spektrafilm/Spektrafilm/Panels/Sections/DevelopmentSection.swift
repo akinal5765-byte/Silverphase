@@ -9,7 +9,7 @@ struct DevelopmentSection: View {
     var body: some View {
         PanelSection(L(.sectionDevelopment), key: "development",
                      initiallyExpanded: false,
-                     blockTitle: T("Negative Response", "负片响应"),
+                     blockTitle: T("Negative Response", "负片响应", "負片響應"),
                      // **Every stage's `•••` carries a Reset.** A stage is a
                      // group of settings, and "put this group back" is the one
                      // action every group has — a stage whose menu is empty is
@@ -25,7 +25,7 @@ struct DevelopmentSection: View {
                           isOn: Binding(get: { !session.filmIsMonochrome && session.params.effects.couplersActive },
                                         set: { var p = session.params; p.effects.couplersActive = $0; session.params = p }))
                     .disabled(session.filmIsMonochrome)
-                    .help(T("Colour couplers do not apply to these monochrome models.", "这些黑白模型不使用彩色耦合剂。"))
+                    .help(T("Colour couplers do not apply to these monochrome models.", "这些黑白模型不使用彩色耦合剂。", "這些黑白模型不使用彩色耦合劑。"))
                 ScrubSlider(label: L(.developmentColorSeparation),
                             value: Binding(get: { session.params.colorSeparation },
                                            set: { var p = session.params; p.colorSeparation = $0; session.params = p }),

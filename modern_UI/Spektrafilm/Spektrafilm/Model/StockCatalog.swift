@@ -104,10 +104,10 @@ enum MaterialBrowserFilter: CaseIterable {
 
     var subtitle: String {
         guard let stock else {
-            return id == Self.scanID ? T("Film scan", "原片扫描") : T("Digital Intermediate", "数字中间片")
+            return id == Self.scanID ? T("Film scan", "原片扫描", "原片掃描") : T("Digital Intermediate", "数字中间片", "數位中間片")
         }
-        let type = stock.isMonochrome ? (stock.isFilm ? T("B&W negative", "黑白负片") : T("B&W print", "黑白印相")) :
+        let type = stock.isMonochrome ? (stock.isFilm ? T("B&W negative", "黑白负片", "黑白負片") : T("B&W print", "黑白印相", "黑白印相")) :
             (stock.isFilm ? L(filmGroup: stock.isPositive ? "Positive" : "Negative") : L(.sectionPaper))
-        return type + " · " + (stock.speedLabel ?? (stock.isCine ? T("Motion picture", "电影") : T("Still photography", "静态摄影")))
+        return type + " · " + (stock.speedLabel ?? (stock.isCine ? T("Motion picture", "电影", "電影") : T("Still photography", "静态摄影", "靜態攝影")))
     }
 }

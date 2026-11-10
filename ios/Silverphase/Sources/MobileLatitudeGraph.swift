@@ -54,17 +54,17 @@ struct MobileLatitudeGraph: View {
                 }
             }.frame(height: 108).clipped()
             HStack(spacing: 4) {
-                share("低于", latitude.below, warns: true)
+                share(T("Below", "低于", "低於"), latitude.below, warns: true)
                 Spacer(minLength: 0)
-                share("范围内", latitude.within, warns: false)
+                share(T("Within", "范围内", "範圍內"), latitude.within, warns: false)
                 Spacer(minLength: 0)
-                share("高于", latitude.above, warns: true)
+                share(T("Above", "高于", "高於"), latitude.above, warns: true)
             }
-            Text(String(format: "%.2f 档保留 · %+.2f → %+.2f EV", latitude.highlight - latitude.shadow, latitude.shadow, latitude.highlight))
+            Text(String(format: T("%.2f stops held · %+.2f → %+.2f EV", "%.2f 档保留 · %+.2f → %+.2f EV", "%.2f 檔保留 · %+.2f → %+.2f EV"), latitude.highlight - latitude.shadow, latitude.shadow, latitude.highlight))
                 .font(EditorDesign.help).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-            Text("统计完整输入场景；裁切不改变测光。")
+            Text(T("Measures the whole input scene; cropping does not change the metering.", "统计完整输入场景；裁切不改变测光。", "統計完整輸入場景；裁切不改變測光。"))
                 .font(EditorDesign.instrument).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-        }.accessibilityElement(children: .combine).accessibilityLabel("场景分布与胶片相纸宽容度")
+        }.accessibilityElement(children: .combine).accessibilityLabel(T("Scene distribution and film/paper latitude", "场景分布与胶片相纸宽容度", "場景分布與膠片相紙寬容度"))
     }
     private func share(_ title: String, _ value: Double, warns: Bool) -> some View {
         Text(title + String(format: " %.1f%%", value * 100))

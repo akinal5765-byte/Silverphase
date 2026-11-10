@@ -72,19 +72,21 @@ struct MobileLibrary: View {
         NavigationStack {
             ScrollView {
                 if let issue = document.libraryReadError {
-                    ContentUnavailableView("图库暂时无法读取", systemImage: "externaldrive.badge.exclamationmark", description: Text(issue + "\n原文件与记录已保留，请稍后重启重试。"))
+                    ContentUnavailableView(T("The library cannot be read right now", "图库暂时无法读取", "圖庫暫時無法讀取"), systemImage: "externaldrive.badge.exclamationmark", description: Text(issue + T("\nOriginals and records are safe. Restart and try again.",
+                                                          "\n原文件与记录已保留，请稍后重启重试。",
+                                                          "\n原檔案與記錄已保留，請稍後重新啟動再試。")))
                         .padding(.top, 80)
                 } else if document.photos.isEmpty {
                     ContentUnavailableView {
-                        Label("图库", systemImage: "photo.on.rectangle.angled")
+                        Label(T("Library", "图库", "圖庫"), systemImage: "photo.on.rectangle.angled")
                     } description: {
-                        Text("导入照片与编辑会自动保存在此设备，随时回来继续。")
+                        Text(T("Imported photos and edits are saved on this device — come back to them any time.", "导入照片与编辑会自动保存在此设备，随时回来继续。", "導入照片與編輯會自動儲存在此設備，隨時回來繼續。"))
                     } actions: {
-                        Button("从照片导入", systemImage: "plus") { pickingPhotos = true }
+                        Button(T("Import from Photos", "从照片导入", "從照片導入"), systemImage: "plus") { pickingPhotos = true }
                     }.padding(.top, 80)
                 } else if photos.isEmpty {
                     if search.isEmpty {
-                        ContentUnavailableView("没有符合筛选条件的照片", systemImage: "line.3.horizontal.decrease.circle")
+                        ContentUnavailableView(T("No photos match these filters", "没有符合筛选条件的照片", "沒有符合篩選條件的照片"), systemImage: "line.3.horizontal.decrease.circle")
                     } else {
                         ContentUnavailableView.search(text: search)
                     }
@@ -106,7 +108,7 @@ struct MobileLibrary: View {
             }
             .scrollPosition(id: $visiblePhotoID, anchor: .top)
             .background(MobileStyle.surface.ignoresSafeArea())
-            .navigationTitle(document.isSelectingPhotos ? "已选 \(selected.count) 张" : "")
+            .navigationTitle(document.isSelectingPhotos ? T("\(selected.count) selected", "已选 \(selected.count) 张", "已選 \(selected.count) 張") : "")
             .navigationBarTitleDisplayMode(.inline)
             .modifier(LibraryHeaderBar { libraryTopBar })
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -152,7 +154,7 @@ struct MobileLibrary: View {
                 let name = "Silverphase-" + stamp + "." + url.pathExtension
                 await document.importFiles([url], displayNames: [url: name], capturedFilm: film, capturedRecipes: [url: recipe], announceSuccess: false).value
                 guard document.error == nil, let photo = document.current, photo.id != previous else {
-                    throw MobileFailure.message(document.error ?? "无法保存拍摄的照片")
+                    throw MobileFailure.message(document.error ?? T("The captured photo could not be saved", "无法保存拍摄的照片", "無法儲存拍攝的照片"))
                 }
                 return photo
             }, developPhoto: { photo, animate in
@@ -181,8 +183,8 @@ struct MobileLibrary: View {
         .sheet(item: $exportRequest) { request in
             NavigationStack {
                 ScrollView { MobileExportPanel(document: document, filteredIDs: request.ids, fixedIDs: request.ids) }
-                    .navigationTitle("导出成片").navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { exportRequest = nil }.disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
+                    .navigationTitle(T("Export Photos", "导出成片", "匯出成片")).navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成")) { exportRequest = nil }.disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
                     .disabled(document.isInteractionLocked)
                     .overlay { notification(covered: document.exported != nil) }
                     .sheet(isPresented: shareBinding) { shareSheet }
@@ -197,7 +199,7 @@ struct MobileLibrary: View {
                         await document.importFiles(files.map(\.url), displayNames: Dictionary(uniqueKeysWithValues: files.map { ($0.url, $0.name) }),
                                                    removeSourcesAfterImport: true, continuingPhotoSelection: true).value
                     } else { document.finishPhotoImportWithoutFiles() }
-                    if skipped > 0 { document.postNotification("已跳过 \(skipped) 张不支持或无法读取的照片", style: .warning) }
+                    if skipped > 0 { document.postNotification(T("Skipped \(skipped) unsupported or unreadable photos", "已跳过 \(skipped) 张不支持或无法读取的照片", "已跳過 \(skipped) 張不支援或無法讀取的照片"), style: .warning) }
                     if !errors.isEmpty { document.error = errors.joined(separator: "\n") }
                 }
             }
@@ -213,23 +215,23 @@ struct MobileLibrary: View {
         .sheet(item: $photoInfo) { photo in
             NavigationStack {
                 Form {
-                    LabeledContent("文件名", value: photo.name)
+                    LabeledContent(T("File name", "文件名", "檔案名"), value: photo.name)
                     LibraryFormatBadge(identifier: photo.sourceTypeIdentifier, original: document.url(for: photo))
                     if !photo.exifSummary.isEmpty { Text(photo.exifSummary).foregroundStyle(.secondary) }
                 }
-                .navigationTitle("照片信息")
+                .navigationTitle(T("Photo Info", "照片信息", "照片資訊"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) { Button("完成") { photoInfo = nil } }
+                    ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成")) { photoInfo = nil } }
                 }
             }
         }
-        .alert("从图库删除照片？", isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } }),
+        .alert(T("Remove from Library?", "从图库删除照片？", "從圖庫刪除照片？"), isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } }),
                presenting: deleting.isEmpty ? nil : deleting) { ids in
-            Button("取消", role: .cancel) { deleting = [] }
-            Button("删除", role: .destructive) { document.removePhotos(ids); deleting = [] }
+            Button(T("Cancel", "取消", "取消"), role: .cancel) { deleting = [] }
+            Button(T("Delete", "删除", "刪除"), role: .destructive) { document.removePhotos(ids); deleting = [] }
         } message: { ids in
-            Text("将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。")
+            Text(T("This deletes the in-app originals and edit records for \(ids.count) photos. It cannot be undone; Photos and the sources you imported from are not affected.", "将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。", "將刪除 \(ids.count) 張照片的應用內原檔案和編輯記錄。此操作無法還原，系統相簿和導入來源不受影響。"))
         }
         .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about || copyRequest != nil || photoInfo != nil) }
     }
@@ -247,7 +249,7 @@ struct MobileLibrary: View {
         let photo = headerPhoto
         let day = photo.flatMap { legacyPhotoDates[$0.id]?.day ?? $0.libraryDay }
         return VStack(alignment: .leading, spacing: 2) {
-            Text("图库")
+            Text(T("Library", "图库", "圖庫"))
                 .font(.title2.bold())
                 .accessibilityAddTraits(.isHeader)
             if photo != nil {
@@ -263,8 +265,8 @@ struct MobileLibrary: View {
     }
 
     private func libraryDateText(_ day: Int?) -> String {
-        guard let day else { return "日期未知" }
-        return "\(day / 10000)年\(day / 100 % 100)月\(day % 100)日"
+        guard let day else { return T("Date unknown", "日期未知", "日期未知") }
+        return T("\(day / 10000)-\(day / 100 % 100)-\(day % 100)", "\(day / 10000)年\(day / 100 % 100)月\(day % 100)日", "\(day / 10000)年\(day / 100 % 100)月\(day % 100)日")
     }
 
     private func loadLegacyPhotoDates() async {
@@ -294,10 +296,10 @@ struct MobileLibrary: View {
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("搜索文件名", text: $search)
+            TextField(T("Search file names", "搜索文件名", "搜尋檔案名"), text: $search)
                 .focused($searchFocused)
                 .submitLabel(.search)
-            ChromeButton(title: "关闭搜索", symbol: "xmark") {
+            ChromeButton(title: T("Close search", "关闭搜索", "關閉搜尋"), symbol: "xmark") {
                 search = ""
                 showingSearch = false
             }
@@ -386,17 +388,17 @@ struct MobileLibrary: View {
             }
         }
         .accessibilityLabel(photo.name)
-        .accessibilityValue(document.selectedPhotoIDs.contains(photo.id) ? "已选择" : "未选择")
+        .accessibilityValue(document.selectedPhotoIDs.contains(photo.id) ? T("Selected", "已选择", "已選擇") : T("Not selected", "未选择", "未選擇"))
         .accessibilityIdentifier("library.photo." + photo.name)
         .contextMenu {
-            Button("照片信息", systemImage: "info.circle") { photoInfo = photo }
-            Button("编辑", systemImage: "slider.horizontal.3") { open([photo]) }
-            Button("选择多张", systemImage: "checkmark.circle") { document.beginPhotoSelection(photo.id) }
-            Button("复制编辑项", systemImage: "doc.on.doc") { requestCopy(photo) }
-            Button("粘贴编辑项", systemImage: "doc.on.clipboard") { document.pasteSettings(to: [photo.id]) }.disabled(document.settingsClipboard == nil)
-            Button("导出", systemImage: "square.and.arrow.up") { exportRequest = LibraryExportRequest(ids: [photo.id]) }
+            Button(T("Photo Info", "照片信息", "照片資訊"), systemImage: "info.circle") { photoInfo = photo }
+            Button(T("Edit", "编辑", "編輯"), systemImage: "slider.horizontal.3") { open([photo]) }
+            Button(T("Select multiple", "选择多张", "選擇多張"), systemImage: "checkmark.circle") { document.beginPhotoSelection(photo.id) }
+            Button(T("Copy edits", "复制编辑项", "複製編輯項"), systemImage: "doc.on.doc") { requestCopy(photo) }
+            Button(T("Paste edits", "粘贴编辑项", "貼上編輯項"), systemImage: "doc.on.clipboard") { document.pasteSettings(to: [photo.id]) }.disabled(document.settingsClipboard == nil)
+            Button(T("Export", "导出", "匯出"), systemImage: "square.and.arrow.up") { exportRequest = LibraryExportRequest(ids: [photo.id]) }
             ratingMenu(ids: [photo.id])
-            Button("从图库删除", systemImage: "trash", role: .destructive) { deleting = [photo.id] }
+            Button(T("Remove from Library", "从图库删除", "從圖庫刪除"), systemImage: "trash", role: .destructive) { deleting = [photo.id] }
         }
     }
     private var usesProminentCamera: Bool {
@@ -410,7 +412,7 @@ struct MobileLibrary: View {
     }
 
     private func cameraButton(prominent: Bool = false) -> some View {
-        Button("拍照", systemImage: "camera") { showingCamera = true }
+        Button(T("Take Photo", "拍照", "拍照"), systemImage: "camera") { showingCamera = true }
             .labelStyle(.iconOnly)
             .buttonStyle(LibraryCameraButtonStyle(prominent: prominent))
             .accessibilityIdentifier("library.camera")
@@ -429,10 +431,10 @@ struct MobileLibrary: View {
         if !document.isSelectingPhotos {
             MobileLibraryToolbarItem(placement: .topBarLeading, vertical: verticalToolbar) {
                 Menu {
-                    Button("从照片导入", systemImage: "photo.on.rectangle") { pickingPhotos = true }
-                    Button("从文件导入", systemImage: "folder") { importing = true }
+                    Button(T("Import from Photos", "从照片导入", "從照片導入"), systemImage: "photo.on.rectangle") { pickingPhotos = true }
+                    Button(T("Import from Files", "从文件导入", "從檔案導入"), systemImage: "folder") { importing = true }
                 } label: {
-                    Label("导入", systemImage: "plus")
+                    Label(T("Import", "导入", "導入"), systemImage: "plus")
                 }
                 .accessibilityIdentifier("library.import")
                 .disabled(document.libraryReadError != nil)
@@ -443,7 +445,7 @@ struct MobileLibrary: View {
                 if document.isSelectingPhotos { document.endPhotoSelection() }
                 else { document.beginPhotoSelection() }
             } label: {
-                Label(document.isSelectingPhotos ? "完成" : "选择",
+                Label(document.isSelectingPhotos ? T("Done", "完成", "完成") : T("Select", "选择", "選擇"),
                       systemImage: document.isSelectingPhotos ? "checkmark" : "checkmark.circle")
             }
             .disabled(!document.isSelectingPhotos && filtered.isEmpty)
@@ -456,7 +458,7 @@ struct MobileLibrary: View {
                     if all { document.clearPhotoSelection() }
                     else { document.selectAllPhotos(filtered.map(\.id)) }
                 } label: {
-                    Label(all ? "清空选择" : "全选", systemImage: all ? "xmark.square" : "checkmark.rectangle.stack")
+                    Label(all ? T("Clear selection", "清空选择", "清空選擇") : T("Select all", "全选", "全選"), systemImage: all ? "xmark.square" : "checkmark.rectangle.stack")
                 }
                 .disabled(filtered.isEmpty).accessibilityIdentifier("library.select-all")
             }
@@ -467,54 +469,54 @@ struct MobileLibrary: View {
             MobileLibraryToolbarItem(vertical: verticalToolbar) {
                 Menu {
                     Section {
-                        Menu("拍摄时间排序", systemImage: "arrow.up.arrow.down") {
-                            filterOption("正序（最早在前）", selected: !newestFirst) { newestFirst = false }
-                            filterOption("倒序（最新在前）", selected: newestFirst) { newestFirst = true }
+                        Menu(T("Sort by capture date", "拍摄时间排序", "拍攝時間排序"), systemImage: "arrow.up.arrow.down") {
+                            filterOption(T("Oldest first", "正序（最早在前）", "正序（最早在前）"), selected: !newestFirst) { newestFirst = false }
+                            filterOption(T("Newest first", "倒序（最新在前）", "倒序（最新在前）"), selected: newestFirst) { newestFirst = true }
                         }
                         .accessibilityIdentifier("library.sort-order")
-                        Menu("照片比例", systemImage: "aspectratio") {
-                            filterOption("正方形", selected: squareThumbnails) { squareThumbnails = true }
-                            filterOption("原始比例", selected: !squareThumbnails) { squareThumbnails = false }
+                        Menu(T("Photo shape", "照片比例", "照片比例"), systemImage: "aspectratio") {
+                            filterOption(T("Square", "正方形", "正方形"), selected: squareThumbnails) { squareThumbnails = true }
+                            filterOption(T("Original ratio", "原始比例", "原始比例"), selected: !squareThumbnails) { squareThumbnails = false }
                         }
-                        Menu("缩略图大小", systemImage: "square.grid.3x3") {
+                        Menu(T("Thumbnail size", "缩略图大小", "縮略圖大小"), systemImage: "square.grid.3x3") {
                             ForEach(LibraryThumbnailSize.allCases, id: \.self) { size in
-                                filterOption(size.rawValue, selected: thumbnailSize == size) { thumbnailSize = size }
+                                filterOption(size.title, selected: thumbnailSize == size) { thumbnailSize = size }
                             }
                         }
                     }
                     Section {
-                        Button("搜索文件名", systemImage: "magnifyingglass") {
+                        Button(T("Search file names", "搜索文件名", "搜尋檔案名"), systemImage: "magnifyingglass") {
                             if showingSearch { searchFocused = true }
                             else { showingSearch = true }
                         }
-                        Toggle("仅显示 RAW", isOn: $rawOnly)
-                        Menu("星级", systemImage: "star") {
+                        Toggle(T("RAW only", "仅显示 RAW", "僅顯示 RAW"), isOn: $rawOnly)
+                        Menu(T("Rating", "星级", "星級"), systemImage: "star") {
                             ForEach(0...5, id: \.self) { rating in
-                                filterOption(rating == 0 ? "全部星级" : "至少 \(rating) 星", selected: minimumRating == rating) {
+                                filterOption(rating == 0 ? T("All ratings", "全部星级", "全部星級") : T("At least \(rating) stars", "至少 \(rating) 星", "至少 \(rating) 星"), selected: minimumRating == rating) {
                                     minimumRating = rating
                                 }
                             }
                         }.accessibilityIdentifier("library.rating-filter")
-                        Menu("旗标", systemImage: "flag") {
-                            filterOption("全部旗标", selected: flagFilter == "all") { flagFilter = "all" }
-                            filterOption("无旗标", selected: flagFilter == "none") { flagFilter = "none" }
-                            filterOption("保留", selected: flagFilter == "pick") { flagFilter = "pick" }
-                            filterOption("淘汰", selected: flagFilter == "reject") { flagFilter = "reject" }
+                        Menu(T("Flag", "旗标", "旗標"), systemImage: "flag") {
+                            filterOption(T("All flags", "全部旗标", "全部旗標"), selected: flagFilter == "all") { flagFilter = "all" }
+                            filterOption(T("Unflagged", "无旗标", "無旗標"), selected: flagFilter == "none") { flagFilter = "none" }
+                            filterOption(T("Pick", "保留", "保留"), selected: flagFilter == "pick") { flagFilter = "pick" }
+                            filterOption(T("Reject", "淘汰", "淘汰"), selected: flagFilter == "reject") { flagFilter = "reject" }
                         }.accessibilityIdentifier("library.flag-filter")
                         if hasFilters {
-                            Button("清除筛选", systemImage: "arrow.counterclockwise") {
+                            Button(T("Clear filters", "清除筛选", "清除篩選"), systemImage: "arrow.counterclockwise") {
                                 rawOnly = false; minimumRating = 0; flagFilter = "all"
                             }
                         }
                     }
                     Section {
-                        Button("设置", systemImage: "gearshape") { settings = .init(folded: phoneHingeClosed == true) }
-                        Button("关于 Silverphase", systemImage: "info.circle") { about = true }
+                        Button(T("Settings", "设置", "設定"), systemImage: "gearshape") { settings = .init(folded: phoneHingeClosed == true) }
+                        Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = true }
                     }
                 } label: {
-                    Label("图库菜单", systemImage: hasFilters ? "ellipsis.circle.fill" : "ellipsis.circle")
+                    Label(T("Library menu", "图库菜单", "圖庫選單"), systemImage: hasFilters ? "ellipsis.circle.fill" : "ellipsis.circle")
                 }
-                .accessibilityValue(hasFilters ? "已筛选" : "")
+                .accessibilityValue(hasFilters ? T("Filtered", "已筛选", "已篩選") : "")
                 .accessibilityIdentifier("library.menu")
             }
             if #available(iOS 27.1, *), verticalToolbar {
@@ -540,40 +542,51 @@ struct MobileLibrary: View {
     }
 
     @ViewBuilder private var selectionActions: some View {
-        Button("编辑", systemImage: "slider.horizontal.3") { open(selected) }
+        Button(T("Edit", "编辑", "編輯"), systemImage: "slider.horizontal.3") { open(selected) }
             .accessibilityIdentifier("library.edit-selected")
-        Button("导出", systemImage: "square.and.arrow.up") {
+        Button(T("Export", "导出", "匯出"), systemImage: "square.and.arrow.up") {
             exportRequest = LibraryExportRequest(ids: selected.map(\.id))
         }.accessibilityIdentifier("library.export-selected")
         Menu {
-            Button("复制编辑项", systemImage: "doc.on.doc") {
+            Button(T("Copy edits", "复制编辑项", "複製編輯項"), systemImage: "doc.on.doc") {
                 if let photo = selected.first { requestCopy(photo) }
             }.disabled(selected.count != 1)
-            Button("粘贴到所选 \(selected.count) 张", systemImage: "doc.on.doc") { document.pasteSettings() }
+            Button(T("Paste to \(selected.count) selected", "粘贴到所选 \(selected.count) 张", "貼到所選 \(selected.count) 張"), systemImage: "doc.on.doc") { document.pasteSettings() }
                 .disabled(document.settingsClipboard == nil)
             ratingMenu(ids: document.selectedPhotoIDs)
-            Button("从图库删除", systemImage: "trash", role: .destructive) { deleting = document.selectedPhotoIDs }
+            Button(T("Remove from Library", "从图库删除", "從圖庫刪除"), systemImage: "trash", role: .destructive) { deleting = document.selectedPhotoIDs }
         } label: {
-            Label("更多批量操作", systemImage: "ellipsis")
+            Label(T("More batch actions", "更多批量操作", "更多批量操作"), systemImage: "ellipsis")
         }
         .accessibilityIdentifier("library.selection-menu")
     }
 
     private func ratingMenu(ids: Set<UUID>) -> some View {
         Group {
-            Menu("评分", systemImage: "star") {
+            Menu(T("Rating", "评分", "評分"), systemImage: "star") {
                 ForEach(0...5, id: \.self) { rating in
-                    Button(rating == 0 ? "清除评分" : "\(rating) 星") { document.markPhotos(ids, rating: rating) }
+                    Button(rating == 0 ? T("Clear rating", "清除评分", "清除評分") : T("\(rating) stars", "\(rating) 星", "\(rating) 星")) { document.markPhotos(ids, rating: rating) }
                 }
             }
-            Button("保留", systemImage: "flag.fill") { document.markPhotos(ids, flag: "pick") }
-            Button("淘汰", systemImage: "flag.slash") { document.markPhotos(ids, flag: "reject") }
-            Button("清除旗标") { document.markPhotos(ids, flag: "none") }
+            Button(T("Pick", "保留", "保留"), systemImage: "flag.fill") { document.markPhotos(ids, flag: "pick") }
+            Button(T("Reject", "淘汰", "淘汰"), systemImage: "flag.slash") { document.markPhotos(ids, flag: "reject") }
+            Button(T("Clear flag", "清除旗标", "清除旗標")) { document.markPhotos(ids, flag: "none") }
         }
     }
 }
 private enum LibraryThumbnailSize: String, CaseIterable {
     case small = "小", medium = "中", large = "大"
+
+    /// The stored `rawValue` stays as it was — it is what `@AppStorage` already
+    /// holds for anybody who chose a size — so the menu asks for a title rather
+    /// than drawing the raw value.
+    @MainActor var title: String {
+        switch self {
+        case .small: T("Small", "小", "小")
+        case .medium: T("Medium", "中", "中")
+        case .large: T("Large", "大", "大")
+        }
+    }
 
     func minimumWidth(regular: Bool) -> CGFloat {
         switch self {
@@ -666,7 +679,7 @@ private struct LibraryFormatBadge: View {
     @State private var detectedIdentifier: String?
 
     var body: some View {
-        LabeledContent("原片格式", value: MobileImageMetadata.formatBadge(for: identifier ?? detectedIdentifier) ?? "未知")
+        LabeledContent(T("Original format", "原片格式", "原片格式"), value: MobileImageMetadata.formatBadge(for: identifier ?? detectedIdentifier) ?? T("Unknown", "未知", "未知"))
             .task(id: original) {
                 guard identifier == nil else { return }
                 detectedIdentifier = await Task.detached(priority: .utility) {

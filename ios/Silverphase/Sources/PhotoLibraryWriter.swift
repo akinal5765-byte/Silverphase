@@ -10,7 +10,7 @@ enum PhotoLibraryWriter {
         let current = PHPhotoLibrary.authorizationStatus(for: .addOnly)
         let status = current == .notDetermined ? await PHPhotoLibrary.requestAuthorization(for: .addOnly) : current
         guard status == .authorized || status == .limited else {
-            throw MobileFailure.message("未获准添加照片。请在系统设置中允许 Silverphase 向照片图库添加照片。")
+            throw MobileFailure.message(TDetached("Silverphase is not allowed to add photos. Allow it to add to Photos in System Settings.", "未获准添加照片。请在系统设置中允许 Silverphase 向照片图库添加照片。", "未獲準加入照片。請在系統設定中允許 Silverphase 向照片圖庫加入照片。"))
         }
     }
     static func save(_ file: URL, pairedRAW: URL? = nil) async throws {

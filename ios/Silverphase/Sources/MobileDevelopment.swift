@@ -34,7 +34,7 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
          setup: (Data, MTLBuffer), scanStyle: Bool) throws {
         self.device = device; self.print = print; self.scan = scan
         self.transform = transform; self.setup = setup; self.scanStyle = scanStyle
-        guard let url = Bundle.main.url(forResource: "SilverphaseUI", withExtension: "metallib", subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message("缺少显影动画着色器") }
+        guard let url = Bundle.main.url(forResource: "SilverphaseUI", withExtension: "metallib", subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message(TDetached("The development animation shader is missing", "缺少显影动画着色器", "缺少顯影動畫著色器")) }
         let library = try device.makeLibrary(URL: url)
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = library.makeFunction(name: "mobileDevelopVertex")
@@ -51,12 +51,12 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
               let pixels = CGContext(data: nil, width: photo.width, height: photo.height,
                                      bitsPerComponent: 8, bytesPerRow: photo.width * 4, space: colorSpace,
                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
-        else { throw MobileFailure.message("无法准备显影预览") }
+        else { throw MobileFailure.message(TDetached("The development preview could not be prepared", "无法准备显影预览", "無法準備顯影預覽")) }
         pixels.draw(photo, in: CGRect(x: 0, y: 0, width: photo.width, height: photo.height))
         let texture = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: photo.width,
                                                                height: photo.height, mipmapped: false)
         guard let image = device.makeTexture(descriptor: texture), let data = pixels.data else {
-            throw MobileFailure.message("无法准备显影纹理")
+            throw MobileFailure.message(TDetached("The development textures could not be prepared", "无法准备显影纹理", "無法準備顯影紋理"))
         }
         image.replace(region: MTLRegionMake2D(0, 0, photo.width, photo.height), mipmapLevel: 0,
                       withBytes: data, bytesPerRow: pixels.bytesPerRow)
@@ -79,7 +79,7 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
 #endif
         descriptor.colorAttachments[0].loadAction = .dontCare
         descriptor.colorAttachments[0].storeAction = .store
-        guard let render = command.makeRenderCommandEncoder(descriptor: descriptor) else { throw MobileFailure.message("无法提交显影动画") }
+        guard let render = command.makeRenderCommandEncoder(descriptor: descriptor) else { throw MobileFailure.message(TDetached("The development animation could not be submitted", "无法提交显影动画", "無法提交顯影動畫")) }
         render.setRenderPipelineState(pipeline)
         var t = progress
 #if SILVERPHASE_APP
@@ -94,7 +94,7 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
         render.endEncoding()
 #if SILVERPHASE_APP
         guard let stats = device.makeBuffer(length: 16, options: .storageModeShared),
-              let encoder = command.makeComputeCommandEncoder() else { throw MobileFailure.message("无法转换显影动画色彩") }
+              let encoder = command.makeComputeCommandEncoder() else { throw MobileFailure.message(TDetached("The development animation colour could not be converted", "无法转换显影动画色彩", "無法轉換顯影動畫色彩")) }
         memset(stats.contents(), 0, 16)
         encoder.setComputePipelineState(transform)
         encoder.setTexture(working, index: 0); encoder.setTexture(output, index: 1)
@@ -111,7 +111,7 @@ final class MobileDevelopmentAssets: @unchecked Sendable {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: print.width, height: print.height, mipmapped: false)
         descriptor.storageMode = .shared; descriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
         guard let working = device.makeTexture(descriptor: descriptor), let output = device.makeTexture(descriptor: descriptor),
-              let command = device.makeCommandQueue()?.makeCommandBuffer() else { throw MobileFailure.message("显影动画检查无法分配纹理") }
+              let command = device.makeCommandQueue()?.makeCommandBuffer() else { throw MobileFailure.message(TDetached("The development animation check could not allocate textures", "显影动画检查无法分配纹理", "顯影動畫檢查無法分配紋理")) }
         try encode(command: command, working: working, output: output, progress: progress)
         command.commit(); command.waitUntilCompleted()
         if let error = command.error { throw error }

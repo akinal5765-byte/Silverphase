@@ -49,7 +49,7 @@ struct MobileGeometry: Codable, Equatable, Sendable {
             let context = CIContext(options: [.cacheIntermediates: false])
             defer { context.clearCaches() }
             guard let result = context.createCGImage(input, from: input.extent, format: .RGBA16, colorSpace: image.colorSpace) else {
-                throw MobileFailure.message("裁切失败")
+                throw MobileFailure.message(TDetached("The crop failed", "裁切失败", "裁切失敗"))
             }
             return result
         }

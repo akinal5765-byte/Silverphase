@@ -249,7 +249,7 @@ struct MobileCameraView: View {
             guard waitingForCamera else { return }
             // startRunning can still be in progress or waiting on a system
             // interruption. Leave it alone unless the user explicitly retries.
-            issue = "相机尚未准备好，请重试。"
+            issue = T("The camera is not ready yet. Try again.", "相机尚未准备好，请重试。", "相機尚未準備好，請重試。")
         }
         .task(id: contentionRecoveryPending) {
             guard contentionRecoveryPending else { return }
@@ -429,7 +429,7 @@ struct MobileCameraView: View {
             camera.detachPreview()
             configuration = nil
             previewing = false
-            issue = "相机暂时不可用"
+            issue = T("The camera is unavailable right now", "相机暂时不可用", "相機暫時不可用")
 #else
             sessionInterrupted = true
             let reason = (notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber)?.intValue ?? -1
@@ -465,10 +465,10 @@ struct MobileCameraView: View {
 #endif
             configuration = nil
             previewing = false
-            issue = "相机运行中断，请重试"
+            issue = T("The camera stopped. Try again.", "相机运行中断，请重试", "相機執行中斷，請重試")
         }
-        .alert("相机", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
-            Button("好") { failure = nil }
+        .alert(T("Camera", "相机", "相機"), isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
+            Button(T("OK", "好", "好")) { failure = nil }
         } message: { Text(failure ?? "") }
     }
 
@@ -480,7 +480,7 @@ struct MobileCameraView: View {
     private var previewStatus: some View {
         HStack {
             if showsFilmPreview, !shotInProgress {
-                Text(lookUnavailable ? "原始取景 · 预览不可用" : lookFrame?.snapshot(for: captureRecipe) == nil ? "正在准备胶片预览…" : (previewMode == .approximate ? "近似预览" : "原生引擎预览"))
+                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : lookFrame?.snapshot(for: captureRecipe) == nil ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
                     .font(.caption2).lineLimit(1)
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 8).padding(.vertical, 5)
@@ -505,7 +505,7 @@ struct MobileCameraView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-                .accessibilityLabel("返回图库")
+                .accessibilityLabel(T("Back to Library", "返回图库", "返回圖庫"))
                 .accessibilityIdentifier("camera.back")
                 .modifier(ChromeSurface(radius: 22, interactive: true))
                 .disabled(shotInProgress)
@@ -521,16 +521,16 @@ struct MobileCameraView: View {
                 flashMenu
                 meteringMenu
                 Menu {
-                    Toggle("构图网格", isOn: $showsGoldenGrid)
-                    Picker("网格样式", selection: $usesGoldenRatio) {
-                        Text("三分网格").tag(false)
-                        Text("黄金分割").tag(true)
+                    Toggle(T("Composition grid", "构图网格", "構圖網格"), isOn: $showsGoldenGrid)
+                    Picker(T("Grid style", "网格样式", "網格樣式"), selection: $usesGoldenRatio) {
+                        Text(T("Rule of thirds", "三分网格", "三分網格")).tag(false)
+                        Text(T("Golden ratio", "黄金分割", "黃金分割")).tag(true)
                     }
                     .disabled(!showsGoldenGrid)
-                    Toggle("水平仪", isOn: $showsLevel)
+                    Toggle(T("Level", "水平仪", "水平儀"), isOn: $showsLevel)
 #if SILVERPHASE_APP
                     Divider()
-                    Picker("实时胶片取景", selection: $previewMode) {
+                    Picker(T("Live film preview", "实时胶片取景", "即時膠片取景"), selection: $previewMode) {
                         ForEach(MobileCameraPreviewMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
 #endif
@@ -541,7 +541,7 @@ struct MobileCameraView: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .accessibilityLabel("构图辅助")
+                .accessibilityLabel(T("Composition aids", "构图辅助", "構圖輔助"))
                 .accessibilityIdentifier("camera.options")
             }
             .padding(4)
@@ -553,13 +553,13 @@ struct MobileCameraView: View {
 
     private var meteringMenu: some View {
         Menu {
-            Picker("测光模式", selection: $metering) {
+            Picker(T("Metering Mode", "测光模式", "測光模式"), selection: $metering) {
                 ForEach(MobileMeteringMode.allCases, id: \.self) { mode in
                     Text(mode.title).tag(mode)
                 }
             }
             if metering == .custom {
-                Text("保留输入曝光；系统视频取景与 RAW 成片的亮度可能不同。")
+                Text(T("Keeps the input exposure; the system video viewfinder and the RAW-finished photo may differ in brightness.", "保留输入曝光；系统视频取景与 RAW 成片的亮度可能不同。", "保留輸入曝光；系統影片取景與 RAW 成片的亮度可能不同。"))
             }
         } label: {
             Image(systemName: "camera.metering.center.weighted")
@@ -568,7 +568,7 @@ struct MobileCameraView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .accessibilityLabel("测光模式")
+        .accessibilityLabel(T("Metering Mode", "测光模式", "測光模式"))
         .accessibilityValue(metering.title)
         .accessibilityIdentifier("camera.metering")
         .disabled(shotInProgress)
@@ -606,7 +606,7 @@ struct MobileCameraView: View {
 
     private var diffusionMenu: some View {
         Menu {
-            Picker("拍摄柔光镜", selection: $diffusion) {
+            Picker(T("Shooting diffusion filter", "拍摄柔光镜", "拍攝柔光鏡"), selection: $diffusion) {
                 ForEach(MobileDiffusionFilter.allCases, id: \.self) { filter in
                     Text(filter.title).tag(filter)
                 }
@@ -620,7 +620,7 @@ struct MobileCameraView: View {
                 .frame(width: 44, height: 44)
                 .modifier(ChromeSurface(radius: 22, interactive: true))
         }
-        .accessibilityLabel("拍摄柔光镜")
+        .accessibilityLabel(T("Shooting diffusion filter", "拍摄柔光镜", "拍攝柔光鏡"))
         .accessibilityValue(diffusion.title)
         .accessibilityIdentifier("camera.diffusion")
     }
@@ -642,7 +642,7 @@ struct MobileCameraView: View {
                 .buttonStyle(.plain)
                 .modifier(ChromeSurface(radius: 22, interactive: true))
                 .disabled(!ready)
-                .accessibilityLabel("人像模式")
+                .accessibilityLabel(T("Portrait mode", "人像模式", "人像模式"))
                 .accessibilityAddTraits(portraitMode ? .isSelected : [])
                 .accessibilityIdentifier("camera.portrait")
             } else {
@@ -659,7 +659,7 @@ struct MobileCameraView: View {
             else { dismiss() }
         } label: { latestThumbnail }
         .buttonStyle(.plain)
-        .accessibilityLabel("返回图库")
+        .accessibilityLabel(T("Back to Library", "返回图库", "返回圖庫"))
         .accessibilityIdentifier("camera.latest")
         .disabled(shotInProgress)
         .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.thumbnail: $0] }
@@ -675,7 +675,7 @@ struct MobileCameraView: View {
                 .modifier(ChromeSurface(radius: 24, interactive: true))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("解锁并打开图库")
+        .accessibilityLabel(T("Unlock and open the library", "解锁并打开图库", "解鎖並開啟圖庫"))
         .accessibilityIdentifier("camera.latest")
         .disabled(shotInProgress)
     }
@@ -695,7 +695,7 @@ struct MobileCameraView: View {
         .modifier(ChromeSurface(radius: 34, interactive: true))
         .disabled(!ready)
         .opacity(ready || capturing ? 1 : 0.45)
-        .accessibilityLabel("拍照")
+        .accessibilityLabel(T("Take Photo", "拍照", "拍照"))
         .accessibilityIdentifier("camera.shutter")
     }
 
@@ -719,9 +719,9 @@ struct MobileCameraView: View {
                         })
                         .accessibilityHidden(true)
                     HStack {
-                        Text("选择胶片").font(.headline).accessibilityAddTraits(.isHeader)
+                        Text(T("Choose Film", "选择胶片", "選擇膠片")).font(.headline).accessibilityAddTraits(.isHeader)
                         Spacer()
-                        Button("完成") { setFilmPicker(false) }.tint(MobileStyle.accent)
+                        Button(T("Done", "完成", "完成")) { setFilmPicker(false) }.tint(MobileStyle.accent)
                             .frame(minHeight: 32)
                     }
                     .padding(.horizontal, 18)
@@ -763,7 +763,7 @@ struct MobileCameraView: View {
         Button { setFilmPicker(true) } label: { filmButtonLabel }
         .buttonStyle(.plain)
         .disabled(shotInProgress || films.isEmpty)
-        .accessibilityLabel("选择胶片")
+        .accessibilityLabel(T("Choose Film", "选择胶片", "選擇膠片"))
         .accessibilityValue(film?.name ?? "")
         .accessibilityIdentifier("camera.film")
     }
@@ -775,7 +775,7 @@ struct MobileCameraView: View {
             VStack(spacing: 3) {
                 Image(systemName: "film").font(.title3)
                     .frame(width: 44, height: 44)
-                let title = film?.name ?? "胶片"
+                let title = film?.name ?? T("Film", "胶片", "膠片")
                 Text(title).font(.caption2).lineLimit(1)
                     .modifier(AdjustmentNumberTransition(value: nil, label: title))
                     .frame(maxWidth: 88)
@@ -932,11 +932,11 @@ struct MobileCameraView: View {
                 if let issue {
                     VStack(spacing: 12) {
                         Text(issue).multilineTextAlignment(.center)
-                        Button("重试", action: retryCamera).buttonStyle(.bordered)
+                        Button(T("Retry", "重试", "重試"), action: retryCamera).buttonStyle(.bordered)
                     }.padding().background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
                 } else if configuration == nil {
                     if !shotInProgress && !isLayoutCheck {
-                        ProgressView("正在打开相机").modifier(controlOrientation)
+                        ProgressView(T("Opening the camera", "正在打开相机", "正在開啟相機")).modifier(controlOrientation)
                     }
                 }
 #if SILVERPHASE_APP
@@ -946,7 +946,7 @@ struct MobileCameraView: View {
                 if (savingToPhotos && reveal == nil) || (developing && frozenShot == nil) {
                     VStack(spacing: EditorDesign.gutter) {
                         ProgressView().tint(.primary)
-                        Text(developing ? "显影中…" : "保存到相册…").font(EditorDesign.noticeTitle)
+                        Text(developing ? T("Developing…", "显影中…", "顯影中…") : T("Saving to Photos…", "保存到相册…", "儲存到相簿…")).font(EditorDesign.noticeTitle)
                     }
                     .modifier(controlOrientation)
                     .frame(width: 104, height: 104)
@@ -987,7 +987,7 @@ struct MobileCameraView: View {
                     .rotationEffect(.degrees(revealRotation))
                     .frame(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
                     .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.preview: $0] }
-                    .accessibilityLabel("显影预览")
+                    .accessibilityLabel(T("Development preview", "显影预览", "顯影預覽"))
                 }
 #endif
             }
@@ -998,7 +998,7 @@ struct MobileCameraView: View {
     private func lensControls(_ configuration: MobileCameraConfiguration) -> some View {
         HStack(spacing: 2) {
             if portraitMode || lens == .front {
-                let title = portraitMode ? "人像" : "前置"
+                let title = portraitMode ? T("Portrait", "人像", "人像") : T("Front", "前置", "前置")
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .modifier(AdjustmentNumberTransition(value: nil, label: title))
@@ -1066,7 +1066,7 @@ struct MobileCameraView: View {
         }
         .buttonStyle(.plain)
         .modifier(ChromeSurface(radius: 22, interactive: true))
-        .accessibilityLabel(lens == .front ? "切换到后置相机" : "切换到前置相机")
+        .accessibilityLabel(lens == .front ? T("Switch to the rear camera", "切换到后置相机", "切換到後置相機") : T("Switch to the front camera", "切换到前置相机", "切換到前置相機"))
         .accessibilityIdentifier("camera.flip")
         .disabled(!ready || portraitMode || !configuration.hasFrontCamera)
     }
@@ -1153,7 +1153,7 @@ struct MobileCameraView: View {
                 .modifier(controlOrientation)
                 .frame(minWidth: 44, minHeight: 44)
         }
-        .accessibilityLabel("闪光灯")
+        .accessibilityLabel(T("Flash", "闪光灯", "閃光燈"))
         .accessibilityValue(flashTitle(flash))
         .accessibilityIdentifier("camera.flash")
         .disabled(!ready || (configuration?.flashModes.count ?? 0) < 2)
@@ -1161,10 +1161,10 @@ struct MobileCameraView: View {
 
     private func flashTitle(_ mode: AVCaptureDevice.FlashMode) -> String {
         switch mode {
-        case .off: "关闭"
-        case .auto: "自动"
-        case .on: "开启"
-        @unknown default: "闪光灯"
+        case .off: T("Off", "关闭", "關閉")
+        case .auto: T("Auto", "自动", "自動")
+        case .on: T("On", "开启", "開啟")
+        @unknown default: T("Flash", "闪光灯", "閃光燈")
         }
     }
 
@@ -1194,7 +1194,7 @@ struct MobileCameraView: View {
 #endif
                 guard let frame = frozen else {
                     switching = false
-                    failure = "取景画面尚未准备好，请重试切换镜头。"
+                    failure = T("The viewfinder is not ready yet. Try switching lenses again.", "取景画面尚未准备好，请重试切换镜头。", "取景畫面尚未準備好，請重試切換鏡頭。")
                     return
                 }
                 guard canRunCamera, configuration != nil else { switching = false; return }
@@ -1248,7 +1248,7 @@ struct MobileCameraView: View {
                                     }
                                 }
                             if focusLocked {
-                                Label("自动曝光／自动对焦锁定", systemImage: "lock.fill")
+                                Label(T("AE/AF lock", "自动曝光／自动对焦锁定", "自動曝光／自動對焦鎖定"), systemImage: "lock.fill")
                                     .font(.caption2.weight(.semibold))
                                     .fixedSize()
                                     .padding(.horizontal, 6)
@@ -1349,7 +1349,7 @@ struct MobileCameraView: View {
         guard !Task.isCancelled, canRunCamera else { return }
         guard authorized else {
             configuration = nil
-            issue = "请在系统设置中允许 Silverphase 使用相机。"
+            issue = T("Allow Silverphase to use the camera in System Settings.", "请在系统设置中允许 Silverphase 使用相机。", "請在系統設定中允許 Silverphase 使用相機。")
             return
         }
         do {
@@ -1522,7 +1522,7 @@ struct MobileCameraView: View {
                     MobilePortraitCapture.render(data, format: format)
                 }.value : nil
                 if usesDepth && portraitImage == nil {
-                    warnings.append("本次未能应用人像虚化，已保留相机原片。")
+                    warnings.append(T("Portrait blur could not be applied this time; the camera's original was kept.", "本次未能应用人像虚化，已保留相机原片。", "本次未能應用人像虛化，已保留相機原片。"))
                 }
                 let imageData = portraitImage ?? data
 #if SILVERPHASE_APP
@@ -1544,7 +1544,7 @@ struct MobileCameraView: View {
                         reveal = result
                     }
                 } catch {
-                    warnings.append("显影预览生成失败：\(error.localizedDescription)")
+                    warnings.append(T("The development preview failed: \(error.localizedDescription)", "显影预览生成失败：\(error.localizedDescription)", "顯影預覽生成失敗：\(error.localizedDescription)"))
                 }
                 developing = false
                 savingToPhotos = true
@@ -1555,12 +1555,12 @@ struct MobileCameraView: View {
                     // already in the local library; defer the Photos save to the
                     // next foreground activation instead of losing it.
                     await waitForForeground()
-                    do { try await savePhoto(photo) } catch { warnings.append("未能存到系统相册：\(error.localizedDescription)") }
+                    do { try await savePhoto(photo) } catch { warnings.append(T("Could not save to Photos: \(error.localizedDescription)", "未能存到系统相册：\(error.localizedDescription)", "未能存到系統相簿：\(error.localizedDescription)")) }
                 } catch {
-                    warnings.append("未能存到系统相册：\(error.localizedDescription)")
+                    warnings.append(T("Could not save to Photos: \(error.localizedDescription)", "未能存到系统相册：\(error.localizedDescription)", "未能存到系統相簿：\(error.localizedDescription)"))
                 }
                 if !warnings.isEmpty {
-                    failure = (["原片已保存在 Silverphase。"] + warnings).joined(separator: "\n")
+                    failure = ([T("The original is saved in Silverphase.", "原片已保存在 Silverphase。", "原片已儲存在 Silverphase。")] + warnings).joined(separator: "\n")
                 }
 #else
                 writingCapture = true
@@ -1577,7 +1577,7 @@ struct MobileCameraView: View {
                 let cameraError = error as NSError
                 Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
                     .notice("Shot failed while writing: \(writingCapture), error: \(cameraError.domain, privacy: .public) \(cameraError.code)")
-                let action = writingCapture ? "保存原片失败" : "拍摄失败"
+                let action = writingCapture ? T("Saving the original failed", "保存原片失败", "儲存原片失敗") : T("Capture failed", "拍摄失败", "拍攝失敗")
                 failure = "\(action)：\(error.localizedDescription)"
 #else
                 failure = error.localizedDescription

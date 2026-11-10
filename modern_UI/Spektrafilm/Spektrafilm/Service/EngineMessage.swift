@@ -91,6 +91,14 @@ enum EngineMessage {
     }
 
     /// The same failure, for someone who did not build this.
+    ///
+    /// `@MainActor` because the copy now comes from the language setting
+    /// (`Localization.shared.resolved`), which is main-actor state. Both
+    /// callers already are — `Session.noteFailure` and `ExportPage` — and the
+    /// alternative, reading `Locale.preferredLanguages` here, is what made
+    /// this function disagree with the rest of the window once the interface
+    /// gained a language picker of its own.
+    @MainActor
     static func userFacing(_ error: Error) -> String {
         let raw = "\(error)"
         switch kind(error) {
@@ -144,10 +152,9 @@ enum EngineMessage {
         case .unknown:
             if raw.lowercased().contains("no profile") {
                 let stock = raw.split(separator: "'", omittingEmptySubsequences: false).dropFirst().first.map(String.init) ?? ""
-                if Locale.preferredLanguages.first?.hasPrefix("zh") == true {
-                    return "保存的材料配置不可用：\(stock)。请在工艺面板重新选择胶片或相纸后显影。原始照片和保存的编辑记录未被更改。"
-                }
-                return "The saved material profile is unavailable: \(stock). Choose another film or paper in the inspector to develop this photo. The original photo and saved edit have been preserved."
+                return T("The saved material profile is unavailable: \(stock). Choose another film or paper in the inspector to develop this photo. The original photo and saved edit have been preserved.",
+                         "保存的材料配置不可用：\(stock)。请在工艺面板重新选择胶片或相纸后显影。原始照片和保存的编辑记录未被更改。",
+                         "儲存的材料配置無法使用：\(stock)。請在工藝面板重新選擇膠片或相紙後顯影。原始照片與儲存的編輯記錄未被變更。")
             }
             return raw
         }

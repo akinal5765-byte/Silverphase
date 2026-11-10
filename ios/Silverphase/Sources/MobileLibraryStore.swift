@@ -14,7 +14,7 @@ struct MobileLibraryStore {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         guard FileManager.default.fileExists(atPath: manifest.path) else { return Snapshot(photos: []) }
         let snapshot = try JSONDecoder().decode(Snapshot.self, from: Data(contentsOf: manifest))
-        guard snapshot.version == 1 else { throw MobileFailure.message("图库版本不受支持，原文件与记录已保留。") }
+        guard snapshot.version == 1 else { throw MobileFailure.message(TDetached("That library version is not supported; originals and records are safe.", "图库版本不受支持，原文件与记录已保留。", "圖庫版本不受支援，原檔案與記錄已保留。")) }
         try validate(snapshot)
         return snapshot
     }
@@ -31,6 +31,6 @@ struct MobileLibraryStore {
                   photo.filename != "library.json" && !photo.filename.contains("/") && !photo.filename.contains("\\") &&
                   photo.sourceAspect.isFinite && photo.sourceAspect > 0 &&
                   photo.sourceMegapixels.isFinite && photo.sourceMegapixels >= 0
-              }) else { throw MobileFailure.message("图库记录无效，原文件与记录已保留。") }
+              }) else { throw MobileFailure.message(TDetached("The library record is invalid; originals and records are safe.", "图库记录无效，原文件与记录已保留。", "圖庫記錄無效，原檔案與記錄已保留。")) }
     }
 }

@@ -200,8 +200,8 @@ struct ScrubSlider: View {
             .accessibilityLabel(label)
             .accessibilityValue(format(value))
             .accessibilityAdjustableAction { stepRuler($0 == .increment) }
-            .accessibilityAction(named: Text(T("Reset", "重置"))) { resetRuler() }
-            .accessibilityAction(named: Text(T("Edit Value", "输入数值"))) { beginValueEntry() }
+            .accessibilityAction(named: Text(T("Reset", "重置", "重設"))) { resetRuler() }
+            .accessibilityAction(named: Text(T("Edit Value", "输入数值", "輸入數值"))) { beginValueEntry() }
             .onDisappear { rulerEnded() }
         }
         .frame(height: max(Theme.Metric.parameterRowHeight, m.rowHeight))
@@ -455,7 +455,7 @@ struct CheckBox: View {
         .contentShape(Rectangle()
             .inset(by: -Theme.Metric.checkboxHitOutset))
         .buttonStyle(.plain)
-        .accessibilityValue(Text(isOn ? T("On", "开启") : T("Off", "关闭")))
+        .accessibilityValue(Text(isOn ? T("On", "开启", "開啟") : T("Off", "关闭", "關閉")))
         .accessibilityAddTraits(isOn ? [.isSelected] : [])
     }
 }
