@@ -13,6 +13,8 @@ import OSLog
         document.editorVisible = ProcessInfo.processInfo.arguments.contains { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }
         return document
     }()
+    @AppStorage("mobile.onboarding.completed.v1") private var completedIntroduction = false
+    @State private var showsIntroduction = false
     @State private var importingLockedSessions: Set<URL> = []
     @State private var pendingPhotoLibrarySaves: Set<UUID> = []
     @Environment(\.scenePhase) private var scenePhase
@@ -31,8 +33,26 @@ import OSLog
             ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test")
         }
     }
+    /// Regression, audit and capture launches pass their own `--` switches;
+    /// the introduction must never cover an automated run.
+    private var runsUnattended: Bool {
+        ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--") }
+    }
     private var rootView: some View {
         editorRoot
+            .fullScreenCover(isPresented: $showsIntroduction) {
+                MobileIntroduction {
+                    showsIntroduction = false
+                    completedIntroduction = true
+                }
+            }
+            .task {
+                // Presenting during the first frame races the navigation stack
+                // and the cover is silently dropped, so let the window settle.
+                guard !completedIntroduction, !isDiagnosticEditorLaunch, !runsUnattended else { return }
+                try? await Task.sleep(for: .milliseconds(80))
+                showsIntroduction = true
+            }
             .background(MobileOrientationObserver().allowsHitTesting(false))
             .preferredColorScheme(.dark)
             .tint(.primary)

@@ -72,3 +72,12 @@ if [[ ! -f "$out/ui-stamp" || "$(cat "$out/ui-stamp")" != "$ui_stamp" ]]; then
 fi
 cp "$out/SilverphaseUI.metallib" "$resources/SilverphaseUI.metallib"
 rsync -a "$repo/modern_UI/Spektrafilm/Spektrafilm/Resources/DI/" "$resources/DI/"
+
+# Onboarding sample: the repo never stages test originals or private fixture
+# folders, so a maintainer supplies one explicitly. Absent it, the
+# introduction still runs and simply asks the reader to swipe on.
+onboarding_sample="${SILVERPHASE_ONBOARDING_SAMPLE:-$repo/private-fixtures/onboarding/OnboardingExample.jpg}"
+rm -f "$resources/OnboardingExample.jpg"
+if [ -f "$onboarding_sample" ]; then
+    cp "$onboarding_sample" "$resources/OnboardingExample.jpg"
+fi

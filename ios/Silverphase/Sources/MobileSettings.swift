@@ -80,6 +80,7 @@ struct MobileSettingsView: View {
     @State private var cameraLocation = MobileCameraLocation.shared
     @AppStorage(MobileCameraPreviewMode.key) private var previewMode = MobileCameraPreviewMode.initial()
     @Environment(\.dismiss) private var dismiss
+    @State private var showsIntroduction = false
     @State private var availableMemory: UInt64 = 0
     @State private var originalBytes: Int64?
     var body: some View {
@@ -102,6 +103,12 @@ struct MobileSettingsView: View {
                            "胶片、相纸、相机与镜头名称以及技术缩写保持英文。切换立即生效。",
                            "膠片、相紙、相機與鏡頭名稱以及技術縮寫保持英文。切換立即生效。"))
                         .font(.caption).foregroundStyle(.secondary)
+                }
+                Section {
+                    Button(T("Getting started", "使用引导", "使用引導"), systemImage: "sparkles") { showsIntroduction = true }
+                        .fullScreenCover(isPresented: $showsIntroduction) {
+                            MobileIntroduction { showsIntroduction = false }
+                        }
                 }
                 Section(T("Rendering", "渲染", "渲染")) {
                     Text(T("Preview detail follows the window and zoom; 1:1 shows original pixels.", "预览清晰度随窗口和缩放自动调整，1:1 查看原始像素。", "預覽清晰度隨視窗與縮放自動調整，1:1 檢視原始像素。")).font(.caption).foregroundStyle(.secondary)
