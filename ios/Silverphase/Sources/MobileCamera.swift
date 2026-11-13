@@ -28,6 +28,8 @@ struct MobileCameraView: View {
     let initialHingeClosed: Bool?
     let libraryThumbnail: URL?
     let mirrorsFrontCamera: Bool
+    @Binding var prefersRAW: Bool
+    @Binding var prefers12MP: Bool
     let importPhoto: (URL, Stock?, MobileCameraRecipe) async throws -> MobilePhoto
     let developPhoto: (MobilePhoto, Bool) async throws -> MobileCameraDevelopment
     let savePhoto: (MobilePhoto) async throws -> Void
@@ -37,6 +39,9 @@ struct MobileCameraView: View {
     let openLibrary: () -> Void
     let lockedHingeClosed: Bool?
     private let mirrorsFrontCamera = false
+    @State private var prefersRAW = MobileCameraRecipe.defaultPrefersRAW
+    @State private var prefers12MP = MobileCameraRecipe.defaultPrefers12MP
+    @State private var loadedCameraContext = false
 #endif
 
     @Environment(\.dismiss) private var dismiss
@@ -76,15 +81,18 @@ struct MobileCameraView: View {
     @State private var rearLens = MobileCameraLens.wide
     @State private var switching = false
     @State private var flash = AVCaptureDevice.FlashMode.off
-    @State private var exposure: Float = 0
+    @State private var exposure: Double = 0
     @State private var focusPoint: CGPoint?
     @State private var focusLocked = false
     @State private var focusFeedbackID = 0
     @State private var draggingExposure = false
     @State private var portraitPreview = true
+    @State private var frontFraming: MobileFrontFraming = .portrait
     @State private var portraitMode = false
     @State private var levelRoll: Double?
     @State private var deviceQuarterTurn = 0.0
+    @State private var updatedCaptureFormat: MobileCaptureFormat?
+    @State private var updatingCaptureMode = false
     @State private var measuredCapturePose: MobileCameraCapturePose?
     // MobileCameraCanvas keeps the camera's own coordinate system portrait.
     private let interfaceQuarterTurn = 0.0
@@ -128,13 +136,21 @@ struct MobileCameraView: View {
         return films.first { $0.id == id } ?? films.first
     }
     private var captureRecipe: MobileCameraRecipe {
-        MobileCameraRecipe(filmID: film?.id, metering: metering, diffusion: diffusion)
+        MobileCameraRecipe(filmID: film?.id, metering: metering, diffusion: diffusion,
+                           exposureCompensationEV: exposure)
     }
 
 #if SILVERPHASE_APP
+    private var cameraContext: MobileCameraRecipe {
+        var context = captureRecipe.withoutExposureCompensation
+        context.prefersRAW = prefersRAW
+        context.prefers12MP = prefers12MP
+        return context
+    }
+
     private var lookRequest: MobileCameraRecipe? {
         guard !isLayoutCheck, showsFilmPreview, canRunCamera, !shotInProgress, film != nil else { return nil }
-        return captureRecipe
+        return captureRecipe.withoutExposureCompensation
     }
 
     private var shotInProgress: Bool { capturing || developing || savingToPhotos || reveal != nil }
@@ -161,7 +177,7 @@ struct MobileCameraView: View {
 #if !SILVERPHASE_APP
         guard !sessionInterrupted else { return false }
 #endif
-        return configuration != nil && previewing && !switching && switchFrame == nil && !shotInProgress && canRunCamera
+        return configuration != nil && previewing && !switching && !updatingCaptureMode && switchFrame == nil && !shotInProgress && canRunCamera
     }
 
 #if SILVERPHASE_APP
@@ -229,7 +245,7 @@ struct MobileCameraView: View {
             }.allowsHitTesting(false)
         }
 #endif
-        .background(Color.black.ignoresSafeArea())
+        .background(MobileStyle.canvas.ignoresSafeArea())
         .preferredColorScheme(.dark)
 #if SILVERPHASE_APP
         .interactiveDismissDisabled(capturing || developing || savingToPhotos)
@@ -289,8 +305,8 @@ struct MobileCameraView: View {
         .task(id: canRunCamera && recordsLocation) {
             if !isLayoutCheck { MobileCameraLocation.shared.setCameraActive(canRunCamera, enabled: recordsLocation) }
         }
-        .task(id: captureRecipe) {
-            do { try await SilverphaseCameraCaptureIntent.updateAppContext(captureRecipe) }
+        .task(id: cameraContext) {
+            do { try await SilverphaseCameraCaptureIntent.updateAppContext(cameraContext) }
             catch {
                 Logger(subsystem: "com.silverphase.editor", category: "Camera")
                     .notice("Could not update lock-screen camera preferences")
@@ -306,15 +322,18 @@ struct MobileCameraView: View {
                 await fastLookEngine.close(keepingColorTables: shotInProgress && canRunCamera)
                 return
             }
-            if lookFrame?.recipe != request { lookFrame = nil }
+            if lookFrame?.recipe.withoutExposureCompensation != request { lookFrame = nil }
             let mode = previewMode
             if mode == .approximate { await lookEngine.close(); fastLookEngine.workGate.setActive(true) }
             else { await fastLookEngine.close(); lookEngine.workGate.setActive(true) }
             var previousSerial: UInt64?
+            var previousRecipe: MobileCameraRecipe?
             do {
                 while !Task.isCancelled, lookRequest == request {
+                    let recipe = captureRecipe
                     guard previewing, !changingPhysicalLens,
-                          let frame = camera.lookFrames.latest(), frame.serial != previousSerial else {
+                          let frame = camera.lookFrames.latest(),
+                          frame.serial != previousSerial || recipe != previousRecipe else {
                         try await Task.sleep(for: .milliseconds(30))
                         continue
                     }
@@ -326,15 +345,17 @@ struct MobileCameraView: View {
                     let result: MobileCameraLookResult
                     if mode == .approximate {
                         result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
-                                                                recipe: request, longEdge: reduced ? 640 : 960)
+                                                                recipe: recipe, longEdge: reduced ? 640 : 960)
                     } else {
                         result = try await lookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
-                                                            recipe: request, longEdge: budget.longEdge)
+                                                            recipe: recipe, longEdge: budget.longEdge)
                     }
                     try Task.checkCancellation()
                     guard lookRequest == request, previewMode == mode else { return }
                     guard result.sourceGeneration == camera.lookFrames.currentGeneration() else { continue }
-                    lookFrame = result; previousSerial = frame.serial
+                    lookFrame = result
+                    previousSerial = frame.serial
+                    previousRecipe = recipe
                     let pause = max(0.001, (mode == .approximate ? (reduced ? 1.0 / 20 : 1.0 / 30) : budget.interval) - (ProcessInfo.processInfo.systemUptime - started))
                     try await Task.sleep(for: .seconds(pause))
                 }
@@ -350,6 +371,7 @@ struct MobileCameraView: View {
         .task(id: retry) { if canRunCamera && !isLayoutCheck { await startCamera() } }
 #else
         .task {
+            defer { loadedCameraContext = true }
             let initial = captureRecipe
             do {
                 guard let saved = try await SilverphaseCameraCaptureIntent.appContext,
@@ -357,13 +379,15 @@ struct MobileCameraView: View {
                 // Do not overwrite a choice made while context was loading.
                 if let id = saved.filmID, films.contains(where: { $0.id == id }) { filmID = id }
                 metering = saved.metering; diffusion = saved.diffusion
+                prefersRAW = saved.prefersRAW ?? MobileCameraRecipe.defaultPrefersRAW
+                prefers12MP = saved.prefers12MP ?? MobileCameraRecipe.defaultPrefers12MP
             } catch {
                 Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
                     .notice("Using default camera preferences; app context unavailable")
             }
         }
-        .task(id: hasMountedViewfinder ? retry : nil) {
-            if hasMountedViewfinder && !isLayoutCheck { await startCamera() }
+        .task(id: hasMountedViewfinder && loadedCameraContext ? retry : nil) {
+            if hasMountedViewfinder && loadedCameraContext && !isLayoutCheck { await startCamera() }
         }
 #endif
         .task(id: canRunCamera) {
@@ -480,7 +504,7 @@ struct MobileCameraView: View {
     private var previewStatus: some View {
         HStack {
             if showsFilmPreview, !shotInProgress {
-                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : lookFrame?.snapshot(for: captureRecipe) == nil ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
+                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : lookFrame?.recipe.withoutExposureCompensation != lookRequest ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
                     .font(.caption2).lineLimit(1)
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 8).padding(.vertical, 5)
@@ -511,39 +535,12 @@ struct MobileCameraView: View {
                 .disabled(shotInProgress)
             Spacer()
             HStack(spacing: 4) {
-                if let configuration {
-                    Text(configuration.format.rawValue)
-                        .font(.caption2.monospaced().weight(.semibold))
-                        .modifier(AdjustmentNumberTransition(value: nil, label: configuration.format.rawValue))
-                        .modifier(controlOrientation)
-                        .padding(.leading, 10)
-                }
+                if let configuration { formatMenu(configuration) }
                 flashMenu
                 meteringMenu
-                Menu {
-                    Toggle(T("Composition grid", "构图网格", "構圖網格"), isOn: $showsGoldenGrid)
-                    Picker(T("Grid style", "网格样式", "網格樣式"), selection: $usesGoldenRatio) {
-                        Text(T("Rule of thirds", "三分网格", "三分網格")).tag(false)
-                        Text(T("Golden ratio", "黄金分割", "黃金分割")).tag(true)
-                    }
-                    .disabled(!showsGoldenGrid)
-                    Toggle(T("Level", "水平仪", "水平儀"), isOn: $showsLevel)
-#if SILVERPHASE_APP
-                    Divider()
-                    Picker(T("Live film preview", "实时胶片取景", "即時膠片取景"), selection: $previewMode) {
-                        ForEach(MobileCameraPreviewMode.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-#endif
-                } label: {
-                    Image(systemName: "grid")
-                        .foregroundStyle(showsGoldenGrid || showsLevel ? MobileStyle.accent : .white)
-                        .modifier(controlOrientation)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel(T("Composition aids", "构图辅助", "構圖輔助"))
-                .accessibilityIdentifier("camera.options")
+                compositionMenu
             }
+            .disabled(shotInProgress)
             .padding(4)
             .modifier(ChromeSurface(radius: 24, interactive: true))
         }
@@ -551,9 +548,58 @@ struct MobileCameraView: View {
         .padding(.top, 4)
     }
 
+    private func topMenu<Items: View, Label: View>(
+        _ title: String, id: String, value: String = "",
+        @ViewBuilder items: () -> Items, @ViewBuilder label: () -> Label
+    ) -> some View {
+        Menu(content: items) {
+            label()
+                .modifier(controlOrientation)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
+        .accessibilityIdentifier(id)
+    }
+
+    private func formatMenu(_ configuration: MobileCameraConfiguration) -> some View {
+        let title = T("Capture format", "拍摄格式", "拍攝格式")
+        let status = updatingCaptureMode
+            ? pendingCaptureFormatStatus
+            : (updatedCaptureFormat ?? configuration.format).rawValue
+        return topMenu(title, id: "camera.format", value: status) {
+            Group {
+                Toggle(T("Prefer RAW capture", "优先拍摄 RAW", "優先拍攝 RAW"),
+                       isOn: Binding(get: { prefersRAW }, set: { updateCapturePreferences(raw: $0, lowResolution: prefers12MP) }))
+                Divider()
+                Picker(T("Capture resolution", "拍摄分辨率", "拍攝解析度"),
+                       selection: Binding(get: { prefers12MP }, set: { updateCapturePreferences(raw: prefersRAW, lowResolution: $0) })) {
+                    Text(T("Highest available", "最高可用", "最高可用")).tag(false)
+                    Text("12 MP").tag(true)
+                }
+                .pickerStyle(.inline)
+            }
+            .disabled(switching || updatingCaptureMode || portraitMode)
+        } label: {
+            Text(status)
+                .font(.caption2.monospaced().weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 6)
+        }
+    }
+
+    private var pendingCaptureFormatStatus: String {
+        if prefersRAW { return T("Prefer RAW", "优先 RAW", "優先 RAW") }
+        return prefers12MP ? "12 MP" : T("Highest available", "最高可用", "最高可用")
+    }
+
     private var meteringMenu: some View {
-        Menu {
-            Picker(T("Metering Mode", "测光模式", "測光模式"), selection: $metering) {
+        let title = T("Metering Mode", "测光模式", "測光模式")
+        return topMenu(title, id: "camera.metering", value: metering.title) {
+            Picker(title, selection: $metering) {
                 ForEach(MobileMeteringMode.allCases, id: \.self) { mode in
                     Text(mode.title).tag(mode)
                 }
@@ -564,14 +610,28 @@ struct MobileCameraView: View {
         } label: {
             Image(systemName: "camera.metering.center.weighted")
                 .foregroundStyle(metering == .custom ? .white : MobileStyle.accent)
-                .modifier(controlOrientation)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
         }
-        .accessibilityLabel(T("Metering Mode", "测光模式", "測光模式"))
-        .accessibilityValue(metering.title)
-        .accessibilityIdentifier("camera.metering")
-        .disabled(shotInProgress)
+    }
+
+    private var compositionMenu: some View {
+        topMenu(T("Composition aids", "构图辅助", "構圖輔助"), id: "camera.options") {
+            Toggle(T("Composition grid", "构图网格", "構圖網格"), isOn: $showsGoldenGrid)
+            Picker(T("Grid style", "网格样式", "網格樣式"), selection: $usesGoldenRatio) {
+                Text(T("Rule of thirds", "三分网格", "三分網格")).tag(false)
+                Text(T("Golden ratio", "黄金分割", "黃金分割")).tag(true)
+            }
+            .disabled(!showsGoldenGrid)
+            Toggle(T("Level", "水平仪", "水平儀"), isOn: $showsLevel)
+#if SILVERPHASE_APP
+            Divider()
+            Picker(T("Live film preview", "实时胶片取景", "即時膠片取景"), selection: $previewMode) {
+                ForEach(MobileCameraPreviewMode.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+#endif
+        } label: {
+            Image(systemName: "grid")
+                .foregroundStyle(showsGoldenGrid || showsLevel ? MobileStyle.accent : .white)
+        }
     }
 
     private func returnFromCamera() {
@@ -828,25 +888,27 @@ struct MobileCameraView: View {
 #endif
                 if let previewDevice {
                     let aspect = configuration?.aspect ?? 4.0 / 3.0
-                    let ratio = portraitPreview ? 1 / aspect : aspect
+                    let framing = configuration?.frontFraming
+                    let ratio = framing?.aspect ?? (portraitPreview ? 1 / aspect : aspect)
+                    let fillsPanel = fillsPanel && framing == nil
                     let width = fillsPanel ? proxy.size.width : min(proxy.size.width, proxy.size.height * ratio)
                     let height = fillsPanel ? proxy.size.height : width / ratio
                     ZStack {
-                        Color(white: 0.08)
+                        MobileStyle.canvas
                         if !changingPhysicalLens {
                             MobileCameraPreview(camera: camera, device: previewDevice,
                                                 portrait: $portraitPreview, previewing: $previewing,
                                                 mirrored: lens == .front && mirrorsFrontCamera,
                                                 hardwareShutterEnabled: previewHardwareShutterEnabled, shutter: takePhoto,
-                                                canAdjustExposure: ready && focusPoint != nil && !focusLocked && configuration?.exposureRange != nil,
+                                                canAdjustExposure: ready && focusPoint != nil && !focusLocked,
                                                 exposureRotation: controlRotation,
                                                 focus: focus, adjustExposure: dragExposure)
                                 .id(previewDevice.uniqueID)
 #if SILVERPHASE_APP
                                 .overlay {
-                                    if let image = lookFrame?.snapshot(for: captureRecipe), !lookUnavailable,
+                                    if let lookFrame, lookFrame.recipe.withoutExposureCompensation == lookRequest, !lookUnavailable,
                                        !shotInProgress, canRunCamera {
-                                        Image(decorative: image, scale: 1).resizable().scaledToFill()
+                                        Image(decorative: lookFrame.image, scale: 1).resizable().scaledToFill()
                                             .frame(width: width, height: height).clipped()
                                             .allowsHitTesting(false).accessibilityHidden(true)
                                     }
@@ -974,7 +1036,7 @@ struct MobileCameraView: View {
                         } else {
                             Image(decorative: reveal.image, scale: 1).resizable()
                                 .opacity(revealOpacity)
-                                .background(.black)
+                                .background(MobileStyle.canvas)
                                 .task {
                                     withAnimation(.easeOut(duration: 0.18)) { revealOpacity = 1 }
                                     do { try await Task.sleep(for: .milliseconds(380)) } catch { return }
@@ -999,12 +1061,31 @@ struct MobileCameraView: View {
         HStack(spacing: 2) {
             if portraitMode || lens == .front {
                 let title = portraitMode ? T("Portrait", "人像", "人像") : T("Front", "前置", "前置")
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .modifier(AdjustmentNumberTransition(value: nil, label: title))
-                    .foregroundStyle(MobileStyle.accent)
-                    .modifier(controlOrientation)
-                    .padding(.horizontal, 14).frame(minHeight: 44)
+                if let framing = configuration.frontFraming, configuration.availableFrontFramings.count > 1 {
+                    ForEach(configuration.availableFrontFramings, id: \.self) { option in
+                        let selected = option == framing
+                        Button {
+                            selectFrontFraming(option)
+                        } label: {
+                            Text(option.rawValue)
+                                .font(.subheadline.monospacedDigit().weight(.semibold))
+                                .modifier(controlOrientation)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
+                                .foregroundStyle(selected ? MobileStyle.accent : .white)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                        .accessibilityIdentifier("camera.front-framing." + option.rawValue)
+                    }
+                } else {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .modifier(AdjustmentNumberTransition(value: nil, label: title))
+                        .foregroundStyle(MobileStyle.accent)
+                        .modifier(controlOrientation)
+                        .padding(.horizontal, 14).frame(minHeight: 44)
+                }
             } else {
                 ForEach(configuration.rearLenses) { option in
                     let alternate = configuration.alternateLenses[option]
@@ -1138,25 +1219,18 @@ struct MobileCameraView: View {
     }
 
     private var flashMenu: some View {
-        Menu {
-            ForEach(configuration?.flashModes ?? [], id: \.rawValue) { mode in
-                Button {
-                    flash = mode
-                } label: {
-                    if flash == mode { Label(flashTitle(mode), systemImage: "checkmark") }
-                    else { Text(flashTitle(mode)) }
+        let title = T("Flash", "闪光灯", "閃光燈")
+        return topMenu(title, id: "camera.flash", value: flashTitle(flash)) {
+            Picker(title, selection: $flash) {
+                ForEach(configuration?.flashModes ?? [], id: \.rawValue) { mode in
+                    Text(flashTitle(mode)).tag(mode)
                 }
             }
         } label: {
             Image(systemName: flash == .off ? "bolt.slash" : flash == .auto ? "bolt.badge.automatic" : "bolt.fill")
                 .foregroundStyle(flash == .off ? Color.white : MobileStyle.accent)
-                .modifier(controlOrientation)
-                .frame(minWidth: 44, minHeight: 44)
         }
-        .accessibilityLabel(T("Flash", "闪光灯", "閃光燈"))
-        .accessibilityValue(flashTitle(flash))
-        .accessibilityIdentifier("camera.flash")
-        .disabled(!ready || (configuration?.flashModes.count ?? 0) < 2)
+        .disabled(switching || (configuration?.flashModes.count ?? 0) < 2)
     }
 
     private func flashTitle(_ mode: AVCaptureDevice.FlashMode) -> String {
@@ -1168,6 +1242,27 @@ struct MobileCameraView: View {
         }
     }
 
+    private func updateCapturePreferences(raw: Bool, lowResolution: Bool) {
+        guard !switching, !portraitMode, !updatingCaptureMode, !shotInProgress,
+              raw != prefersRAW || lowResolution != prefers12MP else { return }
+        updatingCaptureMode = true
+        if prefersRAW != raw { prefersRAW = raw }
+        if prefers12MP != lowResolution { prefers12MP = lowResolution }
+        Task {
+            updatedCaptureFormat = await camera.updateCapturePreferences(prefersRAW: raw, prefers12MP: lowResolution)
+            updatingCaptureMode = false
+        }
+    }
+
+    private func selectFrontFraming(_ framing: MobileFrontFraming) {
+        guard ready, lens == .front, configuration?.frontFraming != framing else { return }
+        frontFraming = framing
+        switching = true
+        focusPoint = nil
+        focusLocked = false
+        retry += 1
+    }
+
     private func selectLens(_ option: MobileCameraLens) {
         guard ready, lens != option else { return }
         switchCamera(to: option, portrait: portraitMode, changesInput: lens.physicalLens != option.physicalLens)
@@ -1177,7 +1272,7 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
         // Capture the composed, processed image synchronously before switch
         // state or task cancellation can hide/replace it. Includes portrait.
-        let displayedFrame = showsFilmPreview && !lookUnavailable ? lookFrame?.snapshot(for: captureRecipe) : nil
+        let displayedFrame = !lookUnavailable && lookFrame?.recipe.withoutExposureCompensation == lookRequest ? lookFrame?.image : nil
         let oldGeneration = camera.lookFrames.currentGeneration()
 #endif
         switching = true
@@ -1211,6 +1306,7 @@ struct MobileCameraView: View {
             }
             lens = option
             if option != .front { rearLens = option }
+            else if changesInput { frontFraming = .portrait }
             portraitMode = portrait
             retry += 1
         }
@@ -1233,7 +1329,8 @@ struct MobileCameraView: View {
                                 .strokeBorder(MobileStyle.accent, lineWidth: 1.5)
                                 .frame(width: 56, height: 56)
                                 .overlay(alignment: .trailing) {
-                                    if !focusLocked, let range = configuration?.exposureRange {
+                                    if !focusLocked {
+                                        let range = MobileCameraRecipe.exposureCompensationRange
                                         let travel = exposure >= 0 ? range.upperBound : -range.lowerBound
                                         let offset = travel > 0 ? -CGFloat(exposure / travel) * 22 : 0
                                         ZStack {
@@ -1300,12 +1397,12 @@ struct MobileCameraView: View {
             draggingExposure = false
             return
         }
-        guard ready, focusPoint != nil, let range = configuration?.exposureRange else { return }
+        guard ready, focusPoint != nil else { return }
+        let range = MobileCameraRecipe.exposureCompensationRange
         draggingExposure = true
-        let value = min(max(exposure - Float(movement) / 90, range.lowerBound), range.upperBound)
+        let value = min(max(exposure - Double(movement) / 90, range.lowerBound), range.upperBound)
         guard value != exposure else { return }
         exposure = value
-        camera.updateExposure(value, lens: lens)
     }
 
     private func retryCamera() {
@@ -1353,10 +1450,10 @@ struct MobileCameraView: View {
             return
         }
         do {
-            let available = try await camera.start(lens: lens, exposure: exposure, portrait: portraitMode)
+            let available = try await camera.start(lens: lens, portrait: portraitMode, prefersRAW: prefersRAW, prefers12MP: prefers12MP, frontFraming: frontFraming)
             guard !Task.isCancelled, canRunCamera else { return }
             configuration = available
-            exposure = available.exposure
+            updatedCaptureFormat = nil
             if !available.flashModes.contains(flash) { flash = .off }
 #if !SILVERPHASE_APP
             if previewing, !sessionInterrupted { issue = nil }
@@ -1483,6 +1580,7 @@ struct MobileCameraView: View {
         // fallback until a physical orientation has actually been observed.
         let selectedPose = measuredCapturePose
         let selectedFlash = flash
+        let selectedLens = lens
         let usesDepth = portraitMode
         let mirrored = lens == .front && mirrorsFrontCamera
         capturing = true
@@ -1505,7 +1603,7 @@ struct MobileCameraView: View {
 #endif
             }
             do {
-                let (data, format) = try await camera.capture(flash: selectedFlash, portrait: usesDepth,
+                let (data, format) = try await camera.capture(lens: selectedLens, flash: selectedFlash, portrait: usesDepth,
                                                               mirrored: mirrored, pose: selectedPose, location: selectedLocation)
 #if DEBUG && SILVERPHASE_APP
                 if selectedRecipe.metering == .custom, selectedFlash == .off, !usesDepth,

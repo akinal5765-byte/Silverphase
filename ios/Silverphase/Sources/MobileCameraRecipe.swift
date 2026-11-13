@@ -1,7 +1,7 @@
 import Foundation
 
 // Shared by capture, the editor and the lock-screen handoff. These select the
-// film pipeline's metering/diffusion, independently of AVFoundation exposure.
+// film pipeline's metering, exposure compensation and diffusion, independently of AVFoundation exposure.
 //
 // `title` is `@MainActor` because the copy comes from `T(_:_:_:)`, which reads
 // the language setting; every use of it is in a view or a capture-chrome label.
@@ -44,17 +44,45 @@ enum MobileDiffusionFilter: String, CaseIterable, Codable, Sendable {
 }
 
 struct MobileCameraRecipe: Codable, Equatable, Hashable, Sendable {
+    static let defaultPrefersRAW = true
+    static let defaultPrefers12MP = true
+    static let exposureCompensationRange: ClosedRange<Double> = -4...4
     static let defaultFilmID = "kodak_portra_400"
     // Optional so captures from earlier extension versions remain readable.
     var filmID: String? = nil
     var metering: MobileMeteringMode = .center_weighted
     var diffusion: MobileDiffusionFilter = .off
+    var exposureCompensationEV: Double? = nil
+    var cropZoom: Double? = nil
+    var prefersRAW: Bool? = nil
+    var prefers12MP: Bool? = nil
+
+    var withoutExposureCompensation: Self {
+        var recipe = self
+        recipe.exposureCompensationEV = nil
+        return recipe
+    }
+
+    var resolvedExposureCompensationEV: Double? {
+        guard let exposureCompensationEV, exposureCompensationEV.isFinite else { return nil }
+        let range = Self.exposureCompensationRange
+        return min(max(exposureCompensationEV, range.lowerBound), range.upperBound)
+    }
 
     static func sidecar(for original: URL) -> URL {
         original.appendingPathExtension("camera.json")
     }
 
 #if SILVERPHASE_APP
+    var captureGeometry: MobileGeometry {
+        guard let cropZoom, cropZoom.isFinite, cropZoom > 1 else { return MobileGeometry() }
+        let side = 1 / cropZoom
+        let inset = (1 - side) / 2
+        var geometry = Geometry()
+        geometry.crop = CropRect(x: inset, y: inset, width: side, height: side)
+        return MobileGeometry(value: geometry)
+    }
+
     var values: [String: WireValue] {
         var result: [String: WireValue] = [
             "auto_exposure": .bool(metering != .custom),
@@ -62,6 +90,9 @@ struct MobileCameraRecipe: Codable, Equatable, Hashable, Sendable {
             "camera_diffusion_strength": .double(0.5),
             "camera_diffusion_range": .double(1),
         ]
+        if let ev = resolvedExposureCompensationEV {
+            result["exposure_compensation_ev"] = .double(ev)
+        }
         if metering != .custom { result["auto_exposure_method"] = .string(metering.rawValue) }
         if diffusion != .off { result["camera_diffusion_family"] = .string(diffusion.rawValue) }
         return result

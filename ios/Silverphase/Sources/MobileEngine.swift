@@ -386,13 +386,15 @@ actor MobileEngine {
     func canvasImage(_ working: CGImage) throws -> CGImage {
         try colorPipeline().convert(working, engine: engine, target: .p3)
     }
-    func cameraDevelopment(url: URL, recipe: [String: WireValue], animate: Bool) throws -> MobileCameraDevelopment {
+    func cameraDevelopment(url: URL, recipe: [String: WireValue], geometry: MobileGeometry = MobileGeometry(),
+                           animate: Bool) throws -> MobileCameraDevelopment {
         defer { close() }
-        let result = try render(url: url, recipe: recipe, megapixels: 1)
-        let display = try canvasImage(result.image)
+        let result = try render(url: url, recipe: recipe, megapixels: 1, geometry: geometry)
+        let framed = MobileFilmGate.presents(recipe)
+        let print = try framed ? result.image : geometry.apply(to: result.image)
+        let display = try canvasImage(print)
         let animation = animate && result.resolved["scan_film"]?.boolValue != true
-            ? try? developmentAssets(print: result.image, geometry: MobileGeometry(),
-                                     framed: MobileFilmGate.presents(recipe), scanStyle: false)
+            ? try? developmentAssets(print: print, geometry: geometry, framed: framed, scanStyle: false)
             : nil
         return MobileCameraDevelopment(image: display, animation: animation)
     }

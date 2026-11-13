@@ -4,12 +4,11 @@ enum MobileStyle {
     // Current desktop Theme tokens, kept explicit until Theme's AppKit types
     // can be isolated. Layout follows EditorWindow.modernLayout, not legacy rails.
     static let accent = Color(uiColor: .systemOrange)
-    static let canvas = Color(white: 48.0 / 255)
+    static let canvas = Color(.sRGB, white: 0x18 / 255.0, opacity: 1)
     static let gutter: CGFloat = 8
     static let panel: CGFloat = 288
     static let radius: CGFloat = 16
     static let row: CGFloat = EditorDesign.hitSize
-    static let surface = Color(white: 0.065)
     static let well = Color.white.opacity(0.09)
     static let rule = Color.white.opacity(0.09)
     // Explicit semantic colour: hierarchical .secondary can disappear inside
@@ -28,9 +27,12 @@ struct ChromeSurface: ViewModifier {
         if #available(iOS 26.0, *) {
             let shape = Self.boundary(radius: radius, topBar: topBar)
             if reduceTransparency {
-                content.clipShape(shape).background(MobileStyle.surface, in: shape)
+                content.clipShape(shape).background(MobileStyle.canvas, in: shape)
             } else {
-                content.clipShape(shape).background(Color.black.opacity(0.08), in: shape)
+                // No backing plate: the glass already carries the system's own
+                // scrim. A second dark layer is what made a tool panel read
+                // thicker — and blurrier — than the system's own controls.
+                content.clipShape(shape)
                     .glassEffect(.regular.interactive(interactive), in: shape)
             }
         } else {

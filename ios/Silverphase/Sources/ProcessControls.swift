@@ -23,7 +23,7 @@ struct ProcessControls: View {
                 }
                 section(T("Metering & Exposure", "测光与曝光", "測光與曝光"))
                 choice(T("Metering Mode", "测光模式", "測光模式"), "_meter", MobileMeteringMode.allCases.map { ($0.rawValue, $0.title) })
-                number(T("Exposure Compensation · EV", "曝光补偿 · EV", "曝光補償 · EV"), "exposure_compensation_ev", -4...4)
+                number(T("Exposure Compensation · EV", "曝光补偿 · EV", "曝光補償 · EV"), "exposure_compensation_ev", MobileCameraRecipe.exposureCompensationRange)
                 section(T("Tone", "影调", "影調"))
                 number(T("Highlights", "高光", "高光"), "camera_tone_highlights", MobileProcessContract.cameraToneRange, fractionDigits: 0)
                 number(T("Shadows", "阴影", "陰影"), "camera_tone_shadows", MobileProcessContract.cameraToneRange, fractionDigits: 0)

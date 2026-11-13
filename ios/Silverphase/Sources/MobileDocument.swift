@@ -276,7 +276,8 @@ struct MobilePhoto: Codable, Identifiable {
     }
 
     func developCameraPhoto(_ photo: MobilePhoto, animate: Bool) async throws -> MobileCameraDevelopment {
-        let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo), animate: animate)
+        let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                                              geometry: photo.geometry, animate: animate)
         cacheLibraryPreview(preview.image, photo: photo)
         if preview.animation != nil { photosOfferedDevelopment.insert(photo.id) }
         return preview
@@ -290,6 +291,7 @@ struct MobilePhoto: Codable, Identifiable {
         try await PhotoLibraryWriter.authorize()
         let stem = URL(fileURLWithPath: photo.name).deletingPathExtension().lastPathComponent
         var options = MobileExportRecipe()
+        options.sizeMode = "original"
         if preferences.values.cameraUsesHEIF {
             options.format = .heif
             // ImageIO's HEIF and JPEG quality scales behave differently.
@@ -382,6 +384,7 @@ struct MobilePhoto: Codable, Identifiable {
                     if let capturedFilm { Self.applyFilm(capturedFilm, to: &photo.recipe) }
                     if let capturedRecipe = capturedRecipes[source] {
                         try Self.applyCapturedRecipe(capturedRecipe, to: &photo.recipe)
+                        photo.geometry = capturedRecipe.captureGeometry
                     }
                     let metadata = try await Task.detached(priority: .userInitiated) {
                         let scoped = source.startAccessingSecurityScopedResource()

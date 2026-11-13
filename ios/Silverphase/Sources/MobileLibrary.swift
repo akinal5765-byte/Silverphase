@@ -23,8 +23,8 @@ struct MobileLibrary: View {
     @State private var cameraReturnPhotoID: UUID?
     @State private var visiblePhotoID: UUID?
     @State private var legacyPhotoDates: [UUID: (date: Date?, day: Int?)] = [:]
-    @State private var settings: MobileSettingsPresentation?
-    @State private var about = false
+    @State private var settings: MobilePagePresentation?
+    @State private var about: MobilePagePresentation?
     @State private var editor: LibraryEditorRequest?
     @State private var exportRequest: LibraryExportRequest?
     @State private var copyRequest: MobileSettingsCopyRequest?
@@ -52,7 +52,7 @@ struct MobileLibrary: View {
     private var canHandleCameraShortcut: Bool {
         MobileCameraLaunch.shared.pending && scenePhase == .active && !document.isInteractionLocked &&
             document.libraryReadError == nil && (editor != nil || !document.editorVisible) &&
-            !pickingPhotos && !importing && settings == nil && !about && exportRequest == nil &&
+            !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
             copyRequest == nil && photoInfo == nil && deleting.isEmpty
     }
     private var newestPhoto: MobilePhoto? {
@@ -107,7 +107,7 @@ struct MobileLibrary: View {
                 }
             }
             .scrollPosition(id: $visiblePhotoID, anchor: .top)
-            .background(MobileStyle.surface.ignoresSafeArea())
+            .background(MobileStyle.canvas.ignoresSafeArea())
             .navigationTitle(document.isSelectingPhotos ? T("\(selected.count) selected", "已选 \(selected.count) 张", "已選 \(selected.count) 張") : "")
             .navigationBarTitleDisplayMode(.inline)
             .modifier(LibraryHeaderBar { libraryTopBar })
@@ -126,7 +126,7 @@ struct MobileLibrary: View {
             }
         }
         .tint(.primary)
-        .background(MobileStyle.surface.ignoresSafeArea())
+        .background(MobileStyle.canvas.ignoresSafeArea())
         .task(id: legacyPhotoIDs) { await loadLegacyPhotoDates() }
         .task(id: canHandleCameraShortcut) {
             guard canHandleCameraShortcut else { return }
@@ -148,6 +148,10 @@ struct MobileLibrary: View {
         }) {
             MobileCameraView(initialHingeClosed: phoneHingeClosed, libraryThumbnail: newestPhoto.map(cameraThumbnail(for:)),
                              mirrorsFrontCamera: document.preferences.values.mirrorsFrontCamera,
+                             prefersRAW: Binding(get: { document.preferences.values.prefersRAW },
+                                                 set: { document.preferences.values.prefersRAW = $0 }),
+                             prefers12MP: Binding(get: { document.preferences.values.prefers12MP },
+                                                  set: { document.preferences.values.prefers12MP = $0 }),
                              importPhoto: { url, film, recipe in
                 let previous = document.selection
                 let stamp = Date.now.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: true).timeSeparator(.omitted))
@@ -183,12 +187,15 @@ struct MobileLibrary: View {
         .sheet(item: $exportRequest) { request in
             NavigationStack {
                 ScrollView { MobileExportPanel(document: document, filteredIDs: request.ids, fixedIDs: request.ids) }
+                    .mobilePageBackground()
                     .navigationTitle(T("Export Photos", "导出成片", "匯出成片")).navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成")) { exportRequest = nil }.disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
                     .disabled(document.isInteractionLocked)
                     .overlay { notification(covered: document.exported != nil) }
                     .sheet(isPresented: shareBinding) { shareSheet }
-            }.interactiveDismissDisabled(document.isInteractionLocked)
+            }
+            .presentationBackground(MobileStyle.canvas)
+            .interactiveDismissDisabled(document.isInteractionLocked)
         }
         .sheet(isPresented: $pickingPhotos) {
             LibraryPhotoPicker(isPresented: $pickingPhotos,
@@ -210,8 +217,7 @@ struct MobileLibrary: View {
             case .failure(let error): document.error = error.localizedDescription
             }
         }
-        .mobileSettings(document: document, presentation: $settings)
-        .sheet(isPresented: $about) { MobileAbout() }
+        .mobileInformationPages(document: document, settings: $settings, about: $about)
         .sheet(item: $photoInfo) { photo in
             NavigationStack {
                 Form {
@@ -219,12 +225,14 @@ struct MobileLibrary: View {
                     LibraryFormatBadge(identifier: photo.sourceTypeIdentifier, original: document.url(for: photo))
                     if !photo.exifSummary.isEmpty { Text(photo.exifSummary).foregroundStyle(.secondary) }
                 }
+                .mobilePageBackground()
                 .navigationTitle(T("Photo Info", "照片信息", "照片資訊"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成")) { photoInfo = nil } }
                 }
             }
+            .presentationBackground(MobileStyle.canvas)
         }
         .alert(T("Remove from Library?", "从图库删除照片？", "從圖庫刪除照片？"), isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } }),
                presenting: deleting.isEmpty ? nil : deleting) { ids in
@@ -233,7 +241,7 @@ struct MobileLibrary: View {
         } message: { ids in
             Text(T("This deletes the in-app originals and edit records for \(ids.count) photos. It cannot be undone; Photos and the sources you imported from are not affected.", "将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。", "將刪除 \(ids.count) 張照片的應用內原檔案和編輯記錄。此操作無法還原，系統相簿和導入來源不受影響。"))
         }
-        .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about || copyRequest != nil || photoInfo != nil) }
+        .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
     }
     @ViewBuilder private var libraryTopBar: some View {
         if !document.isSelectingPhotos {
@@ -511,7 +519,7 @@ struct MobileLibrary: View {
                     }
                     Section {
                         Button(T("Settings", "设置", "設定"), systemImage: "gearshape") { settings = .init(folded: phoneHingeClosed == true) }
-                        Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = true }
+                        Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = .init(folded: phoneHingeClosed == true) }
                     }
                 } label: {
                     Label(T("Library menu", "图库菜单", "圖庫選單"), systemImage: hasFilters ? "ellipsis.circle.fill" : "ellipsis.circle")

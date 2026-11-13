@@ -16,6 +16,29 @@ enum MobileCaptureFormat: String, Sendable {
     }
 }
 
+enum MobileFrontFraming: String, CaseIterable, Sendable {
+    case portrait = "3:4", landscape = "4:3", square = "1:1"
+
+    var aspect: CGFloat {
+        switch self {
+        case .portrait: 3.0 / 4.0
+        case .landscape: 4.0 / 3.0
+        case .square: 1
+        }
+    }
+
+    @available(iOS 26, *)
+    var deviceAspect: AVCaptureDevice.AspectRatio {
+        // The front sensor's native axes are transposed relative to the
+        // upright viewfinder and the orientation-corrected photo.
+        switch self {
+        case .portrait: .ratio4x3
+        case .landscape: .ratio3x4
+        case .square: .ratio1x1
+        }
+    }
+}
+
 enum MobileCameraLens: String, Identifiable, Sendable {
     case ultraWide, wide, wide35, wideCrop, wideCrop3, telephoto, telephotoCrop8, front
 
@@ -59,10 +82,25 @@ enum MobileCameraLens: String, Identifiable, Sendable {
         case .ultraWide: AVCaptureDevice.default(.builtInUltraWideCamera, for: .video, position: .back)
         case .wide, .wide35, .wideCrop, .wideCrop3: AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
         case .telephoto, .telephotoCrop8: AVCaptureDevice.default(.builtInTelephotoCamera, for: .video, position: .back)
-        case .front: AVCaptureDevice.default(.builtInTrueDepthCamera, for: .video, position: .front)
+        case .front: Self.squareFrontCamera() ?? AVCaptureDevice.default(.builtInTrueDepthCamera, for: .video, position: .front)
             ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front)
         }
     }
+
+    private static func squareFrontCamera() -> AVCaptureDevice? {
+        guard #available(iOS 26, *) else { return nil }
+        return AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInUltraWideCamera, .builtInTrueDepthCamera, .builtInWideAngleCamera],
+            mediaType: .video, position: .front
+        )
+            .devices.first { device in
+                device.formats.contains {
+                    !$0.supportedMaxPhotoDimensions.isEmpty &&
+                        $0.supportedDynamicAspectRatios.contains(MobileFrontFraming.portrait.deviceAspect)
+                }
+            }
+    }
+
 }
 
 struct MobileCameraConfiguration: @unchecked Sendable {
@@ -70,14 +108,14 @@ struct MobileCameraConfiguration: @unchecked Sendable {
     let device: AVCaptureDevice
     let format: MobileCaptureFormat
     let aspect: CGFloat
+    let frontFraming: MobileFrontFraming?
+    let availableFrontFramings: [MobileFrontFraming]
     let rearLenses: [MobileCameraLens]
     let lensTitles: [MobileCameraLens: String]
     let alternateLenses: [MobileCameraLens: MobileCameraLens]
     let hasFrontCamera: Bool
     let hasPortraitCamera: Bool
     let flashModes: [AVCaptureDevice.FlashMode]
-    let exposureRange: ClosedRange<Float>?
-    let exposure: Float
 }
 
 // Session and output operations are serialized on queue. The main actor uses
@@ -105,6 +143,8 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     private var activeLens: MobileCameraLens?
     private var focusRequest = 0
     private var portraitCapture = false
+    private var prefersRAW = MobileCameraRecipe.defaultPrefersRAW
+    private var prefers12MP = MobileCameraRecipe.defaultPrefers12MP
     private var supportsWideCrop = false
     private lazy var devices: [MobileCameraLens: AVCaptureDevice] = Dictionary(uniqueKeysWithValues:
         [MobileCameraLens.ultraWide, .wide, .telephoto, .front].compactMap { lens in
@@ -180,10 +220,13 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
     }
 
-    func start(lens: MobileCameraLens, exposure: Float, portrait: Bool) async throws -> MobileCameraConfiguration {
+    func start(lens: MobileCameraLens, portrait: Bool, prefersRAW: Bool, prefers12MP: Bool,
+               frontFraming: MobileFrontFraming = .portrait) async throws -> MobileCameraConfiguration {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 do {
+                    self.prefers12MP = prefers12MP
+                    self.prefersRAW = prefersRAW
                     let rampsZoom = self.session.isRunning && !portrait && !self.portraitCapture &&
                         self.activeLens?.physicalLens == lens.physicalLens && self.activeLens != lens
                     let device = try self.configure(lens: lens, portrait: portrait)
@@ -196,7 +239,13 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     if portrait && !self.output.isDepthDataDeliveryEnabled {
                         throw MobileFailure.message(TDetached("The current lens or capture configuration does not support portrait depth.", "当前镜头或拍摄配置不支持人像深度。", "目前鏡頭或拍攝設定檔不支援人像深度。"))
                     }
+                    if lens == .front, !portrait {
+                        try self.configureFrontFraming(frontFraming, device: device)
+                    }
                     if !self.session.isRunning {
+                        if !portrait, let dimensions = self.maximumImmediatePhotoDimensions(for: device) {
+                            self.output.maxPhotoDimensions = dimensions
+                        }
 #if !SILVERPHASE_APP
                         let log = Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
                         log.notice("Capture graph configured, starting session")
@@ -207,12 +256,12 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
 #endif
                     }
                     guard self.session.isRunning else { throw MobileFailure.message(TDetached("The camera could not be started", "无法启动相机", "無法啟動相機")) }
-                    try self.applyControls(lens: lens, exposure: exposure, device: device, rampsZoom: rampsZoom)
+                    try self.applyControls(lens: lens, device: device, rampsZoom: rampsZoom)
                     if rampsZoom {
-                        self.finishZoom(lens: lens, exposure: exposure, request: self.focusRequest,
+                        self.finishZoom(lens: lens, request: self.focusRequest,
                                         attempts: 20, continuation: continuation)
                     } else {
-                        continuation.resume(returning: self.currentConfiguration(device: device, exposure: exposure))
+                        continuation.resume(returning: self.currentConfiguration(device: device))
                     }
                 } catch {
                     continuation.resume(throwing: error)
@@ -221,7 +270,23 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
     }
 
-    private func finishZoom(lens: MobileCameraLens, exposure: Float, request: Int, attempts: Int,
+    func updateCapturePreferences(prefersRAW: Bool, prefers12MP: Bool) async -> MobileCaptureFormat? {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                self.prefersRAW = prefersRAW
+                self.prefers12MP = prefers12MP
+                guard self.session.isRunning, let device = self.input?.device else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let format = self.captureFormat()
+                continuation.resume(returning: format)
+                self.prepareHighResolutionCapture(on: device, format: format)
+            }
+        }
+    }
+
+    private func finishZoom(lens: MobileCameraLens, request: Int, attempts: Int,
                             continuation: CheckedContinuation<MobileCameraConfiguration, any Error>) {
         queue.asyncAfter(deadline: .now() + .milliseconds(30)) {
             guard self.focusRequest == request, self.session.isRunning, let device = self.input?.device else {
@@ -229,13 +294,13 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 return
             }
             if device.isRampingVideoZoom, attempts > 0 {
-                self.finishZoom(lens: lens, exposure: exposure, request: request, attempts: attempts - 1, continuation: continuation)
+                self.finishZoom(lens: lens, request: request, attempts: attempts - 1, continuation: continuation)
                 return
             }
             do {
                 // Set the exact final factor before deriving the available RAW format.
-                try self.applyControls(lens: lens, exposure: exposure, device: device)
-                continuation.resume(returning: self.currentConfiguration(device: device, exposure: exposure))
+                try self.applyControls(lens: lens, device: device)
+                continuation.resume(returning: self.currentConfiguration(device: device))
             } catch {
                 continuation.resume(throwing: error)
             }
@@ -297,6 +362,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 throw MobileFailure.message(TDetached("The photo output could not be configured", "无法配置照片输出", "無法設定檔照片輸出"))
             }
             session.addOutput(nextOutput)
+            if !portrait { nextOutput.maxPhotoQualityPrioritization = .quality }
             let frames = AVCaptureVideoDataOutput()
             frames.alwaysDiscardsLateVideoFrames = true
 #if SILVERPHASE_APP
@@ -335,7 +401,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         return device
     }
 
-    private func applyControls(lens: MobileCameraLens, exposure: Float, device: AVCaptureDevice, rampsZoom: Bool = false) throws {
+    private func applyControls(lens: MobileCameraLens, device: AVCaptureDevice, rampsZoom: Bool = false) throws {
         focusRequest += 1
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
@@ -357,7 +423,6 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 else { device.videoZoomFactor = zoom }
             }
         }
-        setExposure(exposure, on: device)
         if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
         if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
         activeLens = lens
@@ -401,12 +466,33 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
     }
 
-    private func currentConfiguration(device: AVCaptureDevice, exposure: Float) -> MobileCameraConfiguration {
+    private func configureFrontFraming(_ framing: MobileFrontFraming, device: AVCaptureDevice) throws {
+        guard #available(iOS 26, *) else { return }
+        let ratio = framing.deviceAspect
+        if !device.activeFormat.supportedDynamicAspectRatios.contains(ratio) {
+            let format = device.formats.filter {
+                $0.supportedDynamicAspectRatios.contains(ratio) && !$0.supportedMaxPhotoDimensions.isEmpty
+            }.max { lhs, rhs in
+                let left = CMVideoFormatDescriptionGetDimensions(lhs.formatDescription)
+                let right = CMVideoFormatDescriptionGetDimensions(rhs.formatDescription)
+                return Int64(left.width) * Int64(left.height) < Int64(right.width) * Int64(right.height)
+            }
+            guard let format else { return }
+            if session.isRunning { session.stopRunning() }
+            try device.lockForConfiguration()
+            device.activeFormat = format
+            device.unlockForConfiguration()
+        }
+        guard device.dynamicAspectRatio != ratio else { return }
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        device.setDynamicAspectRatio(ratio, completionHandler: nil)
+    }
+
+    private func currentConfiguration(device: AVCaptureDevice) -> MobileCameraConfiguration {
         let dimensions = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
         let aspect = CGFloat(max(dimensions.width, dimensions.height)) / CGFloat(min(dimensions.width, dimensions.height))
         let lenses: [MobileCameraLens] = [.ultraWide, .wide, .wideCrop, .telephoto]
-        let minimum = device.minExposureTargetBias
-        let maximum = device.maxExposureTargetBias
         let titles = lensTitles()
         var alternates: [MobileCameraLens: MobileCameraLens] = [:]
         if devices[.wide].flatMap(zoomFor35mm(on:)) != nil { alternates[.wide] = .wide35 }
@@ -414,15 +500,26 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         if titles[.telephoto] == "4×", supportsSensorCrop(devices[.telephoto], factor: 2) {
             alternates[.telephoto] = .telephotoCrop8
         }
-        return MobileCameraConfiguration(device: device, format: captureFormat(), aspect: aspect,
+        let format = captureFormat()
+        prepareHighResolutionCapture(on: device, format: format)
+        var availableFrontFramings: [MobileFrontFraming] = []
+        var frontFraming: MobileFrontFraming?
+        if #available(iOS 26, *), activeLens == .front, !portraitCapture {
+            availableFrontFramings = MobileFrontFraming.allCases.filter { framing in
+                device.formats.contains {
+                    !$0.supportedMaxPhotoDimensions.isEmpty && $0.supportedDynamicAspectRatios.contains(framing.deviceAspect)
+                }
+            }
+            frontFraming = availableFrontFramings.first { $0.deviceAspect == device.dynamicAspectRatio }
+        }
+        return MobileCameraConfiguration(device: device, format: format, aspect: aspect,
+            frontFraming: frontFraming, availableFrontFramings: availableFrontFramings,
             rearLenses: lenses.filter { $0 == .wideCrop ? supportsWideCrop : devices[$0] != nil },
             lensTitles: titles,
             alternateLenses: alternates,
             hasFrontCamera: devices[.front] != nil,
             hasPortraitCamera: activeLens.flatMap(portraitDevice(for:)) != nil,
-            flashModes: device.hasFlash ? [.off, .auto, .on].filter(output.supportedFlashModes.contains) : [.off],
-            exposureRange: minimum < maximum ? minimum...maximum : nil,
-            exposure: min(max(exposure, minimum), maximum))
+            flashModes: device.hasFlash ? [.off, .auto, .on].filter(output.supportedFlashModes.contains) : [.off])
     }
 
     func focus(at point: CGPoint, lens: MobileCameraLens, lock: Bool) {
@@ -465,34 +562,79 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
     }
 
-    func updateExposure(_ value: Float, lens: MobileCameraLens) {
-        queue.async {
-            guard self.activeLens == lens, let device = self.input?.device else { return }
-            do {
-                try device.lockForConfiguration()
-                defer { device.unlockForConfiguration() }
-                self.setExposure(value, on: device)
-            } catch {
-                // Configuration may be unavailable during a system interruption.
+    private func maximumImmediatePhotoDimensions(for device: AVCaptureDevice, lowResolution: Bool = false) -> CMVideoDimensions? {
+        let sizes = device.activeFormat.supportedMaxPhotoDimensions
+            .filter { dimensions in
+                // AVFoundation delivers this 24 MP mode only through deferred photo delivery.
+                dimensions.width != 5712 || dimensions.height != 4284
             }
+        func pixels(_ size: CMVideoDimensions) -> Int64 { Int64(size.width) * Int64(size.height) }
+        if lowResolution {
+            return sizes.filter { pixels($0) <= 13_000_000 }.max { pixels($0) < pixels($1) }
+                ?? sizes.min { pixels($0) < pixels($1) }
         }
-    }
-
-    private func setExposure(_ value: Float, on device: AVCaptureDevice) {
-        let bias = min(max(value, device.minExposureTargetBias), device.maxExposureTargetBias)
-        if device.exposureTargetBias != bias { device.setExposureTargetBias(bias, completionHandler: nil) }
+        return sizes.max { pixels($0) < pixels($1) }
     }
 
     private func captureFormat() -> MobileCaptureFormat {
-        if !portraitCapture {
-            let formats = output.availableRawPhotoPixelFormatTypes
-            if formats.contains(where: AVCapturePhotoOutput.isAppleProRAWPixelFormat) { return .proRAW }
-            if input?.device.videoZoomFactor == 1, formats.contains(where: AVCapturePhotoOutput.isBayerRAWPixelFormat) { return .bayer }
+        if prefersRAW && !portraitCapture {
+            let rawFormats = output.availableRawPhotoPixelFormatTypes
+            if rawFormats.contains(where: AVCapturePhotoOutput.isAppleProRAWPixelFormat) { return .proRAW }
+            // AVFoundation validates both zoom factors even if Bayer is advertised.
+            if let device = input?.device, !device.isRampingVideoZoom, device.videoZoomFactor == 1,
+               output.connection(with: .video)?.videoScaleAndCropFactor == 1,
+               rawFormats.contains(where: AVCapturePhotoOutput.isBayerRAWPixelFormat) { return .bayer }
         }
         return output.availablePhotoCodecTypes.contains(.hevc) ? .heic : .jpeg
     }
 
-    @MainActor func capture(flash: AVCaptureDevice.FlashMode, portrait: Bool,
+    private func requestedPhotoDimensions(for device: AVCaptureDevice, lowResolution: Bool,
+                                          portrait: Bool) -> CMVideoDimensions? {
+        let limit = output.maxPhotoDimensions
+        guard !portrait, let dimensions = maximumImmediatePhotoDimensions(for: device, lowResolution: lowResolution),
+              dimensions.width <= limit.width, dimensions.height <= limit.height else { return nil }
+        return dimensions
+    }
+
+    private func configurePhotoQuality(_ settings: AVCapturePhotoSettings, format: MobileCaptureFormat,
+                                       device: AVCaptureDevice, portrait: Bool) {
+        switch format {
+        case .bayer:
+            settings.photoQualityPrioritization = .speed
+        case .proRAW, .heic, .jpeg:
+            guard !portrait else { return }
+            if let dimensions = requestedPhotoDimensions(for: device, lowResolution: prefers12MP, portrait: portrait) {
+                settings.maxPhotoDimensions = dimensions
+            }
+            settings.photoQualityPrioritization = prefers12MP ? .balanced : output.maxPhotoQualityPrioritization
+        }
+    }
+
+    private func prepareHighResolutionCapture(on device: AVCaptureDevice, format: MobileCaptureFormat) {
+        guard !portraitCapture else { return }
+        let settings: AVCapturePhotoSettings
+        switch format {
+        case .proRAW:
+            guard let raw = output.availableRawPhotoPixelFormatTypes.first(where: AVCapturePhotoOutput.isAppleProRAWPixelFormat) else { return }
+            settings = AVCapturePhotoSettings(rawPixelFormatType: raw)
+        case .heic, .jpeg:
+            let codec: AVVideoCodecType = format == .heic ? .hevc : .jpeg
+            guard output.availablePhotoCodecTypes.contains(codec) else { return }
+            settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: codec])
+        case .bayer:
+            return
+        }
+        configurePhotoQuality(settings, format: format, device: device, portrait: false)
+        guard Int64(settings.maxPhotoDimensions.width) * Int64(settings.maxPhotoDimensions.height) >= 40_000_000 else {
+            if !output.preparedPhotoSettingsArray.isEmpty {
+                output.setPreparedPhotoSettingsArray([], completionHandler: nil)
+            }
+            return
+        }
+        output.setPreparedPhotoSettingsArray([settings], completionHandler: nil)
+    }
+
+    @MainActor func capture(lens: MobileCameraLens, flash: AVCaptureDevice.FlashMode, portrait: Bool,
                             mirrored: Bool, pose: MobileCameraCapturePose? = nil,
                             location: MobileCaptureLocation? = nil) async throws -> (data: Data, format: MobileCaptureFormat) {
         let angle: CGFloat?
@@ -507,14 +649,14 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
         return try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                guard self.session.isRunning, let connection = self.output.connection(with: .video),
+                guard self.session.isRunning, !self.session.isInterrupted, self.activeLens == lens,
+                      let device = self.input?.device, !device.isRampingVideoZoom,
+                      let connection = self.output.connection(with: .video),
                       connection.isActive, self.captureDelegate == nil,
                       self.portraitCapture == portrait, !portrait || self.output.isDepthDataDeliveryEnabled else {
                     continuation.resume(throwing: MobileFailure.message(TDetached("The camera is not ready", "相机尚未准备好", "相機尚未準備好")))
                     return
                 }
-                // RAW availability can change after the startup or lens configuration snapshot.
-                let format = self.captureFormat()
                 if let angle {
                     if connection.isVideoRotationAngleSupported(angle) {
                         connection.videoRotationAngle = angle
@@ -527,6 +669,11 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = mirrored
                 }
+                if flash == .on, !device.isFlashAvailable {
+                    continuation.resume(throwing: MobileFailure.message(TDetached("The flash is unavailable. Turn it off and try again.", "闪光灯暂时不可用，请关闭闪光灯后重试", "閃光燈暫時不可用，請關閉閃光燈後重試")))
+                    return
+                }
+                let format = self.captureFormat()
                 let settings: AVCapturePhotoSettings
                 switch format {
                 case .proRAW, .bayer:
@@ -546,17 +693,13 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                 if let location {
                     settings.metadata = [kCGImagePropertyGPSDictionary as String: location.gps]
                 }
-                if format == .bayer { settings.photoQualityPrioritization = .speed }
+                self.configurePhotoQuality(settings, format: format, device: device, portrait: portrait)
                 if portrait {
                     settings.isDepthDataDeliveryEnabled = true
                     settings.isPortraitEffectsMatteDeliveryEnabled = self.output.isPortraitEffectsMatteDeliveryEnabled
                 }
-                if flash == .on, self.input?.device.isFlashAvailable != true {
-                    continuation.resume(throwing: MobileFailure.message(TDetached("The flash is unavailable. Turn it off and try again.", "闪光灯暂时不可用，请关闭闪光灯后重试", "閃光燈暫時不可用，請關閉閃光燈後重試")))
-                    return
-                }
                 if self.output.supportedFlashModes.contains(flash) { settings.flashMode = flash }
-                let delegate = StillCaptureDelegate(expectsRAW: format == .proRAW || format == .bayer) { result in
+                let delegate = StillCaptureDelegate(format: format, lens: lens, requested: settings.maxPhotoDimensions) { result in
                     self.queue.async {
                         self.captureDelegate = nil
                         continuation.resume(with: result.map { (data: $0, format: format) })
@@ -581,26 +724,48 @@ private extension MobileCameraCapturePose {
 }
 
 private final class StillCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
-    let expectsRAW: Bool
+    let format: MobileCaptureFormat
+    let lens: MobileCameraLens
+    let requested: CMVideoDimensions
+#if DEBUG
+    private let submittedAt = ProcessInfo.processInfo.systemUptime
+#endif
     let finish: @Sendable (Result<Data, Error>) -> Void
     private var data: Data?
     private var processingError: Error?
 
-    init(expectsRAW: Bool, finish: @escaping @Sendable (Result<Data, Error>) -> Void) {
-        self.expectsRAW = expectsRAW
+    init(format: MobileCaptureFormat, lens: MobileCameraLens, requested: CMVideoDimensions,
+         finish: @escaping @Sendable (Result<Data, Error>) -> Void) {
+        self.format = format
+        self.lens = lens
+        self.requested = requested
         self.finish = finish
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        guard photo.isRawPhoto == expectsRAW else { return }
-        processingError = error
-        if error == nil { data = photo.fileDataRepresentation() }
+        if let error { processingError = error; return }
+        guard photo.isRawPhoto == (format == .proRAW || format == .bayer) else { return }
+        data = photo.fileDataRepresentation()
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
         if let error = error ?? processingError { finish(.failure(error)) }
-        else if let data { finish(.success(data)) }
-        else { finish(.failure(MobileFailure.message(TDetached("The camera did not return an original", "相机未返回原片", "相機未返回原片")))) }
+        else if let data, !data.isEmpty {
+#if DEBUG
+            let size = format == .proRAW || format == .bayer ? resolvedSettings.rawPhotoDimensions : resolvedSettings.photoDimensions
+            let elapsed = ProcessInfo.processInfo.systemUptime - submittedAt
+            Logger(subsystem: "com.silverphase.editor", category: "Camera")
+                .notice("Captured \(self.lens.rawValue, privacy: .public) \(self.format.rawValue, privacy: .public): requested \(self.requested.width)x\(self.requested.height), delivered \(size.width)x\(size.height), AVFoundation and file serialization \(elapsed, format: .fixed(precision: 3)) s")
+#endif
+            finish(.success(data))
+        }
+        else {
+            let raw = resolvedSettings.rawPhotoDimensions
+            let processed = resolvedSettings.photoDimensions
+            Logger(subsystem: "com.silverphase.editor", category: "Camera")
+                .error("Missing original for \(self.lens.rawValue, privacy: .public) \(self.format.rawValue, privacy: .public); resolved RAW \(raw.width)x\(raw.height), processed \(processed.width)x\(processed.height)")
+            finish(.failure(MobileFailure.message(TDetached("The camera did not return an original", "相机未返回原片", "相機未返回原片"))))
+        }
     }
 }
 

@@ -207,10 +207,20 @@ actor MobileCameraLookEngine {
                            bounds: CGRect(x: 0, y: 0, width: width, height: height), format: .RGBAf, colorSpace: linear)
             var input = spk_device_image(buffer: Unmanaged.passUnretained(buffer as AnyObject).toOpaque(),
                                          width: UInt32(width), height: UInt32(height), channels: 4)
-            if sessionRecipe != recipe || sessionSize != size { closeSession() }
+            if sessionRecipe?.withoutExposureCompensation != recipe.withoutExposureCompensation || sessionSize != size {
+                closeSession()
+            }
             if let session {
                 guard spk_replace_device_frame(session, &input) == SPK_OK else {
                     throw MobileFailure.message(String(cString: spk_last_error(engine)))
+                }
+                if sessionRecipe != recipe {
+                    let patch = ["exposure_compensation_ev": WireValue.double(recipe.resolvedExposureCompensationEV ?? 0)]
+                    let json = String(decoding: try JSONEncoder().encode(patch), as: UTF8.self)
+                    guard spk_set_params(session, json, nil) == SPK_OK else {
+                        throw MobileFailure.message(String(cString: spk_last_error(engine)))
+                    }
+                    sessionRecipe = recipe
                 }
             } else {
                 var wire = try MobileProcessContract.wire(Self.intent(recipe), aspect: Double(width) / Double(height))

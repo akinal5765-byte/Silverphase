@@ -14,6 +14,11 @@ struct MobileIntroduction: View {
     @State private var replay = UUID()
     @State private var tapFeedback = UIImpactFeedbackGenerator(style: .heavy)
 
+    private var exampleURL: URL? {
+        Bundle.main.url(forResource: "OnboardingExample", withExtension: "jpg",
+                        subdirectory: StockCatalog.resourceDirectory)
+    }
+
     var body: some View {
         GeometryReader { window in
             let wide = window.size.width >= 740 && !typeSize.isAccessibilitySize
@@ -24,7 +29,7 @@ struct MobileIntroduction: View {
                     Button(T("Later", "稍后体验", "稍後體驗"), action: onComplete).frame(minHeight: 44)
                 }.padding(.horizontal, 24)
                 TabView(selection: $step) {
-                    ForEach(0..<3) { page in
+                    ForEach(exampleURL == nil ? [0, 2] : [0, 1, 2], id: \.self) { page in
                         ScrollView {
                             Group {
                                 if wide {
@@ -214,12 +219,7 @@ struct MobileIntroduction: View {
     }
 
     private func prepare() async {
-        guard example == nil else { return }
-        guard let url = Bundle.main.url(forResource: "OnboardingExample", withExtension: "jpg",
-                                        subdirectory: StockCatalog.resourceDirectory) else {
-            error = T("The sample photo is missing. Swipe to the next page.", "未找到示例照片，请滑动至下一页。", "未找到示例照片，請滑動至下一頁。")
-            return
-        }
+        guard example == nil, let url = exampleURL else { return }
         let engine = MobileEngine()
         do {
             var recipe = MobileProcessContract.clientDefaults
@@ -249,7 +249,7 @@ private struct IntroductionGlass: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
             if reduceTransparency {
-                content.background(MobileStyle.surface, in: Capsule())
+                content.background(MobileStyle.canvas, in: Capsule())
             } else if tinted {
                 content.glassEffect(.regular.tint(MobileStyle.accent).interactive(), in: Capsule())
             } else {

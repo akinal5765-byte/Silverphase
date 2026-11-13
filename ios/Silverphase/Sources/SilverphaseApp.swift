@@ -313,14 +313,22 @@ struct MobileEditor: View {
     @State private var importing = false
     @State private var pickingPhotos = false
     @State private var exporting = false
-    @State private var about = false
-    @State private var settings: MobileSettingsPresentation?
+    @State private var about: MobilePagePresentation?
+    @State private var settings: MobilePagePresentation?
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
     @State private var panelDragStart: Double?
     @GestureState private var panelDragging = false
     @State private var phoneHingeClosed: Bool?
+
+    private var aboutBinding: Binding<Bool> {
+        Binding {
+            about != nil
+        } set: { visible in
+            about = visible ? .init(folded: phoneHingeClosed == true) : nil
+        }
+    }
 
     private var settingsBinding: Binding<Bool> {
         Binding {
@@ -452,7 +460,7 @@ struct MobileEditor: View {
             .background(MobileStyle.canvas.ignoresSafeArea())
             }
             .modifier(ProcessToolbar(stage: stage, document: document, inspector: $inspector,
-                                     materials: $materials, exporting: $exporting, about: $about, settings: settingsBinding,
+                                     materials: $materials, exporting: $exporting, about: aboutBinding, settings: settingsBinding,
                                      importing: $importing, pickingPhotos: $pickingPhotos, enabled: systemProcessToolbar))
             }
             }
@@ -506,8 +514,7 @@ struct MobileEditor: View {
             .sheet(isPresented: Binding(get: { document.exported != nil }, set: { if !$0 { document.clearExport() } })) {
                 if let url = document.exported { ActivitySheet(urls: document.exportedFiles.isEmpty ? [url] : document.exportedFiles) }
             }
-            .sheet(isPresented: $about) { MobileAbout() }
-            .mobileSettings(document: document, presentation: $settings)
+            .mobileInformationPages(document: document, settings: $settings, about: $about)
             .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in document.schedule() }
             .onChange(of: document.preferences.values) { _, _ in document.schedule() }
             .onChange(of: stage) { _, stage in document.cropEditing = stage == .geometry }
@@ -531,7 +538,7 @@ struct MobileEditor: View {
         .overlay {
             MobileNotificationCenter(notification: document.currentNotification,
                                      excludedFrame: verticalSystemBar ? systemBarFrame : nil,
-                                     isCovered: document.exported != nil || pickingPhotos || importing || settings != nil || about,
+                                     isCovered: document.exported != nil || pickingPhotos || importing || settings != nil || about != nil,
                                      dismiss: document.dismissNotification)
         }
     }
@@ -634,7 +641,7 @@ struct MobileEditor: View {
                     exporting = true; inspector = true; materials = false
                 }.disabled(document.current == nil || document.isInteractionLocked || document.delivering).accessibilityIdentifier("editor.export")
                 NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                                 exporting: $exporting, about: $about, settings: settingsBinding,
+                                 exporting: $exporting, about: aboutBinding, settings: settingsBinding,
                                  importing: $importing, pickingPhotos: $pickingPhotos)
             }.compactHorizontalAxis()
         }
@@ -673,7 +680,7 @@ struct MobileEditor: View {
                 ChromeButton(title: T("Open Photo", "打开照片", "開啟照片"), symbol: "plus") { openImport() }.accessibilityIdentifier("import.menu")
                     .contextMenu {
                         Button(T("Reset This Photo", "重置当前照片", "重設目前照片"), systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
-                        Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = true }
+                        Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = .init(folded: phoneHingeClosed == true) }
                     }
             }
             ChromeButton(title: T("Undo", "撤销", "還原"), symbol: "arrow.uturn.backward", enabled: document.canUndo) { document.undo() }.accessibilityIdentifier("editor.undo")
@@ -691,7 +698,7 @@ struct MobileEditor: View {
                 exporting.toggle(); inspector = true; materials = false
             }
             NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                             exporting: $exporting, about: $about, settings: settingsBinding,
+                             exporting: $exporting, about: aboutBinding, settings: settingsBinding,
                              importing: $importing, pickingPhotos: $pickingPhotos)
                 .labelStyle(.iconOnly).frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
         }.auditEditorBounds("top.trailing-actions")
@@ -987,10 +994,17 @@ struct ActivitySheet: UIViewControllerRepresentable {
 }
 
 struct MobileAbout: View {
+    let folded: Bool
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
-            List {
+            Form {
                 Section("Silverphase") {
+                    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+                        LabeledContent(T("Version", "版本", "版本"), value: build.map { "\(version) (\($0))" } ?? version)
+                    }
                     Text(T("Built on Hanze Qiu's native SpektraLab application and Andrea Volpato's spektrafilm physical model and measured profiles. Silverphase is an independent derivative.", "基于 Hanze Qiu 的 SpektraLab 原生应用与 Andrea Volpato 的 spektrafilm 物理模型及实测配置。Silverphase 为独立衍生项目。", "基於 Hanze Qiu 的 SpektraLab 原生應用與 Andrea Volpato 的 spektrafilm 物理模型及實測設定檔。Silverphase 為獨立衍生項目。"))
                 }
                 MobileSupportSection()
@@ -998,10 +1012,16 @@ struct MobileAbout: View {
                 Section(T("Open-source licences and credits", "开源许可与署名", "開源授權與署名")) {
                     ForEach(licenseURLs, id: \.self) { url in
                         NavigationLink(url.lastPathComponent) { ScrollView { Text((try? String(contentsOf: url, encoding: .utf8)) ?? T("The licence file could not be read", "无法读取许可文件", "無法讀取授權檔案"))
-                            .font(.caption).textSelection(.enabled).padding() }.navigationTitle(url.lastPathComponent) }
+                            .font(.caption).textSelection(.enabled).padding() }.mobilePageBackground().navigationTitle(url.lastPathComponent) }
                     }
                 }
-            }.navigationTitle(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"))
+            }
+            .mobilePageBackground()
+            .navigationTitle(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"))
+            .toolbar {
+                MobilePageClose(folded: folded, title: T("Close about", "关闭关于", "關閉關於"),
+                                identifier: "about.close") { dismiss() }
+            }
         }
     }
     private var licenseURLs: [URL] {

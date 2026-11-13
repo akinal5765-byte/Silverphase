@@ -150,14 +150,14 @@ actor MobileCameraFastLookEngine {
             let source = MobileCameraLookGeometry.orientedImage(frame, angle: angle, mirrored: mirrored)
             let ev = try meteredEV(source, mode: recipe.metering, context: context)
             let now = ProcessInfo.processInfo.systemUptime
-            if lastRecipe != recipe { smoothedEV = nil; lastMeterTime = nil }
+            if lastRecipe != recipe.withoutExposureCompensation { smoothedEV = nil; lastMeterTime = nil }
             let alpha = min(1, max(0.05, (now - (lastMeterTime ?? now - 1)) / 0.18))
             let exposure = (smoothedEV ?? ev) + (ev - (smoothedEV ?? ev)) * alpha
-            smoothedEV = exposure; lastRecipe = recipe; lastMeterTime = now
+            smoothedEV = exposure; lastRecipe = recipe.withoutExposureCompensation; lastMeterTime = now
             let scale = min(1, CGFloat(longEdge) / max(source.extent.width, source.extent.height))
             let width = max(1, Int(source.extent.width * scale)), height = max(1, Int(source.extent.height * scale))
             var image = source.transformed(by: .init(scaleX: CGFloat(width) / source.extent.width, y: CGFloat(height) / source.extent.height))
-                .applyingFilter("CIExposureAdjust", parameters: ["inputEV": exposure])
+                .applyingFilter("CIExposureAdjust", parameters: ["inputEV": exposure + (recipe.resolvedExposureCompensationEV ?? 0)])
             // Explicitly approximate linear-light diffusion before the film colour.
             // It stays enabled in low-power mode; only size/update rate change.
             if recipe.diffusion != .off {
@@ -211,7 +211,7 @@ actor MobileCameraFastLookEngine {
         let source = MobileCameraLookGeometry.orientedImage(frame, angle: 0, mirrored: false)
         let width = Int(source.extent.width), height = Int(source.extent.height)
         let exposure = try meteredEV(source, mode: recipe.metering, context: context)
-        let exposed = source.applyingFilter("CIExposureAdjust", parameters: ["inputEV": exposure])
+        let exposed = source.applyingFilter("CIExposureAdjust", parameters: ["inputEV": exposure + (recipe.resolvedExposureCompensationEV ?? 0)])
         guard let buffer = device.makeBuffer(length: width * height * 16, options: .storageModeShared) else {
             throw MobileFailure.message("Cannot allocate colour reference")
         }

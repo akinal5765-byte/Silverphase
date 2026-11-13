@@ -209,6 +209,7 @@ struct MobileCopySettingsSheet: View {
                     }
                 }
             }
+            .mobilePageBackground()
             .navigationTitle(applyIDs == nil ? T("Copy Edits", "复制编辑项", "複製編輯項") : T("Apply Edits to Batch", "批量应用编辑项", "批量應用編輯項")).navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(T("Cancel", "取消", "取消")) { dismiss() } }
@@ -222,6 +223,6 @@ struct MobileCopySettingsSheet: View {
                         .accessibilityIdentifier("clipboard.confirm-copy")
                 }
             }
-        }.tint(.primary).presentationDetents([.large]).preferredColorScheme(.dark)
+        }.tint(.primary).presentationDetents([.large]).presentationBackground(MobileStyle.canvas).preferredColorScheme(.dark)
     }
 }
