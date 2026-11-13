@@ -73,7 +73,10 @@ fi
 cp "$out/SilverphaseUI.metallib" "$resources/SilverphaseUI.metallib"
 rsync -a "$repo/modern_UI/Spektrafilm/Spektrafilm/Resources/DI/" "$resources/DI/"
 
-# Bundle the generated demonstration by default. Maintainer builds can opt in
-# to a different sample without adding private photographs to the repository.
-onboarding_sample="${SILVERPHASE_ONBOARDING_SAMPLE:-$here/Resources/OnboardingExample.jpg}"
-cp "$onboarding_sample" "$resources/OnboardingExample.jpg"
+# Maintainer release builds use the existing local onboarding sample.
+# Source checkouts without the sample still build the introductory pages.
+onboarding_sample="${SILVERPHASE_ONBOARDING_SAMPLE:-$repo/private-fixtures/onboarding/OnboardingExample.jpg}"
+rm -f "$resources/OnboardingExample.jpg"
+if [ -f "$onboarding_sample" ]; then
+    cp "$onboarding_sample" "$resources/OnboardingExample.jpg"
+fi
