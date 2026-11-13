@@ -30,7 +30,8 @@ struct CompactProcessTabs: View {
     var body: some View {
         GeometryReader { geometry in
             NativeProcessPicker(stage: stage, enabled: enabled, vertical: false,
-                                size: CGSize(width: max(1, geometry.size.width), height: 56), select: select)
+                                size: CGSize(width: max(1, geometry.size.width), height: 56),
+                                language: MobileLocalization.shared.resolved, select: select)
                 .frame(width: geometry.size.width, height: 56)
         }
         .accessibilityIdentifier("editor.compact-tabs")
@@ -42,6 +43,7 @@ struct NativeProcessPicker: UIViewRepresentable {
     let enabled: Bool
     let vertical: Bool
     let size: CGSize
+    let language: MobileLanguage
     var embeddedInToolbar = false
     var showsTitles = true
     let select: (MobileStage) -> Void
@@ -60,10 +62,10 @@ struct NativeProcessPicker: UIViewRepresentable {
     func updateUIView(_ view: UIView, context: Context) {
         context.coordinator.parent = self
         if let toolbar = view as? ProcessPickerToolbar {
-            toolbar.configure(size: size, vertical: vertical, stage: stage, enabled: enabled)
+            toolbar.configure(size: size, vertical: vertical, stage: stage, enabled: enabled, language: language)
         } else if let host = view as? ProcessSegmentsHost {
             // NavigationStack already supplies the native toolbar host.
-            host.configure(size: size, vertical: vertical, stage: stage, enabled: enabled, showsTitles: showsTitles)
+            host.configure(size: size, vertical: vertical, stage: stage, enabled: enabled, language: language, showsTitles: showsTitles)
         }
     }
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIView, context: Context) -> CGSize? { size }
@@ -113,9 +115,9 @@ final class ProcessPickerToolbar: UIToolbar {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var intrinsicContentSize: CGSize { dockSize }
     override func sizeThatFits(_ size: CGSize) -> CGSize { dockSize }
-    func configure(size: CGSize, vertical: Bool, stage: MobileStage, enabled: Bool) {
+    func configure(size: CGSize, vertical: Bool, stage: MobileStage, enabled: Bool, language: MobileLanguage) {
         dockSize = size
-        host.configure(size: size, vertical: vertical, stage: stage, enabled: enabled)
+        host.configure(size: size, vertical: vertical, stage: stage, enabled: enabled, language: language)
         invalidateIntrinsicContentSize(); setNeedsLayout()
     }
     override func layoutSubviews() {
@@ -136,12 +138,12 @@ final class ProcessSegmentsHost: UIView {
         dockSize = size; self.vertical = vertical
         super.init(frame: CGRect(origin: .zero, size: size))
         addSubview(control)
-        for item in MobileStage.allCases { control.insertSegment(withTitle: item.rawValue, at: control.numberOfSegments, animated: false) }
+        for item in MobileStage.allCases { control.insertSegment(withTitle: item.title, at: control.numberOfSegments, animated: false) }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var intrinsicContentSize: CGSize { dockSize }
     override func sizeThatFits(_ size: CGSize) -> CGSize { dockSize }
-    func configure(size: CGSize, vertical: Bool, stage: MobileStage, enabled: Bool, showsTitles: Bool = true) {
+    func configure(size: CGSize, vertical: Bool, stage: MobileStage, enabled: Bool, language: MobileLanguage, showsTitles: Bool = true) {
         dockSize = size; self.vertical = vertical; self.showsTitles = showsTitles
         control.isEnabled = enabled
         for index in MobileStage.allCases.indices { control.setEnabled(enabled, forSegmentAt: index) }
@@ -149,19 +151,19 @@ final class ProcessSegmentsHost: UIView {
         // Do not reassign selection during native tracking: doing so can cancel
         // the system's moving glass lens before the valueChanged event settles.
         if control.selectedSegmentIndex != index { control.selectedSegmentIndex = index }
-        let key = "\(stage.id)-\(vertical)-\(showsTitles)-\(traitCollection.userInterfaceStyle.rawValue)"
+        let key = "\(stage.id)-\(vertical)-\(showsTitles)-\(traitCollection.userInterfaceStyle.rawValue)-\(language.rawValue)"
         if key != labelKey {
             labelKey = key
             for (i, item) in MobileStage.allCases.enumerated() {
-                let image = label(item, selected: item == stage)
-                image.accessibilityLabel = item.rawValue
+                let image = label(item, selected: item == stage, language: language)
+                image.accessibilityLabel = item.title(in: language)
                 image.accessibilityIdentifier = "stage." + item.id
                 control.setImage(image, forSegmentAt: i)
             }
         }
         invalidateIntrinsicContentSize(); setNeedsLayout()
     }
-    private func label(_ item: MobileStage, selected: Bool) -> UIImage {
+    private func label(_ item: MobileStage, selected: Bool, language: MobileLanguage) -> UIImage {
         let includesTitles = !vertical && showsTitles
         let canvas = CGSize(width: 36, height: includesTitles ? 44 : 36)
         let color = selected ? UIColor.systemOrange : UIColor.label.resolvedColor(with: traitCollection)
@@ -174,8 +176,13 @@ final class ProcessSegmentsHost: UIView {
                 symbol.draw(in: CGRect(x: (canvas.width - box.width) / 2, y: (includesTitles ? 5 : (canvas.height - box.height) / 2), width: box.width, height: box.height))
             }
             if includesTitles {
-                let text = item.rawValue as NSString
-                let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 9, weight: .medium), .foregroundColor: color]
+                let text = item.shortTitle(in: language) as NSString
+                let font = UIFont.systemFont(ofSize: 9, weight: .medium)
+                let naturalWidth = text.size(withAttributes: [.font: font]).width
+                let scale = min(1, (canvas.width - 2) / max(1, naturalWidth))
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: font.withSize(font.pointSize * scale), .foregroundColor: color
+                ]
                 let width = text.size(withAttributes: attrs).width
                 text.draw(at: CGPoint(x: (canvas.width - width) / 2, y: 29), withAttributes: attrs)
             }

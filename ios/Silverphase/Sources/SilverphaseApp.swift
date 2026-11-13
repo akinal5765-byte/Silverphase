@@ -249,25 +249,29 @@ enum MobileStage: String, CaseIterable, Identifiable {
     /// the tree since the first build, and two places compare stages by it.
     /// What the interface draws comes from here, so translating a stage does
     /// not silently rename it in anything that compares strings.
-    @MainActor var title: String {
+    @MainActor var title: String { title(in: MobileLocalization.shared.resolved) }
+
+    func title(in language: MobileLanguage) -> String {
         switch self {
-        case .camera: T("Capture", "拍摄", "拍攝")
-        case .film: T("Film", "胶片", "膠片")
-        case .development: T("Development", "显影", "顯影")
-        case .print: T("Color Enlargement", "彩色放大", "彩色放大")
-        case .output: T("Scan", "扫描", "掃描")
-        case .geometry: T("Crop", "构图", "構圖")
-        case .filmEdge: T("Film Edge", "片边", "片邊")
+        case .camera: T("Capture", "拍摄", "拍攝", in: language)
+        case .film: T("Film", "胶片", "膠片", in: language)
+        case .development: T("Development", "显影", "顯影", in: language)
+        case .print: T("Color Enlargement", "彩色放大", "彩色放大", in: language)
+        case .output: T("Scan", "扫描", "掃描", in: language)
+        case .geometry: T("Crop", "构图", "構圖", in: language)
+        case .filmEdge: T("Film Edge", "片边", "片邊", in: language)
         }
     }
 
     /// The same stage in the width a seven-segment control has. Only the two
     /// long names differ.
-    @MainActor var shortTitle: String {
+    @MainActor var shortTitle: String { shortTitle(in: MobileLocalization.shared.resolved) }
+
+    func shortTitle(in language: MobileLanguage) -> String {
         switch self {
-        case .development: T("Develop", "显影", "顯影")
-        case .print: T("Print", "印相", "印相")
-        default: title
+        case .development: T("Develop", "显影", "顯影", in: language)
+        case .print: T("Print", "印相", "印相", in: language)
+        default: title(in: language)
         }
     }
 

@@ -164,7 +164,8 @@ struct ProcessNavigation<Content: View>: View {
                     ToolbarItem(id: "editor.process-picker", placement: .bottomBar) {
                         NativeProcessPicker(stage: stage,
                                             enabled: document.current != nil && !document.isInteractionLocked && !document.delivering,
-                                            vertical: true, size: CGSize(width: 48, height: 308)) { item in
+                                            vertical: true, size: CGSize(width: 48, height: 308),
+                                            language: MobileLocalization.shared.resolved) { item in
                             document.endParameterInteraction()
                             selection.wrappedValue = item
                         }
@@ -194,6 +195,7 @@ struct ProcessNavigation<Content: View>: View {
             NativeProcessPicker(stage: stage,
                                 enabled: document.current != nil && !document.isInteractionLocked && !document.delivering,
                                 vertical: false, size: CGSize(width: 336, height: 44),
+                                language: MobileLocalization.shared.resolved,
                                 embeddedInToolbar: true, showsTitles: false) { item in
                 document.endParameterInteraction()
                 selection.wrappedValue = item
