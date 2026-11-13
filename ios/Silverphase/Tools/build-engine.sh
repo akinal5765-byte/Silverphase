@@ -73,11 +73,7 @@ fi
 cp "$out/SilverphaseUI.metallib" "$resources/SilverphaseUI.metallib"
 rsync -a "$repo/modern_UI/Spektrafilm/Spektrafilm/Resources/DI/" "$resources/DI/"
 
-# Onboarding sample: the repo never stages test originals or private fixture
-# folders, so a maintainer supplies one explicitly. Absent it, the
-# introduction presents the overview and editing pages.
-onboarding_sample="${SILVERPHASE_ONBOARDING_SAMPLE:-}"
-rm -f "$resources/OnboardingExample.jpg"
-if [ -n "$onboarding_sample" ] && [ -f "$onboarding_sample" ]; then
-    cp "$onboarding_sample" "$resources/OnboardingExample.jpg"
-fi
+# Bundle the generated demonstration by default. Maintainer builds can opt in
+# to a different sample without adding private photographs to the repository.
+onboarding_sample="${SILVERPHASE_ONBOARDING_SAMPLE:-$here/Resources/OnboardingExample.jpg}"
+cp "$onboarding_sample" "$resources/OnboardingExample.jpg"
