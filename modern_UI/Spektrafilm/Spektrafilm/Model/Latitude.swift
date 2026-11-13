@@ -85,37 +85,26 @@ final class LatitudeModel {
             if let minimum, minimum > 0 {
                 let n = String(format: "%.2f", minimum)
                 return top
-                    ? L("Pull back more than \(n) stops: any less still puts the scene's brightest part past the latitude's edge.",
-                        zh: "回拉需大于 \(n) 档，否则场景最亮处仍在宽容度边界之外。")
-                    : L("Pull back more than \(n) stops: any less still puts the scene's darkest part past the latitude's edge.",
-                        zh: "回拉需大于 \(n) 档，否则场景最暗处仍在宽容度边界之外。")
+                    ? T("Pull back more than \(n) stops: any less still puts the scene's brightest part past the latitude's edge.", "回拉需大于 \(n) 档，否则场景最亮处仍在宽容度边界之外。", "回拉需大於 \(n) 檔，否則場景最亮處仍在寬容度邊界之外。")
+                    : T("Pull back more than \(n) stops: any less still puts the scene's darkest part past the latitude's edge.", "回拉需大于 \(n) 档，否则场景最暗处仍在宽容度边界之外。", "回拉需大於 \(n) 檔，否則場景最暗處仍在寬容度邊界之外。")
             }
             return top
-                ? L("Pull back further: the scene's brightest part is still past the latitude's edge.",
-                    zh: "回拉不足，场景最亮处仍在宽容度边界之外。")
-                : L("Pull back further: the scene's darkest part is still past the latitude's edge.",
-                    zh: "回拉不足，场景最暗处仍在宽容度边界之外。")
+                ? T("Pull back further: the scene's brightest part is still past the latitude's edge.", "回拉不足，场景最亮处仍在宽容度边界之外。", "回拉不足，場景最亮處仍在寬容度邊界之外。")
+                : T("Pull back further: the scene's darkest part is still past the latitude's edge.", "回拉不足，场景最暗处仍在宽容度边界之外。", "回拉不足，場景最暗處仍在寬容度邊界之外。")
         case "room_below_minimum":
             return top
-                ? L("Pull back a little more: this close to the latitude's edge the highlights would turn too sharply.",
-                    zh: "回拉再多一些：离宽容度边界太近，高光的过渡会过于生硬。")
-                : L("Pull back a little more: this close to the latitude's edge the shadows would turn too sharply.",
-                    zh: "回拉再多一些：离宽容度边界太近，阴影的过渡会过于生硬。")
+                ? T("Pull back a little more: this close to the latitude's edge the highlights would turn too sharply.", "回拉再多一些：离宽容度边界太近，高光的过渡会过于生硬。", "回拉再多一些：離寬容度邊界太近，高光的過渡會過於生硬。")
+                : T("Pull back a little more: this close to the latitude's edge the shadows would turn too sharply.", "回拉再多一些：离宽容度边界太近，阴影的过渡会过于生硬。", "回拉再多一些：離寬容度邊界太近，陰影的過渡會過於生硬。")
         case PlacementWindow.noWindowCode:
             return top
-                ? L("This frame's highlights cannot be pulled inside the latitude: no pull-back works here.",
-                    zh: "这张照片的高光无法拉回宽容度之内，没有可用的回拉量。")
-                : L("This frame's shadows are too far under the latitude's edge to be lifted inside it.",
-                    zh: "这张照片的阴影低于宽容度边界太多，无法提升到宽容度之内。")
+                ? T("This frame's highlights cannot be pulled inside the latitude: no pull-back works here.", "这张照片的高光无法拉回宽容度之内，没有可用的回拉量。", "這張照片的高光無法拉回寬容度之內，沒有可用的回拉量。")
+                : T("This frame's shadows are too far under the latitude's edge to be lifted inside it.", "这张照片的阴影低于宽容度边界太多，无法提升到宽容度之内。", "這張照片的陰影低於寬容度邊界太多，無法提升到寬容度之內。")
         case "out_of_range":
-            return L("Pull back less: this is further than the curve can reach.",
-                     zh: "回拉过多，已超出曲线可达的范围。")
+            return T("Pull back less: this is further than the curve can reach.", "回拉过多，已超出曲线可达的范围。", "回拉過多，已超出曲線可達的範圍。")
         case "pull_back_exceeds_max_lift":
-            return L("Pull back less: this is past the most the shadows can be lifted.",
-                     zh: "回拉过多，已超出阴影可提升的上限。")
+            return T("Pull back less: this is past the most the shadows can be lifted.", "回拉过多，已超出阴影可提升的上限。", "回拉過多，已超出陰影可提升的上限。")
         case "knees_cross":
-            return L("The highlight and shadow curves would cross: pull back less on one side.",
-                     zh: "高光与阴影的曲线会交叉，请减少其中一侧的回拉。")
+            return T("The highlight and shadow curves would cross: pull back less on one side.", "高光与阴影的曲线会交叉，请减少其中一侧的回拉。", "高光與陰影的曲線會交叉，請減少其中一側的回拉。")
         default:
             return refusal.message
         }

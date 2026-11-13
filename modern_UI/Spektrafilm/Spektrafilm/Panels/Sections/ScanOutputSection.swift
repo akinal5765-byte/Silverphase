@@ -12,16 +12,16 @@ struct ScanOutputSection: View {
 
     var body: some View {
         PanelSection(L(.sectionOutput), key: "output", initiallyExpanded: false,
-                     blockTitle: T("Scan Rendering", "扫描呈现"),
+                     blockTitle: T("Scan Rendering", "扫描呈现", "掃描呈現"),
                      menu: { AnyView(resetItem) }) {
             RailRows {
-                ToggleRow(label: T("Scan Sharpening", "扫描锐化"),
+                ToggleRow(label: T("Scan Sharpening", "扫描锐化", "掃描銳化"),
                           isOn: param(\.scannerSharpeningActive),
                           enabled: !session.digitalIntermediateActive,
-                          reason: T("Digital Intermediate bypasses scanner sharpening.", "数字中间片不应用扫描锐化。"),
+                          reason: T("Digital Intermediate bypasses scanner sharpening.", "数字中间片不应用扫描锐化。", "數位中間片不應用掃描銳化。"),
                           help: T("Enhances edge contrast during scanning. 1× preserves the original strength; turn off to leave sharpening to another editor.",
-                                  "在扫描阶段增强边缘反差。1× 保留原有强度；可关闭后交给其他软件做最终锐化。"))
-                ScrubSlider(label: T("Sharpening Strength", "锐化强度"),
+                                  "在扫描阶段增强边缘反差。1× 保留原有强度；可关闭后交给其他软件做最终锐化。", "在掃描階段增強邊緣反差。1× 保留原有強度；可關閉後交給其他軟體做最終銳化。"))
+                ScrubSlider(label: T("Sharpening Strength", "锐化强度", "銳化強度"),
                             value: Binding(get: { session.params.scannerSharpeningStrength },
                                            set: { var p = session.params; p.scannerSharpeningStrength = $0; session.params = p }),
                             range: FilmParams.scannerSharpeningRange, zero: 1, snap: 0.1,
@@ -43,7 +43,7 @@ struct ScanOutputSection: View {
                                         set: { var p = session.params; p.extendedDynamicRange = $0; session.params = p }),
                           labelFont: Theme.Font.edrLabel,
                           enabled: !session.params.scanFilm && !session.digitalIntermediateActive && !session.paperIsMonochrome,
-                          reason: session.paperIsMonochrome ? T("The B&W paper has no calibrated highlight expansion.", "黑白相纸没有标定的高光扩展曲线。") : L(.reasonEDRDisabledInScanFilm),
+                          reason: session.paperIsMonochrome ? T("The B&W paper has no calibrated highlight expansion.", "黑白相纸没有标定的高光扩展曲线。", "黑白相紙沒有標定的高光擴展曲線。") : L(.reasonEDRDisabledInScanFilm),
                           sublabel: L(.statusEDRScope),
                           help: L(.highlightExpansionHelp))
             }
@@ -51,7 +51,7 @@ struct ScanOutputSection: View {
     }
 
     private var resetItem: some View {
-        Button(T("Reset this section", "重置本节")) { reset() }
+        Button(T("Reset this section", "重置本节", "重設本節")) { reset() }
     }
 
     private func reset() {

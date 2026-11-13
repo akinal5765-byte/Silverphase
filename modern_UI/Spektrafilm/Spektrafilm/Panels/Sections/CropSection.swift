@@ -27,7 +27,7 @@ struct CropSection: View {
     // rows, moved onto the rail — no well, no section icon, the new insets.
     var body: some View {
         PanelSection(L(.sectionCrop), key: "crop", initiallyExpanded: false,
-                     blockTitle: T("Crop & Rotate", "裁切与旋转"),
+                     blockTitle: T("Crop & Rotate", "裁切与旋转", "裁切與旋轉"),
                      menu: { AnyView(menu) }) {
             RailRows {
                 aspectRow
@@ -151,7 +151,7 @@ struct CropSection: View {
         let out = g.outputSize(for: size)
         let w = Int((out.width * scale).rounded()), h = Int((out.height * scale).rounded())
         let mp = Double(w * h) / 1_000_000
-        return g.isIdentity ? "\(w) × \(h)  ·  " + L("full frame", zh: "未裁剪")
+        return g.isIdentity ? "\(w) × \(h)  ·  " + T("full frame", "未裁剪", "未裁切")
                             : String(format: "%d × %d  ·  %.1f MP", w, h, mp)
     }
 

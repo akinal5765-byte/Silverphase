@@ -151,7 +151,7 @@ struct FilmSection: View {
     /// The film's own parameters, on the right rail.
     private var paramSection: some View {
         PanelSection(L(.sectionFilm), key: "film",
-                     blockTitle: T("Frame", "画幅"),
+                     blockTitle: T("Frame", "画幅", "畫幅"),
                      menu: { AnyView(formatMenu) }) {
             VStack(alignment: .leading, spacing: 0) {
                 RailRows {
@@ -177,7 +177,7 @@ struct FilmSection: View {
                               enabled: isCustom,
                               reason: L(.reasonNonCustomSideLength))
                 }
-                InspectorSubblock(title: T("Grain & Halation", "颗粒与光晕"),
+                InspectorSubblock(title: T("Grain & Halation", "颗粒与光晕", "顆粒與光暈"),
                                   menu: { AnyView(effectsMenu) }) {
                     RailRows {
                         ToggleRow(label: L(.filmGrain), isOn: param(\.grainActive))
@@ -194,14 +194,14 @@ struct FilmSection: View {
                                     format: { String(format: "%.1f×", $0) },
                                     disabled: !session.params.grainActive)
                         .help("Changes the modeled particle diameter relative to 1×. Film format still sets its physical scale; this does not alter the stock profile.")
-                        ScrubSlider(label: T("Grain Softness", "颗粒柔化"),
+                        ScrubSlider(label: T("Grain Softness", "颗粒柔化", "顆粒柔化"),
                                     value: Binding(get: { session.params.grainSoftness },
                                                    set: { var p = session.params; p.grainSoftness = $0; session.params = p }),
                                     range: FilmParams.grainSoftnessRange, zero: 1, snap: 0.1,
                                     format: { String(format: "%.1f×", $0) },
                                     disabled: !session.params.grainActive || session.params.effects.grain == 0)
                         .help(T("Smooths the grained density image, separately from particle size. 1× preserves the original softness; 0× disables this smoothing. Fine image texture can also soften.",
-                                "柔化含颗粒的密度影像，与颗粒大小分开控制。1× 保留原有柔化，0× 关闭这一步柔化；细微画面纹理也可能稍微软化。"))
+                                "柔化含颗粒的密度影像，与颗粒大小分开控制。1× 保留原有柔化，0× 关闭这一步柔化；细微画面纹理也可能稍微软化。", "柔化含顆粒的密度影像，與顆粒大小分開控制。1× 保留原有柔化，0× 關閉這一步柔化；細微畫面紋理也可能稍微軟化。"))
                         PillMenu(label: L(.filmHalation),
                                  options: HalationChoice.allCases,
                                  title: { $0.title },
@@ -229,13 +229,13 @@ struct FilmSection: View {
                                     disabled: !session.params.halationActive)
                         .help("A multiplier on the chosen halation setting: 1× leaves it as chosen, up to 4× amplifies the reflection. Choose Off above to remove the effect.")
                         if session.params.filmStock == "cinestill_800t" {
-                            ScrubSlider(label: T("Highlight headroom", "高光余量"),
+                            ScrubSlider(label: T("Highlight headroom", "高光余量", "高光餘量"),
                                         value: Binding(get: { session.params.halationHeadroom },
                                                        set: { var p = session.params; p.halationHeadroom = $0; session.params = p }),
                                         range: 0...8, zero: 4, snap: 0.1,
                                         format: { String(format: "%.1f EV", $0) },
                                         disabled: !session.params.halationActive || session.params.antihalationMode != "profile" || session.params.halationAmount == 0)
-                            .help(T("Estimates light lost in clipped highlights before film exposure. 0 EV uses the recorded light; applies to CineStill's default back-reflection model.", "在胶片曝光前估计数码高光裁切损失的光量。0 EV 使用原始光量；仅用于 CineStill 默认回反射模型。"))
+                            .help(T("Estimates light lost in clipped highlights before film exposure. 0 EV uses the recorded light; applies to CineStill's default back-reflection model.", "在胶片曝光前估计数码高光裁切损失的光量。0 EV 使用原始光量；仅用于 CineStill 默认回反射模型。", "在膠片曝光前估計數碼高光裁切損失的光量。0 EV 使用原始光量；僅用於 CineStill 預設回反射模型。"))
                         }
                         ScrubSlider(label: L(.filmScatterStrength),
                                     value: effect(\.scatter), range: EffectStrengths.scatterRange,

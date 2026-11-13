@@ -231,7 +231,7 @@ actor MobileEngine {
                 if keepKernels { releaseSession() } else { close() }
                 guard let device,
                       let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else {
-                    throw MobileFailure.message("缺少 Metal 设备或随包引擎资源")
+                    throw MobileFailure.message(TDetached("No Metal device, or the bundled engine resources are missing", "缺少 Metal 设备或随包引擎资源", "缺少 Metal 設備或隨包引擎資源"))
                 }
                 if engine == nil { engine = spk_engine_create(resources.path, Unmanaged.passUnretained(device as AnyObject).toOpaque()) }
                 guard let engine else { throw failure() }
@@ -249,7 +249,7 @@ actor MobileEngine {
                 let openingJSON = String(decoding: try JSONEncoder().encode(openingDelta), as: UTF8.self)
                 session = spk_open_device(engine, &input, openingJSON, &reply)
                 if let reply { spk_string_free(reply) }
-                guard session != nil else { close(); throw MobileFailure.message("无法打开图像引擎会话") }
+                guard session != nil else { close(); throw MobileFailure.message(TDetached("The image engine session could not be opened", "无法打开图像引擎会话", "無法開啟影像引擎會話")) }
                 workGate.register(session)
                 sourceURL = url; openedMP = megapixels; original = decoded.original
             } else if let session {
@@ -300,7 +300,7 @@ actor MobileEngine {
                 if (h > 0 || sh > 0) && delta["digital_intermediate"]?.boolValue != true {
                     guard fit["valid"] as? Bool == true, let values = fit["params_delta"] else {
                         let issues = fit["issues"] as? [[String: Any]]
-                        throw MobileFailure.message(issues?.first?["message"] as? String ?? "当前场景置位超出可用范围")
+                        throw MobileFailure.message(issues?.first?["message"] as? String ?? TDetached("The scene placement is outside the usable range", "当前场景置位超出可用范围", "目前場景置位超出可用範圍"))
                     }
                     let fitJSON = String(decoding: try JSONSerialization.data(withJSONObject: values), as: UTF8.self)
                     guard spk_set_params(session, fitJSON, nil) == SPK_OK else { throw failure() }
@@ -348,7 +348,7 @@ actor MobileEngine {
                                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue)
                                         .union(.byteOrder16Little), provider: provider,
                                       decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else {
-                throw MobileFailure.message("无法创建带颜色配置的图像")
+                throw MobileFailure.message(TDetached("The colour-managed image could not be created", "无法创建带颜色配置的图像", "無法創建帶顏色設定檔的影像"))
             }
             if let latitudeFailure { resolved["_latitudeFailure"] = .string(latitudeFailure) }
             resolved.merge(decodeInfo) { _, new in new }
@@ -377,7 +377,7 @@ actor MobileEngine {
 
     private func colorPipeline() throws -> MobileColorPipeline {
         if let outputPipeline { return outputPipeline }
-        guard let device else { throw MobileFailure.message("缺少 Metal 设备") }
+        guard let device else { throw MobileFailure.message(TDetached("No Metal device", "缺少 Metal 设备", "缺少 Metal 設備")) }
         let pipeline = try MobileColorPipeline(device: device)
         outputPipeline = pipeline
         return pipeline
@@ -386,20 +386,22 @@ actor MobileEngine {
     func canvasImage(_ working: CGImage) throws -> CGImage {
         try colorPipeline().convert(working, engine: engine, target: .p3)
     }
-    func cameraDevelopment(url: URL, recipe: [String: WireValue], animate: Bool) throws -> MobileCameraDevelopment {
+    func cameraDevelopment(url: URL, recipe: [String: WireValue], geometry: MobileGeometry = MobileGeometry(),
+                           animate: Bool) throws -> MobileCameraDevelopment {
         defer { close() }
-        let result = try render(url: url, recipe: recipe, megapixels: 1)
-        let display = try canvasImage(result.image)
+        let result = try render(url: url, recipe: recipe, megapixels: 1, geometry: geometry)
+        let framed = MobileFilmGate.presents(recipe)
+        let print = try framed ? result.image : geometry.apply(to: result.image)
+        let display = try canvasImage(print)
         let animation = animate && result.resolved["scan_film"]?.boolValue != true
-            ? try? developmentAssets(print: result.image, geometry: MobileGeometry(),
-                                     framed: MobileFilmGate.presents(recipe), scanStyle: false)
+            ? try? developmentAssets(print: print, geometry: geometry, framed: framed, scanStyle: false)
             : nil
         return MobileCameraDevelopment(image: display, animation: animation)
     }
 
     func developmentAssets(print: CGImage, geometry: MobileGeometry, framed: Bool, scanStyle: Bool) throws -> MobileDevelopmentAssets {
         try Task.checkCancellation()
-        guard let session else { throw MobileFailure.message("未准备显影会话") }
+        guard let session else { throw MobileFailure.message(TDetached("The development session is not prepared", "未准备显影会话", "未準備顯影會話")) }
         var result = spk_result()
         let status = spk_preview_scan(session, "live", &result)
         defer { spk_result_free(&result) }
@@ -411,11 +413,11 @@ actor MobileEngine {
               let scan = CGImage(width: Int(result.width), height: Int(result.height), bitsPerComponent: 16, bitsPerPixel: 64,
                 bytesPerRow: Int(result.row_stride_px) * 8, space: space,
                 bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
-                provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message("无法创建胶片扫描预览") }
+                provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message(TDetached("The film scan preview could not be created", "无法创建胶片扫描预览", "無法創建膠片掃描預覽")) }
         return try colorPipeline().developmentAssets(print: print, scan: framed ? scan : geometry.apply(to: scan), engine: engine, scanStyle: scanStyle)
     }
     func cropCanvasImage(url: URL, recipe: [String: WireValue], megapixels: Double) throws -> CGImage {
-        guard let device else { throw MobileFailure.message("缺少 Metal 设备") }
+        guard let device else { throw MobileFailure.message(TDetached("No Metal device", "缺少 Metal 设备", "缺少 Metal 設備")) }
         var unframed = recipe
         unframed["overscan_active"] = .bool(false); unframed["date_imprint_active"] = .bool(false)
         let input = try decode(url: url, megapixels: megapixels, device: device, recipe: unframed, geometry: MobileGeometry())
@@ -428,19 +430,19 @@ actor MobileEngine {
                         viewport: CGRect, pixelLongEdge: Double) throws -> MobileDetailTile {
         try autoreleasepool {
             try Task.checkCancellation()
-            guard let device else { throw MobileFailure.message("缺少 Metal 设备") }
+            guard let device else { throw MobileFailure.message(TDetached("No Metal device", "缺少 Metal 设备", "缺少 Metal 設備")) }
             let metadata = MobileImageMetadata.read(url)
             var image: CIImage
             if metadata.isRaw {
-                guard let raw = CIRAWFilter(imageURL: url) else { throw MobileFailure.message("无法读取原图细节") }
+                guard let raw = CIRAWFilter(imageURL: url) else { throw MobileFailure.message(TDetached("The original detail could not be read", "无法读取原图细节", "無法讀取原圖細節")) }
                 raw.scaleFactor = 1; raw.isDraftModeEnabled = false
                 raw.isLensCorrectionEnabled = recipe["_lens"]?.boolValue ?? false
                 if let t = recipe["_temperature"]?.doubleValue { raw.neutralTemperature = Float(t) }
                 if let t = recipe["_tint"]?.doubleValue { raw.neutralTint = Float(t) }
-                guard let output = raw.outputImage else { throw MobileFailure.message("原图没有输出") }
+                guard let output = raw.outputImage else { throw MobileFailure.message(TDetached("The original produced no output", "原图没有输出", "原圖沒有輸出")) }
                 image = output
             } else {
-                guard let input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else { throw MobileFailure.message("无法读取原图") }
+                guard let input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else { throw MobileFailure.message(TDetached("The original could not be read", "无法读取原图", "無法讀取原圖")) }
                 image = input
             }
             image = geometry.apply(to: image)
@@ -458,16 +460,16 @@ actor MobileEngine {
             let pixels = CGRect(x: rect.minX * extent.width, y: (1 - rect.maxY) * extent.height,
                                 width: rect.width * extent.width, height: rect.height * extent.height).integral.intersection(extent)
             guard !pixels.isEmpty, Double(os_proc_available_memory()) > metadata.megapixels * 28e6 + 350e6 else {
-                throw MobileFailure.message("当前内存不足以读取原图细节")
+                throw MobileFailure.message(TDetached("Not enough memory to read the original detail", "当前内存不足以读取原图细节", "目前記憶體不足以讀取原圖細節"))
             }
             let context = CIContext(mtlDevice: device, options: [.cacheIntermediates: false,
                 .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!, .workingFormat: CIFormat.RGBAh, .highQualityDownsample: true])
             defer { context.clearCaches(); close() }
             guard let working = CGColorSpace(name: CGColorSpace.rommrgb),
-                  let tile = context.createCGImage(image, from: pixels, format: .RGBA16, colorSpace: working) else { throw MobileFailure.message("无法创建原图细节") }
+                  let tile = context.createCGImage(image, from: pixels, format: .RGBA16, colorSpace: working) else { throw MobileFailure.message(TDetached("The original detail could not be created", "无法创建原图细节", "無法創建原圖細節")) }
             try Task.checkCancellation()
             if engine == nil {
-                guard let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message("缺少色彩资源") }
+                guard let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else { throw MobileFailure.message(TDetached("The colour resources are missing", "缺少色彩资源", "缺少色彩資源")) }
                 engine = spk_engine_create(resources.path, Unmanaged.passUnretained(device as AnyObject).toOpaque())
             }
             let display = try canvasImage(tile)
@@ -477,7 +479,7 @@ actor MobileEngine {
     }
 
     func neutralPoint(url: URL, point: CGPoint) throws -> (Double, Double) {
-        guard let filter = CIRAWFilter(imageURL: url), let extent = filter.outputImage?.extent else { throw MobileFailure.message("当前 RAW 无法取样白平衡") }
+        guard let filter = CIRAWFilter(imageURL: url), let extent = filter.outputImage?.extent else { throw MobileFailure.message(TDetached("White balance cannot be sampled from this RAW", "当前 RAW 无法取样白平衡", "目前 RAW 無法取樣白平衡")) }
         filter.neutralLocation = CGPoint(x: extent.minX + point.x * extent.width, y: extent.minY + (1 - point.y) * extent.height)
         return (Double(filter.neutralTemperature), Double(filter.neutralTint))
     }
@@ -502,7 +504,7 @@ actor MobileEngine {
         let bytesPerPixel = options.format == .jpeg ? 70.0 : options.format == .di ? 140.0 : 90.0
         let allowance = (mp * bytesPerPixel + 600) * 1_000_000
         guard Double(os_proc_available_memory()) > allowance else {
-            throw MobileFailure.message("当前可用内存不足以安全导出此尺寸，请降低像素上限或输出长边。")
+            throw MobileFailure.message(TDetached("There is not enough memory to export at this size safely. Lower the pixel limit or the output long edge.", "当前可用内存不足以安全导出此尺寸，请降低像素上限或输出长边。", "目前可用記憶體不足以安全匯出此尺寸，請降低像素上限或輸出長邊。"))
         }
         let folder = URL.temporaryDirectory.appendingPathComponent("Export-" + UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -523,7 +525,7 @@ actor MobileEngine {
                 let bytes = Data(bytes: pixels, count: Int(result.row_stride_px * result.height) * 8)
                 guard let provider = CGDataProvider(data: bytes as CFData),
                       let master = CGImage(width: Int(result.width), height: Int(result.height), bitsPerComponent: 16, bitsPerPixel: 64, bytesPerRow: Int(result.row_stride_px) * 8, space: CGColorSpaceCreateDeviceRGB(),
-                                           bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little), provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message("无法创建数字中间片") }
+                                           bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little), provider: provider, decode: nil, shouldInterpolate: true, intent: .relativeColorimetric) else { throw MobileFailure.message(TDetached("The Digital Intermediate could not be created", "无法创建数字中间片", "無法創建數位中間片")) }
                 spk_result_free(&result); ownsResult = false
                 let colors = try colorPipeline()
                 close()
@@ -531,13 +533,13 @@ actor MobileEngine {
                 try writeExport(master, source: url, output: output, options: options, diPreview: preview)
                 var files = [output]
                 for name in ["SpektraLab DI view, Cineon to ProPhoto RGB", "SpektraLab DI view, Cineon to Rec709"] {
-                    guard let lut = Bundle.main.url(forResource: name, withExtension: "cube", subdirectory: StockCatalog.resourceDirectory + "/DI") else { throw MobileFailure.message("缺少数字中间片视图 LUT") }
+                    guard let lut = Bundle.main.url(forResource: name, withExtension: "cube", subdirectory: StockCatalog.resourceDirectory + "/DI") else { throw MobileFailure.message(TDetached("The Digital Intermediate view LUT is missing", "缺少数字中间片视图 LUT", "缺少數位中間片視圖 LUT")) }
                     let destination = folder.appendingPathComponent(name + ".cube")
                     try FileManager.default.copyItem(at: lut, to: destination); files.append(destination)
                 }
                 return files
             }
-            guard let renderedImage = rendered?.image else { throw MobileFailure.message("没有导出图像") }
+            guard let renderedImage = rendered?.image else { throw MobileFailure.message(TDetached("No image was exported", "没有导出图像", "沒有匯出影像")) }
             var cropped = try MobileFilmGate.presents(recipe) ? renderedImage : geometry.apply(to: renderedImage)
             rendered = nil
             let resize: Double
@@ -546,7 +548,7 @@ actor MobileEngine {
             else { resize = 1 }
             if resize < 1 {
                 let resized = CIImage(cgImage: cropped).transformed(by: .init(scaleX: resize, y: resize))
-                guard let image = CIContext(options: [.cacheIntermediates: false]).createCGImage(resized, from: resized.extent.integral, format: .RGBA16, colorSpace: cropped.colorSpace) else { throw MobileFailure.message("无法缩放输出尺寸") }
+                guard let image = CIContext(options: [.cacheIntermediates: false]).createCGImage(resized, from: resized.extent.integral, format: .RGBA16, colorSpace: cropped.colorSpace) else { throw MobileFailure.message(TDetached("The output size could not be scaled", "无法缩放输出尺寸", "無法縮放輸出尺寸")) }
                 cropped = image
             }
             let colors = try colorPipeline()
@@ -580,7 +582,7 @@ actor MobileEngine {
         var written = image
         let context = CIContext(options: [.cacheIntermediates: false])
         if options.format.isEightBit {
-            guard let eight = context.createCGImage(CIImage(cgImage: image), from: CGRect(x: 0, y: 0, width: image.width, height: image.height), format: .RGBA8, colorSpace: image.colorSpace) else { throw MobileFailure.message("无法写入8位图像") }
+            guard let eight = context.createCGImage(CIImage(cgImage: image), from: CGRect(x: 0, y: 0, width: image.width, height: image.height), format: .RGBA8, colorSpace: image.colorSpace) else { throw MobileFailure.message(TDetached("The 8-bit image could not be written", "无法写入8位图像", "無法寫入8位影像")) }
             written = eight
         }
         var properties: [CFString: Any] = [kCGImagePropertyOrientation: 1]
@@ -602,16 +604,16 @@ actor MobileEngine {
         properties[kCGImagePropertyTIFFDictionary] = tiff
         if options.format.hasLossyQuality { properties[kCGImageDestinationLossyCompressionQuality] = min(1, max(0.1, options.quality)) }
         let preview = (options.format == .tiff && options.embedsPreview) || diPreview != nil
-        guard let destination = CGImageDestinationCreateWithURL(output as CFURL, options.format.type.identifier as CFString, preview ? 2 : 1, nil) else { throw MobileFailure.message("无法创建导出文件") }
+        guard let destination = CGImageDestinationCreateWithURL(output as CFURL, options.format.type.identifier as CFString, preview ? 2 : 1, nil) else { throw MobileFailure.message(TDetached("The export file could not be created", "无法创建导出文件", "無法創建匯出檔案")) }
         CGImageDestinationAddImage(destination, written, properties as CFDictionary)
         if preview {
             let previewImage = diPreview ?? image
             let factor = min(1, 1024 / Double(max(previewImage.width, previewImage.height)))
             let small = CIImage(cgImage: previewImage).transformed(by: .init(scaleX: factor, y: factor))
-            guard let page = context.createCGImage(small, from: small.extent.integral, format: .RGBA8, colorSpace: previewImage.colorSpace) else { throw MobileFailure.message("无法写入 TIFF 预览页") }
+            guard let page = context.createCGImage(small, from: small.extent.integral, format: .RGBA8, colorSpace: previewImage.colorSpace) else { throw MobileFailure.message(TDetached("The TIFF preview page could not be written", "无法写入 TIFF 预览页", "無法寫入 TIFF 預覽頁")) }
             CGImageDestinationAddImage(destination, page, nil)
         }
-        guard CGImageDestinationFinalize(destination) else { throw MobileFailure.message("导出文件写入未完成") }
+        guard CGImageDestinationFinalize(destination) else { throw MobileFailure.message(TDetached("The export file was not written completely", "导出文件写入未完成", "匯出檔案寫入未完成")) }
     }
 
     private func failure() -> MobileFailure {
@@ -646,7 +648,7 @@ actor MobileEngine {
 #endif
         let isRaw = (suppliedMetadata ?? MobileImageMetadata.read(url)).isRaw
         if isRaw {
-            guard let raw = CIRAWFilter(imageURL: url), raw.nativeSize.width > 0, raw.nativeSize.height > 0 else { throw MobileFailure.message("系统无法解码这款 RAW") }
+            guard let raw = CIRAWFilter(imageURL: url), raw.nativeSize.width > 0, raw.nativeSize.height > 0 else { throw MobileFailure.message(TDetached("The system cannot decode this RAW", "系统无法解码这款 RAW", "系統無法解碼這款 RAW")) }
             raw.scaleFactor = Float(min(1, sqrt(megapixels * 1_000_000 / (raw.nativeSize.width * raw.nativeSize.height))))
             raw.isDraftModeEnabled = recipe["_interactivePreview"]?.boolValue == true
             decodeInfo = ["_temperature": .double(Double(raw.neutralTemperature)), "_tint": .double(Double(raw.neutralTint)),
@@ -658,7 +660,7 @@ actor MobileEngine {
             if let temperature = recipe["_temperature"]?.doubleValue { raw.neutralTemperature = Float(temperature) }
             if let tint = recipe["_tint"]?.doubleValue { raw.neutralTint = Float(tint) }
             if recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true {
-            guard let display = CIRAWFilter(imageURL: url) else { throw MobileFailure.message("无法创建 RAW 原图预览") }
+            guard let display = CIRAWFilter(imageURL: url) else { throw MobileFailure.message(TDetached("The RAW original preview could not be created", "无法创建 RAW 原图预览", "無法創建 RAW 原圖預覽")) }
             display.scaleFactor = raw.scaleFactor
             display.isDraftModeEnabled = false
             display.isLensCorrectionEnabled = raw.isLensCorrectionEnabled
@@ -667,12 +669,12 @@ actor MobileEngine {
             comparison = display.outputImage
             }
             MobileInputColor.prepareSceneLinearRAW(raw)
-            guard let output = raw.outputImage else { throw MobileFailure.message("RAW 解码没有输出") }
+            guard let output = raw.outputImage else { throw MobileFailure.message(TDetached("RAW decoding produced no output", "RAW 解码没有输出", "RAW 解碼沒有輸出")) }
             image = output
         } else {
             decodeInfo = ["_raw": .bool(false), "_lensSupported": .bool(false)]
             guard var input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
-                throw MobileFailure.message("无法读取图像")
+                throw MobileFailure.message(TDetached("The image could not be read", "无法读取图像", "無法讀取影像"))
             }
             let scale = min(1, sqrt(megapixels * 1_000_000 / (input.extent.width * input.extent.height)))
             image = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
@@ -695,7 +697,7 @@ actor MobileEngine {
         guard width > 0, height > 0, width <= 16384, height <= 16384,
               width * height <= Int(megapixels * 1_000_000 * 1.05),
               let buffer = device.makeBuffer(length: width * height * 16, options: .storageModeShared) else {
-            throw MobileFailure.message("图像尺寸超出当前移动端内存预算")
+            throw MobileFailure.message(TDetached("This image is larger than the memory budget on this phone allows", "图像尺寸超出当前移动端内存预算", "影像尺寸超出目前移動端記憶體預算"))
         }
         let placed = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
         let context = MobileInputColor.context(device: device)
@@ -705,7 +707,7 @@ actor MobileEngine {
               let working = CGColorSpace(name: CGColorSpace.rommrgb),
               let display = comparison,
               let original = context.createCGImage(display.transformed(by: .init(translationX: -display.extent.minX, y: -display.extent.minY)).transformed(by: .init(scaleX: originalScale, y: originalScale)), from: CGRect(x: 0, y: 0, width: Double(width) * originalScale, height: Double(height) * originalScale).integral, format: .RGBA16, colorSpace: working) else {
-            throw MobileFailure.message("无法创建输入颜色空间")
+            throw MobileFailure.message(TDetached("The input colour space could not be created", "无法创建输入颜色空间", "無法創建輸入顏色空間"))
         }
         context.render(placed, toBitmap: buffer.contents(), rowBytes: width * 16,
                        bounds: CGRect(x: 0, y: 0, width: width, height: height), format: .RGBAf, colorSpace: linear)
@@ -717,7 +719,7 @@ actor MobileEngine {
 #if DEBUG
 extension MobileEngine {
     func auditInput(_ url: URL) throws -> [Double] {
-        guard let device else { throw MobileFailure.message("没有 Metal 设备") }
+        guard let device else { throw MobileFailure.message(TDetached("No Metal device", "没有 Metal 设备", "沒有 Metal 設備")) }
         let frame = try decode(url: url, megapixels: 2, device: device, recipe: [:], geometry: MobileGeometry())
         let pixels = frame.buffer.contents().assumingMemoryBound(to: Float.self)
         var samples: [Double] = []

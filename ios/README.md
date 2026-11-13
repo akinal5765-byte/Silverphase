@@ -45,6 +45,19 @@ the extension opens, so the main app cannot take over earlier without dropping
 Camera Control support entirely. In-app capture and the develop, reveal and
 Photos-save handoff that follow it are unaffected.
 
+### Known issue: intermittent black 1× RAW captures on iPhone Duo
+
+Observed on 2026-11-13. Some 1× Bayer RAW captures and their exported HEIC
+images appeared nearly black. Later captures looked normal. Two affected DNGs
+had eight byte-identical image tiles out of sixteen, repeated in both files.
+Two nearby comparison captures had sixteen distinct tiles each. All four
+reported 0 EV exposure compensation. The anomaly is present in the source DNG
+before development or HEIC export. The cause remains undetermined.
+
+If it recurs, retain the original DNG and matching HEIC, note the capture
+time and camera settings, and collect the system camera logs around that
+time. Keep private photos and logs outside the repository.
+
 ## Installation and downloads
 
 Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
@@ -95,7 +108,7 @@ python3 modern_UI/Spektrafilm/Tools/gen-project.py
 python3 ios/Silverphase/Tools/gen-project.py --check
 ```
 
-Current source candidate: **1.2.1 (7)**. See [release preparation](releases/1.2.1.md) for changes, verification scope and remaining submission checks. No upload or release is implied.
+Current source version: **1.2.5 (8)**. See [1.2.5 release preparation](releases/1.2.5.md) for changes and submission checks. No upload or release is implied.
 
 ## Current behavior
 

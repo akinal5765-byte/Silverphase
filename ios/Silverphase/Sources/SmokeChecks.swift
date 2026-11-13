@@ -345,6 +345,19 @@ enum MobileSmokeChecks {
             func require(_ condition: Bool, _ message: String) throws {
                 guard condition else { throw MobileFailure.message(message) }
             }
+            let pickerSize = CGSize(width: 350, height: 56)
+            let processPicker = ProcessSegmentsHost(size: pickerSize, vertical: false)
+            var previousLabelPixels: Data?
+            for (language, expectedTitle) in [(MobileLanguage.simplifiedChinese, "拍摄"),
+                                               (.english, "Capture"), (.traditionalChinese, "拍攝")] {
+                processPicker.configure(size: pickerSize, vertical: false, stage: .camera, enabled: true, language: language)
+                let label = processPicker.control.imageForSegment(at: 0)
+                try require(label?.accessibilityLabel == expectedTitle, "Process picker retained an old accessibility label")
+                let pixels = label?.pngData()
+                try require(pixels != nil && pixels != previousLabelPixels, "Process picker retained old title pixels")
+                previousLabelPixels = pixels
+            }
+            checks.append("native process picker refreshes title pixels and accessibility labels across all three languages")
             try MobileGeometryChecks.run()
             checks.append("desktop crop mapping: 16 turn/flip combinations, off-centre crop, straighten, ratio lock and drag bounds")
             let source = directory.appendingPathComponent("Synthetic.tif")

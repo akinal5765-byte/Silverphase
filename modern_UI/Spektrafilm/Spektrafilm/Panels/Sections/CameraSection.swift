@@ -52,7 +52,7 @@ struct CameraSection: View {
 
     var body: some View {
         PanelSection(L(.sectionCamera), key: "camera",
-                     blockTitle: T("Metering & Exposure", "测光与曝光"),
+                     blockTitle: T("Metering & Exposure", "测光与曝光", "測光與曝光"),
                      menu: { AnyView(exposureMenu) }) {
             RailRows {
                 PillMenu(label: L(.cameraMetering),
@@ -67,33 +67,33 @@ struct CameraSection: View {
                                            set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
                             range: -4...4, snap: 1 / 3, format: { String(format: "%+.2f", $0) })
             }
-            InspectorSubblock(title: T("Tone", "影调"), menu: { AnyView(toneMenu) }) {
+            InspectorSubblock(title: T("Tone", "影调", "影調"), menu: { AnyView(toneMenu) }) {
                 RailRows {
-                    toneRow(T("Highlights", "高光"), \.highlights)
-                    toneRow(T("Shadows", "阴影"), \.shadows)
-                    toneRow(T("Whites", "白色色阶"), \.whites)
-                    toneRow(T("Blacks", "黑色色阶"), \.blacks)
+                    toneRow(T("Highlights", "高光", "高光"), \.highlights)
+                    toneRow(T("Shadows", "阴影", "陰影"), \.shadows)
+                    toneRow(T("Whites", "白色色阶", "白色色階"), \.whites)
+                    toneRow(T("Blacks", "黑色色阶", "黑色色階"), \.blacks)
                 }
             }
             if session.halfFramePair == nil {
-            InspectorSubblock(title: T("White Balance", "白平衡"),
+            InspectorSubblock(title: T("White Balance", "白平衡", "白平衡"),
                               menu: { AnyView(whiteBalanceMenu) }) {
                 WhiteBalanceRows(session: session)
             }
             }
-            InspectorSubblock(title: T("Lens & Diffusion", "镜头与柔化")) {
+            InspectorSubblock(title: T("Lens & Diffusion", "镜头与柔化", "鏡頭與柔化")) {
                 RailRows {
                     ToggleRow(label: L(.cameraLensCorrection),
                               isOn: Binding(get: { session.decode.lensCorrection },
                                             set: { session.setLensCorrection($0) }),
                               enabled: session.halfFramePair == nil && session.lensCorrectionEnabled,
                               reason: session.lensCorrectionReason)
-                    PillMenu(label: T("Colour Filter", "光谱滤镜"), options: CameraFilterChoice.allCases,
+                    PillMenu(label: T("Colour Filter", "光谱滤镜", "光譜濾鏡"), options: CameraFilterChoice.allCases,
                              title: { $0.title },
                              selection: Binding(get: { session.params.cameraFilter },
                                                 set: { var p = session.params; p.cameraFilter = $0; session.params = p }))
                     .help(T("Wratten lens filters shape the light before film exposure. Exposure loss is compensated automatically; colour films retain the filter's colour cast.",
-                            "Wratten 镜头滤镜在胶片曝光前改变入射光谱，并自动补偿曝光损失；彩色胶片会保留滤镜色偏。"))
+                            "Wratten 镜头滤镜在胶片曝光前改变入射光谱，并自动补偿曝光损失；彩色胶片会保留滤镜色偏。", "Wratten 鏡頭濾鏡在膠片曝光前改變入射光譜，並自動補償曝光損失；彩色膠片會保留濾鏡色偏。"))
                     PillMenu(label: L(.cameraDiffusion), options: DiffusionChoice.allCases,
                              title: { $0.title },
                              selection: Binding(
@@ -141,13 +141,13 @@ struct CameraSection: View {
 
     private var toneMenu: some View {
         Group {
-            Button(T("Reset Tone", "重置影调")) {
+            Button(T("Reset Tone", "重置影调", "重設影調")) {
                 var p = session.params
                 p.cameraTone = CameraTone()
                 session.params = p
             }
             if session.halfFramePair == nil && session.params.sceneLatitude.active {
-                Button(T("Clear Legacy Scene Placement", "清除旧场景置位")) {
+                Button(T("Clear Legacy Scene Placement", "清除旧场景置位", "清除舊場景置位")) {
                     session.resetScenePlacement()
                 }
             }
@@ -163,7 +163,7 @@ struct CameraSection: View {
                 session.params = p
             }), range: CameraTone.range, zero: 0, snap: 1,
             format: { String(format: "%+.0f", $0) })
-            .help(T("Adjusts scene tones before film exposure.", "在胶片曝光前调整场景影调。"))
+            .help(T("Adjusts scene tones before film exposure.", "在胶片曝光前调整场景影调。", "在膠片曝光前調整場景影調。"))
     }
 
     private var whiteBalanceMenu: some View {

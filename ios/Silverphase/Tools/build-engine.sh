@@ -72,3 +72,11 @@ if [[ ! -f "$out/ui-stamp" || "$(cat "$out/ui-stamp")" != "$ui_stamp" ]]; then
 fi
 cp "$out/SilverphaseUI.metallib" "$resources/SilverphaseUI.metallib"
 rsync -a "$repo/modern_UI/Spektrafilm/Spektrafilm/Resources/DI/" "$resources/DI/"
+
+# Maintainer release builds use the existing local onboarding sample.
+# Source checkouts without the sample still build the introductory pages.
+onboarding_sample="${SILVERPHASE_ONBOARDING_SAMPLE:-$repo/private-fixtures/onboarding/OnboardingExample.jpg}"
+rm -f "$resources/OnboardingExample.jpg"
+if [ -f "$onboarding_sample" ]; then
+    cp "$onboarding_sample" "$resources/OnboardingExample.jpg"
+fi

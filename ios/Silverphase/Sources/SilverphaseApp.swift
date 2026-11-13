@@ -13,6 +13,8 @@ import OSLog
         document.editorVisible = ProcessInfo.processInfo.arguments.contains { !$0.hasPrefix("--library") && $0.hasPrefix("--") && ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test") }
         return document
     }()
+    @AppStorage("mobile.onboarding.completed.v1") private var completedIntroduction = false
+    @State private var showsIntroduction = false
     @State private var importingLockedSessions: Set<URL> = []
     @State private var pendingPhotoLibrarySaves: Set<UUID> = []
     @Environment(\.scenePhase) private var scenePhase
@@ -31,8 +33,26 @@ import OSLog
             ($0.contains("regression") || $0.contains("audit") || $0 == "--smoke-test")
         }
     }
+    /// Regression, audit and capture launches pass their own `--` switches;
+    /// the introduction must never cover an automated run.
+    private var runsUnattended: Bool {
+        ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--") }
+    }
     private var rootView: some View {
         editorRoot
+            .fullScreenCover(isPresented: $showsIntroduction) {
+                MobileIntroduction {
+                    showsIntroduction = false
+                    completedIntroduction = true
+                }
+            }
+            .task {
+                // Presenting during the first frame races the navigation stack
+                // and the cover is silently dropped, so let the window settle.
+                guard !completedIntroduction, !isDiagnosticEditorLaunch, !runsUnattended else { return }
+                try? await Task.sleep(for: .milliseconds(80))
+                showsIntroduction = true
+            }
             .background(MobileOrientationObserver().allowsHitTesting(false))
             .preferredColorScheme(.dark)
             .tint(.primary)
@@ -135,7 +155,7 @@ import OSLog
             // the foreground scan.
             if importError.domain == NSCocoaErrorDomain, importError.code == NSFileReadNoSuchFileError { return }
             log.error("Locked session import error: \(importError.domain, privacy: .public) \(importError.code)")
-            document.error = "读取锁屏拍摄原片失败：\(error.localizedDescription)"
+            document.error = T("Could not read the lock-screen capture: \(error.localizedDescription)", "读取锁屏拍摄原片失败：\(error.localizedDescription)", "讀取鎖屏拍攝原片失敗：\(error.localizedDescription)")
         }
     }
 
@@ -159,7 +179,7 @@ import OSLog
                 pendingPhotoLibrarySaves.insert(photo.id)
             } catch {
                 log.error("Photos save failed: \((error as NSError).code)")
-                document.error = "锁屏拍摄的照片未能存入系统相册：\(error.localizedDescription)"
+                document.error = T("The lock-screen capture could not be saved to Photos: \(error.localizedDescription)", "锁屏拍摄的照片未能存入系统相册：\(error.localizedDescription)", "鎖屏拍攝的照片未能存入系統相簿：\(error.localizedDescription)")
             }
         }
     }
@@ -222,6 +242,39 @@ import OSLog
 
 enum MobileStage: String, CaseIterable, Identifiable {
     case camera = "拍摄", film = "胶片", development = "显影", print = "彩色放大", output = "扫描", geometry = "构图", filmEdge = "片边"
+
+    /// The stage's name, for the toolbar and for the clipboard's group headers.
+    ///
+    /// The `rawValue` is left as it was: it is an identifier that has been in
+    /// the tree since the first build, and two places compare stages by it.
+    /// What the interface draws comes from here, so translating a stage does
+    /// not silently rename it in anything that compares strings.
+    @MainActor var title: String { title(in: MobileLocalization.shared.resolved) }
+
+    func title(in language: MobileLanguage) -> String {
+        switch self {
+        case .camera: T("Capture", "拍摄", "拍攝", in: language)
+        case .film: T("Film", "胶片", "膠片", in: language)
+        case .development: T("Development", "显影", "顯影", in: language)
+        case .print: T("Color Enlargement", "彩色放大", "彩色放大", in: language)
+        case .output: T("Scan", "扫描", "掃描", in: language)
+        case .geometry: T("Crop", "构图", "構圖", in: language)
+        case .filmEdge: T("Film Edge", "片边", "片邊", in: language)
+        }
+    }
+
+    /// The same stage in the width a seven-segment control has. Only the two
+    /// long names differ.
+    @MainActor var shortTitle: String { shortTitle(in: MobileLocalization.shared.resolved) }
+
+    func shortTitle(in language: MobileLanguage) -> String {
+        switch self {
+        case .development: T("Develop", "显影", "顯影", in: language)
+        case .print: T("Print", "印相", "印相", in: language)
+        default: title(in: language)
+        }
+    }
+
     var id: String {
         switch self {
         case .camera: "camera"
@@ -264,14 +317,22 @@ struct MobileEditor: View {
     @State private var importing = false
     @State private var pickingPhotos = false
     @State private var exporting = false
-    @State private var about = false
-    @State private var settings: MobileSettingsPresentation?
+    @State private var about: MobilePagePresentation?
+    @State private var settings: MobilePagePresentation?
     @State private var format = MobileExportFormat.jpeg
     @State private var dockFraction = 0.42
     @State private var systemBarFrame: CGRect?
     @State private var panelDragStart: Double?
     @GestureState private var panelDragging = false
     @State private var phoneHingeClosed: Bool?
+
+    private var aboutBinding: Binding<Bool> {
+        Binding {
+            about != nil
+        } set: { visible in
+            about = visible ? .init(folded: phoneHingeClosed == true) : nil
+        }
+    }
 
     private var settingsBinding: Binding<Bool> {
         Binding {
@@ -403,7 +464,7 @@ struct MobileEditor: View {
             .background(MobileStyle.canvas.ignoresSafeArea())
             }
             .modifier(ProcessToolbar(stage: stage, document: document, inspector: $inspector,
-                                     materials: $materials, exporting: $exporting, about: $about, settings: settingsBinding,
+                                     materials: $materials, exporting: $exporting, about: aboutBinding, settings: settingsBinding,
                                      importing: $importing, pickingPhotos: $pickingPhotos, enabled: systemProcessToolbar))
             }
             }
@@ -443,7 +504,7 @@ struct MobileEditor: View {
                             let names = Dictionary(uniqueKeysWithValues: files.map { ($0.url, $0.name) })
                             await document.importFiles(files.map(\.url), displayNames: names, removeSourcesAfterImport: true, continuingPhotoSelection: true).value
                         } else { document.finishPhotoImportWithoutFiles() }
-                        if skipped > 0 { document.postNotification("已跳过 \(skipped) 张不支持或无法读取的照片", style: .warning) }
+                        if skipped > 0 { document.postNotification(T("Skipped \(skipped) unsupported or unreadable photos", "已跳过 \(skipped) 张不支持或无法读取的照片", "已跳過 \(skipped) 張不支援或無法讀取的照片"), style: .warning) }
                         if !errors.isEmpty { document.error = errors.joined(separator: "\n") }
                     }
                 }
@@ -457,8 +518,7 @@ struct MobileEditor: View {
             .sheet(isPresented: Binding(get: { document.exported != nil }, set: { if !$0 { document.clearExport() } })) {
                 if let url = document.exported { ActivitySheet(urls: document.exportedFiles.isEmpty ? [url] : document.exportedFiles) }
             }
-            .sheet(isPresented: $about) { MobileAbout() }
-            .mobileSettings(document: document, presentation: $settings)
+            .mobileInformationPages(document: document, settings: $settings, about: $about)
             .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in document.schedule() }
             .onChange(of: document.preferences.values) { _, _ in document.schedule() }
             .onChange(of: stage) { _, stage in document.cropEditing = stage == .geometry }
@@ -482,7 +542,7 @@ struct MobileEditor: View {
         .overlay {
             MobileNotificationCenter(notification: document.currentNotification,
                                      excludedFrame: verticalSystemBar ? systemBarFrame : nil,
-                                     isCovered: document.exported != nil || pickingPhotos || importing || settings != nil || about,
+                                     isCovered: document.exported != nil || pickingPhotos || importing || settings != nil || about != nil,
                                      dismiss: document.dismissNotification)
         }
     }
@@ -511,16 +571,16 @@ struct MobileEditor: View {
         .padding(.trailing, EditorDesign.contentInset)
     }
     private var canvasStatusText: String {
-        if document.busy { return "处理中…" }
-        if document.showOriginal && document.originalDetailBusy { return "载入原图细节…" }
-        if document.showOriginal && document.originalDetailTile?.nativeSize != nil { return "原图 · 原始像素" }
-        if document.development != nil { return document.developmentRunning ? "显影中…" : "轻点照片开始印相" }
-        if document.detailBusy { return "载入细节…" }
+        if document.busy { return T("Processing…", "处理中…", "處理中…") }
+        if document.showOriginal && document.originalDetailBusy { return T("Loading original detail…", "载入原图细节…", "載入原圖細節…") }
+        if document.showOriginal && document.originalDetailTile?.nativeSize != nil { return T("Original · native pixels", "原图 · 原始像素", "原圖 · 原始像素") }
+        if document.development != nil { return document.developmentRunning ? T("Developing…", "显影中…", "顯影中…") : T("Tap the photo to make a print", "轻点照片开始印相", "輕點照片開始印相") }
+        if document.detailBusy { return T("Loading detail…", "载入细节…", "載入細節…") }
         if !document.previewStatus.isEmpty { return document.previewStatus }
         if let tile = document.detailTile, !document.showOriginal, !document.pickingNeutral {
-            return tile.nativeSize != nil ? "原始像素" : "细节预览"
+            return tile.nativeSize != nil ? T("Native pixels", "原始像素", "原始像素") : T("Detail preview", "细节预览", "細節預覽")
         }
-        return document.image != nil ? "适屏预览" : "等待照片"
+        return document.image != nil ? T("Fit-to-window preview", "适屏预览", "適屏預覽") : T("Waiting for a photo", "等待照片", "等待照片")
     }
 
     private var compactWorkspace: some View {
@@ -577,15 +637,15 @@ struct MobileEditor: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 if let returnToLibrary {
-                    Button("返回", systemImage: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library")
+                    Button(T("Back", "返回", "返回"), systemImage: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library")
                 }
             }.compactHorizontalAxis()
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("导出", systemImage: "square.and.arrow.up") {
+                Button(T("Export", "导出", "匯出"), systemImage: "square.and.arrow.up") {
                     exporting = true; inspector = true; materials = false
                 }.disabled(document.current == nil || document.isInteractionLocked || document.delivering).accessibilityIdentifier("editor.export")
                 NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                                 exporting: $exporting, about: $about, settings: settingsBinding,
+                                 exporting: $exporting, about: aboutBinding, settings: settingsBinding,
                                  importing: $importing, pickingPhotos: $pickingPhotos)
             }.compactHorizontalAxis()
         }
@@ -618,31 +678,31 @@ struct MobileEditor: View {
     private var fileActions: some View {
         HStack(spacing: 0) {
             if let returnToLibrary {
-                ChromeButton(title: "返回", symbol: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library")
+                ChromeButton(title: T("Back", "返回", "返回"), symbol: "chevron.left") { returnToLibrary() }.accessibilityIdentifier("editor.library")
             }
             if returnToLibrary == nil {
-                ChromeButton(title: "打开照片", symbol: "plus") { openImport() }.accessibilityIdentifier("import.menu")
+                ChromeButton(title: T("Open Photo", "打开照片", "開啟照片"), symbol: "plus") { openImport() }.accessibilityIdentifier("import.menu")
                     .contextMenu {
-                        Button("重置当前照片", systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
-                        Button("关于 Silverphase", systemImage: "info.circle") { about = true }
+                        Button(T("Reset This Photo", "重置当前照片", "重設目前照片"), systemImage: "arrow.counterclockwise") { document.reset() }.disabled(document.current == nil)
+                        Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = .init(folded: phoneHingeClosed == true) }
                     }
             }
-            ChromeButton(title: "撤销", symbol: "arrow.uturn.backward", enabled: document.canUndo) { document.undo() }.accessibilityIdentifier("editor.undo")
-            ChromeButton(title: "重做", symbol: "arrow.uturn.forward", enabled: document.canRedo) { document.redo() }.accessibilityIdentifier("editor.redo")
+            ChromeButton(title: T("Undo", "撤销", "還原"), symbol: "arrow.uturn.backward", enabled: document.canUndo) { document.undo() }.accessibilityIdentifier("editor.undo")
+            ChromeButton(title: T("Redo", "重做", "重做"), symbol: "arrow.uturn.forward", enabled: document.canRedo) { document.redo() }.accessibilityIdentifier("editor.redo")
         }.auditEditorBounds("top.leading-actions")
     }
     private var viewActions: some View {
         HStack(spacing: 0) {
-            ChromeButton(title: "原图对比", symbol: "rectangle.lefthalf.filled", selected: document.showOriginal, enabled: document.image != nil) { document.showOriginal.toggle() }
+            ChromeButton(title: T("Compare Original", "原图对比", "原圖對比"), symbol: "rectangle.lefthalf.filled", selected: document.showOriginal, enabled: document.image != nil) { document.showOriginal.toggle() }
                 .contextMenu {
-                    Button("适合窗口") { document.zoomToFit() }.disabled(document.cropEditing)
-                    Button("1:1 原始像素") { document.zoomToNative() }.disabled(document.cropEditing)
+                    Button(T("Zoom to Fit", "适合窗口", "適合視窗")) { document.zoomToFit() }.disabled(document.cropEditing)
+                    Button(T("1:1 native pixels", "1:1 原始像素", "1:1 原始像素")) { document.zoomToNative() }.disabled(document.cropEditing)
                 }
-            ChromeButton(title: "导出", symbol: "square.and.arrow.up", selected: exporting, enabled: document.image != nil && !document.delivering) {
+            ChromeButton(title: T("Export", "导出", "匯出"), symbol: "square.and.arrow.up", selected: exporting, enabled: document.image != nil && !document.delivering) {
                 exporting.toggle(); inspector = true; materials = false
             }
             NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                             exporting: $exporting, about: $about, settings: settingsBinding,
+                             exporting: $exporting, about: aboutBinding, settings: settingsBinding,
                              importing: $importing, pickingPhotos: $pickingPhotos)
                 .labelStyle(.iconOnly).frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
         }.auditEditorBounds("top.trailing-actions")
@@ -661,9 +721,9 @@ struct MobileEditor: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).disabled(document.current == nil || document.delivering)
-                .accessibilityLabel(item.rawValue).accessibilityIdentifier("stage." + item.id)
+                .accessibilityLabel(item.title).accessibilityIdentifier("stage." + item.id)
                 .contextMenu {
-                    Button("打开" + item.rawValue, systemImage: item.symbol) {
+                    Button(T("Open ", "打开", "開啟") + item.title, systemImage: item.symbol) {
                         stage = item; inspector = true; exporting = false
                         materials = item == .film || item == .print
                     }
@@ -672,25 +732,25 @@ struct MobileEditor: View {
         }
     }
     private func openImport() {
-        overlays.choice = MobileChoice(title: "导入照片", options: [
-            MobileOption(id: "photos", title: "从照片导入", symbol: "photo.on.rectangle", accessibilityID: "import.photos"),
-            MobileOption(id: "files", title: "从文件导入", symbol: "folder", accessibilityID: "import.files")
+        overlays.choice = MobileChoice(title: T("Import Photos", "导入照片", "導入照片"), options: [
+            MobileOption(id: "photos", title: T("Import from Photos", "从照片导入", "從照片導入"), symbol: "photo.on.rectangle", accessibilityID: "import.photos"),
+            MobileOption(id: "files", title: T("Import from Files", "从文件导入", "從檔案導入"), symbol: "folder", accessibilityID: "import.files")
         ]) { id in if id == "photos" { pickingPhotos = true } else { importing = true } }
     }
     private var emptyEditor: some View {
         VStack(spacing: 10) {
             Image(systemName: "photo.on.rectangle.angled").font(.system(size: 27, weight: .light)).foregroundStyle(.secondary)
-            Text("打开照片开始编辑").font(EditorDesign.panelTitle)
-            Text("胶片 · 显影 · 印相").font(EditorDesign.caption).foregroundStyle(.secondary)
-            SmallAction(title: "打开照片", symbol: "plus", prominent: true) { pickingPhotos = true }.frame(width: 144)
+            Text(T("Open a photo to start editing", "打开照片开始编辑", "開啟照片開始編輯")).font(EditorDesign.panelTitle)
+            Text(T("Film · Development · Print", "胶片 · 显影 · 印相", "膠片 · 顯影 · 印相")).font(EditorDesign.caption).foregroundStyle(.secondary)
+            SmallAction(title: T("Open Photo", "打开照片", "開啟照片"), symbol: "plus", prominent: true) { pickingPhotos = true }.frame(width: 144)
         }
     }
     private var processPanelTitle: String {
-        if exporting { return "导出成片" }
+        if exporting { return T("Export Photos", "导出成片", "匯出成片") }
         if compactPhoneEditor && materials {
-            return ordinaryPhone ? (stage == .print ? "选择相纸" : "选择胶片") : "胶片与相纸"
+            return ordinaryPhone ? (stage == .print ? T("Choose Paper", "选择相纸", "選擇相紙") : T("Choose Film", "选择胶片", "選擇膠片")) : T("Film & Paper", "胶片与相纸", "膠片與相紙")
         }
-        return stage.rawValue
+        return stage.title
     }
     private func panelResizeGesture(heightBasis: CGFloat?) -> some Gesture {
         DragGesture(coordinateSpace: .global)
@@ -736,27 +796,27 @@ struct MobileEditor: View {
                         document.endParameterInteraction()
                         if let photo = document.current { batchCopyRequest = MobileSettingsCopyRequest(source: photo, groups: document.copyGroups) }
                     } label: { Image(systemName: "rectangle.stack.badge.plus") }
-                    .frame(width: 44, height: 44).accessibilityLabel("应用编辑项到本批 \(batchIDs.count) 张")
+                    .frame(width: 44, height: 44).accessibilityLabel(T("Apply edits to \(batchIDs.count) photos in this batch", "应用编辑项到本批 \(batchIDs.count) 张", "應用編輯項到本批 \(batchIDs.count) 張"))
                     .accessibilityIdentifier("editor.apply-batch")
                 }
                 if compactPhoneEditor && !ordinaryPhone && !exporting && (stage == .film || stage == .print) {
-                    ChromeButton(title: materials ? "查看工艺参数" : "选择胶片与相纸",
+                    ChromeButton(title: materials ? T("View process parameters", "查看工艺参数", "查看工藝參數") : T("Choose film and paper", "选择胶片与相纸", "選擇膠片與相紙"),
                                  symbol: materials ? "slider.horizontal.3" : "rectangle.stack") {
                         materials.toggle()
                     }.accessibilityIdentifier("editor.material-toggle")
                 }
                 if ordinaryPhone && materials && !exporting {
-                    Button("完成") { materials = false }
+                    Button(T("Done", "完成", "完成")) { materials = false }
                         .font(EditorDesign.parameter).tint(MobileStyle.accent)
                         .frame(minWidth: 44, minHeight: 44)
                         .accessibilityIdentifier("editor.material-done")
                 }
                 if !exporting && !(ordinaryPhone && materials) {
-                    Menu { Button("重置本工艺", systemImage: "arrow.counterclockwise") { document.resetStage(stage) } } label: {
+                    Menu { Button(T("Reset This Stage", "重置本工艺", "重設本工藝"), systemImage: "arrow.counterclockwise") { document.resetStage(stage) } } label: {
                         ToolbarGlyph(symbol: "ellipsis")
-                    }.tint(.primary).accessibilityLabel("工艺操作")
+                    }.tint(.primary).accessibilityLabel(T("Process actions", "工艺操作", "工藝操作"))
                 }
-                ChromeButton(title: "收起面板", symbol: "chevron.down") { inspector = false; exporting = false; materials = false }
+                ChromeButton(title: T("Collapse panel", "收起面板", "收起面板"), symbol: "chevron.down") { inspector = false; exporting = false; materials = false }
                     .accessibilityIdentifier("editor.panel-collapse")
             }.padding(.leading, EditorDesign.contentInset).padding(.trailing, EditorDesign.unit).frame(height: EditorDesign.panelHeader)
             Rectangle().fill(MobileStyle.rule).frame(height: 1)
@@ -893,11 +953,11 @@ struct PhotoCanvas: View {
                         if !held || onNeutral == nil { onCompare?(held) }
                     }
                     .onDisappear { onCompare?(false) }
-                    .accessibilityAction(named: comparison ? "结束原图对比" : "查看原图") { onCompare?(!comparison) }
-                    .accessibilityHint("按住画布查看原图，松开恢复处理结果；双击切换适屏和原始像素")
+                    .accessibilityAction(named: comparison ? T("End original comparison", "结束原图对比", "結束原圖對比") : T("View original", "查看原图", "查看原圖")) { onCompare?(!comparison) }
+                    .accessibilityHint(T("Hold the canvas to see the original and release to return to the processed result; double-tap switches between fit and native pixels", "按住画布查看原图，松开恢复处理结果；双击切换适屏和原始像素", "按住畫布查看原圖，鬆開恢復處理結果；按兩下切換適屏和原始像素"))
                     .accessibilityIdentifier("editor.canvas")
                     .accessibilityValue(canvasAccessibilityValue(pixelLongEdge: requested.pixelLongEdge))
-                    .accessibilityAction(named: "开始印相") { onPrintNegative?() }
+                    .accessibilityAction(named: T("Make Print", "开始印相", "開始印相")) { onPrintNegative?() }
                     .simultaneousGesture(SpatialTapGesture(count: 2, coordinateSpace: .named("photoCanvas"))
                         .exclusively(before: SpatialTapGesture(count: 1, coordinateSpace: .named("photoCanvas")))
                         .onEnded { event in
@@ -938,21 +998,34 @@ struct ActivitySheet: UIViewControllerRepresentable {
 }
 
 struct MobileAbout: View {
+    let folded: Bool
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
-            List {
+            Form {
                 Section("Silverphase") {
-                    Text("基于 Hanze Qiu 的 SpektraLab 原生应用与 Andrea Volpato 的 spektrafilm 物理模型及实测配置。Silverphase 为独立衍生项目。")
+                    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+                        LabeledContent(T("Version", "版本", "版本"), value: build.map { "\(version) (\($0))" } ?? version)
+                    }
+                    Text(T("Built on Hanze Qiu's native SpektraLab application and Andrea Volpato's spektrafilm physical model and measured profiles. Silverphase is an independent derivative.", "基于 Hanze Qiu 的 SpektraLab 原生应用与 Andrea Volpato 的 spektrafilm 物理模型及实测配置。Silverphase 为独立衍生项目。", "基於 Hanze Qiu 的 SpektraLab 原生應用與 Andrea Volpato 的 spektrafilm 物理模型及實測設定檔。Silverphase 為獨立衍生項目。"))
                 }
                 MobileSupportSection()
                 MobileRelatedAppSection()
-                Section("开源许可与署名") {
+                Section(T("Open-source licences and credits", "开源许可与署名", "開源授權與署名")) {
                     ForEach(licenseURLs, id: \.self) { url in
-                        NavigationLink(url.lastPathComponent) { ScrollView { Text((try? String(contentsOf: url, encoding: .utf8)) ?? "无法读取许可文件")
-                            .font(.caption).textSelection(.enabled).padding() }.navigationTitle(url.lastPathComponent) }
+                        NavigationLink(url.lastPathComponent) { ScrollView { Text((try? String(contentsOf: url, encoding: .utf8)) ?? T("The licence file could not be read", "无法读取许可文件", "無法讀取授權檔案"))
+                            .font(.caption).textSelection(.enabled).padding() }.mobilePageBackground().navigationTitle(url.lastPathComponent) }
                     }
                 }
-            }.navigationTitle("关于 Silverphase")
+            }
+            .mobilePageBackground()
+            .navigationTitle(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"))
+            .toolbar {
+                MobilePageClose(folded: folded, title: T("Close about", "关闭关于", "關閉關於"),
+                                identifier: "about.close") { dismiss() }
+            }
         }
     }
     private var licenseURLs: [URL] {

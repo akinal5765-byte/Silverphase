@@ -1,4 +1,4 @@
-//  Strings.swift — every user-visible string in the main editor, in both
+//  Strings.swift — every user-visible string in the main editor, in all three
 //  languages, and the one function that looks them up.
 //
 //  `design/UI-SPEC.md` §7 is the spec this table implements; read it
@@ -8,21 +8,30 @@
 //    * **Names stay English.** Every film and paper profile, camera and lens
 //      model, file name, and the abbreviations `CINE RAW RGB ISO EV LUT EDR`,
 //      the format names, units, aspect ratios and shortcut letters are
-//      identifiers, not copy. They have no Chinese value here because they are
+//      identifiers, not copy. They have no translation here because they are
 //      not translated — a translated `Kodak Portra 400` is a different product
-//      name and a broken catalog lookup.
+//      name and a broken catalog lookup. Two of them are the diffusion filters'
+//      brand names, which are also kept in Latin script in the Chinese columns
+//      while the two Pro-Mist densities around them are named (黑柔 / 白柔):
+//      the brand is the identifier, the density is the description.
 //    * **Same English, different strings.** `Original` is both a crop ratio
 //      and a view state, and `Print` is both the section and the stage named
 //      inside other sentences. They get one key each, because they are
 //      different strings that happen to share a spelling in one language. Do
 //      not collapse them and do not global-replace an English word.
 //
-//  There is deliberately no `default:` in either switch. The compiler then
-//  requires every case of `S` to have both languages, so a key added without a
-//  translation is a build error rather than a blank label in the window.
+//  There is deliberately no `default:` in any of the three switches. The
+//  compiler then requires every case of `S` to have all three languages, so a
+//  key added without a translation is a build error rather than a blank label
+//  in the window.
 //
 //  The table covers the main editor. Export's longer, page-specific copy uses
-//  `T(_:_:)` below so both languages stay beside each sentence.
+//  `T(_:_:_:)` below so all three languages stay beside each sentence.
+//
+//  The three columns are written, not derived. 简 and 繁 are not two encodings
+//  of one text: 设置 / 設定, 导出 / 匯出, 保存 / 儲存, 缓存 / 快取 are different
+//  words, and a character-substitution pass would answer the glyph question and
+//  miss the word one. Whoever adds a key writes all three.
 
 import Foundation
 
@@ -1050,6 +1059,455 @@ extension S {
         case .aboutDone: "完成"
         }
     }
+
+    /// 繁體中文. The vocabulary follows Taiwan and Hong Kong usage where the
+    /// two agree — 設定 for Settings, 匯出 for export, 遮罩 for a mask, 裁切
+    /// for crop, 儲存 for save — because the point of a third column is the
+    /// words a reader in Taipei or Hong Kong actually uses, not the same words
+    /// in a different typeface. `Localization.swift` says why this is not a
+    /// conversion of the column above it.
+    ///
+    /// Three places the conversion would have got wrong by glyph rather than by
+    /// word, written down so a later pass does not "tidy" them back: 沖印 and
+    /// 沖洗 keep 沖 (not 衝); 膠片 stays 膠片 throughout, matching the
+    /// catalogue's own word for the material rather than switching to 底片 for
+    /// the negative alone; and the diffusion filters keep their two brand names
+    /// in Latin script while the two Pro-Mist densities are named as the
+    /// English column distinguishes them (黑柔 / 白柔).
+    var traditionalChinese: String {
+
+        switch self {
+        case .actionOriginal: "原圖"
+        case .actionSolve: "處理"
+        // rails and sections
+        case .railPresets: "膠片與相紙"
+        case .railDevelop: "膠片工藝"
+        case .railEdit: "參數"
+        case .sectionCamera: "輸入 / 拍攝"
+        case .latitudeUnmeasurable: "目前膠片與相紙的輸出不隨曝光遞增，無法測量寬容度。反轉片印到電影正片上會得到負像。"
+        case .latitudeNoLight: "畫面中沒有可測量的光。"
+        case .filmFormatSize: "尺寸"
+        case .railFilmAndPrint: "膠片與相紙"
+        case .railParameters: "參數"
+        case .tabPreDev: "顯影前"
+        case .tabPostDev: "顯影后"
+        case .sectionNavigator: "導航"
+        case .sectionEnlarger: "放大機"
+        case .sectionLatitude: "寬容度"
+        case .sectionScenePlacement: "場景置位"
+        case .sectionToneMask: "影調遮罩"
+        case .printEffects: "相紙效果"
+        case .filmGrainStrength: "顆粒強度"
+        case .filmHalationStrength: "光暈強度"
+        case .filmScatterStrength: "散射強度"
+        case .filmCouplersStrength: "成色劑強度"
+        case .filmGlareStrength: "耀光強度"
+        case .latitudeBelow: "低於"
+        case .latitudeWithin: "範圍內"
+        case .latitudeAbove: "高於"
+        case .latitudeHeld: "檔保留"
+        case .latitudeFullSeparation: "完整層次"
+        case .latitudeEmpty: "顯影后即可按目前膠片與相紙測量。"
+        case .placementHighlight: "高光"
+        case .placementShadow: "陰影"
+        case .maskEnable: "啟用"
+        case .maskHighlights: "高光"
+        case .maskShadows: "陰影"
+        case .maskCore: "核心"
+        case .maskRadius: "半徑"
+        case .maskCurveCaption: "按模糊後負片的曝光量計算的相紙曝光變化（檔）"
+        case .enlargerPreflash: "預曝光"
+        case .helpResetFilmFormat: "重設膠片畫幅與效果"
+        case .helpResetPlacement: "關閉場景置位"
+        case .helpResetToneMask: "重設影調遮罩"
+        case .helpResetEnlarger: "將放大機恢復為配光結果"
+        case .helpSubLayerGrain: "分層顆粒模型"
+        case .reasonPrintEffectsOff: "「相紙效果」已在相紙部分關閉。"
+        case .reasonNotDeveloped: "請先顯影。"
+        case .setResetLayout: "重設全部布局"
+        case .setResetLayoutCaption: "將面板寬度、各部分高度與展開狀態恢復為預設。"
+        case .sectionClipboard: "設定剪貼簿"
+        case .clipCopy: "複製"
+        case .clipPaste: "貼上"
+        case .clipPasteTo: "貼到 %d 張"
+        case .clipHolds: "剪貼簿：%@ · %d/7 項"
+        case .clipEmpty: "剪貼簿為空。"
+        case .clipFilmAndPaper: "膠片&相紙"
+        case .clipExposure: "曝光"
+        case .clipWhiteBalance: "白平衡"
+        case .clipFilmEffects: "膠片效果"
+        case .clipPrintEffects: "相紙效果"
+        case .clipScenePlacement: "場景置位"
+        case .clipMasks: "遮罩"
+        case .clipFilmAndPaperHelp: "膠片、相紙、不使用相紙設定檔與 EDR。"
+        case .clipExposureHelp: "測光方式、膠片曝光與放大機亮度。每張照片各自測光。"
+        case .clipWhiteBalanceHelp: "相機白平衡與放大機的黃、品濾色。「拍攝時設定」保持每張照片自己的相機值。"
+        case .clipFilmEffectsHelp: "膠片畫幅、顆粒、光暈、耀光、散射與耦合劑。"
+        case .clipPrintEffectsHelp: "相紙效果開關與預閃。"
+        case .clipScenePlacementHelp: "高光與陰影的回拉量。曲線在每張照片上重新擬合。"
+        case .clipMasksHelp: "影調遮罩與局部遮罩。"
+        case .clipCopyHelp: "從畫布上的照片複製勾選的項目（⇧⌘C）。"
+        case .clipPasteHelp: "把剪貼簿裡的內容貼到所有選取的照片（⇧⌘V）。"
+        case .setTabGeneral: "常規"
+        case .setTabRendering: "渲染"
+        case .setTabMemory: "記憶體"
+        case .setTabDiagnostics: "診斷"
+        case .setTabAgents: "代理程式"
+        case .setInterface: "介面"
+        case .setScale: "縮放"
+        case .setScaleCaption: "同步調整主介面、設定與匯出頁的字型大小；更改立即生效。"
+        case .setAgentsAccess: "存取"
+        case .setAgentsToggle: "允許命令列與代理程式存取"
+        case .setAgentsToggleCaption: "允許 spektralab 命令與 MCP 代理程式（Claude Code、Claude Desktop 或任何 MCP 使用者端）在本機開啟、編輯、沖印與匯出照片——與本視窗的編輯完全相同，並儲存在本視窗讀取的位置。關閉時所有呼叫都會被拒絕，包括已連接的代理程式。僅限本機：不監聽網路，也從不改寫原片。"
+        case .setAgentsCommandLine: "命令列"
+        case .setAgentsInstall: "安裝 spektralab"
+        case .setAgentsReinstall: "重新安裝"
+        case .setAgentsUninstall: "移除"
+        case .setAgentsInstalled: "已安裝"
+        case .setAgentsNotInstalled: "未安裝"
+        case .setAgentsInstalledOther: "已為另一份應用安裝"
+        case .setAgentsInstallCaption: "在 ~/.local/bin/spektralab 寫入一個兩行腳本，以無視窗方式執行本應用。可先試 `spektralab help`；每條命令都輸出 JSON。"
+        case .setAgentsMCP: "MCP 伺服器"
+        case .setAgentsClaudeCode: "Claude Code"
+        case .setAgentsClaudeDesktop: "Claude Desktop"
+        case .setAgentsMCPCaption: "用以下任一方式把 SpektraLab 加入給代理程式。服務由代理程式在需要時通過 stdio 自行啟動，不在後台常駐。"
+        case .setAgentsCopy: "複製"
+        case .setAgentsCopied: "已複製"
+        case .setAgentsTools: "工具"
+        case .sectionFilm: "膠片"
+        case .sectionDevelopment: "顯影"
+        case .sectionPrint: "彩色放大"
+        case .sectionOutput: "掃描 / 輸出"
+        case .sectionPaper: "相紙"
+        case .sectionNavigator: "導航器"
+        case .navigatorEmpty: "未開啟影像"
+        case .sectionCrop: "裁切"
+        case .sectionHistogram: "直方圖"
+        case .sectionWhiteBalance: "白平衡"
+        case .sectionExposure: "曝光"
+        case .sectionCurve: "曲線"
+        case .sectionColorBalance: "色彩平衡"
+
+        // Camera
+        case .cameraMetering: "測光模式"
+        case .cameraFilmExposure: "曝光補償"
+        case .cameraFilmExposureAsShot: "拍攝時設定"
+        case .cameraTemperature: "色溫"
+        case .cameraTint: "色調"
+        case .cameraVignetting: "暗角"
+        case .cameraLensCorrection: "鏡頭校正"
+
+        // metering
+        case .meteringCustom: "關閉自動曝光（RAW 基準）"
+        case .meteringBalanced: "均衡"
+        case .meteringCenter: "中央主體"
+        case .meteringProtectHighlights: "保護高光"
+        case .meteringProtectShadows: "保護陰影"
+        case .meteringCenterWeightedLegacy: "中央加權"
+
+        // Film
+        case .filmGroupPositive: "正片"
+        case .filmGroupNegative: "負片"
+        case .filmFormat: "膠片規格"
+        case .filmFormatSide: "尺寸基準"
+        case .filmFormatShort: "短邊"
+        case .filmFormatLong: "長邊"
+        case .filmFormatSideLength: "基準尺寸"
+        case .filmGrain: "顆粒"
+        case .filmGrainSize: "顆粒尺度"
+        case .filmHalation: "膠片光暈"
+        case .filmHalationAmount: "光暈強度"
+        case .filmHalationOff: "關閉"
+        case .filmGlare: "相紙眩光"
+        case .cameraDiffusion: "拍攝柔光"
+        case .enlargerDiffusion: "柔光放大"
+        case .lensFilterStrength: "柔光強度"
+        case .lensHaloRange: "擴散範圍"
+        case .enlargerSoftnessStrength: "柔光強度"
+        case .enlargerSoftnessRange: "擴散範圍"
+        case .lensFilterHelp: "模擬拍攝鏡頭前的柔光鏡，作用於膠片曝光之前；與膠片光暈不同。"
+        case .lensHaloRangeHelp: "調整柔光鏡的擴散尺度，不改變柔光強度；1× 保持所選柔光鏡的模擬尺寸。"
+        case .enlargerSoftnessHelp: "模擬在放大機光路中加入柔光鏡，作用於相紙曝光之前；與相紙眩光不同。"
+        case .enlargerSoftnessRangeHelp: "調整柔光放大的擴散尺度，不改變柔光強度；1× 保持所選柔光鏡的模擬尺寸。"
+        case .paperGlareHelp: "模擬觀看或數位化已形成的相紙影像時的眩光；與膠片光暈和柔光放大不同。"
+        case .highlightExpansionHelp: "展開相紙成像中壓縮的高光層次；畫布與匯出檔案使用同一結果。"
+        case .diffusionOff: "關閉"
+        case .diffusionClean: "Glimmerglass"
+        case .diffusionDeep: "黑柔"
+        case .diffusionSoft: "白柔"
+        case .diffusionWide: "CineBloom"
+        // 晕光那一行的取值,按现象命名,不按涂层命名。胶片数据记的是**防晕层**:
+        // 涂层越强,晕光越弱,两者方向相反。没有"無暈光"这一档(涂层最强也仍有
+        // 残余),所以真正的关闭是单独一项「关闭」;与线格式之间的反相写在
+        // `HalationChoice` 里,只有那一处。
+        case .filmAntihalationProfile: "預設"
+        case .filmAntihalationLow: "弱"
+        case .filmAntihalationMedium: "中"
+        case .filmAntihalationHigh: "強"
+
+        // Development
+        case .developmentContrast: "顯影反差"
+        case .developmentColorSeparation: "DIR 效應"
+        case .filmEffectStrength: "強度"
+        case .filmGrainLayers: "分層顆粒"
+        case .filmScatter: "散射"
+        case .filmCouplers: "DIR 成色劑"
+
+        // Print
+        case .printGroupStill: "靜態攝影"
+        case .printGroupCine: "電影"
+        case .printNone: "不使用相紙設定檔"
+        case .printEDR: "高光層次展開"
+        case .printExposure: "放大曝光"
+        case .printContrast: "相紙反差"
+        case .printYellow: "黃濾色（Y）"
+        case .printMagenta: "品紅濾色（M）"
+        case .printPreflash: "相紙預閃"
+        case .printGroupDigital: "數位"
+        case .printDigitalIntermediate: "數位中間片"
+        case .printDigitalIntermediateHelp:
+            "去除橙色色罩、按膠片自身的中性曲線反轉後的負片，以 Cineon 對數儲存，供其他軟體調色。"
+            + "保留顆粒、光暈與膠片的色彩，不含相紙。"
+
+        // Curve
+        case .curveLuma: "明度"
+        case .curveRed: "紅"
+        case .curveGreen: "綠"
+        case .curveBlue: "藍"
+        case .curveInput: "輸入"
+        case .curveOutput: "輸出"
+
+        // right rail
+        case .exposureContrast: "對比度"
+        case .exposureBrightness: "亮度"
+        case .exposureSaturation: "飽和度"
+        case .exposureHighlights: "高光"
+        case .exposureShadows: "陰影"
+        case .exposureBlackPoint: "黑場"
+        case .exposureWhitePoint: "白場"
+        case .balanceMidtones: "中間調"
+
+        // Crop
+        case .cropAspect: "寬高比"
+        case .cropAspectFree: "自由"
+        case .cropAspectOriginal: "原始比例"
+        case .cropStraighten: "拉直"
+        case .cropStraightenUnit: "度"
+        case .cropRotate: "旋轉"
+
+        // actions
+        case .actionDeveloped: "顯影效果"
+        case .actionProcess: "自動測光與配光"
+        case .actionPrintNegative: "沖印"
+        case .actionRestart: "重新啟動"
+
+        // help
+        case .helpOpen: "開啟檔案夾或影像"
+        case .helpExport: "匯出"
+        case .helpSelect: "選擇"
+        case .helpCrop: "裁切"
+        case .helpPreviousFrame: "開啟上一張"
+        case .helpNextFrame: "開啟下一張"
+        case .helpSectionMenu: "這一節的更多操作"
+        case .helpPan: "平移"
+        case .helpBeforeAfter: "原圖 / 效果對比 — 在畫布上拖曳分界線"
+        case .helpHoldOriginal: "按住空白鍵看整張原圖"
+        case .helpPrintNegative: "把剛沖洗出來的底片印成照片 —— 也可以直接點畫布"
+        case .helpZoomIn: "放大"
+        case .helpZoomOut: "縮小"
+        case .helpFit: "適合視窗"
+        case .helpFullScreenEnter: "進入全螢幕"
+        case .helpFullScreenLeave: "退出全螢幕"
+        case .helpDevelopRailHide: "隱藏膠片與相紙欄"
+        case .helpDevelopRailShow: "顯示膠片與相紙欄"
+        case .helpEditRailHide: "隱藏參數欄"
+        case .helpEditRailShow: "顯示參數欄"
+        case .helpPickNeutral: "在影像中選取中性色"
+        case .helpWhiteBalancePreset: "白平衡預設"
+        case .helpReset: "重設"
+        case .helpResetFilmExposure: "重設曝光補償"
+        case .helpResetChannels: "重設所有通道"
+        case .helpResetCrop: "重設裁切"
+        case .helpStraightenZero: "拉直到 0°"
+        case .helpCropWholeFrame: "恢復完整畫面"
+        case .helpRevealInFinder: "在 Finder 中顯示"
+        case .helpResetDefaults: "恢復預設設定"
+        case .helpResetFilmStock: "恢復預設膠片 — Kodak Portra 400"
+        case .helpResetDevelopment: "恢復該膠片給出的預設顯影參數"
+        case .reasonNoFrames: "還沒有開啟任何畫面 —— 先開啟一個檔案夾或一張圖。"
+        case .helpUseFilmPaper: "使用膠片預設的相紙"
+        case .helpAllEffectsOn: "開啟所有效果"
+        case .helpAllEffectsOff: "關閉所有效果"
+        case .helpFastFlip: "快速切換（使用預烘焙 LUT，不含眩光，忽略彩色放大調整）"
+        case .helpResetEffectStrengths: "將效果強度恢復為膠片預設值"
+
+        // status and reasons
+        case .statusDecodeOnly: "顯影中…"
+        case .statusFull: "全解析度"
+        case .statusFullPending: "全解析度處理中…"
+        case .statusEmptyFilmstrip: "將檔案夾或影像拖到此處，或按 ⌘O。"
+        case .statusEDRScope: "展開相紙成像中壓縮的亮部層次；預覽與匯出同步生效。"
+        case .statusRightRailWBScope: "對相紙掃描結果進行調整。"
+        case .reasonDecodeWBDisabled: "僅 RAW 影像支援調整解碼白平衡。"
+        case .reasonNonCustomSideLength: "選擇「自訂」規格後可修改基準尺寸。"
+        case .reasonPositiveFilmDisablesPaper: "正片無需經彩色放大曝光到相紙。選擇負片後可使用相紙設定檔。"
+        case .reasonEDRDisabledInScanFilm: "高光層次展開僅適用於相紙輸出。"
+        case .reasonPaperGlareDisabledInScanFilm: "相紙眩光僅適用於相紙輸出。"
+        case .reasonEffectOff: "開啟該效果後可調節強度。"
+        case .reasonDisabledInDigitalIntermediate: "數位中間片沒有相紙，印相效果、影調遮罩與擴展動態範圍不適用。"
+        case .reasonPlacementInDigitalIntermediate: "場景置位是把場景放進相紙的寬容度裡。數位中間片保留膠片的全部寬容度。"
+
+        // Settings ▸ Language
+        case .setLanguage: "語言"
+        case .setLanguageCaption:
+            "膠片、相紙、相機與鏡頭名稱以及技術縮寫保持英文。切換立即生效，無需重新啟動。"
+        case .languageFollowSystem: "跟隨系統"
+
+        // 启动画面（2026-09-23）
+        case .bootTagline: "膠片與相紙模擬"
+        case .bootStarting: "正在啟動渲染引擎 · 初始化 Metal 設備"
+        case .bootWarming: "正在準備膠片管線 · 設定檔、特性曲線與彩色放大表"
+        case .bootReady: "就緒 · 膠片管線已載入"
+
+        // 菜单、设置与关于（2026-09-23）
+        case .menuAbout: "關於 Silverphase"
+        case .menuSettings: "設定…"
+        case .menuOpen: "開啟…"
+        case .menuExport: "匯出…"
+        case .menuUndo: "還原"
+        case .menuCopySettings: "複製設定…"
+        case .menuPasteSettings: "貼上設定"
+        case .menuView: "顯示"
+        case .menuZoomIn: "放大"
+        case .menuZoomOut: "縮小"
+        case .menuZoomFit: "適合視窗"
+        case .menuZoomHundred: "實際大小 100 %"
+        case .menuDevelopRail: "顯示 / 隱藏膠片與相紙欄"
+        case .menuFilmstrip: "顯示 / 隱藏膠片條"
+        case .menuBeforeAfter: "原圖 / 效果對比"
+        case .menuHideBeforeAfter: "關閉原圖 / 效果對比"
+        case .menuRestartService: "重新啟動渲染引擎"
+        case .menuFrame: "影像"
+        case .menuPrevious: "上一張"
+        case .menuNext: "下一張"
+        case .menuResetAll: "重設膠片、相紙、相機與放大機"
+        case .menuConvertLegacy: "把舊版調色轉換為物理參數"
+        case .menuRevealSettings: "在Finder中顯示設定檔案"
+        case .menuCropSection: "裁切"
+        case .menuRotateLeft: "向左旋轉"
+        case .menuRotateRight: "向右旋轉"
+        case .menuFlipHorizontal: "水平翻轉"
+        case .menuFlipVertical: "垂直翻轉"
+        case .menuResetCrop: "重設裁切"
+        case .menuTool: "工具"
+        case .menuToolSelect: "選擇"
+        case .menuToolCrop: "裁切"
+        case .setInterface: "介面"
+        case .setScale: "縮放"
+        case .setScaleCaption: "同步調整主介面、設定與匯出頁的字型大小；更改立即生效。"
+        case .setRendering: "渲染"
+        case .setPreview: "預覽解析度"
+        case .setPreviewCaption: "設定即時預覽的目標長邊。拖曳時應用會按需調整，放大查看時可渲染更高精度的細節。匯出使用獨立的解析度。"
+        case .bottomStripRevealHint: "移到這裡展開"
+        case .setUpdates: "軟體更新"
+        case .setInstalledVersion: "目前版本"
+        case .setCheckGitHub: "從 GitHub 檢查更新"
+        case .setReleaseHistory: "發行記錄"
+        case .setCheckingGitHub: "正在檢查 GitHub…"
+        case .setUpdateCurrent: "目前已是最新的 macOS 正式版。"
+        case .setUpdateNoPackage: "未找到 macOS 安裝包。"
+        case .setUpdateFailed: "無法從 GitHub 檢查更新，可開啟發行記錄手動查看。"
+        case .setUpdateRateLimited: "GitHub 暫時限制了更新查詢，可開啟發行記錄查看。"
+        case .setUpdateRetryAt: "可在 %@ 後重試。"
+        case .setUpdateAvailable: "Silverphase %@ 已發行。下載後開啟 DMG 安裝。"
+        case .setUpdateDownload: "下載 macOS 安裝包"
+        case .setUpdateLater: "稍後"
+        case .setFastStockPreview: "相紙快速預覽"
+        case .setFastStockPreviewCaption: "選擇相紙時，把 LUT 直接套在畫布上已有的負片上，而不是等完整重印。用的是同一張表，所以預覽與成品一致。"
+        case .setCropRemaps: "裁切改變畫面物理尺度"
+        case .setCropRemapsCaption: "裁切是否改變顆粒、光暈與眩光的物理尺度。關閉（預設，也是物理上正確的答案）：裁切只是少看了一部分同一張底片，顆粒大小不變。開啟：裁切框**就是**畫面，膠片區的「基準尺寸」從此描述裁切後的尺寸，這些效果隨之放大。膠片區那一行「基準尺寸」就是按這個設定來解讀的。"
+        case .setDiagnostics: "診斷"
+        case .setLogLevel: "日誌級別"
+        case .setLevelNormal: "常規"
+        case .setLevelNormalDetail: "日常記錄：開啟、渲染、匯出、記憶體與錯誤。"
+        case .setLevelDetailed: "詳細"
+        case .setLevelDetailedDetail: "追加畫布與引擎每一步的動作。下次啟動會回到「常規」。"
+        case .setLevelVerbose: "全部"
+        case .setLevelVerboseDetail: "全部記錄，包括逐節點追蹤。會拖慢渲染，下次啟動會回到「常規」。"
+        case .setPerNodeTimings: "逐節點 GPU 計時"
+        case .setPerNodeTimingsNote: "讓引擎報告每個管線節點的耗時。每個節點都必須先 flush 才能停止計時，而這會放棄引擎賴以提速的批次處理 —— 渲染會明顯變慢。這是診斷模式，永遠不該是預設值。"
+        case .setMemory: "記憶體"
+        case .setFootprint: "佔用"
+        case .setSessionPeak: "本次峰值"
+        case .setFree: "可用"
+        case .setNotSampled: "尚未取樣"
+        case .setReserve: "保留量"
+        case .setReserveNote: "Silverphase 留給其它一切的閒置記憶體。某張畫面的預計峰值放不進這個額度時，應用會給出一個可以忽略的警告 —— 但從不拒絕渲染。下面的開關壓掉的是警告，不是回收。"
+        case .setWorkingSetCap: "工作集上限"
+        case .setUnlimited: "不限制"
+        case .setCapNote: "Silverphase 允許在快取與臨時緩衝上佔用的上限。無論這裡寫什麼，正在看的這一幀永不被回收。閒置記憶體由機器上其它應用決定；這一項是 Silverphase 自己能定的那部分。"
+        case .setHeldByApp: "Silverphase 持有"
+        case .setEvictable: "可回收"
+        case .setAllowOverReserve: "允許超出保留量"
+        case .setAllowOverReserveCaption: "如果某張畫面的預計峰值會讓保留量不再閒置，應用會給出可以忽略的警告。任何操作都不會被阻止；這裡是那個警告的長期答案，關掉之後應用會重新詢問。"
+        case .setDiskCache: "磁碟快取"
+        case .setInUse: "已使用"
+        case .setCacheUnavailable: "快取無法開啟"
+        case .setLimit: "上限"
+        case .setCacheNote: "Silverphase 用來存放已解碼畫面與已完成成品的磁碟空間，這樣再次開啟一張照片時不必重新解碼。這裡沒有任何屬於你的東西 —— 每一條都能從原始檔案重新生成，所以清空它唯一要付的代價是下次開啟那些畫面時的等待。回收從最不值得留的條目開始，按「用得多不多」對「造得貴不貴」來算。"
+        case .setLocation: "位置"
+        case .setRevealInFinder: "在Finder中顯示"
+        case .setEmptyCache: "立即清空快取"
+        case .reasonNoDiskCache: "磁碟快取還是空的，沒有可清的內容。"
+        case .setEmptyCacheHelp: "刪除所有快取的解碼與成品。裡面沒有你自己的東西。"
+        case .setLogs: "日誌"
+        case .setKeepFor: "保留時長"
+        case .setKeepAtMost: "最多保留"
+        case .setUnitDays: "天"
+        case .setUnitFiles: "個檔案"
+        case .setRetentionCaption: "哪一個上限先到就按哪一個，從最舊的檔案開始。清理只在啟動時執行，不會在渲染期間跑。"
+        case .setDestination: "目錄"
+        case .setChoose: "選擇…"
+        case .setChooseLogMessage: "Silverphase 的日誌寫到哪裡？"
+        case .setLogDirectoryNote: "會話寫到哪裡。更改在下次啟動生效；本次會話繼續寫它已經開啟的那個檔案。"
+        case .setClearLogs: "立即清空日誌"
+        case .setClearLogsHelp: "刪除除本次會話之外的日誌檔案。"
+        case .setBundle: "診斷包"
+        case .setIncludeFileNames: "包含影像檔案名"
+        case .setFileNamesNote: "診斷包裡會包含你處理過的影像檔案名。取消勾選會在整份包裡把它們換成佔位符 —— 日誌的其它內容不變。"
+        case .setPlaceholderNames: "影像檔案名會全部替換為佔位符。"
+        case .setSaving: "正在儲存…"
+        case .setSaveBundle: "儲存診斷包…"
+        case .setBundleCaption: "一個 zip：最近的日誌檔案、引擎能力、應用與引擎版本、這臺機器、目前設定和最後一次錯誤。不會上傳任何內容 —— 只寫到你選擇的位置。"
+        case .setWroteBundle: "已寫入 %@。"
+        case .setBundleFailed: "無法寫入診斷包："
+        case .setMachine: "本次會話"
+        case .setApp: "應用"
+        case .setEngine: "引擎"
+        case .setRenderCore: "渲染核心"
+        case .setLogFile: "日誌檔案"
+        case .setNotReported: "尚未回報"
+        case .setNone: "無"
+        case .setLastSession: "上次會話"
+        case .setEndedCleanly: "正常結束"
+        case .setEndedUnclean: "非正常結束"
+        case .setNoEarlierLog: "沒有更早的日誌"
+        case .setUncleanCaption: "那份日誌沒有會話結束記錄 —— 卡死、記憶體不足被殺或崩潰就是這樣留下痕跡的：應用沒來得及寫。檔案在日誌目錄裡，診斷包會包含它。"
+        case .setLastError: "上次錯誤"
+        case .setNoCacheAllocations: "尚無快取或畫格分配登記。"
+        case .aboutTagline: "為 macOS 打造的光譜膠片與相紙模擬。"
+        case .aboutEngine: "Silverphase 基於 SpektraLab 的 macOS 引擎，並使用 spektrafilm 的膠片、相紙設定檔及其衍生的彩色放大預覽 LUT。"
+        case .aboutCreditsProfiles: "膠片模擬、實測設定檔與彩色放大模型"
+        case .aboutCreditsApp: "Silverphase 與源自 SpektraLab 的渲染引擎"
+        case .aboutLicenceBody: "以 GNU GPL v3 或更高版本發行的自由軟體。你有權獲得對應的原始碼。"
+        case .aboutLutBody: "8 個烘焙出的彩色放大預覽 LUT 是這些設定檔的衍生作品，同樣以 CC BY-SA 4.0 授權。改動了什麼、沒改動什麼，寫在下面的變更記錄裡。"
+        case .aboutLicences: "授權"
+        case .aboutShowLicenceFiles: "在Finder中顯示授權檔案"
+        case .aboutNoLicences: "這個建置裡沒有授權文字。請執行 Tools/bundle-licenses.sh 後重新建置。"
+        case .aboutShowInFinder: "在Finder中顯示"
+        case .aboutDone: "完成"
+        }
+    }
 }
 
 // MARK: - the lookup
@@ -1069,39 +1527,65 @@ extension S {
 /// a build error and the only way to reach the fallback is an entry that was
 /// deliberately or accidentally left blank — which is what the emptiness check
 /// below is for. It never returns an empty string.
-/// A string kept at its point of use, in both languages (2026-09-28).
 ///
-/// The table above is for strings used in more than one place. Settings holds
-/// some eighty that each appear once — captions, readouts, button titles —
-/// and a pair written where the string is shown keeps the English and the
-/// Chinese side by side for review, which the table cannot. An empty Chinese
-/// string falls back to the English, as the table does.
-@MainActor
-func L(_ english: String, zh chinese: String) -> String {
-    switch Localization.shared.resolved {
-    case .english: english
-    case .simplifiedChinese: chinese.isEmpty ? english : chinese
-    }
-}
-
+/// The Traditional column falls back through Simplified before English, and
+/// that is a deliberate exception to "a missing translation is a build error":
+/// the switches make a missing *case* impossible, but an entry that was left
+/// blank still has to resolve to something, and for a blank 繁體 entry the
+/// Simplified text is closer to what the reader wants than English is. The
+/// build error is what keeps this path unreachable in practice.
 @MainActor
 func L(_ key: S) -> String {
-    switch Localization.shared.resolved {
+    L(key, in: Localization.shared.resolved)
+}
+
+/// The same lookup, against a language passed in.
+///
+/// `nonisolated` and pure so that a helper which cannot touch the main actor —
+/// `LanguageSetting.label(in:)` is one, because `PillMenu` wants a plain
+/// `(T) -> String` — can still read the table. `L(_:)` above is the one every
+/// view calls; this is the one a closure captures.
+nonisolated func L(_ key: S, in language: Language) -> String {
+    switch language {
     case .english:
         return key.english.nilIfEmpty ?? key.rawValue
     case .simplifiedChinese:
         return key.simplifiedChinese.nilIfEmpty
             ?? key.english.nilIfEmpty
             ?? key.rawValue
+    case .traditionalChinese:
+        return key.traditionalChinese.nilIfEmpty
+            ?? key.simplifiedChinese.nilIfEmpty
+            ?? key.english.nilIfEmpty
+            ?? key.rawValue
     }
 }
 
-/// Bilingual copy for page-specific sentences that do not belong to the
-/// editor's terminology table. Reading `resolved` here keeps live language
-/// switching observable in SwiftUI, just like `L(_:)`.
+/// Copy kept at its point of use, in all three languages (2026-09-28).
+///
+/// The table above is for strings used in more than one place. Settings and the
+/// panels hold several hundred that each appear once — captions, readouts,
+/// button titles — and a triple written where the string is shown keeps the
+/// three languages side by side for review, which the table cannot.
+///
+/// All three are positional and none has a default. A default would let a new
+/// call site compile with two languages and one empty column, which is exactly
+/// the state this pass was written to leave behind; requiring the third
+/// argument means the compiler names every site that has not been given one.
+///
+/// Empty strings fall back the same way `L(_:)` does: 繁 → 簡 → English.
 @MainActor
-func T(_ english: String, _ simplifiedChinese: String) -> String {
-    Localization.shared.resolved == .simplifiedChinese ? simplifiedChinese : english
+func T(_ english: String, _ simplifiedChinese: String, _ traditionalChinese: String) -> String {
+    switch Localization.shared.resolved {
+    case .english:
+        return english
+    case .simplifiedChinese:
+        return simplifiedChinese.isEmpty ? english : simplifiedChinese
+    case .traditionalChinese:
+        if !traditionalChinese.isEmpty { return traditionalChinese }
+        if !simplifiedChinese.isEmpty { return simplifiedChinese }
+        return english
+    }
 }
 
 private extension String {

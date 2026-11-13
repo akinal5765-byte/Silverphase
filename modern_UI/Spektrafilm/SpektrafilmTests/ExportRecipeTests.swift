@@ -533,7 +533,7 @@ final class ExportRecipeTests: XCTestCase {
         store.duplicate(original)
         XCTAssertNotEqual(store.selected?.id, original.id)
         XCTAssertEqual(store.selected?.format, original.format)
-        XCTAssertTrue(store.selected?.name.hasSuffix(T(" copy", " 副本")) ?? false)
+        XCTAssertTrue(store.selected?.name.hasSuffix(T(" copy", " 副本", " 副本")) ?? false)
     }
 
     @MainActor

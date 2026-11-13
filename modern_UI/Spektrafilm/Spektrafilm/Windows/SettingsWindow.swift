@@ -106,7 +106,7 @@ struct SettingsWindow: View {
     /// First on the page, because it is the control for the thing that changes
     /// every other word on the screen — including the caption under it.
     ///
-    /// The menu's three labels come from `LanguageSetting.label(in:)` and not
+    /// The menu's four labels come from `LanguageSetting.label(in:)` and not
     /// from `L(_:)`, and the active language is read **once, here, outside the
     /// closure**: `PillMenu` takes a plain `(T) -> String`, so a closure that
     /// reached into main-actor state on its own could not be built in a view's
@@ -165,10 +165,10 @@ struct SettingsWindow: View {
                                             set: { Session.recalculateEffectsAfterCrop = $0
                                                    session.recomputeFilmFormat() }))
                     caption(L(.setCropRemapsCaption))
-                    ToggleRow(label: T("DI blue compensation", "数字中间片蓝色补偿"),
+                    ToggleRow(label: T("DI blue compensation", "数字中间片蓝色补偿", "數位中間片藍色補償"),
                               isOn: Binding(get: { session.diBlueCompensation },
                                             set: { session.diBlueCompensation = $0 }))
-                    caption(T("Optional correction derived per film. Applies only to Digital Intermediate output.", "按胶片推导的可选补偿，仅作用于数字中间片输出。"))
+                    caption(T("Optional correction derived per film. Applies only to Digital Intermediate output.", "按胶片推导的可选补偿，仅作用于数字中间片输出。", "按膠片推導的可選補償，僅作用於數位中間片輸出。"))
                 }
             }
         }
@@ -471,7 +471,7 @@ struct SettingsWindow: View {
                     // The running binary's own timestamp: the one fact that
                     // settles "is this the build I just made?" without either
                     // side guessing.
-                    readout(T("Build", "构建"), Diagnostics.buildStamp)
+                    readout(T("Build", "构建", "建置"), Diagnostics.buildStamp)
                     readout(L(.setEngine), diagnostics.engineVersion ?? L(.setNotReported))
                     readout(L(.setRenderCore), session.renderCore ?? L(.setNotReported))
                     readout(L(.setLogFile), diagnostics.currentLogFile?.lastPathComponent ?? L(.setNone))

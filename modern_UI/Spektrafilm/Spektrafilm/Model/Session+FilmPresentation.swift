@@ -83,7 +83,7 @@ extension Session {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.image, .rawImage]
-        panel.message = T("Choose two photographs for a half-frame pair.", "选择两张照片组成半格双联画。")
+        panel.message = T("Choose two photographs for a half-frame pair.", "选择两张照片组成半格双联画。", "選擇兩張照片組成半格雙聯畫。")
         guard panel.runModal() == .OK, panel.urls.count == 2 else { return }
         let save = NSSavePanel()
         save.nameFieldStringValue = "Pair." + HalfFramePair.fileExtension

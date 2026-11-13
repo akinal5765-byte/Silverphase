@@ -61,9 +61,15 @@ enum MobileLockedCameraChecks {
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")
+            try require(legacy.captureGeometry.value.isIdentity, "Legacy captures must remain uncropped")
+            let zoomed = MobileCameraRecipe(cropZoom: 2)
+            let restoredZoom = try JSONDecoder().decode(MobileCameraRecipe.self, from: JSONEncoder().encode(zoomed))
+            try require(restoredZoom.captureGeometry.value.crop == CropRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5),
+                        "The lock-screen handoff must preserve the centered 2× Bayer crop")
             var legacyValues: [String: WireValue] = ["film_stock": .string("kodak_portra_400")]
             try MobileDocument.applyCapturedRecipe(legacy, to: &legacyValues)
             try require(legacyValues["film_stock"]?.stringValue == "kodak_portra_400", "Legacy import changed its film")
+            try require(legacyValues["exposure_compensation_ev"] == nil, "Legacy import invented an EV override")
             checks.append("old lock-screen sidecars remain readable and preserve their original film policy")
 
             let films = ["kodak_portra_400", "ilford_hp5_plus_400", "kodak_ektachrome_100"]
@@ -71,7 +77,8 @@ enum MobileLockedCameraChecks {
             for id in films {
                 let stock = StockCatalog.shared.stock(id)!
                 for mode in MobileMeteringMode.allCases { for diffusion in MobileDiffusionFilter.allCases {
-                    let selected = MobileCameraRecipe(filmID: id, metering: mode, diffusion: diffusion)
+                    let ev = [-1.25, 0, 1.5][combinations % 3]
+                    let selected = MobileCameraRecipe(filmID: id, metering: mode, diffusion: diffusion, exposureCompensationEV: ev)
                     let encoded = try JSONEncoder().encode(selected)
                     try require(encoded.count < 4096, "CameraCaptureIntent context exceeds its size budget")
                     let restored = try JSONDecoder().decode(MobileCameraRecipe.self, from: encoded)
@@ -81,6 +88,9 @@ enum MobileLockedCameraChecks {
                     try require(values["film_stock"]?.stringValue == id, "Selected film was not imported")
                     try require(values["auto_exposure"]?.boolValue == (mode != .custom), "Imported meter differs")
                     try require(values["camera_diffusion_active"]?.boolValue == (diffusion != .off), "Imported filter differs")
+                    try require(values["exposure_compensation_ev"]?.doubleValue == ev, "Imported EV differs")
+                    let wire = try MobileProcessContract.wire(values, aspect: 4.0 / 3)
+                    try require(wire["exposure_compensation_ev"]?.doubleValue == ev, "Render EV differs")
                     try require(values["digital_intermediate"]?.boolValue == false, "Capture unexpectedly enabled DI")
                     if stock.isPositive { try require(values["scan_film"]?.boolValue == true, "Slide film must scan directly") }
                     if let paper = stock.targetPrint { try require(values["print_stock"]?.stringValue == paper, "Lost target paper") }
@@ -88,7 +98,7 @@ enum MobileLockedCameraChecks {
                 } }
             }
             try require(combinations == 90, "Incomplete capture recipe coverage")
-            checks.append("90 negative/B&W/slide x metering x diffusion round trips; target paper, direct scan and app-context size")
+            checks.append("90 negative/B&W/slide x metering x diffusion round trips with signed EV; target paper, direct scan and app-context size")
             var original: [String: WireValue] = ["film_stock": .string("kodak_portra_400")]
             let unchanged = original
             for id in ["missing-film", "ilford_multigrade_iv_rc"] {

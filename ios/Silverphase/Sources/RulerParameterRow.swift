@@ -29,7 +29,7 @@ struct RulerParameterRow: View {
                         .modifier(AdjustmentNumberTransition(value: shown, fractionDigits: fractionDigits))
                         .foregroundStyle(.primary)
                         .frame(minWidth: EditorDesign.hitSize, minHeight: EditorDesign.hitSize, alignment: .trailing)
-                }.buttonStyle(.plain).accessibilityLabel("输入" + title)
+                }.buttonStyle(.plain).accessibilityLabel(T("Enter ", "输入", "輸入") + title)
             }.frame(minHeight: EditorDesign.hitSize)
             ToolTickRuler(value: $value, range: range, keyMarks: [], anchor: defaultValue,
                           height: EditorDesign.hitSize, step: step, resolution: resolution,
@@ -41,22 +41,22 @@ struct RulerParameterRow: View {
                 .accessibilityElement().accessibilityLabel(title)
                 .accessibilityIdentifier("ruler." + title)
                 .accessibilityValue(String(format: "%.*f", fractionDigits, shown))
-                .accessibilityHint("双击刻度尺恢复默认值")
-                .accessibilityAction(named: "恢复默认值") { preview = nil; onReset() }
+                .accessibilityHint(T("Double-tap the ruler to restore the default", "双击刻度尺恢复默认值", "按兩下刻度尺恢復預設值"))
+                .accessibilityAction(named: T("Restore the default", "恢复默认值", "恢復預設值")) { preview = nil; onReset() }
                 .accessibilityAdjustableAction { direction in
                     value = ToolRulerScale.advanced(value, forward: direction == .increment, range: range, resolution: resolution)
                 }
         }
         .padding(.bottom, 8).frame(maxWidth: .infinity, alignment: .leading)
-        .alert("输入" + title, isPresented: $entering) {
+        .alert(T("Enter ", "输入", "輸入") + title, isPresented: $entering) {
             TextField(title, text: $entry).keyboardType(.numbersAndPunctuation)
-            Button("取消", role: .cancel) { entering = false }
-            Button("确定") {
+            Button(T("Cancel", "取消", "取消"), role: .cancel) { entering = false }
+            Button(T("OK", "确定", "確定")) {
                 entering = false
                 onInteraction?(false)
                 let localized = entry.replacingOccurrences(of: ",", with: ".")
                 if let number = Double(localized), number.isFinite { let bounds = entryRange ?? range; value = min(bounds.upperBound, max(bounds.lowerBound, number)) }
             }
-        } message: { Text(String(format: "范围 %g 至 %g", (entryRange ?? range).lowerBound, (entryRange ?? range).upperBound)) }
+        } message: { Text(String(format: T("Range %g to %g", "范围 %g 至 %g", "範圍 %g 至 %g"), (entryRange ?? range).lowerBound, (entryRange ?? range).upperBound)) }
     }
 }

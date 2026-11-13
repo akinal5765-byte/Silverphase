@@ -64,7 +64,13 @@ for name, suffix, extra_sources, extensionkit in [
     ref = obj(entry, f'isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {quote(entry)}; sourceTree = SOURCE_ROOT;')
     refs.append(ref)
     extension_builds = [obj('build:' + entry, f'isa = PBXBuildFile; fileRef = {ref};')]
-    for source in ['SilverphaseCameraCaptureIntent', 'MobileCameraRecipe'] + extra_sources:
+    # `MobileLocalization` and `MobileStrings` ride along with every target that
+    # compiles `MobileCameraRecipe`: that enum's `title` is copy, and the
+    # lock-screen camera draws it. The extension carries its own copy of the
+    # three-column lookup rather than importing the app's — an app extension
+    # cannot see the host's symbols, and the table is a few kilobytes.
+    for source in ['SilverphaseCameraCaptureIntent', 'MobileCameraRecipe',
+                   'MobileLocalization', 'MobileStrings'] + extra_sources:
         ref = uid(f'Sources/{source}.swift')
         extension_builds.append(obj(f'{name}:build:{source}', f'isa = PBXBuildFile; fileRef = {ref};'))
     extension_resource_phases = []

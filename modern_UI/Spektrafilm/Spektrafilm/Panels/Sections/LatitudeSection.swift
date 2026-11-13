@@ -56,7 +56,7 @@ struct LatitudeSection: View {
                                + Theme.Metric.latitudeBandHeight + Theme.Metric.latitudeAxisHeight)
                     readouts(readout).padding(.top, Theme.Metric.rowSpacing)
                     Text(T("Measures the whole input scene; cropping does not change metering.",
-                           "统计完整输入场景；裁切不改变测光。"))
+                           "统计完整输入场景；裁切不改变测光。", "統計完整輸入場景；裁切不改變測光。"))
                         .font(Theme.Font.caption).foregroundStyle(Theme.Ink.tertiary)
                         .padding(.top, Theme.Metric.rowSpacing)
                 } else {

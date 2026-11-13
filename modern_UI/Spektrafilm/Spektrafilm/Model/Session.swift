@@ -3572,7 +3572,7 @@ final class Session: CanvasHost {
                 try photoMarks.set(marks, for: image)
             }
         } catch {
-            refusal = Refusal(badge: T("Photo marks", "照片标记"),
+            refusal = Refusal(badge: T("Photo marks", "照片标记", "照片標記"),
                               message: error.localizedDescription, kind: .unknown)
         }
     }
@@ -4449,14 +4449,14 @@ struct EXIFReadout: Sendable {
     @MainActor static func summary(_ readouts: [EXIFReadout?]) -> String {
         guard !readouts.isEmpty else { return "" }
         let fields: [(String, KeyPath<EXIFReadout, String?>)] = [
-            (T("Aperture", "光圈"), \.aperture),
-            (T("Shutter", "快门"), \.shutter),
+            (T("Aperture", "光圈", "光圈"), \.aperture),
+            (T("Shutter", "快门", "快門"), \.shutter),
             ("ISO", \.iso),
         ]
         return fields.compactMap { label, key in
             let values = readouts.map { $0?[keyPath: key] }
             guard values.contains(where: { $0 != nil }) else { return nil }
-            return Set(values).count == 1 ? values[0] : label + " " + T("Mixed", "多种")
+            return Set(values).count == 1 ? values[0] : label + " " + T("Mixed", "多种", "多種")
         }.joined(separator: " · ")
     }
     static func read(_ url: URL) -> EXIFReadout? {

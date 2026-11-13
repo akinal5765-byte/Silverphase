@@ -106,11 +106,11 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
 
     @MainActor var help: String {
         switch self {
-        case .camera: T("Metering, film exposure, white balance, lens filters and scene placement. The target fits its own scene.", "测光、胶片曝光、白平衡、镜头滤镜与场景安置；目标照片按自身画面重新拟合。")
-        case .film: T("Film stock, format, grain, halation and scatter.", "胶片型号、画幅、颗粒、光晕与散射。")
-        case .development: T("Development contrast and colour separation.", "显影反差与色彩分离。")
-        case .print: T("Paper/output mode, print exposure, filter pack, preflash and enlarger diffusion.", "相纸与输出模式、印相曝光、滤色、预闪及柔光放大。")
-        case .output: T("Scan sharpening, print glare and highlight expansion.", "扫描锐化、印相眩光与高光层次保留。")
+        case .camera: T("Metering, film exposure, white balance, lens filters and scene placement. The target fits its own scene.", "测光、胶片曝光、白平衡、镜头滤镜与场景安置；目标照片按自身画面重新拟合。", "測光、膠片曝光、白平衡、鏡頭濾鏡與場景安置；目標照片按自身畫面重新擬合。")
+        case .film: T("Film stock, format, grain, halation and scatter.", "胶片型号、画幅、颗粒、光晕与散射。", "膠片型號、畫幅、顆粒、光暈與散射。")
+        case .development: T("Development contrast and colour separation.", "显影反差与色彩分离。", "顯影反差與色彩分離。")
+        case .print: T("Paper/output mode, print exposure, filter pack, preflash and enlarger diffusion.", "相纸与输出模式、印相曝光、滤色、预闪及柔光放大。", "相紙與輸出模式、印相曝光、濾色、預閃及柔光放大。")
+        case .output: T("Scan sharpening, print glare and highlight expansion.", "扫描锐化、印相眩光与高光层次保留。", "掃描銳化、印相眩光與高光層次保留。")
         case .masks: L(.clipMasksHelp)
         }
     }

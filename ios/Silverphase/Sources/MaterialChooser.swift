@@ -3,6 +3,21 @@ import SwiftUI
 enum MobileMaterialFilter: String, CaseIterable, Identifiable {
     case all = "全部", positive = "正片", negative = "负片", monochrome = "黑白", experimental = "实验", favorites = "收藏", recent = "最近"
     var id: String { rawValue }
+
+    /// The chip's label. The `rawValue` is the chip's identity — it is what
+    /// `id` returns and what the accessibility identifier is built from — so it
+    /// stays as it was, and what the chip draws comes from here.
+    @MainActor var title: String {
+        switch self {
+        case .all: T("All", "全部", "全部")
+        case .positive: T("Positive", "正片", "正片")
+        case .negative: T("Negative", "负片", "負片")
+        case .monochrome: T("B&W", "黑白", "黑白")
+        case .experimental: T("Experimental", "实验", "實驗")
+        case .favorites: T("Favorites", "收藏", "收藏")
+        case .recent: T("Recent", "最近", "最近")
+        }
+    }
     func includes(_ stock: Stock, favorites: Set<String>, recent: [String]) -> Bool {
         return switch self {
         case .all: true
@@ -43,38 +58,38 @@ struct MaterialChooser: View {
         VStack(spacing: EditorDesign.browserGap) {
             HStack(spacing: 4) {
                 if !locksMaterialKind {
-                    tab("胶片", selected: !paper) { paper = false; filter = .all }
-                    tab("相纸", selected: paper) { paper = true; filter = .all }
+                    tab(T("Film", "胶片", "膠片"), selected: !paper) { paper = false; filter = .all }
+                    tab(T("Paper", "相纸", "相紙"), selected: paper) { paper = true; filter = .all }
                     Rectangle().fill(MobileStyle.rule).frame(width: 1, height: 20)
                 }
                 if searching {
-                    TextField("搜索材料", text: $query).font(EditorDesign.label).textFieldStyle(.plain)
+                    TextField(T("Search materials", "搜索材料", "搜尋材料"), text: $query).font(EditorDesign.label).textFieldStyle(.plain)
                         .frame(minWidth: 0, maxWidth: .infinity).accessibilityIdentifier("materials.search")
-                    ChromeButton(title: "结束搜索", symbol: "xmark") { searching = false; query = "" }
+                    ChromeButton(title: T("End search", "结束搜索", "結束搜尋"), symbol: "xmark") { searching = false; query = "" }
                 } else if vertical {
                     Menu {
                         ForEach(filters) { item in
                             Button { filter = item } label: {
-                                if filter == item { Label(item.rawValue, systemImage: "checkmark") }
-                                else { Text(item.rawValue) }
+                                if filter == item { Label(item.title, systemImage: "checkmark") }
+                                else { Text(item.title) }
                             }.accessibilityIdentifier("materials.filter." + String(describing: item))
                         }
                     } label: {
-                        HStack { Text(filter.rawValue); Image(systemName: "chevron.down") }
+                        HStack { Text(filter.title); Image(systemName: "chevron.down") }
                             .font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
-                    }.accessibilityLabel("材料分类").accessibilityIdentifier("materials.category")
+                    }.accessibilityLabel(T("Material category", "材料分类", "材料分類")).accessibilityIdentifier("materials.category")
                     Spacer(minLength: 0)
-                    ChromeButton(title: "搜索材料", symbol: "magnifyingglass") { searching = true }
+                    ChromeButton(title: T("Search materials", "搜索材料", "搜尋材料"), symbol: "magnifyingglass") { searching = true }
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
                             ForEach(filters) { item in
-                                tab(item.rawValue, selected: filter == item) { filter = item }
+                                tab(item.title, selected: filter == item) { filter = item }
                                     .accessibilityIdentifier("materials.filter." + String(describing: item))
                             }
                         }
                     }.frame(minWidth: 0, maxWidth: .infinity).clipped()
-                    ChromeButton(title: "搜索材料", symbol: "magnifyingglass") { searching = true }
+                    ChromeButton(title: T("Search materials", "搜索材料", "搜尋材料"), symbol: "magnifyingglass") { searching = true }
                 }
             }.frame(height: EditorDesign.panelHeader).padding(.horizontal, EditorDesign.cardInset)
             ScrollViewReader { proxy in
@@ -103,8 +118,8 @@ struct MaterialChooser: View {
     }
     @ViewBuilder private var materialItems: some View {
         if paper && filter == .all && query.isEmpty {
-            specialCard("不使用相纸", subtitle: "直接扫描胶片", symbol: "film", selected: document.value("scan_film")?.boolValue == true) { document.setPaper(nil) }
-            specialCard("数字中间片", subtitle: "Cineon Log", symbol: "film.stack", selected: document.value("digital_intermediate")?.boolValue == true && document.value("scan_film")?.boolValue != true) {
+            specialCard(T("No Print Profile", "不使用相纸", "不使用相紙"), subtitle: T("Scan film directly", "直接扫描胶片", "直接掃描膠片"), symbol: "film", selected: document.value("scan_film")?.boolValue == true) { document.setPaper(nil) }
+            specialCard(T("Digital Intermediate", "数字中间片", "數位中間片"), subtitle: "Cineon Log", symbol: "film.stack", selected: document.value("digital_intermediate")?.boolValue == true && document.value("scan_film")?.boolValue != true) {
                 document.setValues(["scan_film": .bool(false), "digital_intermediate": .bool(true)])
             }
         }
@@ -118,14 +133,14 @@ struct MaterialChooser: View {
             }.buttonStyle(.plain).id(stock.id)
             .accessibilityLabel(stock.name + ", " + subtitle(stock))
             .accessibilityIdentifier("materials.stock." + stock.id)
-            .accessibilityValue(isSelected(stock) ? "已选中" : "未选中")
+            .accessibilityValue(isSelected(stock) ? T("Selected", "已选中", "已選取") : T("Not selected", "未选中", "未選取"))
             .contextMenu {
-                Button(favorites.contains(stock.id) ? "取消收藏" : "收藏", systemImage: "star") {
+                Button(favorites.contains(stock.id) ? T("Remove from Favorites", "取消收藏", "取消收藏") : T("Add to Favorites", "收藏", "收藏"), systemImage: "star") {
                     if favorites.contains(stock.id) { favorites.remove(stock.id) } else { favorites.insert(stock.id) }
                 }
             }.disabled(paper && selectedFilmIsPositive)
         }
-        if stocks.isEmpty { Text("没有符合筛选条件的材料").font(EditorDesign.label).foregroundStyle(.secondary).padding(12) }
+        if stocks.isEmpty { Text(T("No materials match these filters", "没有符合筛选条件的材料", "沒有符合篩選條件的材料")).font(EditorDesign.label).foregroundStyle(.secondary).padding(12) }
     }
     private func artwork(_ stock: Stock) -> some View {
         ZStack(alignment: .topTrailing) {
@@ -159,7 +174,7 @@ struct MaterialChooser: View {
         return name
     }
     private func subtitle(_ stock: Stock) -> String {
-        let kind = stock.isMonochrome ? "黑白" : stock.isPaper ? "相纸" : stock.isPositive ? "正片" : "负片"
+        let kind = stock.isMonochrome ? T("B&W", "黑白", "黑白") : stock.isPaper ? T("Paper", "相纸", "相紙") : stock.isPositive ? T("Positive", "正片", "正片") : T("Negative", "负片", "負片")
         return [kind, stock.speedLabel].compactMap { $0 }.joined(separator: " · ")
     }
     private func reveal(_ proxy: ScrollViewProxy) {
@@ -206,15 +221,15 @@ struct PhoneMaterialModule: View {
         paper && (positive || document.value("scan_film")?.boolValue == true || document.value("digital_intermediate")?.boolValue == true)
     }
     private var name: String {
-        if paper && positive { return "正片直接扫描" }
-        if paper && document.value("scan_film")?.boolValue == true { return "不使用相纸" }
-        if paper && document.value("digital_intermediate")?.boolValue == true { return "数字中间片" }
-        return stock?.name ?? (paper ? "选择相纸" : "选择胶片")
+        if paper && positive { return T("Positive film, direct scan", "正片直接扫描", "正片直接掃描") }
+        if paper && document.value("scan_film")?.boolValue == true { return T("No Print Profile", "不使用相纸", "不使用相紙") }
+        if paper && document.value("digital_intermediate")?.boolValue == true { return T("Digital Intermediate", "数字中间片", "數位中間片") }
+        return stock?.name ?? (paper ? T("Choose Paper", "选择相纸", "選擇相紙") : T("Choose Film", "选择胶片", "選擇膠片"))
     }
     private var subtitle: String {
-        if bypassesPaper { return "直接扫描胶片" }
-        guard let stock else { return paper ? "印相材料" : "感光材料" }
-        let kind = stock.isMonochrome ? "黑白" : stock.isPaper ? "相纸" : stock.isPositive ? "正片" : "负片"
+        if bypassesPaper { return T("Scan film directly", "直接扫描胶片", "直接掃描膠片") }
+        guard let stock else { return paper ? T("Print material", "印相材料", "印相材料") : T("Light-sensitive material", "感光材料", "感光材料") }
+        let kind = stock.isMonochrome ? T("B&W", "黑白", "黑白") : stock.isPaper ? T("Paper", "相纸", "相紙") : stock.isPositive ? T("Positive", "正片", "正片") : T("Negative", "负片", "負片")
         return [kind, stock.speedLabel].compactMap { $0 }.joined(separator: " · ")
     }
     var body: some View {
@@ -234,13 +249,13 @@ struct PhoneMaterialModule: View {
                 .frame(width: 64, height: 48).clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(paper ? "当前相纸" : "当前胶片").font(EditorDesign.help).foregroundStyle(.secondary)
+                    Text(paper ? T("Current paper", "当前相纸", "目前相紙") : T("Current film", "当前胶片", "目前膠片")).font(EditorDesign.help).foregroundStyle(.secondary)
                     Text(name).font(EditorDesign.selectedValue).foregroundStyle(.primary).lineLimit(2)
                     Text(subtitle).font(EditorDesign.help).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 if !(paper && positive) {
                     HStack(spacing: 4) {
-                        Text("更换")
+                        Text(T("Change", "更换", "更換"))
                         Image(systemName: "chevron.right")
                     }.font(EditorDesign.parameter).foregroundStyle(MobileStyle.accent).fixedSize()
                 }
@@ -249,7 +264,7 @@ struct PhoneMaterialModule: View {
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel((paper ? "相纸，" : "胶片，") + name + (paper && positive ? "" : "，更换"))
+        .accessibilityLabel((paper ? T("Paper, ", "相纸，", "相紙，") : T("Film, ", "胶片，", "膠片，")) + name + (paper && positive ? "" : T(", change", "，更换", "，更換")))
         .accessibilityIdentifier(paper ? "editor.change-paper" : "editor.change-film")
         .disabled(document.current == nil || document.delivering || document.isInteractionLocked || (paper && positive))
     }

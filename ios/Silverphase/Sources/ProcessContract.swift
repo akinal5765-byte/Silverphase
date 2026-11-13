@@ -8,7 +8,7 @@ enum MobileProcessContract {
     struct Contract: Decodable, Sendable { let wire: [String: WireValue]; let ui: UI }
     private static let loaded: Result<Contract, Error> = Result {
         guard let url = Bundle.main.url(forResource: "DesktopControlDefaults", withExtension: "json", subdirectory: StockCatalog.resourceDirectory) else {
-            throw MobileFailure.message("缺少与桌面端对照的默认参数")
+            throw MobileFailure.message(TDetached("The reference defaults used to compare against the desktop are missing", "缺少与桌面端对照的默认参数", "缺少與桌面端對照的預設參數"))
         }
         return try JSONDecoder().decode(Contract.self, from: Data(contentsOf: url))
     }

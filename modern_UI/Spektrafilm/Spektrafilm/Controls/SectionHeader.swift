@@ -148,7 +148,7 @@ struct SectionHeader: View {
                 .menuIndicator(.hidden)
                 .help(L(.helpSectionMenu))
             } else if let action {
-                Button(T("Reset", "重置"), action: action.perform)
+                Button(T("Reset", "重置", "重設"), action: action.perform)
                     .buttonStyle(.plain)
                     .font(Theme.Font.caption)
                     .foregroundStyle(Theme.Ink.secondary)

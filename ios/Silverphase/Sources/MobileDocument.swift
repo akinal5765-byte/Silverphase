@@ -14,6 +14,17 @@ enum MobileExportFormat: String, Codable, CaseIterable, Identifiable, Sendable {
     var isEightBit: Bool { hasLossyQuality || self == .png }
     var type: UTType { switch self { case .jpeg: .jpeg; case .heif: .heic; case .png: .png; case .tiff, .di: .tiff } }
     var fileExtension: String { switch self { case .jpeg: "jpg"; case .heif: "heic"; case .png: "png"; case .tiff, .di: "tif" } }
+
+    /// What the format is called. The `rawValue` is persisted in saved export
+    /// presets, so it stays as it is even where it reads as Chinese; only
+    /// Digital Intermediate has a name to translate, the rest are format names
+    /// that stay in English everywhere.
+    @MainActor var title: String {
+        switch self {
+        case .di: T("Digital Intermediate", "数字中间片", "數位中間片")
+        default: rawValue
+        }
+    }
 }
 
 struct MobilePhoto: Codable, Identifiable {
@@ -88,7 +99,7 @@ struct MobilePhoto: Codable, Identifiable {
     private var importCancelledPreview = false
     var error: String? {
         didSet {
-            if let error { postNotification("处理未完成", detail: error, style: .failure) }
+            if let error { postNotification(T("Processing did not finish", "处理未完成", "處理未完成"), detail: error, style: .failure) }
             else if notification?.style == .failure { notification = nil }
         }
     }
@@ -127,6 +138,16 @@ struct MobilePhoto: Codable, Identifiable {
         return current?.geometry.outputSize(for: geometrySourceSize) ?? .zero
     }
     var previewStatus = ""
+
+    /// The transient status line is cleared by asking what it currently says,
+    /// and it says something in the user's language — so the two tests below
+    /// have to compare against the same copy rather than against the literal
+    /// the line used to hold. Getting this wrong is invisible in Chinese and
+    /// leaves a stale status in the other two languages.
+    private static var detailStatusPrefix: String { T("Detail", "细节", "細節") }
+    private static var originalDetailStatusPrefix: String {
+        T("Original detail", "原图细节", "原圖細節")
+    }
     private(set) var development: MobileDevelopmentAssets? { didSet { if oldValue != nil && development == nil { queueDetailReconciliation() } } }
     private(set) var developmentRunning = false
     private var photosOfferedDevelopment: Set<UUID> = []
@@ -227,7 +248,7 @@ struct MobilePhoto: Codable, Identifiable {
             photos = snapshot.photos
             selection = snapshot.selection.flatMap { id in photos.contains { $0.id == id } ? id : nil }
             libraryWritable = true
-        } catch { libraryReadError = "读取图库失败：\(error.localizedDescription)"; self.error = libraryReadError }
+        } catch { libraryReadError = T("Could not read the library: \(error.localizedDescription)", "读取图库失败：\(error.localizedDescription)", "讀取圖庫失敗：\(error.localizedDescription)"); self.error = libraryReadError }
     }
 
     func openEditor(_ id: UUID, ids: [UUID]? = nil) {
@@ -255,7 +276,8 @@ struct MobilePhoto: Codable, Identifiable {
     }
 
     func developCameraPhoto(_ photo: MobilePhoto, animate: Bool) async throws -> MobileCameraDevelopment {
-        let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo), animate: animate)
+        let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                                              geometry: photo.geometry, animate: animate)
         cacheLibraryPreview(preview.image, photo: photo)
         if preview.animation != nil { photosOfferedDevelopment.insert(photo.id) }
         return preview
@@ -269,6 +291,7 @@ struct MobilePhoto: Codable, Identifiable {
         try await PhotoLibraryWriter.authorize()
         let stem = URL(fileURLWithPath: photo.name).deletingPathExtension().lastPathComponent
         var options = MobileExportRecipe()
+        options.sizeMode = "original"
         if preferences.values.cameraUsesHEIF {
             options.format = .heif
             // ImageIO's HEIF and JPEG quality scales behave differently.
@@ -277,7 +300,7 @@ struct MobilePhoto: Codable, Identifiable {
         let renderer = exportEngine
         let files = try await renderer.exportFiles(url: source, recipe: recipe, geometry: photo.geometry,
                                                    options: options, stem: stem)
-        guard let finished = files.first else { throw MobileFailure.message("未生成成片") }
+        guard let finished = files.first else { throw MobileFailure.message(T("No finished photo was produced", "未生成成片", "未生成成片")) }
         defer { try? FileManager.default.removeItem(at: finished.deletingLastPathComponent()) }
         try await PhotoLibraryWriter.save(finished, pairedRAW: pairedRAW)
     }
@@ -361,6 +384,7 @@ struct MobilePhoto: Codable, Identifiable {
                     if let capturedFilm { Self.applyFilm(capturedFilm, to: &photo.recipe) }
                     if let capturedRecipe = capturedRecipes[source] {
                         try Self.applyCapturedRecipe(capturedRecipe, to: &photo.recipe)
+                        photo.geometry = capturedRecipe.captureGeometry
                     }
                     let metadata = try await Task.detached(priority: .userInitiated) {
                         let scoped = source.startAccessingSecurityScopedResource()
@@ -375,7 +399,7 @@ struct MobilePhoto: Codable, Identifiable {
                         return MobileImageMetadata.read(destination)
                     }.value
                     if UTType(filenameExtension: source.pathExtension)?.conforms(to: .rawImage) == true && !metadata.isRaw {
-                        throw MobileFailure.message("文件标为 RAW，但无法识别为 RAW 原片。")
+                        throw MobileFailure.message(T("The file is marked RAW but could not be read as a RAW original.", "文件标为 RAW，但无法识别为 RAW 原片。", "檔案標為 RAW，但無法識別為 RAW 原片。"))
                     }
                     photo.sourceTypeIdentifier = metadata.typeIdentifier
                     photo.exifSummary = metadata.exifSummary
@@ -392,7 +416,7 @@ struct MobilePhoto: Codable, Identifiable {
                     imported.append(photo)
                 } catch {
                     try? FileManager.default.removeItem(at: destination)
-                    failures.append("导入 \(photo.name) 失败：\(error.localizedDescription)")
+                    failures.append(T("Could not import \(photo.name): \(error.localizedDescription)", "导入 \(photo.name) 失败：\(error.localizedDescription)", "導入 \(photo.name) 失敗：\(error.localizedDescription)"))
                 }
                 if removeSourcesAfterImport { try? FileManager.default.removeItem(at: source) }
             }
@@ -408,7 +432,7 @@ struct MobilePhoto: Codable, Identifiable {
                 if editorVisible { scheduleRender(importID: importID) }
                 else {
                     busy = false; finishImport(id: importID, resumePrevious: false)
-                    if announceSuccess, notification == nil { postNotification("已导入 \(imported.count) 张照片", style: .success) }
+                    if announceSuccess, notification == nil { postNotification(T("Imported \(imported.count) photos", "已导入 \(imported.count) 张照片", "已導入 \(imported.count) 張照片"), style: .success) }
                 }
             } else { finishImport(id: importID, resumePrevious: true) }
         }
@@ -511,7 +535,7 @@ struct MobilePhoto: Codable, Identifiable {
     nonisolated static func applyCapturedRecipe(_ captured: MobileCameraRecipe, to recipe: inout [String: WireValue]) throws {
         if let id = captured.filmID {
             guard let stock = StockCatalog.shared.stock(id), stock.isFilm else {
-                throw MobileFailure.message("无法读取锁屏拍摄所选胶片：" + id)
+                throw MobileFailure.message(TDetached("Could not read the film chosen for the lock-screen capture: ", "无法读取锁屏拍摄所选胶片：", "無法讀取鎖屏拍攝所選膠片：") + id)
             }
             applyFilm(stock, to: &recipe)
         }
@@ -621,7 +645,7 @@ struct MobilePhoto: Codable, Identifiable {
         do {
             try MobileLibraryStore(directory: directory).write(.init(photos: photos, selection: selection))
             return true
-        } catch { self.error = "保存图库失败：\(error.localizedDescription)"; return false }
+        } catch { self.error = T("Could not save the library: \(error.localizedDescription)", "保存图库失败：\(error.localizedDescription)", "儲存圖庫失敗：\(error.localizedDescription)"); return false }
     }
     private(set) var settingsClipboard: MobileSettingsClip?
     private(set) var copyGroups = MobileClipboardGroup.defaults
@@ -659,7 +683,7 @@ struct MobilePhoto: Codable, Identifiable {
         endParameterInteraction()
         copyGroups = groups
         settingsClipboard = MobileSettingsClip(source: photo, groups: groups)
-        postNotification("已复制参数", detail: settingsClipboard?.summary ?? "", style: .success)
+        postNotification(T("Parameters copied", "已复制参数", "已複製參數"), detail: settingsClipboard?.summary ?? "", style: .success)
     }
     @discardableResult func pasteSettings(to ids: Set<UUID>? = nil) -> Int {
         guard !isInteractionLocked, let clip = settingsClipboard else { return 0 }
@@ -685,7 +709,7 @@ struct MobilePhoto: Codable, Identifiable {
                 schedule()
             }
         }
-        if count > 0, error == nil { postNotification("已粘贴到 \(count) 张照片", detail: clip.summary, style: .success) }
+        if count > 0, error == nil { postNotification(T("Pasted to \(count) photos", "已粘贴到 \(count) 张照片", "已貼到 \(count) 張照片"), detail: clip.summary, style: .success) }
         return count
     }
     func mark(_ id: UUID, rating: Int? = nil, flag: String? = nil) { markPhotos([id], rating: rating, flag: flag) }
@@ -707,7 +731,7 @@ struct MobilePhoto: Codable, Identifiable {
         let next = selection.flatMap { ids.contains($0) ? nil : $0 }
         guard libraryWritable else { return }
         do { try MobileLibraryStore(directory: directory).write(.init(photos: remaining, selection: next)) }
-        catch { self.error = "删除未完成：\(error.localizedDescription)"; return }
+        catch { self.error = T("The deletion did not finish: \(error.localizedDescription)", "删除未完成：\(error.localizedDescription)", "刪除未完成：\(error.localizedDescription)"); return }
         photos = remaining; selectedPhotoIDs.subtract(ids)
         undoStack = undoStack.compactMap { let kept = $0.filter { !ids.contains($0.key) }; return kept.isEmpty ? nil : kept }
         redoStack = redoStack.compactMap { let kept = $0.filter { !ids.contains($0.key) }; return kept.isEmpty ? nil : kept }
@@ -721,7 +745,7 @@ struct MobilePhoto: Codable, Identifiable {
         }
         for photo in removed {
             do { if FileManager.default.fileExists(atPath: url(for: photo).path) { try FileManager.default.removeItem(at: url(for: photo)) } }
-            catch { self.error = "照片已从图库移除，但清理原文件失败：\(error.localizedDescription)" }
+            catch { self.error = T("The photo left the library, but cleaning up the original failed: \(error.localizedDescription)", "照片已从图库移除，但清理原文件失败：\(error.localizedDescription)", "照片已從圖庫移除，但清理原檔案失敗：\(error.localizedDescription)") }
             MobileLibraryPreview.remove(photo.id)
         }
     }
@@ -767,7 +791,7 @@ struct MobilePhoto: Codable, Identifiable {
         let token = interactionGeneration
         let cleanup = detailCleanupTask
         let previewCleanup = previewCleanupTask
-        busy = true; previewStatus = "交互预览"
+        busy = true; previewStatus = T("Live preview", "交互预览", "互動預覽")
         interactionTask = Task {
             defer { if token == interactionGeneration { interactionTask = nil; busy = false } }
             do {
@@ -804,7 +828,7 @@ struct MobilePhoto: Codable, Identifiable {
                     // One in flight, one latest value. Never queue every touch.
                 }
             } catch is CancellationError { }
-            catch { if token == interactionGeneration { previewStatus = "松手后更新完整预览" } }
+            catch { if token == interactionGeneration { previewStatus = T("Full preview updates when you let go", "松手后更新完整预览", "鬆手後更新完整預覽") } }
         }
     }
     private func cancelDetail() {
@@ -814,7 +838,7 @@ struct MobilePhoto: Codable, Identifiable {
         let previousWork = detailTask
         detailGeneration += 1; detailTask?.cancel(); detailTask = nil
         detailRenderer.engine.workGate.cancel(); detailTile = nil; detailBusy = false
-        if previewStatus.hasPrefix("细节") { previewStatus = "" }
+        if previewStatus.hasPrefix(Self.detailStatusPrefix) { previewStatus = "" }
         let token = detailGeneration
         detailCleanupTask = Task {
             await previousCleanup?.value
@@ -847,7 +871,7 @@ struct MobilePhoto: Codable, Identifiable {
     }
     private func cancelOriginalDetail(clear: Bool) {
         originalDetailGeneration += 1; originalDetailWork?.cancel(); originalDetailBusy = false
-        if previewStatus.hasPrefix("原图细节") { previewStatus = "" }
+        if previewStatus.hasPrefix(Self.originalDetailStatusPrefix) { previewStatus = "" }
         if clear { originalDetailTile = nil; originalViewport = nil }
     }
     func requestOriginalDetail(_ request: MobileViewport) {
@@ -880,7 +904,7 @@ struct MobilePhoto: Codable, Identifiable {
                     }
                 }
             } catch is CancellationError { }
-            catch { if token == originalDetailGeneration { previewStatus = "原图细节暂不可用" } }
+            catch { if token == originalDetailGeneration { previewStatus = T("Original detail is unavailable", "原图细节暂不可用", "原圖細節暫不可用") } }
         }
     }
     private func originalSatisfies(_ tile: MobileDetailTile, _ request: MobileViewport) -> Bool {
@@ -972,7 +996,7 @@ struct MobilePhoto: Codable, Identifiable {
             } catch is CancellationError { }
             catch {
                 reconcileOnCompletion = false // bounded retries; no hot failure loop
-                if token == detailGeneration { previewStatus = "细节暂不可用，保留现有预览" }
+                if token == detailGeneration { previewStatus = T("Detail is unavailable; keeping the current preview", "细节暂不可用，保留现有预览", "細節暫不可用，保留現有預覽") }
             }
         }
     }
@@ -1051,7 +1075,7 @@ struct MobilePhoto: Codable, Identifiable {
                     let count = operation?.total ?? 0
                     let announceSuccess = operation?.announcesImportSuccess == true
                     finishImport(id: importID)
-                    if announceSuccess, notification == nil { postNotification("已导入 \(count) 张照片", style: .success) }
+                    if announceSuccess, notification == nil { postNotification(T("Imported \(count) photos", "已导入 \(count) 张照片", "已導入 \(count) 張照片"), style: .success) }
                 }
                 reconcileDetail()
             } catch is CancellationError {
@@ -1064,7 +1088,7 @@ struct MobilePhoto: Codable, Identifiable {
                 } else {
                     busy = false
                     previewStatus = ""
-                    if image == nil { error = "预览已中断，请重新打开照片。" }
+                    if image == nil { error = T("The preview was interrupted. Open the photo again.", "预览已中断，请重新打开照片。", "預覽已中斷，請重新開啟照片。") }
                     finishImport(id: importID)
                 }
             }
@@ -1156,7 +1180,7 @@ struct MobilePhoto: Codable, Identifiable {
         let targets = ids.map { selected in photos.filter { selected.contains($0.id) } } ?? current.map { [$0] } ?? []
         guard !targets.isEmpty else { return }
         var options = exportRecipe; options.format = format
-        if destination == .photos && format == .di { error = "数字中间片请导出到文件，不能作为成片存入照片图库。"; return }
+        if destination == .photos && format == .di { error = T("Digital Intermediate output goes to a file; it cannot be saved to Photos as a finished photo.", "数字中间片请导出到文件，不能作为成片存入照片图库。", "數位中間片請匯出到檔案，不能作為成片存入照片圖庫。"); return }
         busy = true; delivering = true; notice = nil; error = nil
         operation = MobileOperationProgress(kind: .exporting, stage: .preparing, total: targets.count)
         let operationID = operation!.id
@@ -1215,7 +1239,7 @@ struct MobilePhoto: Codable, Identifiable {
                             self.operation?.stage = stage
                         }
                     }
-                    exportStatus = "正在导出 \(index + 1) / \(targets.count) · \(photo.name)"
+                    exportStatus = T("Exporting \(index + 1) / \(targets.count) · \(photo.name)", "正在导出 \(index + 1) / \(targets.count) · \(photo.name)", "正在匯出 \(index + 1) / \(targets.count) · \(photo.name)")
                     var recipe = photo.recipe
                     recipe["_diBlue"] = .bool(preferences.values.diBlueCompensation)
                     recipe["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
@@ -1272,14 +1296,14 @@ struct MobilePhoto: Codable, Identifiable {
                     }
                 }
                 if !staged.isEmpty { exportedFiles = staged; exported = staged.first }
-                notice = "已导出 \(delivered) 张" + (skipped > 0 ? "，跳过 \(skipped) 个已有文件" : "")
+                notice = T("Exported \(delivered)", "已导出 \(delivered) 张", "已匯出 \(delivered) 張") + (skipped > 0 ? T(", skipped \(skipped) existing files", "，跳过 \(skipped) 个已有文件", "，跳過 \(skipped) 個已有檔案") : "")
                 exportStatus = notice ?? ""
                 MobileExportJournal.shared.finish()
             } catch {
                 for folder in folders { try? FileManager.default.removeItem(at: folder) }
                 MobileExportJournal.shared.finish(error: error.localizedDescription)
-                self.error = error is CancellationError ? "导出因应用进入后台而停止，请保持应用在前台后重试。" : error.localizedDescription
-                exportStatus = "导出未全部完成 · 已处理 \(delivered) / \(targets.count)"
+                self.error = error is CancellationError ? T("Export stopped because the app went to the background. Keep it in the foreground and try again.", "导出因应用进入后台而停止，请保持应用在前台后重试。", "匯出因應用進入後台而停止，請保持應用在前臺後重試。") : error.localizedDescription
+                exportStatus = T("Export incomplete · \(delivered) / \(targets.count) processed", "导出未全部完成 · 已处理 \(delivered) / \(targets.count)", "匯出未全部完成 · 已處理 \(delivered) / \(targets.count)")
             }
             await exportEngine.setProgressHandler(nil)
             await exportEngine.close()

@@ -558,8 +558,7 @@ enum Exporter {
                       sourceMetadata: work.sourceMetadata)
             return luts
         }.value
-        let note = L("Digital Intermediate: Cineon log in ProPhoto primaries, 16-bit and untagged. The two DI-view LUTs beside it (to ProPhoto RGB, to Rec.709) show it as the canvas does.",
-                     zh: "数字中间片：ProPhoto 原色的 Cineon 对数，16 位，不嵌入色彩配置。旁边的两个数字中间片视图 LUT（转 ProPhoto RGB、转 Rec.709）按画布的方式显示它。")
+        let note = T("Digital Intermediate: Cineon log in ProPhoto primaries, 16-bit and untagged. The two DI-view LUTs beside it (to ProPhoto RGB, to Rec.709) show it as the canvas does.", "数字中间片：ProPhoto 原色的 Cineon 对数，16 位，不嵌入色彩配置。旁边的两个数字中间片视图 LUT（转 ProPhoto RGB、转 Rec.709）按画布的方式显示它。", "數位中間片：ProPhoto 原色的 Cineon 對數，16 位，不嵌入色彩設定檔。旁邊的兩個數位中間片視圖 LUT（轉 ProPhoto RGB、轉 Rec.709）按畫布的方式顯示它。")
         return Result(urls: [out] + luts, note: note, appliedEV: di.progress?.autoExposureEV,
                       pixels: (di.width, di.height))
     }

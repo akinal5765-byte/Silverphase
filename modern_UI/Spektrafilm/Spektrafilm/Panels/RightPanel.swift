@@ -35,8 +35,8 @@ enum InspectorStage: String, CaseIterable, Identifiable {
         case .development: L(.sectionDevelopment)
         case .print: L(.sectionPrint)
         case .output: L(.sectionOutput)
-        case .filmEdge: T("Film Edge", "片边")
-        case .geometry: T("Geometry", "构图")
+        case .filmEdge: T("Film Edge", "片边", "片邊")
+        case .geometry: T("Geometry", "构图", "構圖")
         }
     }
 
