@@ -1,0 +1,51 @@
+name: Build iOS Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: List available Xcodes
+        run: ls -d /Applications/Xcode*.app
+
+      - name: Select Xcode
+        run: |
+          XCODE_APP=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using Xcode: $XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Generate Xcode project
+        run: python3 ios/Silverphase/Tools/gen-project.py
+
+      - name: Check project files
+        run: |
+          ls -la ios/Silverphase/Silverphase.xcodeproj/
+          ls -la ios/Silverphase/Sources/ | head -20
+          echo "---"
+          ls -la modern_UI/Spektrafilm/Spektrafilm/Model/ | head -20
+
+      - name: Build Release (unsigned)
+        run: |
+          set -x
+          xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
+            -scheme Silverphase \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build 2>&1 | tail -100
+
+      - name: List build output
+        run: |
+          find build/DerivedData -name "*.app" -type d
+          ls -la build/DerivedData/Build/Products/Release-iphoneos/ || echo "No product dir"
