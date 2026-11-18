@@ -298,6 +298,7 @@ source header. No original measured film or paper profile is altered for it.
 BWNOTICE
 
 cp "$root/engine/resources_product/CINESTILL_NOTICE.md" "$out/SpektraLab-CINESTILL-NOTICE.md"
+cp "$root/engine/resources_product/FOTUFILM_LICENSE.txt" "$out/FOTUFILM_LICENSE.txt"
 cat >> "$out/Profiles-and-LUTs-CHANGELOG.txt" <<'CINESTILL'
 
 CineStill 800T adoption, 2026-11-02

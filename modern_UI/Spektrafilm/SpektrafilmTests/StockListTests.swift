@@ -255,7 +255,13 @@ final class StockListTests: XCTestCase {
         let stocks = try XCTUnwrap(root["stocks"] as? [[String: Any]])
         for stock in stocks {
             if stock["stage"] as? String == "filming" {
-                XCTAssertGreaterThan(stock["nominalSpeed"] as? Int ?? 0, 0, "\(stock["id"] ?? "") needs nominal speed")
+                let id = stock["id"] as? String ?? ""
+                // An experimental migration may have no verified box speed.
+                let speed = stock["nominalSpeed"]
+                if StockCatalog.shared.stock(id)?.isExperimental == true, speed == nil || speed is NSNull {
+                    continue
+                }
+                XCTAssertGreaterThan(speed as? Int ?? 0, 0, "\(id) needs nominal speed")
             } else {
                 XCTAssertNil(stock["nominalSpeed"] as? Int, "printing stocks must not inherit camera ISO")
             }
@@ -291,7 +297,7 @@ final class StockListTests: XCTestCase {
         XCTAssertEqual(catalog.stocks.filter { !$0.isExperimental }.count, 34)
         // Every selectable material now has generated artwork; HP5/Tri-X reuse
         // their existing covers and Portra push variants share the base stock.
-        for stock in catalog.stocks {
+        for stock in catalog.stocks where !stock.id.hasSuffix("_fotufilm") {
             let url = try XCTUnwrap(stock.packagingArtworkURL, stock.id)
             let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil), stock.id)
             let image = try XCTUnwrap(CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -340,7 +346,13 @@ final class StockListTests: XCTestCase {
             filter: .experimental, query: "", favorites: [], recent: [])
         XCTAssertEqual(Set(choices.map(\.id)), Set(local.map(\.id)))
         XCTAssertEqual(MaterialBrowserFilter.filmTabs.contains(.experimental), !local.isEmpty)
-        for stock in local {
+        let imported = local.filter { $0.id.hasSuffix("_fotufilm") }
+        XCTAssertEqual(imported.count, 29)
+        XCTAssertEqual(imported.filter(\.isMonochrome).count, 5)
+        XCTAssertTrue(catalog.filmGroups.filter { $0.title != "Experimental" }
+            .flatMap(\.films).allSatisfy { !$0.isExperimental })
+        XCTAssertNotEqual(catalog.stock("cinestill_800t")?.id, catalog.stock("cinestill_800t_fotufilm")?.id)
+        for stock in local where stock.isLocalExperimental {
             XCTAssertNotNil(stock.packagingArtworkURL)
         }
     }

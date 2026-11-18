@@ -19,57 +19,7 @@ void density_to_light(const Vec& density, const Vec& light, Vec& out) {
     }
 }
 
-// The Mitchell bicubic tc_lut sample, on the host, for the 1x1 midgray probe.
-// The same kernel and the same edge reflection as `spk_lut2d_cubic`.
-double mitchell(double t) {
-    constexpr double B = 1.0 / 3.0, C = 1.0 / 3.0;
-    const double x = std::fabs(t);
-    if (x < 1.0)
-        return (1.0 / 6.0) * ((12.0 - 9.0 * B - 6.0 * C) * x * x * x +
-                              (-18.0 + 12.0 * B + 6.0 * C) * x * x + (6.0 - 2.0 * B));
-    if (x < 2.0)
-        return (1.0 / 6.0) * ((-B - 6.0 * C) * x * x * x + (6.0 * B + 30.0 * C) * x * x +
-                              (-12.0 * B - 48.0 * C) * x + (8.0 * B + 24.0 * C));
-    return 0.0;
-}
-
-int safe_index(int idx, int L) {
-    if (idx < 0) return -idx;
-    if (idx >= L) return 2 * (L - 1) - idx;
-    return idx;
-}
-
-void base_frac(double coord, int L, int& base, double& frac) {
-    const double upper = double(L - 1);
-    if (coord <= 0.0) coord = 0.0;
-    if (coord >= upper) { base = L - 2; frac = 1.0; return; }
-    base = int(std::floor(coord));
-    frac = coord - double(base);
-}
-
 }  // namespace
-
-void lut2d_cubic_host(const Vec& lut, size_t L, const double tc[2], double out[3]) {
-    const double scale = double(L - 1);
-    int xb, yb;
-    double xf, yf;
-    base_frac(tc[0] * scale, int(L), xb, xf);
-    base_frac(tc[1] * scale, int(L), yb, yf);
-    const double wx[4] = {mitchell(xf + 1.0), mitchell(xf), mitchell(xf - 1.0), mitchell(xf - 2.0)};
-    const double wy[4] = {mitchell(yf + 1.0), mitchell(yf), mitchell(yf - 1.0), mitchell(yf - 2.0)};
-    double acc[3] = {0, 0, 0}, wsum = 0.0;
-    for (int a = 0; a < 4; ++a) {
-        const int xi = safe_index(xb - 1 + a, int(L));
-        for (int b = 0; b < 4; ++b) {
-            const int yj = safe_index(yb - 1 + b, int(L));
-            const double wgt = wx[a] * wy[b];
-            wsum += wgt;
-            const size_t o = 3 * (size_t(xi) * L + size_t(yj));
-            for (int c = 0; c < 3; ++c) acc[c] += wgt * lut[o + size_t(c)];
-        }
-    }
-    for (int c = 0; c < 3; ++c) out[c] = wsum != 0.0 ? acc[c] / wsum : acc[c];
-}
 
 
 bool print_constants(const Colour& colour, const Blob& blob, const Params& params,

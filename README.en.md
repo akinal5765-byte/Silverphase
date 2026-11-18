@@ -30,14 +30,16 @@ The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on 
 
 Platform versions are independent. Public builds are ad-hoc signed, with no Developer ID signature or notarization. See the [binary release guide](docs/BINARY-RELEASES.md) for installation, checksums, and historical IPAs. The [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) describe the mobile interface and validation scope.
 
+The current macOS source version is **1.3.0 (build 5)**. See the [1.3.0 source release notes](modern_UI/Spektrafilm/releases/1.3.0.md) for camera preparation, experimental stocks, shared engine changes, and verification.
+
 ## What you can do
 
-- **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials.
-- **Control exposure and development.** Adjust metering, film exposure, RAW white balance, development contrast, and color separation. On macOS and iOS, Highlights, Shadows, Whites, and Blacks act before film exposure.
+- **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials. The Experimental category adds 29 Fotufilm profiles adapted by Negs.
+- **Control exposure and development.** Adjust metering, film exposure, RAW white balance, development contrast, and color separation. On macOS, pre-film controls cover local brights and darks, input exposure, contrast, lift, gain, midtone detail, and color. Supported RAW files can use the camera preview as a brightness reference. iOS provides Highlights, Shadows, Whites, and Blacks.
 - **Shape grain and halation.** Physical frame size sets the scale of grain and spatial effects. Grain amount, size, softness, film halation, and emulsion scatter have separate controls.
 - **Make color or B&W prints.** Adjust paper, print exposure, yellow/magenta filtration, preflash, and print glare. Ilford Multigrade IV RC provides grades 00–5 with exposure compensation; eight Wratten lens filters are available.
 - **Add film edges and dates.** Use 135, half-frame, multiple 120 and panoramic gates, perforations, markings, fog, and light leaks. Date-back placement and styling follow the chosen format.
-- **Inspect and deliver.** Crop, rotate, inspect histograms, compare previews, and use batch export and export recipes. Desktop also provides soft proofing and two-photo half-frame compositions. Pin the bottom strip or reveal it by hovering at the bottom edge, and press Tab to hide or restore the editor panels.
+- **Inspect and deliver.** Crop, rotate, inspect histograms, compare previews, and use batch export and export recipes. Desktop also provides soft proofing and two-photo half-frame compositions, and writes star ratings to finished exports as XMP. Pin the bottom strip or reveal it by hovering at the bottom edge, and press Tab to hide or restore the editor panels.
 
 ### Film and paper
 
@@ -153,7 +155,7 @@ xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
 
 See the [iOS build guide](ios/README.md) for device signing, caches, and diagnostics.
 
-A public checkout contains only the supported materials. Maintainer builds can additionally load private experimental materials; set `SILVERPHASE_LOCAL_MATERIALS=0` when packaging for distribution. See [local materials and public builds](docs/LOCAL-MATERIALS.md).
+A public checkout includes supported materials and the experimental Fotufilm collection. Maintainer builds can additionally load private experimental materials; set `SILVERPHASE_LOCAL_MATERIALS=0` when packaging for distribution. See [local materials and public builds](docs/LOCAL-MATERIALS.md).
 
 ## First edit
 

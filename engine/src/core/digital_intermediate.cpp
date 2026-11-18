@@ -86,6 +86,7 @@ struct FilmHost {
     Vec x;          // (K, 3) log exposure / gamma
     Vec curves0;    // (K, 3) the curves before DIR couplers, when they are on
     double dir[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    DirSaturation saturation;
     bool dir_on = false;
 
     FilmHost(const Params& params, const Vec& lut, size_t s, const Mat3& m)
@@ -99,8 +100,9 @@ struct FilmHost {
         dir_on = p.film_render.dir_couplers.active;
         if (dir_on) {
             dir_couplers_matrix(p.film_render.dir_couplers, dir);
+            saturation = dir_saturation(film, p.film_render.dir_couplers);
             density_curves_before_dir_couplers(film.normalized_curves, film.data.log_exposure, dir,
-                                               film.info.is_positive(), curves0);
+                                               film.info.is_positive(), saturation, curves0);
         }
     }
 
@@ -132,8 +134,14 @@ struct FilmHost {
             c0[c] = curve(p.film.normalized_curves, c, lr[c]);
         }
         if (!dir_on) { for (int c = 0; c < 3; ++c) cmy[c] = c0[c]; return; }
+        const bool positive = p.film.info.is_positive();
+        if (saturation.active) {
+            for (int c = 0; c < 3; ++c)
+                c0[c] = positive ? p.film.density_max[c] - c0[c] : saturation.apply(c, c0[c]);
+        }
         for (int j = 0; j < 3; ++j) {
-            const double corr = c0[0] * dir[j] + c0[1] * dir[3 + j] + c0[2] * dir[6 + j];
+            double corr = c0[0] * dir[j] + c0[1] * dir[3 + j] + c0[2] * dir[6 + j];
+            if (positive) corr = saturation.apply(j, corr);
             cmy[j] = curve(curves0, j, lr[j] - corr);
         }
     }
@@ -282,7 +290,7 @@ bool di_constants(const Colour& colour, const Blob& blob, const Params& params,
     uint32_t ndim = 0;
     if (!blob.get("hanatos/spectra_lut", spectra, dims, ndim, error)) return false;
     Vec weights;
-    if (!tc_lut_weights(colour, blob, film, params.settings, film_sensitivity, weights, error)) return false;
+    if (!tc_lut_weights(colour, blob, film, params.settings, film_sensitivity, spectra, dims[0], weights, error)) return false;
     Vec ref;
     if (!standard_illuminant(colour, blob, film.info.reference_illuminant, ref, error)) return false;
     const Vec& cmfs = colour.cmfs_1931_2deg();

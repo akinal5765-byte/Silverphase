@@ -193,6 +193,15 @@ const SchemaField kFields[] = {
     {"camera_tone_shadows", "camera.tone_shadows", F, SHOOT, true, -100.0, 100.0, false},
     {"camera_tone_whites", "camera.tone_whites", F, SHOOT, true, -100.0, 100.0, false},
     {"camera_tone_blacks", "camera.tone_blacks", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_local_tone_brights", "camera.local_tone_brights", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_local_tone_darks", "camera.local_tone_darks", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_prep_exposure_ev", "camera.prep_exposure_ev", F, SHOOT, true, -3.0, 3.0, false},
+    {"camera_prep_contrast", "camera.prep_contrast", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_prep_lift", "camera.prep_lift", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_prep_gain", "camera.prep_gain", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_prep_detail", "camera.prep_detail", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_prep_vibrance", "camera.prep_vibrance", F, SHOOT, true, -100.0, 100.0, false},
+    {"camera_prep_saturation", "camera.prep_saturation", F, SHOOT, true, -100.0, 100.0, false},
     // The app's *preview resolution*: the `live` tier's long edge, and so the
     // size every interactive edit renders at. PRINT layer, because it is a
     // decision about the canvas rather than about the film -- but it is one of
@@ -218,6 +227,15 @@ double* float_slot(Params& p, const std::string& path) {
     if (path == "camera.tone_shadows") return &p.camera.tone_shadows;
     if (path == "camera.tone_whites") return &p.camera.tone_whites;
     if (path == "camera.tone_blacks") return &p.camera.tone_blacks;
+    if (path == "camera.local_tone_brights") return &p.camera.local_tone_brights;
+    if (path == "camera.local_tone_darks") return &p.camera.local_tone_darks;
+    if (path == "camera.prep_exposure_ev") return &p.camera.prep_exposure_ev;
+    if (path == "camera.prep_contrast") return &p.camera.prep_contrast;
+    if (path == "camera.prep_lift") return &p.camera.prep_lift;
+    if (path == "camera.prep_gain") return &p.camera.prep_gain;
+    if (path == "camera.prep_detail") return &p.camera.prep_detail;
+    if (path == "camera.prep_vibrance") return &p.camera.prep_vibrance;
+    if (path == "camera.prep_saturation") return &p.camera.prep_saturation;
     if (path == "camera.film_format_mm") return &p.camera.film_format_mm;
     if (path == "camera.lens_blur_um") return &p.camera.lens_blur_um;
     if (path == "film_render.halation.headroom_ev") return &p.film_render.halation.headroom_ev;
@@ -583,6 +601,41 @@ void apply_film_specifics(Params& p) {
         set2(dc.gamma_interlayer_r_to_gb, 0.156, 0.078);
         set2(dc.gamma_interlayer_g_to_rb, 0.104, 0.078);
         set2(dc.gamma_interlayer_b_to_rg, 0.078, 0.078);
+    }
+    const Vec& gamma = p.film.data.dir_couplers_gamma;
+    if (gamma.empty() && p.film.info.stock.ends_with("_fotufilm") && !p.film.info.is_monochrome()) {
+        // Negs data/presets/couplers.toml at 97d63aa (upstream 28bf883).
+        // Stock overrides below already carry the effective fitted matrix.
+        if (p.film.info.is_positive()) {
+            set3(dc.gamma_samelayer_rgb, 0.2291, 0.1029, 0.2651);
+            set2(dc.gamma_interlayer_r_to_gb, 0.1449, 0.1560);
+            set2(dc.gamma_interlayer_g_to_rb, 0.0496, 0.0874);
+            set2(dc.gamma_interlayer_b_to_rg, 0.0571, 0.2462);
+        } else if (p.film.info.use == "cine") {
+            const auto& illuminant = p.film.info.reference_illuminant;
+            if (illuminant.starts_with('T') || illuminant.starts_with('t')) {
+                set3(dc.gamma_samelayer_rgb, 0.4601, 0.4433, 0.4414);
+                set2(dc.gamma_interlayer_r_to_gb, 0.4313, 0.3157);
+                set2(dc.gamma_interlayer_g_to_rb, 0.3145, 0.3890);
+                set2(dc.gamma_interlayer_b_to_rg, 0.2423, 0.2506);
+            } else {
+                set3(dc.gamma_samelayer_rgb, 0.5456, 0.5434, 0.3766);
+                set2(dc.gamma_interlayer_r_to_gb, 0.4263, 0.2781);
+                set2(dc.gamma_interlayer_g_to_rb, 0.2051, 0.5015);
+                set2(dc.gamma_interlayer_b_to_rg, 0.2950, 0.2449);
+            }
+        } else {
+            set3(dc.gamma_samelayer_rgb, 0.5159, 0.5934, 0.2829);
+            set2(dc.gamma_interlayer_r_to_gb, 0.4032, 0.2488);
+            set2(dc.gamma_interlayer_g_to_rb, 0.2227, 0.4340);
+            set2(dc.gamma_interlayer_b_to_rg, 0.1829, 0.1799);
+        }
+    }
+    if (!gamma.empty()) {
+        set3(dc.gamma_samelayer_rgb, gamma[0], gamma[1], gamma[2]);
+        set2(dc.gamma_interlayer_r_to_gb, gamma[3], gamma[4]);
+        set2(dc.gamma_interlayer_g_to_rb, gamma[5], gamma[6]);
+        set2(dc.gamma_interlayer_b_to_rg, gamma[7], gamma[8]);
     }
 }
 

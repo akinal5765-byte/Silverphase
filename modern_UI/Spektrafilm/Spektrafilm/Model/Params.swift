@@ -397,12 +397,62 @@ struct CameraTone: Codable, Equatable, Sendable {
     var shadows = 0.0
     var whites = 0.0
     var blacks = 0.0
+    // Optional for recipes saved before the local tone experiment.
+    var localBrights: Double?
+    var localDarks: Double?
+    var prepExposure: Double?
+    var matchesCameraBrightness: Bool?
+    // A per-photo fit. Clipboard paste carries the switch.
+    var matchedCameraExposure: Double?
+    var cameraBrightnessMatchFailed: Bool?
+    var matchedCameraHighlightLimited: Bool?
+
+    var needsCameraBrightnessMatch: Bool {
+        matchesCameraBrightness == true && matchedCameraExposure == nil && cameraBrightnessMatchFailed != true
+    }
+
+    var cameraExposureBaseline: Double {
+        matchesCameraBrightness == true ? (matchedCameraExposure ?? 0) : 0
+    }
+
+    var prepOffsetRange: ClosedRange<Double> {
+        (-3 - cameraExposureBaseline)...(3 - cameraExposureBaseline)
+    }
+
+    var effectivePrepExposure: Double {
+        let offset = (prepExposure ?? 0).clamped(to: prepOffsetRange)
+        return cameraExposureBaseline + offset
+    }
+
+    mutating func clearCameraBrightnessMatch() {
+        matchedCameraExposure = nil
+        cameraBrightnessMatchFailed = nil
+        matchedCameraHighlightLimited = nil
+    }
+
+    mutating func setCameraBrightnessMatching(_ enabled: Bool) {
+        let exposure = enabled ? 0 : effectivePrepExposure
+        matchesCameraBrightness = enabled ? true : nil
+        prepExposure = exposure == 0 ? nil : exposure
+        clearCameraBrightnessMatch()
+    }
+    var prepContrast: Double?
+    var prepLift: Double?
+    var prepGain: Double?
+    var prepDetail: Double?
+    var prepVibrance: Double?
+    var prepSaturation: Double?
+
+    var hasLegacyAdjustments: Bool {
+        highlights != 0 || shadows != 0 || whites != 0 || blacks != 0
+    }
 }
 
 struct FilmParams: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case filmStock, printStock, exposureCompensationEV, autoExposureMethod, autoExposure, cameraTone
         case filmFormatMM, filmFrame, filmSide, sideLengthMM, grainActive, grainSizeScale, halationActive
+        case filmImageLongEdge
         case grainSoftness
         case cameraDiffusion, cameraDiffusionStrength, cameraDiffusionRange
         case enlargerDiffusion, enlargerDiffusionStrength, enlargerDiffusionRange
@@ -419,6 +469,9 @@ struct FilmParams: Codable, Equatable, Sendable {
     // --- stock (shoot for film, print for paper) ---
     var filmStock: String = "kodak_portra_400"
     var printStock: String = "kodak_supra_endura"
+    /// Long edge of the cropped photograph, in pixels, before film simulation.
+    /// Nil uses the source sampling. This is an input setting, not an engine parameter.
+    var filmImageLongEdge: Int?
     var pairSceneLatitude: SceneLatitudeSettings?
     var pairSceneLatitudeSplit: Double = 19.0 / 37.0
     var filmEdge = FilmEdgeSettings.default
@@ -658,6 +711,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         autoExposureMethod = try c.decodeIfPresent(String.self, forKey: .autoExposureMethod)
         autoExposure = try c.decode(Bool.self, forKey: .autoExposure)
         filmFormatMM = try c.decode(Double.self, forKey: .filmFormatMM)
+        filmImageLongEdge = try c.decodeIfPresent(Int.self, forKey: .filmImageLongEdge)
         filmFrame = try c.decode(String.self, forKey: .filmFrame)
         filmSide = try c.decode(String.self, forKey: .filmSide)
         sideLengthMM = try c.decode(Double.self, forKey: .sideLengthMM)
@@ -710,6 +764,15 @@ struct FilmParams: Codable, Equatable, Sendable {
             ("camera_tone_shadows", .double(cameraTone.shadows.clamped(to: CameraTone.range)), .shoot),
             ("camera_tone_whites", .double(cameraTone.whites.clamped(to: CameraTone.range)), .shoot),
             ("camera_tone_blacks", .double(cameraTone.blacks.clamped(to: CameraTone.range)), .shoot),
+            ("camera_local_tone_brights", .double((cameraTone.localBrights ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_local_tone_darks", .double((cameraTone.localDarks ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_prep_exposure_ev", .double(cameraTone.effectivePrepExposure), .shoot),
+            ("camera_prep_contrast", .double((cameraTone.prepContrast ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_prep_lift", .double((cameraTone.prepLift ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_prep_gain", .double((cameraTone.prepGain ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_prep_detail", .double((cameraTone.prepDetail ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_prep_vibrance", .double((cameraTone.prepVibrance ?? 0).clamped(to: CameraTone.range)), .shoot),
+            ("camera_prep_saturation", .double((cameraTone.prepSaturation ?? 0).clamped(to: CameraTone.range)), .shoot),
         ]
         // Only when set. A legacy sidecar has no method, and sending one would
         // change how it meters — the engine's default is what it has always

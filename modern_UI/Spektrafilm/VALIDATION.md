@@ -7,6 +7,30 @@
 
 ## 可重复执行
 
+### 5219 底片与光谱色样
+
+分阶段检查参考了 [Negs 的 GPU 验证报告](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/gpu-vs-cpu-quality.md)。
+下载 [BabelColor Avg30 实测光谱](https://babelcolor.com/index_htm_files/CC_Avg30_spectrum_CGATS.txt)。
+验证程序检查原文件的 SHA-256，实测色样文件留在构建目录或外部素材目录。
+构建驱动后，传入待验证的 macOS 应用自己的引擎资源目录：
+
+```sh
+engine/build.sh tests
+python3 engine/tests/check_film_reference.py \
+  '/path/to/Silverphase.app/Contents/Resources/Resources/engine' \
+  '/path/to/CC_Avg30_spectrum_CGATS.txt' \
+  --report /tmp/5219-stages.tsv
+```
+
+- 5219 使用 [Kodak 2015 年 ECN-2 技术资料第 4 页](https://www.kodak.com/content/products-brochures/Film/VISION3-500T-Color-Negative-Film-7219-TECHNICAL-DATA.pdf#page=4)
+  的 14 个曝光点，按 [ISO 5/3 的 Status M 权重](https://cdn.standards.iteh.ai/samples/20101/642e3ed0adfe43be85e67b2c413cca56/ISO-5-3-1984.pdf)
+  估算透射密度。仅用绿通道在零档对齐一次曝光。门限针对曲线形状。
+- 24 个色样在胶片配置的参考光源下比较直接光谱积分和生产 RGB 入片路径。两条路径仅按同一块理想白各自归一化，以 EV 报告每个感光通道的误差。直接积分使用当前胶片的感光曲线。积分衡量光谱近似，实物色彩需要独立胶片测量。
+- 阶段回归记录入片曝光、底片 CMY、Supra Endura 相纸 CMY 和输出 RGB。固定输入包含中性色、高饱和色、超白和近黑。颗粒与反光关闭以保证可重跑。阶段容限用于定位软件漂移。
+- 颗粒单独用平场测量。在三个高密度点，以 48 µm 圆孔先平均透射率，再求蓝通道的密度波动。门限允许随机抽样波动，用于检查当前颗粒模型的统计量。原厂蓝通道颗粒度更高，本次基线保留这个已知差异。
+
+### 真实照片
+
 在仓库根目录，先完成引擎资源构建，再执行标准库 Python 验证入口：
 
 ```sh

@@ -104,6 +104,7 @@ struct FilmSection: View {
     /// than part of a frame's settings, because "show me inches" is a fact
     /// about the reader, not about the photograph.
     @AppStorage(Session.uiKey + "sideUnit") private var unitRaw = SideUnit.mm.rawValue
+    @State private var showsSimulationSize = false
 
     private var unit: Binding<SideUnit> {
         Binding(get: { SideUnit(rawValue: unitRaw) ?? .mm }, set: { unitRaw = $0.rawValue })
@@ -245,6 +246,10 @@ struct FilmSection: View {
                 }
             }
         }
+        .sheet(isPresented: $showsSimulationSize) {
+            FilmSimulationSizeSheet(session: session)
+        }
+        .onChange(of: session.selection) { _, _ in showsSimulationSize = false }
     }
 
     private func effect<V>(_ kp: WritableKeyPath<EffectStrengths, V>) -> Binding<V> {
@@ -280,10 +285,14 @@ struct FilmSection: View {
                 set: { var p = session.params; p[keyPath: kp] = $0; session.params = p })
     }
 
-    private var formatMenu: some View {
+    @ViewBuilder private var formatMenu: some View {
         Button("Reset the film stock to Portra 400") {
             var p = session.params; p.filmStock = "kodak_portra_400"; session.params = p
             session.applyFilmStageRule()
+        }
+        if session.halfFramePair == nil, session.filmImageOriginalLongEdge > 0 {
+            Divider()
+            Button(T("Simulation Size…", "模拟尺寸…", "模擬尺寸…")) { showsSimulationSize = true }
         }
     }
 
@@ -300,6 +309,62 @@ struct FilmSection: View {
                 session.params = p
             }
         }
+    }
+}
+
+private struct FilmSimulationSizeSheet: View {
+    let session: Session
+    @Environment(\.dismiss) private var dismiss
+    @State private var input = ""
+    @State private var invalid = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Metric.space12) {
+            Text(T("Simulation Size", "模拟尺寸", "模擬尺寸"))
+                .font(.headline)
+            Text(T("For large prints after cropping. Grain and halation are generated at this size.",
+                   "适合裁切后输出大图。颗粒和光晕会按这个尺寸生成。",
+                   "適合裁切後輸出大圖。顆粒與光暈會按這個尺寸生成。"))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                TextField(T("Long edge after cropping", "裁切后长边", "裁切後長邊"),
+                          text: $input)
+                    .monospacedDigit()
+                    .onSubmit(apply)
+                Text("px").foregroundStyle(.secondary)
+            }
+            if invalid {
+                Text(T("Enter a whole number the frame can render. Try a smaller size.",
+                       "请输入可渲染的整数像素值，或试试更小的尺寸。",
+                       "請輸入可渲染的整數像素值，或試試更小的尺寸。"))
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Button(T("Use Original", "使用原始尺寸", "使用原始尺寸")) { use(nil) }
+                Spacer()
+                Button(T("Cancel", "取消", "取消")) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button(T("Apply", "应用", "套用"), action: apply)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(Theme.Metric.space20)
+        .frame(width: 430)
+        .onAppear {
+            input = String(session.params.filmImageLongEdge ?? session.filmImageOriginalLongEdge)
+        }
+    }
+
+    private func apply() {
+        guard let edge = Int(input.trimmingCharacters(in: .whitespacesAndNewlines)),
+              FilmCanvasInput.imageEdgeRange.contains(edge) else { invalid = true; return }
+        use(edge)
+    }
+
+    private func use(_ edge: Int?) {
+        guard session.setFilmImageLongEdge(edge) else { invalid = true; return }
+        dismiss()
     }
 }
 

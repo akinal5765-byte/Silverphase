@@ -1,6 +1,6 @@
 # Silverphase host/engine contract
 
-Current contract, reviewed 2026-11-09. This filename predates the native engine.
+Current contract, reviewed 2026-11-18. This filename predates the native engine.
 The product has two native hosts and one shared C++/Metal engine. The earlier
 Python service/two-session contract is preserved in
 [docs/history](docs/history/CONTRACT-frontend-backend.md); its file ownership,
@@ -52,6 +52,20 @@ The ordinary file reader decodes the incoming ICC; it cannot undo baked Lightroo
 adjustments. No silent exposure or material compensation is part of the contract.
 The first retained input is reused for a repeated path, so newly baked LR edits
 must arrive under a new path. See [workflow and limits](docs/LIGHTROOM-CLASSIC.md).
+
+### 1.4 macOS 1.3.0 camera and export preparation
+
+Camera-preview matching belongs to the host. The fit and manual fine-tuning
+belong to each photo. Pasting an enabled Camera match switch fits the target
+when it develops. The engine consumes the combined EV along with the other
+additive shoot fields. Zero preparation deltas bypass the new adjustments
+and the legacy fields retain their existing semantics.
+
+Simulation Size is resolved before the engine opens its input. Changing its
+effective dimensions invalidates both preview and full renders. The target
+follows crop dimensions. Two-photo half-frame composition uses its own input
+resolution path. The export recipe may reduce the final image afterwards.
+The host writes `xmp:Rating` on finished desktop exports.
 
 ## 2. Version negotiation
 

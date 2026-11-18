@@ -42,6 +42,13 @@ for name in names:
     elif name.startswith('screenshots/ios/2026-11-02/'):
         kind, evidence = 'current-ios-ui-layout-capture', 'screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.'
         terms = 'Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices.'
+    elif name in {
+        'docs/images/lightroom-classic/01-external-editing-preferences.png',
+        'docs/images/lightroom-classic/02-select-silverphase.png',
+        'docs/images/lightroom-classic/03-edit-in-silverphase.png',
+    }:
+        kind, evidence = 'third-party-ui-workflow-reference', 'User-supplied annotated screenshots on 2026-11-09, supplied with a request to document Lightroom Classic external editing.'
+        terms = 'Workflow documentation only. Adobe and Apple UI and trademarks retain their respective rights; no new third-party UI licence grant is asserted.'
     elif name.startswith(('modern_UI/design/snapshots/', 'modern_UI/reference_layout/', 'screenshots/', 'PRD/')):
         kind, evidence = 'historical-ui-reference', 'Inherited upstream UI/design history; some later typography captures reuse historical material.'
         terms = 'No new Silverphase photograph or third-party UI licence grant. Not a current product example.'

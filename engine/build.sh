@@ -4,7 +4,7 @@
 #   engine/build.sh            everything
 #   engine/build.sh lib        the static library + the metallib
 #   engine/build.sh dylib      the shared library the ctypes parity harness loads
-#   engine/build.sh tests      the setup/schema dump drivers
+#   engine/build.sh tests      the setup/schema and print-calibration drivers
 #   engine/build.sh metallib   just the kernels
 #
 # bash, and arrays throughout, because the repository path contains a space
@@ -123,7 +123,7 @@ build_dylib() {
 build_tests() {
   collect_sources
   local driver
-  for driver in dump_setup dump_json gpu_smoke; do
+  for driver in dump_setup dump_json gpu_smoke print_balance film_reference; do
     [[ -f "$here/tests/$driver.cpp" ]] || continue
     "$CXX" "${cxxflags[@]}" "${includes[@]}" -I"$here/tests" \
       "$here/tests/$driver.cpp" "${sources[@]}" "${frameworks[@]}" -o "$out/$driver"

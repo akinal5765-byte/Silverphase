@@ -7,12 +7,12 @@ the adopted product materials. Profiles, filter entries and covers are copied
 only into generated engine resources and `LocalMaterials/`. The public catalog
 and base/product data stay unchanged. Both macOS and iOS builds use this path.
 
-The material browser merges the bundled local catalog and shows an experiment
-category only when private films are present. Private films remain modelling
-experiments; packaging them locally does not make them supported public stocks.
+The Experimental category includes the public Fotufilm collection adapted by
+Negs and, in maintainer builds with the overlay enabled, the private films.
+The staging switch controls the private overlay only.
 
 For public source-only checkouts without the archive, ordinary builds include
-only the 33 tracked materials. For distribution from a maintainer checkout,
+the tracked catalog. For distribution from a maintainer checkout,
 explicitly disable the overlay during both resource preparation and Xcode build:
 
 ```sh

@@ -1,6 +1,6 @@
 # Silverphase native render API
 
-Current integration reference, reviewed 2026-11-09. The filename is historical:
+Current integration reference, reviewed 2026-11-18. The filename is historical:
 there is no callable Python service in the product. The authoritative declarations
 are [spk_engine.h](engine/include/spektrafilm/spk_engine.h); parameter metadata and
 validation live in [params.cpp](engine/src/core/params.cpp). The [earlier service
@@ -49,6 +49,18 @@ The `live` schema flag describes adjustability, not permission to reuse a negati
 Result flags `reprint` / `negative_was_cached` expose actual reuse. A stock's
 `targetPrint` documents a declared pairing; rendering another paper is possible
 but does not establish measured compatibility.
+
+The additive desktop preparation fields all belong to `shoot`:
+
+- `camera_prep_exposure_ev` uses stops, from −3 to +3.
+- `camera_local_tone_brights`, `camera_local_tone_darks`,
+  `camera_prep_contrast`, `camera_prep_lift`, `camera_prep_gain`,
+  `camera_prep_detail`, `camera_prep_vibrance`, and `camera_prep_saturation`
+  use −100 to +100.
+
+They default to zero. Saved edits can still use the four `camera_tone_*`
+fields. Camera-preview measurement and the per-photo baseline are host
+state. The engine receives one effective preparation exposure.
 
 ## 3. Ownership and errors
 
@@ -106,7 +118,10 @@ Native render tier names remain `live`, `preview`, `full`. Supported names in an
 ABI are not a requirement to expose a three-step quality picker. Desktop uses
 its preview/full scheduling; mobile adapts fit and viewport detail automatically.
 `preview_long_edge` affects interactive resolution; export recipe resolution is
-independent. Grain/spatial scale must use the physical source/frame dimensions.
+independent. Desktop Simulation Size resolves the cropped target in host
+geometry and resamples before `spk_open_device`. A changed effective input
+size requires a new session. Grain and spatial scale use the physical film
+frame dimensions and current pixel pitch.
 
 ## 7. Memory and concurrency
 

@@ -11,6 +11,15 @@ final class EXIFRoundTripTests: XCTestCase {
         return try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
     }
 
+    func testUnratedPNGExportsZeroRating() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "spk-rating-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Exporter.write(image(), to: url, format: .png, rating: 0)
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let metadata = try XCTUnwrap(CGImageSourceCopyMetadataAtIndex(source, 0, nil))
+        XCTAssertEqual(CGImageMetadataCopyStringValueWithPath(metadata, nil, "xmp:Rating" as CFString) as String?, "0")
+    }
+
     func testCameraIdentitySurvivesJPEGAndTIFFExport() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: "spk-camera-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -31,7 +40,10 @@ final class EXIFRoundTripTests: XCTestCase {
         for format in [ExportFormat.jpeg, .tiff] {
             let output = directory.appending(path: "output.\(format == .jpeg ? "jpg" : "tif")")
             try Exporter.write(image(), to: output, format: format,
-                               sourceMetadata: ImageDecoder.sourceMetadata(from: source))
+                               sourceMetadata: ImageDecoder.sourceMetadata(from: source), rating: 4)
+            let exported = try XCTUnwrap(CGImageSourceCreateWithURL(output as CFURL, nil))
+            let metadata = try XCTUnwrap(CGImageSourceCopyMetadataAtIndex(exported, 0, nil))
+            XCTAssertEqual(CGImageMetadataCopyStringValueWithPath(metadata, nil, "xmp:Rating" as CFString) as String?, "4")
             let p = try properties(output)
             let tiff = p[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
             XCTAssertEqual(tiff?[kCGImagePropertyTIFFMake] as? String, "SONY")

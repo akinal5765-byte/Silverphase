@@ -89,8 +89,9 @@ def preview_and_export_tiers() -> None:
 
 
 def grain_softness() -> None:
-    image = np.full((192, 256, 3), 0.3, dtype=np.float32)
-    common = {"auto_exposure": False, "glare_active": False,
+    # A 6 µm sample pitch keeps the physical grain blur resolved.
+    image = np.full((512, 768, 3), 0.3, dtype=np.float32)
+    common = {"auto_exposure": False, "glare_active": False, "film_format_mm": 4.608,
               "scanner_sharpening_amount": 0}
     with Engine() as engine:
         field = next(f for f in engine.params_schema()["fields"] if f["name"] == "grain_softness")
@@ -124,7 +125,23 @@ def grain_softness() -> None:
             soft = render({"grain_softness": 1.3, "preview_long_edge": 800}, tier, large)
             assert not np.array_equal(hard, soft), tier
             assert np.mean(np.diff(hard[8:-8, 8:-8, :3], axis=1) ** 2) > np.mean(np.diff(soft[8:-8, 8:-8, :3], axis=1) ** 2), tier
-    print("grain softness: default identity, both grain models, smoother texture, off/zero bypass, strips and live/full pass")
+        # A square aperture of fixed film-space width is sufficient to catch
+        # resolution-dependent blur in a scan. This is a regression check,
+        # separate from the circular-aperture manufacturer comparison.
+        rms = []
+        for pitch in (2, 4, 8):
+            width = 4608 // pitch
+            aperture = 48 // pitch
+            source = np.full((width // 2, width, 3), 0.3, dtype=np.float32)
+            scan = render({"scan_film": True, "output_cctf_encoding": False,
+                           "output_color_space": "sRGB", "grain_softness": 0.65}, source=source)
+            green = (scan[..., 1] / 65535.0).reshape(
+                scan.shape[0] // aperture, aperture, width // aperture, aperture)
+            transmittance = green.mean(axis=(1, 3))
+            assert np.all(transmittance > 0)
+            rms.append(float(np.log10(transmittance).std()))
+        assert max(rms) - min(rms) < 0.07 * np.mean(rms), rms
+    print("grain softness: both models, off/zero bypass, strips, live/full and physical aperture pass")
 
 
 def scanner_sharpening() -> None:

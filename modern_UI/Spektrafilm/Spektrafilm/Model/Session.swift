@@ -113,20 +113,23 @@ final class Session: CanvasHost {
         get { sidecar.params }
         set { guard newValue != sidecar.params else { return }
               PerformanceTrace.event("Physical Parameter Changed")
+              let old = sidecar.params
+              var p = newValue
+              resolveFilmPresentation(&p)
+              let sizeChanged = old.filmImageLongEdge != p.filmImageLongEdge
+              let inputChanged = sizeChanged || old.filmEdge.effective != p.filmEdge.effective || old.filmEdge.format != p.filmEdge.format || old.filmPresentationActive != p.filmPresentationActive || (halfFramePair != nil && p.delta(from: old).layers.contains(.shoot))
+              guard !inputChanged || halfFramePair != nil || validateFilmImageSize(p, geometry: geometry) else { return }
               pushUndo()
               if renderer.holdForNegative || renderer.showingFilmScan {
                   negativePending = false
                   ceremonyArmed = false
                   renderer.cancelFilmDevelopment()
               }
-              let old = sidecar.params
-              var p = newValue
-              resolveFilmPresentation(&p)
-              let inputChanged = old.filmEdge.effective != p.filmEdge.effective || old.filmEdge.format != p.filmEdge.format || old.filmPresentationActive != p.filmPresentationActive || (halfFramePair != nil && p.delta(from: old).layers.contains(.shoot))
               sidecar.params = p
               if p.filmPresentationActive { comparing = false; toggledOriginal(false) }
               renderer.geometry = p.filmPresentationActive ? .default : sidecar.geometry
               if inputChanged {
+                  if sizeChanged { wantsDevelop = true }
                   if var pair = halfFramePair, let url = selection { pair.onStrip = p.filmEdge.effective; try? pair.save(to: url); halfFramePair = pair }
                   scheduleReopen()
               } else { requestPrint() }
@@ -169,11 +172,17 @@ final class Session: CanvasHost {
     var geometry: Geometry {
         get { sidecar.geometry }
         set { guard halfFramePair == nil, newValue != sidecar.geometry else { return }
+              let resizeChanged = params.filmImageLongEdge != nil &&
+                  (sidecar.geometry.crop.width != newValue.crop.width || sidecar.geometry.crop.height != newValue.crop.height)
+              guard !resizeChanged || validateFilmImageSize(params, geometry: newValue) else { return }
               pushUndo()
               sidecar.geometry = newValue
               renderer.geometry = params.filmPresentationActive ? .default : newValue
               if params.filmPresentationActive {
                   sidecar.params.filmEdge.framing = (try? JSONEncoder().encode(newValue).base64EncodedString()) ?? ""
+                  scheduleReopen()
+              } else if resizeChanged {
+                  markStale()
                   scheduleReopen()
               }
               // A crop changes the physical scale only if the user has said
@@ -196,6 +205,42 @@ final class Session: CanvasHost {
     /// on screen, not one *texture* pixel. A nil means "the frame's size is
     /// not known yet", and the callers pass it as "leave the size alone".
     private var nativeSourceSize: CGSize? { decoded?.pixelSize ?? displaySourceSize }
+
+    var filmImageOriginalLongEdge: Int {
+        guard let source = nativeSourceSize else { return 0 }
+        let picture = FilmCanvasInput.pictureSize(source, params: params, geometry: geometry)
+        return Int(max(picture.width, picture.height).rounded())
+    }
+
+    func setFilmImageLongEdge(_ edge: Int?) -> Bool {
+        guard nativeSourceSize != nil, selection != nil, halfFramePair == nil else { return false }
+        var next = params
+        next.filmImageLongEdge = edge
+        params = next
+        return params.filmImageLongEdge == edge
+    }
+
+    private func validateFilmImageSize(_ params: FilmParams, geometry: Geometry) -> Bool {
+        guard let target = params.filmImageLongEdge, let source = nativeSourceSize else { return true }
+        let picture = FilmCanvasInput.pictureSize(source, params: params, geometry: geometry)
+        let frame = params.filmPresentationActive ? picture : source
+        do {
+            let size = try FilmCanvasInput.workingSize(source: frame, crop: picture, longEdge: target)
+            guard Int(size.width * size.height) <= renderer.device.maxBufferLength / 16 else {
+                throw FilmCanvasInput.SizeError.limits
+            }
+            return true
+        } catch {
+            status = filmSizeLimitMessage
+            return false
+        }
+    }
+
+    private var filmSizeLimitMessage: String {
+        T("The requested size and crop exceed the film frame's pixel limit.",
+          "这个尺寸与裁切组合超过了入片像素上限。",
+          "這個尺寸與裁切組合超過了入片像素上限。")
+    }
 
     // MARK: masks (蒙版) — Layer 2, local
     //
@@ -969,6 +1014,7 @@ final class Session: CanvasHost {
     /// this is an accounting estimate, not a live measurement.
     private static let engineArenaEstimateBytes = 1_200_000_000
     var serviceSessionIDForExport: String? { interactiveDecodeWanted == nil && decoded?.rawPreviewEdge == nil ? serviceSessionID : nil }
+    var inputReopenPending: Bool { reopenTask != nil }
     private var serviceGeneration = 0
 
     // MARK: the develop, on request
@@ -2056,7 +2102,7 @@ final class Session: CanvasHost {
     /// wait to recompute.
     private func cachedPrint(for url: URL) async -> (texture: MTLTexture, sourceSize: CGSize,
                                                       costMs: Double, key: CacheKey)? {
-        guard let diskCache else { return nil }
+        guard sidecar.params.filmImageLongEdge == nil, let diskCache else { return nil }
         let key = Self.printCacheKey(
             url: url,
             params: sidecar.params,
@@ -2411,7 +2457,14 @@ final class Session: CanvasHost {
     @discardableResult
     func ensureDeveloped(clock: LoadClock = LoadClock(), joiningInteractiveDecode: Bool = false) async -> String? {
         let requestedURL = selection
-        if !joiningInteractiveDecode { await settleInteractiveDecode() }
+        if !joiningInteractiveDecode {
+            await settleInteractiveDecode()
+            while let task = reopenTask {
+                await task.value
+                guard selection == requestedURL, !Task.isCancelled else { return nil }
+                if reopenTask == task { break }
+            }
+        }
         guard selection == requestedURL else { return nil }
         // `load` is what produces a decodable frame, so waiting for it is what
         // makes Solve during an open mean the same thing as Solve a moment
@@ -2436,8 +2489,15 @@ final class Session: CanvasHost {
         // An engine handle exists before its first print does. Join the
         // in-flight develop before returning that handle, or a serial RAW
         // update can cancel a frame which has never reached the canvas.
-        if let task = developTask { return await task.value }
-        if let sid = serviceSessionID { return sid }
+        if let task = developTask {
+            let sid = await task.value
+            if developTask == task { developTask = nil }
+            if cameraBrightnessNeedsMatch, selection == requestedURL, sid != nil, !Task.isCancelled {
+                return await ensureDeveloped(clock: clock, joiningInteractiveDecode: true)
+            }
+            return sid
+        }
+        if let sid = serviceSessionID, !cameraBrightnessNeedsMatch { return sid }
         guard let url = selection, let d = decoded else { return nil }
         // The open's clock when there is one (see `openClock`): a develop
         // joining an open in flight continues that path's record.
@@ -2446,6 +2506,9 @@ final class Session: CanvasHost {
         developTask = task
         let sid = await task.value
         if developTask == task { developTask = nil }
+        if cameraBrightnessNeedsMatch, selection == requestedURL, sid != nil, !Task.isCancelled {
+            return await ensureDeveloped(clock: clock, joiningInteractiveDecode: true)
+        }
         return sid
     }
 
@@ -2458,7 +2521,7 @@ final class Session: CanvasHost {
     /// here — a parameter edit, an undo, a paste, an export, a capture.
     func requestPrint() {
         wantsDevelop = true
-        guard serviceSessionID == nil else {
+        guard serviceSessionID == nil || (cameraBrightnessNeedsMatch && !parameterInteractionActive) else {
             // A native render in flight is made from the parameters this edit
             // has just replaced, and the edit's own render would wait behind
             // it. Stop it; the print this edit lands asks for a new one.
@@ -2496,11 +2559,17 @@ final class Session: CanvasHost {
         let clock = clock
         await awaitBoot(clock)
         if serviceBlocked != nil { status = serviceBlocked!; return nil }
+        if cameraBrightnessNeedsMatch {
+            await resolveCameraBrightness(for: d, url: url)
+            guard selection == url, !Task.isCancelled else { return nil }
+        }
         // §11.5, before the engine takes the frame on: what this is expected to
         // cost, measured against what is free. A forecast that does not fit is
         // said out loud in the window and written down either way — the app may
         // not sail into a swap storm silently.
-        noteProjection(pixels: Int(d.pixelSize.width * d.pixelSize.height), operation: "develop")
+        if params.filmImageLongEdge == nil || halfFramePair != nil {
+            noteProjection(pixels: Int(d.pixelSize.width * d.pixelSize.height), operation: "develop")
+        }
         status = "Developing…"
         // Preserved rather than cleared: Solve sets it around the develop *and*
         // the solve that follows, and clearing it here would open a window in
@@ -2528,6 +2597,19 @@ final class Session: CanvasHost {
                 // nothing of it (`spk_open_device` borrows for the call).
                 let device = renderer.device
                 let p = sidecar.params, g = sidecar.geometry, pair = halfFramePair
+                let inputSize: CGSize?
+                if let target = p.filmImageLongEdge, pair == nil {
+                    let picture = FilmCanvasInput.pictureSize(d.pixelSize, params: p, geometry: g)
+                    let source = p.filmPresentationActive ? picture : d.pixelSize
+                    let working = try FilmCanvasInput.workingSize(source: source, crop: picture, longEdge: target)
+                    guard Int(working.width * working.height) <= device.maxBufferLength / 16 else {
+                        throw FilmCanvasInput.SizeError.limits
+                    }
+                    inputSize = working
+                    noteProjection(pixels: Int(working.width * working.height), operation: "develop")
+                } else {
+                    inputSize = nil
+                }
                 let frame = try await Task.detached(priority: .userInitiated) {
                     var image = FilmCanvasInput.image(d, params: p, geometry: g)
                     var prepared = p
@@ -2537,8 +2619,10 @@ final class Session: CanvasHost {
                         prepared.sceneLatitude = result.first ?? SceneLatitudeSettings()
                         prepared.pairSceneLatitude = result.second
                     }
+                    if let inputSize, d.rawPreviewEdge == nil {
+                        image = FilmCanvasInput.resize(image, to: inputSize)
+                    }
                     return (frame: try ImageDecoder.engineFrame(from: image, device: device, maxEdge: d.rawPreviewEdge), params: prepared)
-
                 }.value
                 clock.lap("frame")
                 guard selection == url, !Task.isCancelled else { return nil }
@@ -2630,7 +2714,7 @@ final class Session: CanvasHost {
             // record existed: this is the one place a developer watching the
             // window wants the engine's own words, and `noteFailure` has
             // already put the user-facing sentence in `lastError`.
-            status = "\(error)"
+            status = error is FilmCanvasInput.SizeError ? filmSizeLimitMessage : "\(error)"
             if case EngineClient.ClientError.noResources = error { serviceReady = false }
             return nil
         }
@@ -2678,7 +2762,7 @@ final class Session: CanvasHost {
         // decides whether it is a memory boundary (§3).
         let firstPrint = renderer.store.print(for: url) == nil
         let sourceSize = decoded?.pixelSize
-        let printKey: CacheKey? = decoded?.rawPreviewEdge == nil ? Self.printCacheKey(
+        let printKey: CacheKey? = decoded?.rawPreviewEdge == nil && scheduler.sent.filmImageLongEdge == nil ? Self.printCacheKey(
             url: url, params: scheduler.sent, decode: sidecar.decode, tier: .live,
             previewLongEdge: renderedPreviewEdge,
             engineVersion: diagnostics.engineVersion ?? "unknown"
@@ -2938,9 +3022,11 @@ final class Session: CanvasHost {
     private func scheduleReopen() {
         restoredPrintTask?.cancel(); restoredPrintTask = nil
         reopenTask?.cancel()
+        guard let url = selection else { reopenTask = nil; return }
         reopenTask = Task {
+            defer { if !Task.isCancelled { reopenTask = nil } }
             try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled, let url = selection else { return }
+            guard !Task.isCancelled, selection == url else { return }
             await reopenSelectedFrame(url)
         }
     }
@@ -3563,6 +3649,82 @@ final class Session: CanvasHost {
     func geometryChanged(_ g: Geometry) { geometry = g }
     func straightenPreview(_ line: StraightenLine?) { straightenPreview = line }
     func stepFrame(_ delta: Int) { selectRelative(delta) }
+    var canMatchCameraBrightness: Bool {
+        guard let selection, ImageDecoder.rawExtensions.contains(selection.pathExtension.lowercased()) else {
+            return false
+        }
+        return halfFramePair == nil && !digitalIntermediateActive
+    }
+
+    private var cameraBrightnessNeedsMatch: Bool {
+        canMatchCameraBrightness && params.cameraTone.needsCameraBrightnessMatch
+    }
+
+    private var cameraBrightnessRequest = UUID()
+    private var cameraBrightnessFailure: (url: URL, reason: String)?
+    var cameraBrightnessMessage: String {
+        guard canMatchCameraBrightness, params.cameraTone.matchesCameraBrightness == true else { return "" }
+        if cameraBrightnessNeedsMatch {
+            return T("Matching…", "正在匹配…", "正在比對…")
+        }
+        if let failure = cameraBrightnessFailure, failure.url == selection { return failure.reason }
+        if params.cameraTone.matchedCameraExposure == nil {
+            return T("Could not match camera brightness.", "无法匹配相机亮度。", "無法比對相機亮度。")
+        }
+        return ""
+    }
+
+    func setCameraBrightnessMatching(_ enabled: Bool) {
+        guard canMatchCameraBrightness, (params.cameraTone.matchesCameraBrightness == true) != enabled else { return }
+        cameraBrightnessRequest = UUID()
+        cameraBrightnessFailure = nil
+        var updated = params
+        updated.cameraTone.setCameraBrightnessMatching(enabled)
+        params = updated
+    }
+
+    private func resolveCameraBrightness(for decoded: DecodedImage, url: URL) async {
+        guard selection == url, decoded.isRAW, !Task.isCancelled else { return }
+        let request = cameraBrightnessRequest
+        let delta = CameraBrightnessMatch.renderInputs(for: params)
+        let device = renderer.device
+        cameraBrightnessFailure = nil
+        let result = await Task.detached(priority: .userInitiated) {
+            do {
+                return Result<CameraBrightnessMatch.Fit, Error>.success(
+                    try await CameraBrightnessMatch.exposure(for: decoded, params: delta, device: device))
+            } catch {
+                return .failure(error)
+            }
+        }.value
+        guard selection == url, cameraBrightnessNeedsMatch, self.decoded?.lifetime === decoded.lifetime,
+              cameraBrightnessRequest == request, !Task.isCancelled else { return }
+        switch result {
+        case .success(let fit):
+            sidecar.params.cameraTone.matchedCameraExposure = fit.exposure
+            sidecar.params.cameraTone.matchedCameraHighlightLimited = fit.highlightLimited ? true : nil
+            if let offset = sidecar.params.cameraTone.prepExposure {
+                sidecar.params.cameraTone.prepExposure = offset.clamped(to: sidecar.params.cameraTone.prepOffsetRange)
+            }
+        case .failure(let error):
+            let reason: String
+            switch error {
+            case CameraBrightnessMatch.Failure.reference:
+                reason = T("No usable camera preview.", "没有可用的相机预览。", "沒有可用的相機預覽。")
+            case CameraBrightnessMatch.Failure.midtones:
+                reason = T("Too few midtones in the camera preview.", "相机预览中可用的中间调太少。", "相機預覽中可用的中間調太少。")
+            case CameraBrightnessMatch.Failure.range:
+                reason = T("The match is outside ±3 EV.", "亮度差超出 ±3 EV。", "亮度差超出 ±3 EV。")
+            default:
+                reason = T("Could not match camera brightness.", "无法匹配相机亮度。", "無法比對相機亮度。")
+            }
+            sidecar.params.cameraTone.cameraBrightnessMatchFailed = true
+            sidecar.params.cameraTone.matchedCameraHighlightLimited = nil
+            cameraBrightnessFailure = (url, reason)
+        }
+        scheduleSave()
+    }
+
     func rateFrame(_ rating: Int) {
         let targets = selectedFrames.isEmpty ? selection.map { [$0] } ?? [] : selectedFrames
         do {
@@ -3736,7 +3898,9 @@ final class Session: CanvasHost {
     /// still the truth is a question about *data* rather than about which
     /// callback happened to run last.
     nonisolated static func printStamp(_ p: FilmParams) -> String {
-        p.wire.map { "\($0.name)=\($0.value)" }.joined(separator: ";")
+        let wire = p.wire.map { "\($0.name)=\($0.value)" }.joined(separator: ";")
+        guard let edge = p.filmImageLongEdge else { return wire }
+        return "\(wire);filmImageLongEdge=\(edge)"
     }
 
     /// What the *service* currently holds — not `sidecar.params`, which may
@@ -3750,6 +3914,7 @@ final class Session: CanvasHost {
     /// resolution may already cover — a native render would spend 360 MB on
     /// detail the crop threw away.
     private var croppedLongEdge: CGFloat {
+        if let edge = params.filmImageLongEdge, halfFramePair == nil { return CGFloat(edge) }
         guard let live = renderer.sourceSize, max(live.width, live.height) > 0 else { return sourceLongEdge }
         let out = renderer.geometry.outputSize(for: live)
         return sourceLongEdge * max(out.width, out.height) / max(live.width, live.height)
@@ -3823,11 +3988,11 @@ final class Session: CanvasHost {
         guard batchExportActive, serviceSessionID == sid, !scheduler.pending,
               let url = selection, let tex = outcome.texture else { return }
         let sourceSize = decoded?.pixelSize
-        let key = Self.printCacheKey(
+        let key = scheduler.sent.filmImageLongEdge == nil ? Self.printCacheKey(
             url: url, params: scheduler.sent, decode: sidecar.decode, tier: .full,
             previewLongEdge: previewLongEdge,
             engineVersion: diagnostics.engineVersion ?? "unknown"
-        )
+        ) : nil
         renderer.store.setFullRender(
             tex, stamp: printStamp,
             costMs: outcome.response.elapsedMs + (openClock?.setupMs ?? 0),
@@ -3928,11 +4093,11 @@ final class Session: CanvasHost {
             guard gen == fullGeneration, selection == url, sid == serviceSessionID,
                   let tex = outcome.texture, let w = r.width, let h = r.height else { return }
             let sourceSize = decoded?.pixelSize
-            let key = Self.printCacheKey(
+            let key = scheduler.sent.filmImageLongEdge == nil ? Self.printCacheKey(
                 url: url, params: scheduler.sent, decode: sidecar.decode, tier: .full,
                 previewLongEdge: previewLongEdge,
                 engineVersion: diagnostics.engineVersion ?? "unknown"
-            )
+            ) : nil
             renderer.store.setFullRender(
                 tex, stamp: stamp, costMs: r.elapsedMs + (openClock?.setupMs ?? 0),
                 cacheKey: key,
@@ -3988,7 +4153,8 @@ final class Session: CanvasHost {
                 startInteractiveDecode()
             }
             lastUndoAt = .distantPast
-            if !scheduler.pending { scheduleFullRender() }
+            if cameraBrightnessNeedsMatch { requestPrint() }
+            else if !scheduler.pending { scheduleFullRender() }
         }
     }
 
@@ -4021,7 +4187,11 @@ final class Session: CanvasHost {
         renderer.geometry = params.filmPresentationActive ? .default : previous.geometry
         selectedMaskID = previous.masks.first { $0.id == selectedMaskID }?.id ?? previous.masks.last?.id
         syncMasks()
-        if current.decode != previous.decode || changedPair || current.params.filmEdge.effective != previous.params.filmEdge.effective || current.params.filmEdge.format != previous.params.filmEdge.format || current.params.filmPresentationActive != previous.params.filmPresentationActive || ((previous.params.filmPresentationActive) && current.geometry != previous.geometry) {
+        if current.decode != previous.decode || changedPair || current.params.filmImageLongEdge != previous.params.filmImageLongEdge ||
+            (previous.params.filmImageLongEdge != nil &&
+             (current.geometry.crop.width != previous.geometry.crop.width ||
+              current.geometry.crop.height != previous.geometry.crop.height)) ||
+            current.params.filmEdge.effective != previous.params.filmEdge.effective || current.params.filmEdge.format != previous.params.filmEdge.format || current.params.filmPresentationActive != previous.params.filmPresentationActive || ((previous.params.filmPresentationActive) && current.geometry != previous.geometry) {
             previewSoft = true
             scheduleReopen()
         } else {
@@ -4095,6 +4265,10 @@ final class Session: CanvasHost {
         guard next != sidecar else { return false }
         pushUndo()
         let decodeChanged = next.decode != sidecar.decode
+        if next.params.cameraTone.matchesCameraBrightness != params.cameraTone.matchesCameraBrightness {
+            cameraBrightnessRequest = UUID()
+            cameraBrightnessFailure = nil
+        }
         sidecar = next
         if clip.groups.contains(.film) { recomputeFilmFormat(beforeOpen: true) }
         // The clip carries a Tone, so the label follows the paste the same way

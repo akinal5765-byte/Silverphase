@@ -124,3 +124,42 @@ verbatim; the newer upstream notice is preserved separately as
 The back-reflection fit and scene-highlight estimate are upstream modelling
 assumptions, not additional measured material data. Source hashes and local
 adaptations are recorded in `engine/resources_product/UPSTREAM.json`.
+
+## Experimental Fotufilm profiles
+
+Silverphase includes 29 experimental film profiles converted by Noah Haasis in
+[Negs](https://github.com/noahhaasis/negs/tree/97d63aaebca9654b041211dea9eebd55dd12b878)
+from [Fotufilm by MUAStudio Inc.](https://fotufilm.com).
+The profiles and associated adaptations are CC BY-SA 4.0. The original notices
+are bundled as `FOTUFILM_LICENSE.txt`. See
+`engine/resources_product/UPSTREAM.json` for source revisions, source blob IDs
+and adapted file hashes.
+
+Silverphase assigns independent stock IDs and preserves the source metadata,
+including the approximate flags. The five silver films use the default Negs
+development condition and map a single silver density into Silverphase's
+three-channel layout. They pair with Ilford Multigrade IV RC. Colour films use
+Negs DIR gamma presets
+(stock overrides and class defaults, CC BY-SA 4.0). Their development uses
+the amplitude-matched Langmuir response from Spektrafilm experimental
+(`28bf883`) as implemented by Negs (GPL-3.0). Silverphase applies it in both
+curve preparation and C++/Metal development, on the donor side for negatives
+and after diffusion on the receiver side for reversals. These adaptations
+have not been calibrated against Fotufilm output or a physical film reference.
+
+
+## Colour print balance
+
+The product neutral-filter table includes 238 colour negative and print
+material pairs calibrated in Silverphase under TH-KG3. The development driver
+`engine/tests/print_balance.cpp` follows the mid-grey filter solver in
+[Negs](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/print_balance.rs)
+and Spektrafilm experimental. It holds cyan fixed and adjusts magenta and
+yellow for linear RGB equality on a synthetic 0.184 grey. A row is adopted
+only when mean colour imbalance also improves over seven neutral steps
+from −3 to +3 EV and across six independent half-stop patches. Ten tested
+pairs retain their previous values, including the imported Negs baselines
+where applicable.
+These are calibration values for the simulated enlarger. The source film
+and paper measurements are unchanged. See `UPSTREAM.json` for the baseline
+table hash and the calibration scope.

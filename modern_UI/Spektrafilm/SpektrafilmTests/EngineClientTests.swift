@@ -15,6 +15,30 @@ import Metal
 import XCTest
 
 final class EngineClientTests: XCTestCase {
+    func testFilmInputResizingPreservesExtendedLinearHighlights() throws {
+        let rgba: [Float] = [2.4, 1.8, 1.2, 1]
+        let pixels = Array(repeating: rgba, count: 64).flatMap { $0 }
+        let space = try XCTUnwrap(ImageDecoder.linearProPhoto)
+        let image = pixels.withUnsafeBufferPointer {
+            CIImage(bitmapData: Data(buffer: $0), bytesPerRow: 8 * 16,
+                    size: CGSize(width: 8, height: 8), format: .RGBAf, colorSpace: space)
+        }
+        let gpu = try device()
+        let original = try ImageDecoder.engineFrame(from: image, device: gpu)
+        let reference = original.buffer.contents().assumingMemoryBound(to: Float.self)
+        for width in [4, 32] {
+            let size = CGSize(width: width, height: width)
+            let frame = try ImageDecoder.engineFrame(from: FilmCanvasInput.resize(image, to: size),
+                                                     device: gpu)
+            XCTAssertEqual(frame.width, width)
+            XCTAssertEqual(frame.height, width)
+            let data = frame.buffer.contents().assumingMemoryBound(to: Float.self)
+            let error = (0..<(width * width * 4)).map { abs(data[$0] - reference[$0 % 4]) }.max()
+            XCTAssertLessThan(try XCTUnwrap(error), 0.005)
+            XCTAssertGreaterThan(data[2], 1.19)
+        }
+    }
+
     private func device() throws -> MTLDevice {
         try XCTUnwrap(MTLCreateSystemDefaultDevice(), "no Metal device")
     }

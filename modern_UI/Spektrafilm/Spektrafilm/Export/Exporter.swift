@@ -163,7 +163,8 @@ enum Exporter {
                 : try await exportPrint(session: session, to: out, format: format,
                                         quality: recipe.quality, recipe: recipe,
                                         sessionID: sessionID,
-                                        sourceMetadata: session.decoded?.sourceMetadata)
+                                        sourceMetadata: session.decoded?.sourceMetadata,
+                                        rating: session.photoMarks.marks(for: source).rating)
             // The fallback's reason, if the route did not have one of its own.
             // Merged rather than set, because the DI route has a note of its
             // own (a film/paper mismatch) and losing it to a colour note would
@@ -463,6 +464,7 @@ enum Exporter {
         let quality: Double
         let embedsPreview: Bool
         let sourceMetadata: [CFString: Any]?
+        let rating: Int?
     }
 
     private struct DIWrite: @unchecked Sendable {
@@ -475,12 +477,12 @@ enum Exporter {
     private static func exportPrint(session: Session, to out: URL, format: ExportFormat,
                                     quality: Double, recipe: ExportRecipe,
                                     sessionID: String,
-                                    sourceMetadata: [CFString: Any]?) async throws -> Result {
+                                    sourceMetadata: [CFString: Any]?, rating: Int) async throws -> Result {
         let r = try await filePixels(session: session, recipe: recipe, sessionID: sessionID)
         try await writeFinishedTexture(r.texture, scratch: r.scratch, space: r.target,
                                        to: out, format: format, quality: quality,
                                        embedsPreview: writesPreviewPage(recipe),
-                                       sourceMetadata: sourceMetadata)
+                                       sourceMetadata: sourceMetadata, rating: rating)
         return Result(urls: [out], note: nil, appliedEV: r.appliedEV, pixels: r.pixels)
     }
 
@@ -493,11 +495,12 @@ enum Exporter {
                                      format: ExportFormat, quality: Double = 0.95,
                                      embedsPreview: Bool = false,
                                      sourceEXIF: [CFString: Any]? = nil,
-                                     sourceMetadata: [CFString: Any]? = nil) async throws {
+                                     sourceMetadata: [CFString: Any]? = nil, rating: Int? = nil) async throws {
         let work = PrintWrite(texture: texture, scratch: scratch, target: space,
                               out: out, format: format, quality: quality,
                               embedsPreview: embedsPreview,
-                              sourceMetadata: sourceMetadata ?? sourceEXIF.map { [kCGImagePropertyExifDictionary: $0] })
+                              sourceMetadata: sourceMetadata ?? sourceEXIF.map { [kCGImagePropertyExifDictionary: $0] },
+                              rating: rating)
         try await Task.detached(priority: .userInitiated) {
             let trace = PerformanceTrace.begin("Export File Write")
             defer { PerformanceTrace.end("Export File Write", trace) }
@@ -509,7 +512,7 @@ enum Exporter {
             let preview = work.embedsPreview ? preview(of: image) : nil
             let readbackMs = Date().timeIntervalSince(started) * 1000
             try write(image, to: work.out, format: work.format, quality: work.quality,
-                      preview: preview, sourceMetadata: work.sourceMetadata)
+                      preview: preview, sourceMetadata: work.sourceMetadata, rating: work.rating)
             if ProcessInfo.processInfo.environment["SILVERPHASE_PERF_EXPORT_STAGES"] == "1" {
                 print("export write: readback+preview=\(Int(readbackMs)) ms; imageio=\(Int(Date().timeIntervalSince(started) * 1000 - readbackMs)) ms")
             }
@@ -615,7 +618,7 @@ enum Exporter {
     nonisolated static func write(_ image: CGImage, to url: URL, format: ExportFormat,
                       quality: Double = 0.95, preview: CGImage? = nil,
                       sourceEXIF: [CFString: Any]? = nil,
-                      sourceMetadata: [CFString: Any]? = nil) throws -> URL {
+                      sourceMetadata: [CFString: Any]? = nil, rating: Int? = nil) throws -> URL {
         var cg = image
         let needsEight = format.isEightBit
         if needsEight {
@@ -654,7 +657,24 @@ enum Exporter {
             tiff[kCGImagePropertyTIFFCompression] = 1
             props[kCGImagePropertyTIFFDictionary] = tiff
         }
-        CGImageDestinationAddImage(dest, cg, props as CFDictionary)
+        if let rating {
+            let metadata = CGImageMetadataCreateMutable()
+            // ImageIO emits auxiliary EXIF fields through XMP. Include them
+            // in the supplied packet so adding a rating preserves lens data.
+            if let auxiliary = props[kCGImagePropertyExifAuxDictionary] as? [CFString: Any] {
+                for (key, value) in auxiliary {
+                    CGImageMetadataSetValueMatchingImageProperty(metadata, kCGImagePropertyExifAuxDictionary,
+                                                                 key, value as CFTypeRef)
+                }
+            }
+            guard CGImageMetadataSetValueWithPath(metadata, nil, "xmp:Rating" as CFString,
+                                                  NSNumber(value: min(5, max(0, rating)))) else {
+                throw ExportError.write(url)
+            }
+            CGImageDestinationAddImageAndMetadata(dest, cg, metadata, props as CFDictionary)
+        } else {
+            CGImageDestinationAddImage(dest, cg, props as CFDictionary)
+        }
         if let small { CGImageDestinationAddImage(dest, small, nil) }
         guard CGImageDestinationFinalize(dest) else { throw ExportError.write(url) }
         do {

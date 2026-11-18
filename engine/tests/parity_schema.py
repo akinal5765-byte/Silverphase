@@ -302,6 +302,19 @@ for tone in ("highlights", "shadows", "whites", "blacks"):
         "default": 0.0, "live": False, "range": [-100.0, 100.0],
     }
 
+for tone in ("brights", "darks"):
+    NATIVE_ONLY[f"camera_local_tone_{tone}"] = {
+        "path": f"camera.local_tone_{tone}", "type": "float", "layer": "shoot",
+        "default": 0.0, "live": False, "range": [-100.0, 100.0],
+    }
+
+for prep, limit in (("exposure_ev", 3.0), ("contrast", 100.0), ("lift", 100.0),
+                    ("gain", 100.0), ("detail", 100.0), ("vibrance", 100.0), ("saturation", 100.0)):
+    NATIVE_ONLY[f"camera_prep_{prep}"] = {
+        "path": f"camera.prep_{prep}", "type": "float", "layer": "shoot",
+        "default": 0.0, "live": False, "range": [-limit, limit],
+    }
+
 
 def close(a, b, tol=1e-12) -> bool:
     if isinstance(a, bool) or isinstance(b, bool):

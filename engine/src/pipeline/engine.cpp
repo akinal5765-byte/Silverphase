@@ -1947,6 +1947,16 @@ Params medium_probe_params(const Params& session) {
     p.camera.scene_latitude.active = false;
     p.camera.scene_latitude.split = 0;
     p.camera.scene_latitude.b_active = false;
+    // The probe describes the material response, without local scene edits.
+    p.camera.local_tone_brights = 0.0;
+    p.camera.local_tone_darks = 0.0;
+    p.camera.prep_exposure_ev = 0.0;
+    p.camera.prep_contrast = 0.0;
+    p.camera.prep_lift = 0.0;
+    p.camera.prep_gain = 0.0;
+    p.camera.prep_detail = 0.0;
+    p.camera.prep_vibrance = 0.0;
+    p.camera.prep_saturation = 0.0;
     p.film_render.grain.active = false;
     p.film_render.grain.sublayers_active = false;
     p.film_render.halation.active = false;

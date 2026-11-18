@@ -209,9 +209,66 @@ bool tc_b_matrix(const Colour& colour, const Blob& blob, const std::string& colo
     return colour.matrix_RGB_to_XYZ(color_space, xy, "CAT16", out, error);
 }
 
+namespace {
+
+// The Mitchell bicubic tc_lut sample, on the host, for the 1x1 midgray probe.
+// The same kernel and the same edge reflection as `spk_lut2d_cubic`.
+double mitchell(double t) {
+    constexpr double B = 1.0 / 3.0, C = 1.0 / 3.0;
+    const double x = std::fabs(t);
+    if (x < 1.0)
+        return (1.0 / 6.0) * ((12.0 - 9.0 * B - 6.0 * C) * x * x * x +
+                              (-18.0 + 12.0 * B + 6.0 * C) * x * x + (6.0 - 2.0 * B));
+    if (x < 2.0)
+        return (1.0 / 6.0) * ((-B - 6.0 * C) * x * x * x + (6.0 * B + 30.0 * C) * x * x +
+                              (-12.0 * B - 48.0 * C) * x + (8.0 * B + 24.0 * C));
+    return 0.0;
+}
+
+int safe_index(int idx, int L) {
+    if (idx < 0) return -idx;
+    if (idx >= L) return 2 * (L - 1) - idx;
+    return idx;
+}
+
+void base_frac(double coord, int L, int& base, double& frac) {
+    const double upper = double(L - 1);
+    if (coord <= 0.0) coord = 0.0;
+    if (coord >= upper) { base = L - 2; frac = 1.0; return; }
+    base = int(std::floor(coord));
+    frac = coord - double(base);
+}
+
+}  // namespace
+
+void lut2d_cubic_host(const Vec& lut, size_t L, const double tc[2], double* out, size_t channels) {
+    const double scale = double(L - 1);
+    int xb, yb;
+    double xf, yf;
+    base_frac(tc[0] * scale, int(L), xb, xf);
+    base_frac(tc[1] * scale, int(L), yb, yf);
+    const double wx[4] = {mitchell(xf + 1.0), mitchell(xf), mitchell(xf - 1.0), mitchell(xf - 2.0)};
+    const double wy[4] = {mitchell(yf + 1.0), mitchell(yf), mitchell(yf - 1.0), mitchell(yf - 2.0)};
+    std::fill_n(out, channels, 0.0);
+    double wsum = 0.0;
+    for (int a = 0; a < 4; ++a) {
+        const int xi = safe_index(xb - 1 + a, int(L));
+        for (int b = 0; b < 4; ++b) {
+            const int yj = safe_index(yb - 1 + b, int(L));
+            const double wgt = wx[a] * wy[b];
+            wsum += wgt;
+            const size_t o = channels * (size_t(xi) * L + size_t(yj));
+            for (size_t c = 0; c < channels; ++c) out[c] += wgt * lut[o + c];
+        }
+    }
+    if (wsum != 0.0)
+        for (size_t c = 0; c < channels; ++c) out[c] /= wsum;
+}
+
+
 bool tc_lut_weights(const Colour& colour, const Blob& blob, const Profile& film,
-                    const SettingsParams& settings, const Vec& sensitivity, Vec& weights,
-                    std::string& error) {
+                    const SettingsParams& settings, const Vec& sensitivity,
+                    const Vec& spectra, size_t side, Vec& weights, std::string& error) {
     // The window is normalised per channel so it preserves white balance.
     const size_t n_lambda = kNumWavelengths;
     weights = sensitivity;
@@ -220,16 +277,27 @@ bool tc_lut_weights(const Colour& colour, const Blob& blob, const Profile& film,
         spectral_bandpass_window(colour.wavelengths(), film.data.adaptation_window_params, window);
         Vec illuminant;
         if (!standard_illuminant(colour, blob, film.info.reference_illuminant, illuminant, error)) return false;
+        // Normalise against the upsampler's neutral, the spectrum it really
+        // sends to the film for an achromatic input. This preserves each
+        // layer's raw exposure when the adaptation window is applied.
+        // Spektrafilm experimental, as implemented by Negs (97d63aa,
+        // crates/spektrafilm-core/src/spectral_service.rs).
+        double xy[2], tc[2];
+        illuminant_to_xy(colour, illuminant, xy);
+        tri2quad(xy, tc);
+        Vec neutral(n_lambda);
+        lut2d_cubic_host(spectra, side, tc, neutral.data(), n_lambda);
         double num[3] = {0, 0, 0}, den[3] = {0, 0, 0};
         for (size_t l = 0; l < n_lambda; ++l)
             for (int c = 0; c < 3; ++c) {
-                num[c] += sensitivity[3 * l + size_t(c)] * illuminant[l] * window[3 * l + size_t(c)];
-                den[c] += sensitivity[3 * l + size_t(c)] * illuminant[l];
+                num[c] += sensitivity[3 * l + size_t(c)] * neutral[l] * window[3 * l + size_t(c)];
+                den[c] += sensitivity[3 * l + size_t(c)] * neutral[l];
             }
-        for (size_t l = 0; l < n_lambda; ++l)
-            for (int c = 0; c < 3; ++c)
-                weights[3 * l + size_t(c)] = sensitivity[3 * l + size_t(c)] *
-                                             (window[3 * l + size_t(c)] / (num[c] / den[c]));
+        for (int c = 0; c < 3; ++c) {
+            const double norm = num[c] > 1e-10 && den[c] > 1e-10 ? num[c] / den[c] : 1.0;
+            for (size_t l = 0; l < n_lambda; ++l)
+                weights[3 * l + size_t(c)] *= window[3 * l + size_t(c)] / norm;
+        }
     }
     return true;
 }
@@ -279,7 +347,7 @@ bool build_tc_lut(const Colour& colour, const Blob& blob, const Profile& film,
 
     // sensitivity, optionally through the film's own spectral window.
     Vec weights;
-    if (!tc_lut_weights(colour, blob, film, settings, sensitivity, weights, error)) return false;
+    if (!tc_lut_weights(colour, blob, film, settings, sensitivity, spectra, side, weights, error)) return false;
 
     // raw_lut[i, j, m] = sum_l spectra[i, j, l] * weights[l, m]
     out.assign(side * side * 3, 0.0);

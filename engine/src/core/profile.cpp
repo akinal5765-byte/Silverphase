@@ -124,6 +124,16 @@ bool Profile::from_json(const Json& root, std::string& error) {
         return false;
     }
 
+    if (d.has("dir_couplers_gamma")) {
+        if (!want_vec(d, "dir_couplers_gamma", data.dir_couplers_gamma, 9, error)) return false;
+        for (double gamma : data.dir_couplers_gamma) {
+            if (!std::isfinite(gamma) || gamma < 0.0) {
+                error = "profile '" + info.stock + "': invalid DIR coupler gamma";
+                return false;
+            }
+        }
+    }
+
     const Json& m = d.at("density_curves_model");
     if (m.is_object()) {
         data.model.model_type = str_or(m, "model_type", "cdfs");

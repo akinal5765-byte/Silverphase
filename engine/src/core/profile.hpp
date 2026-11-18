@@ -62,6 +62,7 @@ struct ProfileData {
     Vec midscale_neutral_density; // (81)
     Vec log_exposure;             // (K)
     Vec density_curves;           // (K, 3)
+    Vec dir_couplers_gamma;       // optional: RGB self-inhibition, then R/G/B donor pairs
     Vec density_curves_layers;    // (K, 3, 3) = [k][layer][channel]
     size_t n_exposure = 0;
     DensityCurvesModel model;
