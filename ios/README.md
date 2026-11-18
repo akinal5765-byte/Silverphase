@@ -108,7 +108,7 @@ python3 modern_UI/Spektrafilm/Tools/gen-project.py
 python3 ios/Silverphase/Tools/gen-project.py --check
 ```
 
-Current source version: **1.2.5 (8)**. See [1.2.5 release preparation](releases/1.2.5.md) for changes and submission checks. No upload or release is implied.
+The source version is **1.2.5 (8)**. See the [beta announcement](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.2.5) and [source notes](releases/1.2.5.md) for changes and known limits. TestFlight shows the build available to install.
 
 ## Current behavior
 

@@ -23,15 +23,12 @@ update checker also recognizes older unprefixed tags that carry a macOS DMG.
   Gatekeeper disablement is needed. Apple's [opening-app guidance](https://support.apple.com/102445)
   describes the system controls; local security policies may restrict them.
 
-The current macOS source version is **1.3.0 (build 5)**. See the
-[1.3.0 source release notes](../modern_UI/Spektrafilm/releases/1.3.0.md) for
-changes and verification. Use the Releases page above for installable versions.
+Download **macOS 1.3.0 (build 5)** from its [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0). The [version notes](../modern_UI/Spektrafilm/releases/1.3.0.md) describe the changes and verification.
 
 macOS 1.2.0 (build 4) introduced Lightroom Classic single-photo external editing.
 Install Silverphase in Applications and select it under Lightroom's additional
 external editor settings; no separate `.lrplugin` is needed. See the
 [illustrated guide](LIGHTROOM-CLASSIC.md) and [source version notes](../modern_UI/Spektrafilm/releases/1.2.0.md).
-A source version bump does not by itself publish a release or installer.
 
 ## iPhone and iPad
 
@@ -43,7 +40,7 @@ Each beta build is available for up to 90 days; see [Apple’s TestFlight overvi
 
 ### Historical unsigned IPA
 
-The iOS source version is **1.2.5 (8)**. See the [1.2.5 release preparation notes](../ios/releases/1.2.5.md) for validation and submission checks. Check TestFlight for the currently available beta. The unsigned IPA instructions below apply to historical GitHub Release assets.
+See the [iOS 1.2.5 release announcement](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.2.5) and its [source notes](../ios/releases/1.2.5.md). The unsigned IPA instructions below apply to historical GitHub Release assets.
 
 - iOS/iPadOS 18 or later, arm64.
 - The source includes a portrait-only conventional iPhone layout with

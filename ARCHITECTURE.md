@@ -183,7 +183,7 @@ generations cover shutter, lens and portrait transitions; camera layout stays
 in device coordinates while its controls rotate. Lock-screen capture uses the
 system viewfinder, inherits film and exposes metering/diffusion only. Optional
 foreground location tagging belongs to the main app and honours export policy.
-See [1.2.1 release preparation](ios/releases/1.2.1.md) for validation and limits.
+iOS 1.2.5 adds capture EV and format/resolution choices. The capture recipe passes the selected film, metering, diffusion, and film EV to still development. The in-app print walkthrough uses the native engine. See [iOS 1.2.5 notes](ios/releases/1.2.5.md) for validation and current limits.
 
 Source or session changes invalidate in-flight work; stale results must not
 replace the current photograph. Import/export operations own a modal progress

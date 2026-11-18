@@ -13,8 +13,8 @@ original scope. Documentation review is not a new performance or visual audit.
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | Downloads, unsigned IPA and unnotarized DMG | [Binary releases](BINARY-RELEASES.md) |
-| macOS 1.3.0 source changes and validation | [1.3.0 preparation](../modern_UI/Spektrafilm/releases/1.3.0.md) |
-| iOS 1.2.5 source version and submission checks | [1.2.5 preparation](../ios/releases/1.2.5.md) |
+| macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
+| iOS 1.2.5 beta and known limits | [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) / [1.2.5 notes](../ios/releases/1.2.5.md) |
 | App Store preparation, privacy and user support | [Release preparation](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
 | CineStill 800T adoption and validation scope | [Dated adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |

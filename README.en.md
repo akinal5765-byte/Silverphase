@@ -1,223 +1,81 @@
 <p align="center">
-  <img src="screenshots/app-icon.png" width="128" height="128" alt="Silverphase app icon">
+  <img src="screenshots/app-icon.png" width="112" height="112" alt="Silverphase app icon">
 </p>
 
 <h1 align="center">Silverphase</h1>
 
 <p align="center">
-  <strong>From film exposure to a photographic print.</strong><br>
-  A native film-process simulator for macOS, iPhone, and iPad
+  <strong>From film exposure to the finished print.</strong><br>
+  Native film and print simulation for macOS, iPhone, and iPad
 </p>
 
 <p align="center">
-  <a href="README.md">简体中文</a> · <a href="README.en.md">English</a> ·
-  <a href="#installation-and-builds">Build</a> · <a href="screenshots/current/README.md">Gallery</a> ·
-  <a href="docs/README.md">Documentation</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="#also-by-the-author-layerlight">Layerlight</a>
+  <a href="README.md">简体中文</a> · English ·
+  <a href="#download">Download</a> · <a href="screenshots/current/README.md">Examples</a> ·
+  <a href="docs/README.md">Documentation</a> · <a href="#build-from-source">Build from source</a>
 </p>
 
-![Silverphase macOS editor with the Portra 400 lotus case](screenshots/current/silverphase-lotus-2026-10-31.jpg)
+Silverphase simulates **camera input → film exposure → development → printing → scanning** on device. Film and paper shape the result together. Grain, halation, and film edges form within the process. Deliver a finished image or export a Cineon intermediate that preserves film contrast for grading.
 
-Silverphase takes a photograph through **camera input → film → development → print → scan**. Choose film and paper, then shape the image through exposure, development contrast, filtration, and physical frame size. Grain, halation, and film edges form within the same imaging pipeline. Deliver a finished photograph or export an intermediate that preserves film contrast for further grading.
+## Download
 
-The app uses SwiftUI and a shared C++20/Metal engine, processing photographs on device without a runtime Python service or virtual environment. Silverphase is an independent derivative of Hanze Qiu's [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film/paper profiles originate in Andrea Volpato's [spektrafilm](https://github.com/andreavolpato/spektrafilm).
-
-## [Releases](https://github.com/akinal5765-byte/Silverphase/releases)
-
-| Platform | Install and update |
-|---|---|
-| macOS | Download the Apple-silicon DMG from [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases), or check for updates under Settings → Software Update. |
-| iOS / iPadOS | Install and update the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp). |
-
-Platform versions are independent. Public builds are ad-hoc signed, with no Developer ID signature or notarization. See the [binary release guide](docs/BINARY-RELEASES.md) for installation, checksums, and historical IPAs. The [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) describe the mobile interface and validation scope.
-
-The current macOS source version is **1.3.0 (build 5)**. See the [1.3.0 source release notes](modern_UI/Spektrafilm/releases/1.3.0.md) for camera preparation, experimental stocks, shared engine changes, and verification.
-
-## What you can do
-
-- **Choose film and paper.** The public catalog includes 25 film profiles, including CineStill 800T and push variants, and 9 papers: color negative, reversal, motion-picture negative, and B&W materials. The Experimental category adds 29 Fotufilm profiles adapted by Negs.
-- **Control exposure and development.** Adjust metering, film exposure, RAW white balance, development contrast, and color separation. On macOS, pre-film controls cover local brights and darks, input exposure, contrast, lift, gain, midtone detail, and color. Supported RAW files can use the camera preview as a brightness reference. iOS provides Highlights, Shadows, Whites, and Blacks.
-- **Shape grain and halation.** Physical frame size sets the scale of grain and spatial effects. Grain amount, size, softness, film halation, and emulsion scatter have separate controls.
-- **Make color or B&W prints.** Adjust paper, print exposure, yellow/magenta filtration, preflash, and print glare. Ilford Multigrade IV RC provides grades 00–5 with exposure compensation; eight Wratten lens filters are available.
-- **Add film edges and dates.** Use 135, half-frame, multiple 120 and panoramic gates, perforations, markings, fog, and light leaks. Date-back placement and styling follow the chosen format.
-- **Inspect and deliver.** Crop, rotate, inspect histograms, compare previews, and use batch export and export recipes. Desktop also provides soft proofing and two-photo half-frame compositions, and writes star ratings to finished exports as XMP. Pin the bottom strip or reveal it by hovering at the bottom edge, and press Tab to hide or restore the editor panels.
-
-### Film and paper
-
-CineStill 800T uses Vision3 500T emulsion data to model red back-reflection without anti-halation backing. Highlight headroom estimates light lost to clipping. See the [profile validation record](performance/VALIDATION-CINESTILL-2026-11-02.md).
-
-| Material family | Representative profiles |
-|---|---|
-| Color negative | CineStill 800T, Portra 160/400/800, Gold 200, Ektar 100, Ultramax 400, Fujifilm C200, Pro 400H, X-Tra 400 |
-| Reversal | Ektachrome 100, Kodachrome 64, Provia 100F, Velvia 100 |
-| Motion-picture negative | Vision3 50D, 200T, 250D, 500T |
-| B&W negative | Tri-X 400, HP5 Plus 400, T-Max 100, Acros II |
-| Color paper and motion-picture print | Endura family, Ektacolor Edge, Crystal Archive Type II, Vision 2383, Vision Premier 2393 |
-| B&W paper | Ilford Multigrade IV RC |
-
-See the [complete catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json). B&W profiles retain SpektraLab's independently constructed models and fits; chemistry, grain, and fitting limitations are documented in the [B&W notes](engine/tools/profile_sources/blackwhite.md).
-
-### Interface and detail
-
-<table>
-  <tr>
-    <td width="50%"><img src="screenshots/current/silverphase-bird-acros-2026-10-31.jpg" alt="Acros II B&W bird case"></td>
-    <td width="50%"><img src="screenshots/current/silverphase-records-gold-2026-10-31.jpg" alt="Gold 200 record-display case"></td>
-  </tr>
-  <tr><td align="center">Acros II · B&W print</td><td align="center">Gold 200 · Record display</td></tr>
-</table>
-
-<details>
-<summary>Expand: grain at 100% and halation on/off</summary>
-
-**Grain detail:** Acros II, 135 format, app zoom at 100%, grain amount, size, and softness all at 1×.
-
-![Acros II grain at 100% app zoom](screenshots/current/silverphase-grain-100pct-2026-10-31.jpg)
-
-**Halation comparison:** Vision3 500T, identical exposure and viewport, changing only halation. The enabled image uses high/4×, with emulsion scatter at 0× and grain off.
-
-| Halation on | Halation off |
-|---|---|
-| ![Halation on](screenshots/current/silverphase-halation-on-100pct-2026-10-31.jpg) | ![Halation off](screenshots/current/silverphase-halation-off-100pct-2026-10-31.jpg) |
-
-Open the original images to inspect detail. Page scaling and JPEG compression affect fine texture; these captures illustrate the appearance rather than provide lossless measurements.
-
-</details>
-
-All captures show actual macOS windows on 2026-10-31. Settings, sources, and permitted use are recorded in the [full gallery](screenshots/current/README.md).
-
-## Platforms and feature scope
-
-| Platform | Requirements | Scope |
+| Platform | Version and download | Requirements |
 |---|---|---|
-| macOS | Apple silicon, macOS 15+ | Native editor, shared imaging engine, batch export, soft proofing, two-photo half-frame compositions |
-| iPhone Duo | iOS 18+ | Larger editing workspace; one of the currently recommended mobile devices |
-| Conventional iPhone | iOS 18+ | Portrait editor, compact seven-item navigation, floating process panel and vertical film/paper lists |
-| iPad | iPadOS 18+ | The same mobile editor with adapted canvas, inspector, and material-browser layouts |
+| macOS | [1.3.0 (build 5)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · Apple silicon DMG | macOS 15 or later |
+| iPhone and iPad | [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) · [iOS 1.2.5 notes](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.2.5) | iOS or iPadOS 18 or later |
 
-Conventional iPhones now have a dedicated portrait layout; see the [current interface captures](screenshots/ios/2026-11-02/README.md). Duo and iPad retain their side-navigation/inspector arrangements. Simulator layout checks do not establish identical touch, memory or export behavior across devices.
+On macOS, check for updates in Settings → Software Update. The GitHub DMG is ad-hoc signed and has no Apple notarization. See the [release guide](docs/BINARY-RELEASES.md) for installation and SHA-256 verification. The platforms have independent versions. TestFlight shows the available mobile build.
 
-iOS omits desktop two-photo pairing and some proofing features. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md).
+## What's new in macOS 1.3.0
 
-The iOS editor uses an app-owned local library: imported originals, edits, ratings and flags survive restarts, with multi-selection, batch editing and export. RAW photos carry a badge. Photo Info shows the original file format. With Photos read access, imports prefer RAW originals and download them from iCloud when needed. Settings and export recipes persist independently, and the print animation can run once per launch or once per photo. Since 1.2.0 the app includes an in-app camera: capture with a chosen film, develop straight into the library, and reach the camera from a Control Center widget or the Locked Camera Capture extension; a known lock-screen activation stall is documented in the [iOS guide](ios/README.md).
+- **Pre-film controls.** Adjust local brights and darks, exposure, contrast, lift, gain, midtone detail, color boost, and saturation. Existing photos retain their saved tone settings.
+- **Match Camera Preview Brightness.** Supported RAW files can use the camera preview to set their starting exposure. Batch copying can carry the switch while each photo keeps its own fine-tuning.
+- **Experimental stocks and print balance.** Adds 29 Fotufilm profiles adapted by Negs. Shared engine updates cover spectral adaptation, DIR, neutral print filtration, and grain softness.
+- **Output.** JPEG, PNG, and TIFF exports carry the photo’s XMP star rating. For heavy crops that need a large output, Film → Frame ⋯ → Simulation Size generates grain and halation at the target size.
 
-The current iOS source version is **1.2.5 (8)**. The 1.2.1 (7) release preparation covered a default fluent approximate film viewfinder, metering/diffusion selection, processed shutter/lens/portrait freezes, and a fixed camera layout with rotating controls. Settings retain system and experimental native previews plus capture location tagging (enabled by default, subject to system permission). iOS 18 parameter labels are fixed. Video preview does not equal RAW development; locked capture still uses system preview without a film picker. See [1.2.1 preparation](ios/releases/1.2.1.md) for validation, limits and remaining checks. This does not claim an upload or public release.
+See the [1.3.0 release notes](modern_UI/Spektrafilm/releases/1.3.0.md) for the full changes and Kodak 5219 validation scope.
 
-## Also by the author: Layerlight
+## Edit and deliver
 
-<table>
-  <tr>
-    <td width="112" align="center"><a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight app icon"></a></td>
-    <td>
-      <strong>Layerlight · HDR Photo Editor</strong><br>
-      A separate proprietary app by the same author, available on the App Store for iPhone and iPad.
-      <p>Shape HDR highlights and Gain Maps with light, contrast, and softness controls. Supports HEIC Photographic Styles workflows, plus crop, frames, watermarks, and batch export. Photographic Styles editing requires compatible devices and systems; some features require Pro.</p>
-      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>View and download on the App Store →</strong></a>
-    </td>
-  </tr>
-</table>
+1. **Open a photo.** Open a file or folder on macOS. Import from Photos or Files, or use the in-app camera, on iPhone and iPad. RAW compatibility depends on the Apple system decoder.
+2. **Choose materials.** The public catalog contains 25 standard film profiles, 9 papers, and 29 experimental films. Print a negative or select a direct scan. Ilford Multigrade IV RC supports grades 00–5. [Full catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [Experimental profile provenance and scope](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
+3. **Adjust the process.** Control metering, white balance, development, grain, halation, physical frame size, and print filtration. Add film edges and date stamps. macOS also offers soft proofing and two-photo half-frame compositions. [macOS guide](modern_UI/Spektrafilm/README.md)
+4. **Export.** Deliver a JPEG, 8-bit PNG, or 16-bit TIFF with your chosen color profile. The Cineon DI package provides a 16-bit log TIFF plus ProPhoto RGB and Rec.709 viewing LUTs for grading. [Export and DI guide](modern_UI/Spektrafilm/README.md#图像与输出边界)
 
-Layerlight and its icon retain their separate rights and are outside Silverphase's open-source licences. See the [related-app artwork notice](screenshots/related-apps/README.md) for the icon's provenance.
-
-## Installation and builds
-
-For a prebuilt version, download the platform assets from [Releases](https://github.com/akinal5765-byte/Silverphase/releases) and follow the [installation guide](docs/BINARY-RELEASES.md). Source-build instructions follow.
-
-### macOS
-
-You need an Apple-silicon Mac, Xcode with its Metal toolchain, and `python3` for development scripts. Current validation uses Xcode 27.1. The Xcode projects are committed; no Python runtime environment setup or project regeneration is needed.
-
-```bash
-git clone https://github.com/akinal5765-byte/Silverphase.git
-cd Silverphase
-
-# Adjust to your Xcode installation; no global xcode-select change is needed.
-export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
-
-engine/build.sh bundle
-xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
-  -scheme Spektrafilm -configuration Debug \
-  -derivedDataPath build/DerivedData build
-
-open build/DerivedData/Build/Products/Debug/Silverphase.app
-```
-
-`Spektrafilm` in paths and targets is a retained internal engineering name; the displayed app name is **Silverphase**. Re-run `engine/build.sh bundle` after changing engine resources or Metal shaders. Default local builds use development signing.
+Lightroom Classic can send a single JPEG or TIFF copy to the macOS editor. Save writes the full-resolution result back to the registered copy. Lightroom’s tone rendering is baked into the input. [Illustrated setup and workflow](docs/LIGHTROOM-CLASSIC.md)
 
 ### iPhone and iPad
 
-Open `ios/Silverphase/Silverphase.xcodeproj` in Xcode. Select the `Silverphase` scheme and a device, configure your development team under Signing & Capabilities, then build and run. Device provisioning must include the Increased Memory Limit capability requested by the project. Simulator builds do not need development signing:
+The mobile editor provides a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. Version 1.2.5 adds capture EV, RAW preference and resolution choices, and an interactive print walkthrough. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for capture workflows, viewfinder modes, and device limitations.
 
-```bash
-xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
-  -scheme Silverphase -configuration Debug -sdk iphonesimulator \
-  -derivedDataPath /tmp/silverphase-ios-derived CODE_SIGNING_ALLOWED=NO build
+### Examples
+
+The desktop image below is from the October 2026 examples. The [case gallery](screenshots/current/README.md) includes multiple stocks, 100% grain crops, and halation comparisons. The platform guides describe current control locations.
+
+![Earlier Portra 400 lotus example](screenshots/current/silverphase-lotus-2026-10-31.jpg)
+
+## Build from source
+
+Both hosts use SwiftUI and a shared C++20/Metal engine. Python is used by development scripts. Image processing runs on the device.
+
+```sh
+git clone https://github.com/akinal5765-byte/Silverphase.git
+cd Silverphase
+export DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer
+
+SILVERPHASE_LOCAL_MATERIALS=0 engine/build.sh bundle
+SILVERPHASE_LOCAL_MATERIALS=0 xcodebuild \
+  -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
+  -scheme Spektrafilm -configuration Debug -derivedDataPath build/DerivedData build
+open build/DerivedData/Build/Products/Debug/Silverphase.app
 ```
 
-See the [iOS build guide](ios/README.md) for device signing, caches, and diagnostics.
+See the [iOS guide](ios/README.md) for the project, device signing, and simulator builds. For architecture and verification, see the [documentation index](docs/README.md), [shared engine architecture](ARCHITECTURE.md), and [validation guide](modern_UI/Spektrafilm/VALIDATION.md). Report issues on [GitHub](https://github.com/akinal5765-byte/Silverphase/issues) or see the [contribution guide](CONTRIBUTING.md).
 
-A public checkout includes supported materials and the experimental Fotufilm collection. Maintainer builds can additionally load private experimental materials; set `SILVERPHASE_LOCAL_MATERIALS=0` when packaging for distribution. See [local materials and public builds](docs/LOCAL-MATERIALS.md).
+## Sources and licences
 
-## First edit
+Silverphase is an independent derivative of Hanze Qiu’s [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film and paper profiles come from Andrea Volpato’s [spektrafilm](https://github.com/andreavolpato/spektrafilm). Thanks to Noah Haasis’s Negs and MUAStudio’s Fotufilm for the experimental collection. [Licences and credits](LICENSES.md) · [Material data sources](license/DATA-SOURCES.md)
 
-1. **Import a photograph.** Open an image or folder on desktop, or import from Photos/Files on mobile. RAW, JPEG, HEIC/HEIF, PNG, and TIFF are supported; RAW compatibility depends on the system's Apple RAW decoder.
-2. **Choose film and paper.** Select a film in the material browser, then a printing paper. Reversal film or “No Print Profile” provides a direct-scan result.
-3. **Work in process order.** Set input exposure and white balance, then development, grain, halation, and print. Preview crop and film edges together.
-4. **Choose a delivery path.** Export a ready-to-use image or a film intermediate for further color work.
+## Layerlight
 
-### Lightroom Classic external editing (macOS)
-
-Send one JPEG or TIFF through **Edit In → Silverphase**. The dedicated editor
-provides **Save** to write back to Lightroom’s copy and close the editor window.
-No separate `.lrplugin` installation is required. See the
-[illustrated setup and workflow guide (Chinese)](docs/LIGHTROOM-CLASSIC.md).
-Lightroom adjustments are baked into the input; identical settings do not promise
-the same result as direct RAW input. No automatic Lightroom-specific exposure or
-contrast compensation is added.
-
-### Export paths
-
-| Path | Output | Intended use |
-|---|---|---|
-| Finished Film Render | JPEG, 8-bit PNG, or 16-bit TIFF, tagged for the recipe's destination color space | Complete the film/paper process and view, share, or deliver the image |
-| Gradeable Film Intermediate / DI package | 16-bit Cineon-log TIFF with accompanying DI-view LUTs | Preserve film contrast and continue grading |
-
-<details>
-<summary>DI color semantics</summary>
-
-The master is an **untagged 16-bit Cineon-log TIFF with ProPhoto RGB primaries**, bypassing paper rendering and output grading. Its second page is a view preview. Two `.cube` viewing LUTs, to ProPhoto RGB and Rec.709, are shared within each export directory.
-
-Interpret the master through the supplied view rather than assigning a display ICC profile directly to the log data. These are DI viewing transforms, not the selected paper's print LUT. Exporting a DI through ordinary JPEG/TIFF writes its display view with the destination profile. See the [desktop engineering guide](modern_UI/Spektrafilm/README.md) for the file contract.
-
-</details>
-
-## Documentation and development
-
-| Topic | Entry point |
-|---|---|
-| All guides and current specifications | [Documentation index](docs/README.md) |
-| macOS structure, builds, and export | [Desktop engineering](modern_UI/Spektrafilm/README.md) |
-| iOS behavior, builds, and platform differences | [iOS guide](ios/README.md) · [Control audit](ios/CONTROL-AUDIT.md) |
-| Shared engine and native boundary | [Architecture](ARCHITECTURE.md) · [API](API-SPEC-callable-render-service.md) · [Contract](CONTRACT-frontend-backend.md) |
-| Tests, fixed photographs, and skips | [Validation guide](modern_UI/Spektrafilm/VALIDATION.md) · [Release review](docs/OPEN-SOURCE-RELEASE.md) |
-| Bug reports and contributions | [Issues](https://github.com/akinal5765-byte/Silverphase/issues) · [Contributing](CONTRIBUTING.md) |
-
-Run the desktop suite with:
-
-```bash
-xcodebuild -project modern_UI/Spektrafilm/Spektrafilm.xcodeproj \
-  -scheme SpektrafilmTests -configuration Debug \
-  -derivedDataPath build/DerivedData test
-```
-
-Current acceptance uses native-engine checks and app workflows. Real photographs are validated through external manifests and stay outside Git. Missing historical fixtures cause explicit skips; report passed, failed, and skipped cases together. Historical Python reference scripts remain as research records, and their runtime does not need to be recreated for current builds or acceptance.
-
-## Origins and licensing
-
-Thank you to **Hanze Qiu** for SpektraLab's native macOS application and C++/Metal port, and **Andrea Volpato** for spektrafilm's physical model and original measured profiles. Silverphase preserves upstream Git history, attribution, and licences while developing independently; the upstream projects are not affiliated with or endorsing Silverphase.
-
-- Application, engine, and development tools: **GPL-3.0-or-later**.
-- Film/paper profiles, derived LUTs, and associated fitted packs: upstream **CC BY-SA 4.0** terms.
-- Apple metal-cpp: **Apache-2.0**; Colour data retains **BSD-3-Clause** notices.
-- Silverphase-controlled cover and icon artwork: see the [artwork notice](license/ARTWORK.md) for scope and third-party packaging exclusions. Case photographs and the Layerlight icon have separate terms and are outside that grant.
-
-See [LICENSES.md](LICENSES.md), the [bundled notices](modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/), and the [data-source record](license/DATA-SOURCES.md) for full terms, provenance, and distribution requirements.
+The same developer also makes an independent iPhone and iPad HDR photo editor with HDR highlight controls, Gain Maps, and HEIC Photographic Styles on supported devices. [View Layerlight on the App Store](https://apps.apple.com/app/id6756343255)

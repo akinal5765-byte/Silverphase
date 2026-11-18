@@ -57,12 +57,14 @@ struct AboutWindow: View {
     /// science. A different work under a different licence, and the reason
     /// two source links appear on this panel rather than one.
     static let upstreamURL = "https://github.com/andreavolpato/spektrafilm"
+    private static let negsURL = "https://github.com/noahhaasis/negs"
 
     static let licences = [
         Licence(id: "Silverphase-GPL-3.0.txt", title: "GNU GPL v3 — the application and the engine"),
         Licence(id: "Profiles-and-LUTs-CC-BY-SA-4.0.txt", title: "CC BY-SA 4.0 — the profiles and the print LUTs"),
         Licence(id: "Profiles-and-LUTs-CHANGELOG.txt", title: "What this build changed about the profiles and LUTs"),
         Licence(id: "SpektraLab-BW-PROFILES-NOTICE.md", title: "Hanze Qiu — black-and-white profiles"),
+        Licence(id: "SpektraLab-CINESTILL-NOTICE.md", title: "SpektraLab — CineStill 800T profile"),
         Licence(id: "metal-cpp-Apache-2.0.txt", title: "Apache 2.0 — metal-cpp"),
         Licence(id: "Colour-BSD-3-Clause.txt", title: "BSD 3-Clause — Colour Developers"),
         Licence(id: "Silverphase-Artwork-CC-BY-SA-4.0.txt", title: "CC BY-SA 4.0 — Silverphase artwork"),
@@ -80,20 +82,30 @@ struct AboutWindow: View {
     }
     private final class BundleToken {}
 
-    private static var version: String {
-        let info = Bundle(for: BundleToken.self).infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return "Version \(short) (\(build))"
+    private static var version: String? {
+        Bundle(for: BundleToken.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    }
+
+    private static var versionLabel: String {
+        let short = version ?? "?"
+        let build = Bundle(for: BundleToken.self).object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        let number = build.map { "\(short) (\($0))" } ?? short
+        return T("Version \(number)", "版本 \(number)", "版本 \(number)")
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            credits
-            Divider()
-            licenceList
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    credits
+                    Divider()
+                    licenceList
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 490)
         }
         .frame(width: 460)
         .background(Theme.card)
@@ -108,9 +120,13 @@ struct AboutWindow: View {
                 .resizable().frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Silverphase").font(Theme.Font.of(20, .semibold))
-                Text(AboutWindow.version).font(Theme.Font.sublabel).foregroundStyle(.secondary)
+                Text(AboutWindow.versionLabel).font(Theme.Font.sublabel).foregroundStyle(.secondary)
                 Text(L(.aboutTagline))
                     .font(Theme.Font.sublabel).foregroundStyle(.secondary)
+                if let version = AboutWindow.version {
+                    link(T("What's New", "此版本更新", "此版本更新"),
+                         AboutWindow.sourceURL + "/releases/tag/macos-v" + version)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -143,6 +159,16 @@ struct AboutWindow: View {
                     .font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
                 link(AboutWindow.predecessorURL.replacingOccurrences(of: "https://", with: ""),
                      AboutWindow.predecessorURL)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(T("Experimental film profiles", "实验胶片配置", "實驗膠片設定檔"))
+                    .font(Theme.Font.groupHeader).foregroundStyle(Theme.text)
+                Text(T("MUAStudio’s Fotufilm, adapted by Noah Haasis in Negs · CC BY-SA 4.0",
+                       "MUAStudio 的 Fotufilm，由 Noah Haasis 在 Negs 中转换 · CC BY-SA 4.0",
+                       "MUAStudio 的 Fotufilm，由 Noah Haasis 在 Negs 中轉換 · CC BY-SA 4.0"))
+                    .font(Theme.Font.sublabel).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                link("Negs", AboutWindow.negsURL)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(L(.aboutCreditsApp))
