@@ -12,10 +12,27 @@
 <p align="center">
   <a href="README.md">简体中文</a> · English ·
   <a href="#download">Download</a> · <a href="screenshots/current/README.md">Examples</a> ·
-  <a href="docs/README.md">Documentation</a> · <a href="#build-from-source">Build from source</a>
+  <a href="docs/README.md">Documentation</a> · <a href="#build-from-source">Build from source</a> ·
+  <a href="#also-by-the-author-layerlight">Layerlight</a>
 </p>
 
 Silverphase simulates **camera input → film exposure → development → printing → scanning** on device. Film and paper shape the result together. Grain, halation, and film edges form within the process. Deliver a finished image or export a Cineon intermediate that preserves film contrast for grading.
+
+## Also by the author: Layerlight
+
+<table>
+  <tr>
+    <td width="112" align="center"><a href="https://apps.apple.com/app/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight app icon"></a></td>
+    <td>
+      <strong>Layerlight · HDR Photo Editor</strong><br>
+      A separate proprietary app by the same author, available on the App Store for iPhone and iPad.
+      <p>Shape HDR highlights and Gain Maps with light, contrast, and softness controls. Supports HEIC Photographic Styles workflows, plus crop, frames, watermarks, and batch export. Photographic Styles editing requires compatible devices and systems; some features require Pro.</p>
+      <a href="https://apps.apple.com/app/id6756343255"><strong>View and download on the App Store →</strong></a>
+    </td>
+  </tr>
+</table>
+
+Layerlight and its icon retain their separate rights and are outside Silverphase's open-source licences. See the [related-app artwork notice](screenshots/related-apps/README.md) for the icon's provenance.
 
 ## Download
 
@@ -74,8 +91,14 @@ See the [iOS guide](ios/README.md) for the project, device signing, and simulato
 
 ## Sources and licences
 
-Silverphase is an independent derivative of Hanze Qiu’s [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film and paper profiles come from Andrea Volpato’s [spektrafilm](https://github.com/andreavolpato/spektrafilm). Thanks to Noah Haasis’s Negs and MUAStudio’s Fotufilm for the experimental collection. [Licences and credits](LICENSES.md) · [Material data sources](license/DATA-SOURCES.md)
+Silverphase is an independent derivative of Hanze Qiu’s [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film and paper profiles come from Andrea Volpato’s [spektrafilm](https://github.com/andreavolpato/spektrafilm). [Licences and credits](LICENSES.md) · [Material data sources](license/DATA-SOURCES.md)
 
-## Layerlight
+### Thanks to Negs
 
-The same developer also makes an independent iPhone and iPad HDR photo editor with HDR highlight controls, Gain Maps, and HEIC Photographic Styles on supported devices. [View Layerlight on the App Store](https://apps.apple.com/app/id6756343255)
+Thank you to Noah Haasis’s [Negs](https://github.com/noahhaasis/negs) and to [yosoyelchris](https://github.com/yosoyelchris), who contributed Prep and camera brightness matching to Negs. Silverphase 1.3.0 draws on Negs in the following areas.
+
+- **Pre-film controls and camera brightness matching** · We drew on Negs’s tone, detail, and color adjustments and its use of the camera preview to fit each RAW file’s starting exposure. [Negs Prep](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/prep.md) · [Negs credits](https://github.com/noahhaasis/negs#credits)
+- **Simulation Size and star ratings in exports** · We drew on Negs’s pre-film linear resampling and the practice of writing photo ratings to `xmp:Rating` in finished exports. [Negs Image Size](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/image-size.md) · [Negs library and export features](https://github.com/noahhaasis/negs#a-darkroom-in-a-window)
+- **29 experimental film profiles** · We adopted Negs’s conversions of MUAStudio’s [Fotufilm](https://fotufilm.com) profiles and selected development and print parameters. [Profile sources and licensing](license/DATA-SOURCES.md#experimental-fotufilm-profiles) · [Pinned source and file provenance](engine/resources_product/UPSTREAM.json)
+- **Shared engine calibration** · We drew on Negs’s implementation of the experimental Spektrafilm model for DIR saturation, Hanatos spectral-window normalization, and the neutral print filter solver. [DIR](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-model/src/couplers.rs) · [Spectral adaptation](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/spectral_service.rs) · [Print balance](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/print_balance.rs)
+- **Stage-by-stage validation** · Negs’s verification approach informed Silverphase’s own Kodak 5219 checks for negative density, grain, and measured spectral patches. [Negs validation report](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/gpu-vs-cpu-quality.md) · [Silverphase’s 5219 checks](modern_UI/Spektrafilm/VALIDATION.md#5219-底片与光谱色样)

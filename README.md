@@ -12,10 +12,27 @@
 <p align="center">
   简体中文 · <a href="README.en.md">English</a> ·
   <a href="#下载">下载</a> · <a href="screenshots/current/README.md">效果案例</a> ·
-  <a href="docs/README.md">文档</a> · <a href="#从源码构建">从源码构建</a>
+  <a href="docs/README.md">文档</a> · <a href="#从源码构建">从源码构建</a> ·
+  <a href="#也试试-layerlight">Layerlight</a>
 </p>
 
 Silverphase 在设备上模拟 **相机输入 → 胶片曝光 → 显影 → 印相 → 扫描**。胶片和相纸共同决定成像，颗粒、光晕和片边在工艺流程中形成。可以直接交付成片，也可以输出保留胶片反差的 Cineon 中间文件。
+
+## 也试试 Layerlight
+
+<table>
+  <tr>
+    <td width="112" align="center"><a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight 应用图标"></a></td>
+    <td>
+      <strong>Layerlight · HDR 图片编辑器</strong><br>
+      同一作者开发的独立闭源应用，已在 App Store 上架，支持 iPhone 与 iPad。
+      <p>调整 HDR 高光与 Gain Map 光影层，控制光感、反差和柔和度；支持 HEIC 摄影风格工作流，并提供裁切、画框、水印与批量导出等功能。摄影风格编辑需要受支持的设备和系统；部分功能需 Pro。</p>
+      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a>
+    </td>
+  </tr>
+</table>
+
+Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的开源许可。图标来源见[相关应用素材说明](screenshots/related-apps/README.md)。
 
 ## 下载
 
@@ -76,6 +93,12 @@ iOS 工程、真机签名及模拟器命令见 [iOS 构建指南](ios/README.md)
 
 Silverphase 是 Hanze Qiu 的 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目。物理模型及原始实测胶片／相纸配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。感谢 Noah Haasis 的 Negs 和 MUAStudio 的 Fotufilm 为实验材料提供来源。[许可与署名](LICENSES.md) · [材料数据来源](license/DATA-SOURCES.md)
 
-## Layerlight
+### 致谢 Negs
 
-同一作者的独立 iPhone／iPad HDR 图片编辑器，提供 HDR 高光、Gain Map 和受支持设备上的 HEIC 摄影风格调整。[在 App Store 查看 Layerlight](https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255)
+感谢 Noah Haasis 的 [Negs](https://github.com/noahhaasis/negs)，以及为 Negs 带来入片调整与相机亮度匹配的 [yosoyelchris](https://github.com/yosoyelchris)。Silverphase 1.3.0 从 Negs 参考或采用了以下内容。
+
+- **入片调整与相机亮度匹配** · 借鉴入片影调、细节与色彩控制，以及用相机预览拟合单张 RAW 起始曝光的做法。[Negs Prep](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/prep.md) · [Negs 作者署名](https://github.com/noahhaasis/negs#credits)
+- **模拟尺寸与星级导出** · 借鉴胶片模拟前的线性重采样，以及导出时将照片星级写入 `xmp:Rating` 的做法。[Negs Image Size](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/image-size.md) · [Negs 照片管理与导出](https://github.com/noahhaasis/negs#a-darkroom-in-a-window)
+- **29 款实验胶片** · 采用 Negs 从 MUAStudio 的 [Fotufilm](https://fotufilm.com) 转换的材料配置和部分显影、印相参数。[配置来源与许可](license/DATA-SOURCES.md#experimental-fotufilm-profiles) · [源文件与版本记录](engine/resources_product/UPSTREAM.json)
+- **共享引擎校准** · 参考 Negs 对 Spektrafilm 实验模型的实现，包括 DIR 饱和响应、Hanatos 光谱窗口归一化和印相中性滤色求解。[DIR](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-model/src/couplers.rs) · [光谱适配](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/spectral_service.rs) · [印相平衡](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/print_balance.rs)
+- **分阶段验证** · 参考 Negs 拆开管线逐级检查的办法，建立 Silverphase 自己的 Kodak 5219 底片、颗粒和光谱色样参考。[Negs 的验证报告](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/gpu-vs-cpu-quality.md) · [Silverphase 5219 验证](modern_UI/Spektrafilm/VALIDATION.md#5219-底片与光谱色样)
