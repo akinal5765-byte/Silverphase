@@ -5,14 +5,44 @@
   "sha256": {
     "NOTICE.md": "c66d8348372bc71b03270245baa8f9c5d2ab6dc83eb7d2da57b1c6b43523e750",
     "paper_grades.json": "a6a2f689c73b104880d965519586db7c0976027aad05b6103872537f81b76ce9",
-    "neutral_print_filters.json": "320f92b0608d599a1affb6231fcabd3d0df8f79a87514e34bf27c5b8e622be69",
+    "neutral_print_filters.json": "f60ada6644fc18346baa63f76e68c7258fa997776294d4631dbd3a38234a79c8",
     "profiles/fujifilm_neopan_acros_100_ii.json": "4429b45664a06c7ee8d16687bcc7adf656403e534fba584f83762e160abdc4f9",
     "profiles/ilford_hp5_plus_400.json": "a09ccdb57816f220ab598e534318a743ef79e16a300f8bd2de7453d451fe8ec5",
     "profiles/ilford_multigrade_iv_rc.json": "0f776f1f26f04aca4ec438ed377dc1acf4073dc1a8ae32c51607a6cb1a02521d",
     "profiles/kodak_tmax_100.json": "c9160236872034b86fb42b67be3a9252088bfa7bdbb450148b0c20ad83e3033a",
     "profiles/kodak_tri_x_400.json": "a54be071c6a055a9a49acb7072d10bf0b1bcddf9c0a459b0800a9b14bb66b1f1",
     "profiles/cinestill_800t.json": "4b5c5771a1d4755cf2f2994bbc0529387d579cc8d9fb6e23fe5d3d856fc13161",
-    "CINESTILL_NOTICE.md": "44425f1dbf29983482087f2b439730db389866bbf19cf90159cf915b2956b96c"
+    "CINESTILL_NOTICE.md": "44425f1dbf29983482087f2b439730db389866bbf19cf90159cf915b2956b96c",
+    "profiles/agfa_agfachrome_50_fotufilm.json": "bb7ea140959b9fc7a61c162cca3d0974cb0fe58ed1feba28f2eb2ec6a73a67c5",
+    "profiles/agfa_agfachrome_100_fotufilm.json": "ec6d008bd9996f01e774df4ce2213e48d3f346b8d7747d130653840b36be5830",
+    "profiles/agfa_agfachrome_200_fotufilm.json": "21d90c1718d320b9b2d6a98b7b7ed598ed7c954b548c882c394595828ca04efc",
+    "profiles/cinestill_400d_fotufilm.json": "43fbdc079b4c2a929fe129a4a370cacd55c6ae4d7e24e1c9c97d07cf2a4ac71e",
+    "profiles/cinestill_800t_fotufilm.json": "486a180856e7f58fde4e2b6f9dea1a0ef1c6d02c0651b18b2e98ad0fcf19611e",
+    "profiles/fotufilm_infrared_color_fotufilm.json": "4eea2b3350df7877f2f4d3039c5bc2a7e0baea74016f0a07e1b9ac7137b5e414",
+    "profiles/fujifilm_acros_100_ii_fotufilm.json": "61346d3152913c2bbe5b24e6eef3be2480022eb4e459a0a75f470089948a6b35",
+    "profiles/fujifilm_astia_100f_fotufilm.json": "e93bbf05909510af9494236ceade07bc0e488df642d049efaaf5ca87ee1fa935",
+    "profiles/fujifilm_eterna_500_fotufilm.json": "8fc12a39e19ede70238b3ffc761f23ffe1716ddbccf824e5ba41ea11884dcd09",
+    "profiles/fujifilm_eterna_vivid_500_fotufilm.json": "b27a84b20eb57f6cfd2e527b3909c615a3483747fa84ddb69ee859d376efcec6",
+    "profiles/fujifilm_f64d_fotufilm.json": "74e886c43e579b7e595936a3e1cd6b91ca19647485e1960f9aed64d5edfa304f",
+    "profiles/fujifilm_pro_160ns_fotufilm.json": "df7068ec590dc34f61ca1589cbb50d502c667b83a5818e4f64a8d48180009dc4",
+    "profiles/fujifilm_reala_100_fotufilm.json": "b80d3b842e8d1a653991c8968ae6c36c8b24aa496b32405d3face96b1ec3de54",
+    "profiles/fujifilm_reala_500d_fotufilm.json": "209fcf4100817e27081759eaf75c014c9fac08833b174e638839b3c62dae148c",
+    "profiles/fujifilm_superia_200_fotufilm.json": "6928e4de5c284b52af690e55f7dfcfb8b0e7be2d8f583457120922f145c35c7f",
+    "profiles/fujifilm_velvia_50_fotufilm.json": "1f073abbea8aec11b1319deecb56df30acad4ad8a6a8d530de46f4fde252cddb",
+    "profiles/harman_phoenix_200_fotufilm.json": "ff868a32fb4ace0c38d8e91d7863a173a49b2f55f81c3d0f7b9364dfc1aaf8d9",
+    "profiles/ilford_delta_3200_fotufilm.json": "feb352eca20fce8e18e79f531e46227bb67e52e02b511f212c4715bb5028dc9f",
+    "profiles/ilford_fp4_plus_fotufilm.json": "faf42988cbf922eb23ed7f439982d7358142a09b6022f1c7b2f39c82dd037e7f",
+    "profiles/ilford_hp5_plus_fotufilm.json": "6d05173abdcdb3706231239c91aa5b7971bdde3dadae3925533d44d380d86c7a",
+    "profiles/kodak_aerochrome_1443_fotufilm.json": "7753d9c278daa26eb6b27279b78c9d6dc25cd2fa6beb93873072f6bd128a76d4",
+    "profiles/kodak_aerocolor_2460_fotufilm.json": "2ab52bc07392a590e50ca9d29eeeb767660c0c563d17cb0e628c7d40e93c5ee6",
+    "profiles/kodak_kodachrome_25_fotufilm.json": "371cf1bbada145ebc17e5a940efa942b8f337a40f275610cfc938f8f075993a5",
+    "profiles/kodak_kodachrome_200_fotufilm.json": "dfa684d21c06f6b829544fab545ff72b65d7dfdf445a2add32e8b3ec5d6b4f6c",
+    "profiles/kodak_kodacolor_100_fotufilm.json": "47a373e510e5e46fd7c157c8c2ff43439f91f8f6c17e8f89f0f88bb07382b176",
+    "profiles/kodak_tmax_100_fotufilm.json": "d7d72ed3426d747ed0fdc7d2f2e1aaff22fd327148232c13db5e287dd51b4da0",
+    "profiles/lomography_color_100_fotufilm.json": "70481d5059629f443496b384e473488a228d54f24ad7c7f5985f05bb666cca51",
+    "profiles/lomography_lomochrome_metropolis_fotufilm.json": "e8e419873f7cc56394baf129bc392252236f9fc0956fa24a442cfb5aad667b09",
+    "profiles/lomography_lomochrome_turquoise_fotufilm.json": "8774159917f6b871cfdf18bb32e6347c0622c66d3e589c573f2e09167176f47d",
+    "FOTUFILM_LICENSE.txt": "cd6ebe8e48447315f672be4f49ab5e67430c26550816dbaba77a68388acc8b0e"
   },
   "code_sources": {
     "engine/src/core/camera_filters.hpp": {
@@ -92,5 +122,148 @@
     },
     "adoption": "Unchanged CineStill 800T metadata alias and back-reflection constants. Profile loader and neutral-print inheritance adapted to Silverphase; back-reflection selected only by the stock's profile preset, preserving existing strong/weak/none overrides. Upstream headroom applied before film exposure in the existing whole-frame stage. Shared catalogue, macOS/iOS controls, sidecars, reset and clipboard updated. Upstream checks adapted to antihalation_mode; exact base-emulsion and whole/strip equality gates added.",
     "licenses": "Profile alias: upstream CC-BY-SA-4.0 distribution. Adopted native implementation and test/fit tools: GPL-3.0-or-later. Andrea Volpato's base measured arrays unchanged."
+  },
+  "print_balance_calibration": {
+    "method_source": "https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/print_balance.rs",
+    "upstream_model": "Spektrafilm experimental 28bf883",
+    "driver": "engine/tests/print_balance.cpp",
+    "baseline_product_table_sha256": "a09f889bd2c107970ce5a9c39b8a2e5d04c8a725834c3a59be211aa58fe752d8",
+    "enlarger_illuminant": "TH-KG3",
+    "reference": "0.184 scene-linear grey, fixed C, solve M and Y in linear sRGB before output gamut mapping",
+    "acceptance": "Midgrey residual at most 0.00001 and lower average residual on seven grey patches from -3 to +3 EV. Spatial and stochastic effects disabled.",
+    "calibrated_pairs": 238,
+    "evaluated_pairs": 248,
+    "holdout": "Six half-stop patches between -2.5 and +2.5 EV excluded from the seven-point screen. Three rows that passed the initial screen worsened on this holdout and were restored to their previous values.",
+    "scope": "Modelled print balance only. Base film and paper measurement arrays and other illuminants retain source values."
+  },
+  "experimental_film_adoption": {
+    "repository": "https://github.com/noahhaasis/negs",
+    "commit": "97d63aaebca9654b041211dea9eebd55dd12b878",
+    "upstream_repository": "https://github.com/DhaliwalX/fotufilm-engine",
+    "upstream_commit": "96623ba0831a52dbddcda35727a206d4123a8b5f",
+    "license": "CC BY-SA 4.0",
+    "neutral_filters": "data/filters/neutral_print_filters.json (common colour papers, imported film IDs only)",
+    "dir_couplers": "data/presets/couplers.toml (CC BY-SA 4.0, explicit stock overrides and colour class defaults)",
+    "dir_saturation": "crates/spektrafilm-model/src/couplers.rs (GPL-3.0, upstream experimental 28bf883); implemented in Silverphase C++/Metal for the experimental colour profiles, in the curve pre-correction and in development.",
+    "profiles": {
+      "profiles/agfa_agfachrome_50_fotufilm.json": {
+        "source": "data/profiles/agfa_agfachrome_50.json",
+        "git_blob": "09bc71a1b91c39102bc8c9844aeb6746d276aa87"
+      },
+      "profiles/agfa_agfachrome_100_fotufilm.json": {
+        "source": "data/profiles/agfa_agfachrome_100.json",
+        "git_blob": "7b7aa7e66959be2af5d9403f398624500bb905fb"
+      },
+      "profiles/agfa_agfachrome_200_fotufilm.json": {
+        "source": "data/profiles/agfa_agfachrome_200.json",
+        "git_blob": "d3299b3d6e9a3ff2ff7a68c8fa064492bb33b6e5"
+      },
+      "profiles/cinestill_400d_fotufilm.json": {
+        "source": "data/profiles/cinestill_400d.json",
+        "git_blob": "ec09b586f5cb548f11370cad52cdaffea206b42e"
+      },
+      "profiles/cinestill_800t_fotufilm.json": {
+        "source": "data/profiles/cinestill_800t.json",
+        "git_blob": "bcfad93a0e54af43a7c89dcd75520ea047ca5940"
+      },
+      "profiles/fotufilm_infrared_color_fotufilm.json": {
+        "source": "data/profiles/fotufilm_infrared_color.json",
+        "git_blob": "6d9fa50b8b1e053d6c0d25a5ac06212f67eb5900"
+      },
+      "profiles/fujifilm_acros_100_ii_fotufilm.json": {
+        "source": "data/profiles/fujifilm_acros_100_ii.json",
+        "git_blob": "0e1aca95427d2b627a1cd56f548d98a54e119a57"
+      },
+      "profiles/fujifilm_astia_100f_fotufilm.json": {
+        "source": "data/profiles/fujifilm_astia_100f.json",
+        "git_blob": "20c007934ad7356e5dc3e8eb5892e65304bbc9cb"
+      },
+      "profiles/fujifilm_eterna_500_fotufilm.json": {
+        "source": "data/profiles/fujifilm_eterna_500.json",
+        "git_blob": "5168c960b782c17484938239fbbe4512a159e01b"
+      },
+      "profiles/fujifilm_eterna_vivid_500_fotufilm.json": {
+        "source": "data/profiles/fujifilm_eterna_vivid_500.json",
+        "git_blob": "2a9b7cb23c235c0927dd831f866ec17b61a1b804"
+      },
+      "profiles/fujifilm_f64d_fotufilm.json": {
+        "source": "data/profiles/fujifilm_f64d.json",
+        "git_blob": "457b8e6f1b3a99bd84ae1d022c873f6e03b4e5c6"
+      },
+      "profiles/fujifilm_pro_160ns_fotufilm.json": {
+        "source": "data/profiles/fujifilm_pro_160ns.json",
+        "git_blob": "b2d9229f66f3431029371667ec48c5de9033dea6"
+      },
+      "profiles/fujifilm_reala_100_fotufilm.json": {
+        "source": "data/profiles/fujifilm_reala_100.json",
+        "git_blob": "a12d49d97590788eb001f0f9ce56b0d7ceb3f5b7"
+      },
+      "profiles/fujifilm_reala_500d_fotufilm.json": {
+        "source": "data/profiles/fujifilm_reala_500d.json",
+        "git_blob": "35f94fe1e75fa573ed56894a5f13c2b1386b146b"
+      },
+      "profiles/fujifilm_superia_200_fotufilm.json": {
+        "source": "data/profiles/fujifilm_superia_200.json",
+        "git_blob": "55a52d664f0b2f3087d68e3d9db85184a56b5711"
+      },
+      "profiles/fujifilm_velvia_50_fotufilm.json": {
+        "source": "data/profiles/fujifilm_velvia_50.json",
+        "git_blob": "a49b774a076acf3bfa38260b2a8e3e26d38865c8"
+      },
+      "profiles/harman_phoenix_200_fotufilm.json": {
+        "source": "data/profiles/harman_phoenix_200.json",
+        "git_blob": "1fcd95e40da78d2f626dfce624fa690d38061a2e"
+      },
+      "profiles/ilford_delta_3200_fotufilm.json": {
+        "source": "data/profiles/ilford_delta_3200.json",
+        "git_blob": "758e25f04b3b333017287f14f51847641343c171"
+      },
+      "profiles/ilford_fp4_plus_fotufilm.json": {
+        "source": "data/profiles/ilford_fp4_plus.json",
+        "git_blob": "2ee091634b85255fb3253195f6d7aff43025af9e"
+      },
+      "profiles/ilford_hp5_plus_fotufilm.json": {
+        "source": "data/profiles/ilford_hp5_plus.json",
+        "git_blob": "39e1880f85b874d75a4565f5c4d076d25671c43b"
+      },
+      "profiles/kodak_aerochrome_1443_fotufilm.json": {
+        "source": "data/profiles/kodak_aerochrome_1443.json",
+        "git_blob": "c8b6e75fc0773d51f5a0451665f8a0dad2c9545b"
+      },
+      "profiles/kodak_aerocolor_2460_fotufilm.json": {
+        "source": "data/profiles/kodak_aerocolor_2460.json",
+        "git_blob": "f6db47dfe26a261e76fd99c32cf5c95f0a6a41c5"
+      },
+      "profiles/kodak_kodachrome_25_fotufilm.json": {
+        "source": "data/profiles/kodak_kodachrome_25.json",
+        "git_blob": "12916fa18de0595a0b3bf3ea568848f242b2edc7"
+      },
+      "profiles/kodak_kodachrome_200_fotufilm.json": {
+        "source": "data/profiles/kodak_kodachrome_200.json",
+        "git_blob": "540f3335fe268ea0e1aa21d1f649ee9923ee3434"
+      },
+      "profiles/kodak_kodacolor_100_fotufilm.json": {
+        "source": "data/profiles/kodak_kodacolor_100.json",
+        "git_blob": "013befb0c176438165d3f5eac4670318ce68e5b3"
+      },
+      "profiles/kodak_tmax_100_fotufilm.json": {
+        "source": "data/profiles/kodak_tmax_100.json",
+        "git_blob": "286b6908b450b67765f5af3f10db06337332fa91"
+      },
+      "profiles/lomography_color_100_fotufilm.json": {
+        "source": "data/profiles/lomography_color_100.json",
+        "git_blob": "478011501cbc09291673d418eafa59d1bded48d5"
+      },
+      "profiles/lomography_lomochrome_metropolis_fotufilm.json": {
+        "source": "data/profiles/lomography_lomochrome_metropolis.json",
+        "git_blob": "42a36846b926ad1508ddd412a259e052007c5822"
+      },
+      "profiles/lomography_lomochrome_turquoise_fotufilm.json": {
+        "source": "data/profiles/lomography_lomochrome_turquoise.json",
+        "git_blob": "cce98c7b57b4e672b720a18d11f678c797885183"
+      }
+    },
+    "id_suffix": "_fotufilm",
+    "notice": "FOTUFILM_LICENSE.txt"
   }
 }

@@ -560,6 +560,7 @@ public:
     int node_count() const { return node_count_; }
 
 private:
+    friend struct FilmReferenceProbe;
     struct Timer;
 
     // The meter's sample: the frame strided down, read back, and turned into
@@ -665,6 +666,8 @@ private:
     // RFC-023's Scene Latitude Mapping (`scene_latitude.cpp`): pointwise,
     // before `node_upsample`, and not dispatched at all while it is off.
     bool camera_tone_wanted() const;
+    bool local_camera_tone_wanted() const;
+    bool node_local_camera_tone(const Image& in, Image& out, std::string& error);
     bool node_camera_tone(const Image& in, Image& out, std::string& error);
     bool scene_latitude_wanted() const;
     bool node_scene_latitude(const Image& in, Image& out, std::string& error);
@@ -748,7 +751,8 @@ private:
         gpu::BufferRef film_curve_x, film_curve_inv, film_curve_y;
         size_t film_curve_k = 0;
         gpu::BufferRef coupler_curve_x, coupler_curve_inv, coupler_curve_y;
-        gpu::BufferRef coupler_matrix, coupler_dmax, coupler_shift;
+        gpu::BufferRef coupler_matrix, coupler_dmax, coupler_saturation;
+        bool coupler_receiver_saturation = false;
 
         gpu::BufferRef grain_xa, grain_inv, grain_ylay;
         gpu::BufferRef grain_streams;

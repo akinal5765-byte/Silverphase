@@ -68,6 +68,8 @@ struct ScrubSlider: View {
     /// Omitted for ordinary sliders, whose text and track have the same bounds.
     var entryRange: ClosedRange<Double>? = nil
     var zero: Double = 0
+    /// A fixed reference on the desktop ruler, independent of the current value.
+    var referenceValue: Double? = nil
     var snap: Double = 0.5
     var format: (Double) -> String = { String(format: "%.1f", $0) }
     var parse: (String) -> Double? = { Double($0.replacingOccurrences(of: ",", with: ".")) }
@@ -169,6 +171,12 @@ struct ScrubSlider: View {
                     }
                     let pointer = CGRect(x: min(size.width - 2, max(0, position - 1.5)), y: 0, width: 3, height: size.height)
                     context.fill(Path(pointer), with: .color(active ? Theme.accent : Theme.Ink.tertiary.opacity(0.6)))
+                    if let referenceValue {
+                        let reference = (referenceValue - range.lowerBound) / (range.upperBound - range.lowerBound)
+                        let x = min(size.width - 5, max(3, reference * size.width - 1))
+                        let mark = CGRect(x: x, y: size.height - 7, width: 2, height: 5)
+                        context.fill(Path(mark), with: .color(Theme.accent))
+                    }
                     if active {
                         for tick in ToolRulerScale.ticks(in: range, range: range, step: rulerStep, anchor: zero, keyMarks: []) {
                             let x = (tick.value - range.lowerBound) / (range.upperBound - range.lowerBound) * size.width
@@ -606,6 +614,7 @@ struct DesktopRulerInput: NSViewRepresentable {
         private var pendingDoubleClick: (() -> Void)?
         private var lastTick: Int?
         private var lastFeedback = -Double.infinity
+        private var feedbackTail: Task<Void, Never>?
         override var acceptsFirstResponder: Bool { true }
         override var focusRingType: NSFocusRingType { get { .none } set {} }
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -632,8 +641,14 @@ struct DesktopRulerInput: NSViewRepresentable {
             let tick = Int((readValue() / max(step, 1e-9)).rounded())
             if RulerFeedbackGate.shouldPerform(draggingSlider: true, previousTick: lastTick,
                                                tick: tick, elapsed: event.timestamp - lastFeedback) {
-                NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                 lastFeedback = event.timestamp
+                feedbackTail?.cancel()
+                feedbackTail = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(26))
+                    guard !Task.isCancelled, let self, self.mouseStart != nil, self.inputEnabled else { return }
+                    NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+                }
             }
             lastTick = tick
         }
@@ -650,6 +665,8 @@ struct DesktopRulerInput: NSViewRepresentable {
         // Wheel events remain in the standard responder chain.
         override func scrollWheel(with event: NSEvent) { super.scrollWheel(with: event) }
         func finish() {
+            feedbackTail?.cancel()
+            feedbackTail = nil
             let wasActive = mouseStart != nil
             mouseStart = nil; lastTick = nil; pendingDoubleClick = nil
             if wasActive { end() }
@@ -660,6 +677,6 @@ struct DesktopRulerInput: NSViewRepresentable {
 enum RulerFeedbackGate {
     static func shouldPerform(draggingSlider: Bool, previousTick: Int?, tick: Int, elapsed: Double) -> Bool {
         draggingSlider && previousTick != nil
-            && previousTick != tick && elapsed >= 0.04
+            && previousTick != tick && elapsed >= 0.065
     }
 }

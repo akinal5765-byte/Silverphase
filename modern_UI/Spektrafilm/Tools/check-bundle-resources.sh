@@ -43,7 +43,7 @@ licences=""
 for f in README.txt Silverphase-GPL-3.0.txt Profiles-and-LUTs-CC-BY-SA-4.0.txt \
          Profiles-and-LUTs-CHANGELOG.txt SpektraLab-BW-PROFILES-NOTICE.md metal-cpp-Apache-2.0.txt \
          Colour-BSD-3-Clause.txt Silverphase-Artwork-CC-BY-SA-4.0.txt \
-         Silverphase-Artwork-NOTICE.md Runtime-Data-SOURCES.md SpektraLab-CINESTILL-NOTICE.md; do
+         Silverphase-Artwork-NOTICE.md Runtime-Data-SOURCES.md SpektraLab-CINESTILL-NOTICE.md FOTUFILM_LICENSE.txt; do
   [ -f "$res/Licenses/$f" ] || licences="$licences $f"
 done
 

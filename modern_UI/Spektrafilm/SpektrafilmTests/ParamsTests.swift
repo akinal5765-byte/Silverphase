@@ -1,3 +1,4 @@
+import CoreGraphics
 import XCTest
 
 final class ParamsTests: XCTestCase {
@@ -382,12 +383,99 @@ final class ParamsTests: XCTestCase {
         XCTAssertEqual(p.delta(from: .default).layers, [.shoot, .print])
     }
 
+    func testCameraBrightnessRecoversExposureAndProtectsHighlights() async throws {
+        let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        func sample(ev: Double, brightPatch: Bool = false) throws -> CameraBrightnessMatch.Sample {
+            let image = try XCTUnwrap(CGContext(data: nil, width: 32, height: 32, bitsPerComponent: 8,
+                bytesPerRow: 128, space: space, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+            let linear = 0.10 * exp2(ev)
+            let encoded = CGFloat(1.055 * pow(linear, 1 / 2.4) - 0.055)
+            image.setFillColor(red: encoded, green: encoded, blue: encoded, alpha: 1)
+            image.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+            if brightPatch {
+                image.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+                image.fill(CGRect(x: 4, y: 4, width: 3, height: 16))
+            }
+            return try CameraBrightnessMatch.Sample(XCTUnwrap(image.makeImage()), space: space)
+        }
+        let reference = try sample(ev: 1.25)
+        let matched = try await CameraBrightnessMatch.fit(reference) { try sample(ev: $0) }
+        XCTAssertEqual(matched.exposure, 1.25, accuracy: 0.06)
+        let protected = try await CameraBrightnessMatch.fit(reference) { ev in
+            try sample(ev: ev, brightPatch: ev > 0.5)
+        }
+        XCTAssertTrue(protected.highlightLimited)
+        XCTAssertEqual(protected.exposure, 0.5, accuracy: 0.02)
+    }
+
+    func testCameraBrightnessSwitchKeepsACompletedMatchUntilReenabled() {
+        var params = FilmParams.default
+        params.cameraTone.prepExposure = 0.5
+        params.cameraTone.setCameraBrightnessMatching(true)
+        XCTAssertNil(params.cameraTone.prepExposure)
+        XCTAssertTrue(params.cameraTone.needsCameraBrightnessMatch)
+        params.cameraTone.matchedCameraExposure = 1.25
+        params.exposureCompensationEV = 1
+        params.printStock = "kodak_2383"
+        XCTAssertFalse(params.cameraTone.needsCameraBrightnessMatch)
+        XCTAssertEqual(params.cameraTone.cameraExposureBaseline, 1.25)
+        params.cameraTone.prepExposure = -0.25
+        XCTAssertEqual(params.cameraTone.prepOffsetRange, -4.25...1.75)
+        params.cameraTone.setCameraBrightnessMatching(false)
+        XCTAssertEqual(params.cameraTone.prepExposure, 1)
+        XCTAssertEqual(params.cameraTone.effectivePrepExposure, 1)
+        params.cameraTone.setCameraBrightnessMatching(true)
+        XCTAssertTrue(params.cameraTone.needsCameraBrightnessMatch)
+        params.cameraTone.cameraBrightnessMatchFailed = true
+        XCTAssertFalse(params.cameraTone.needsCameraBrightnessMatch)
+    }
+
+    func testCameraBrightnessRenderIgnoresPrepPrintExposureAndGrain() {
+        var params = FilmParams.default
+        let inputs = CameraBrightnessMatch.renderInputs(for: params)
+        params.cameraTone.localBrights = -50
+        params.cameraTone.prepExposure = 0.3
+        params.printBrightnessStops = 0.5
+        params.grainActive = false
+        XCTAssertEqual(CameraBrightnessMatch.renderInputs(for: params), inputs)
+        params.printStock = "kodak_2383"
+        XCTAssertNotEqual(CameraBrightnessMatch.renderInputs(for: params), inputs)
+    }
+
+    func testLocalTonePreservesLegacyRecipesAndInvalidatesTheNegative() throws {
+        let oldTone = Data(#"{"highlights":-30,"shadows":10,"whites":5,"blacks":0}"#.utf8)
+        var old = FilmParams.default
+        old.cameraTone = try JSONDecoder().decode(CameraTone.self, from: oldTone)
+        XCTAssertEqual(old.cameraTone.highlights, -30)
+        XCTAssertEqual(old.cameraTone.whites, 5)
+        XCTAssertEqual(old.fullDelta["camera_local_tone_brights"], .double(0))
+        XCTAssertEqual(old.fullDelta["camera_local_tone_darks"], .double(0))
+
+        var new = old
+        new.cameraTone.localBrights = -45
+        new.cameraTone.localDarks = 30
+        new.cameraTone.prepExposure = 0.5
+        new.cameraTone.prepSaturation = -20
+        let restored = try JSONDecoder().decode(FilmParams.self, from: JSONEncoder().encode(new))
+        XCTAssertEqual(restored, new)
+        XCTAssertEqual(restored.delta(from: old).layers, [.shoot])
+        XCTAssertEqual(restored.delta(from: old).delta, [
+            "camera_local_tone_brights": .double(-45),
+            "camera_local_tone_darks": .double(30),
+            "camera_prep_exposure_ev": .double(0.5),
+            "camera_prep_saturation": .double(-20),
+        ])
+    }
+
     func testWireNamesMatchTheServiceSchema() {
         // The host's shipped subset of engine/src/core/params.cpp. A rename
         // must be mirrored here or the delta is rejected at runtime.
         let known: Set<String> = ["overscan_active", "date_imprint_active", "scene_latitude_split", "scene_latitude_b_active", "camera_filter", "film_stock", "print_stock", "exposure_compensation_ev", "film_format_mm",
                                   "grain_active", "grain_sublayers_active", "grain_size_scale", "grain_softness",
                                   "camera_tone_highlights", "camera_tone_shadows", "camera_tone_whites", "camera_tone_blacks",
+                                  "camera_local_tone_brights", "camera_local_tone_darks",
+                                  "camera_prep_exposure_ev", "camera_prep_contrast", "camera_prep_lift", "camera_prep_gain",
+                                  "camera_prep_detail", "camera_prep_vibrance", "camera_prep_saturation",
                                   "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range",
                                   "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range",
                                   "halation_active", "print_exposure", "print_contrast",

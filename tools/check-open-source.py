@@ -10,6 +10,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = Path('modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses')
 errors = []
+product = ROOT / 'engine/resources_product'
+provenance = json.loads((product / 'UPSTREAM.json').read_text())
+adoption = provenance['experimental_film_adoption']
+notice = adoption['notice']
 
 
 def require(condition, message):
@@ -24,6 +28,7 @@ for source, destination in [
     ('engine/third_party/metal-cpp/LICENSE.txt', BUNDLE / 'metal-cpp-Apache-2.0.txt'),
     ('engine/resources_product/NOTICE.md', BUNDLE / 'SpektraLab-BW-PROFILES-NOTICE.md'),
     ('engine/resources_product/CINESTILL_NOTICE.md', BUNDLE / 'SpektraLab-CINESTILL-NOTICE.md'),
+    (product / notice, BUNDLE / notice),
     ('license/Colour-BSD-3-Clause.txt', BUNDLE / 'Colour-BSD-3-Clause.txt'),
     ('license/CC-BY-SA-4.0.txt', BUNDLE / 'Silverphase-Artwork-CC-BY-SA-4.0.txt'),
     ('license/ARTWORK.md', BUNDLE / 'Silverphase-Artwork-NOTICE.md'),
@@ -36,8 +41,6 @@ for source, destination in [
 subprocess.run([sys.executable, str(ROOT / 'tools/inventory-release-data.py'), '--check'], check=True)
 subprocess.run([sys.executable, str(ROOT / 'tools/inventory-release-media.py'), '--check'], check=True)
 
-product = ROOT / 'engine/resources_product'
-provenance = json.loads((product / 'UPSTREAM.json').read_text())
 for name, expected in provenance['sha256'].items():
     path = product / name
     require(path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == expected,
@@ -50,7 +53,13 @@ require(not list((ROOT / 'engine/resources/profiles').glob('*_experimental.json'
 require(all(not stock['id'].endswith('_experimental') for stock in stocks), 'Retired experimental stock is in the catalog')
 aliases = {'kodak_portra_800_push1': 'kodak_portra_800',
            'kodak_portra_800_push2': 'kodak_portra_800'}
+adopted = set(adoption['profiles'])
+adopted_ids = {Path(name).stem for name in adopted}
+require(len(adopted_ids) == 29 and adopted_ids == {s['id'] for s in stocks if s['id'].endswith(adoption['id_suffix'])},
+        'Experimental imports and catalog differ')
 for stock in stocks:
+    if stock['id'] in adopted_ids:
+        continue  # These stock cards use the built-in text fallback.
     sid = aliases.get(stock['id'], stock['id'])
     version = 'v2' if sid == 'kodak_portra_400' else 'v1'
     cover = resources / 'FilmCovers' / f'{sid}-packaging-{version}.png'
@@ -78,12 +87,34 @@ retired = re.compile('fotu' + r'[-_ ]?film', re.IGNORECASE)
 private_suffixes = {'.p12', '.pfx', '.pem', '.key', '.mobileprovision', '.arw', '.nef', '.dng', '.spektrapair'}
 text_suffixes = {'.md', '.txt', '.json', '.py', '.swift', '.cpp', '.hpp', '.h', '.metal',
                  '.sh', '.pbxproj', '.plist', '.cff', '.yml', '.yaml', '.toml', '.xml'}
+# Allow the reviewed, hash-checked import while retaining the guard against
+# reintroducing historical research files or private source assets.
+approved_import = {f'engine/resources_product/{name}' for name in adopted} | {
+    str((product / notice).relative_to(ROOT)),
+    'engine/resources_product/UPSTREAM.json',
+    'engine/resources_product/neutral_print_filters.json',
+    'license/DATA-SOURCES.md',
+    'README.md', 'README.en.md', 'AGENTS.md', 'ARCHITECTURE.md', 'LICENSES.md',
+    'docs/README.md', 'docs/LOCAL-MATERIALS.md',
+    'modern_UI/Spektrafilm/releases/1.3.0.md',
+    'engine/src/core/curves.cpp', 'engine/src/core/curves.hpp', 'engine/src/core/params.cpp',
+    str(BUNDLE / notice),
+    str(BUNDLE / 'Runtime-Data-SOURCES.md'),
+    'modern_UI/Spektrafilm/Tools/bundle-licenses.sh',
+    'modern_UI/Spektrafilm/Tools/check-bundle-resources.sh',
+    'modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json',
+    'modern_UI/Spektrafilm/Spektrafilm/Model/StockCatalogCore.swift',
+    'modern_UI/Spektrafilm/Spektrafilm/Windows/AboutWindow.swift',
+    'modern_UI/Spektrafilm/SpektrafilmTests/StockListTests.swift',
+    'modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/Profiles-and-LUTs-CHANGELOG.txt',
+}
 for name in sorted(paths):
     path = ROOT / name
-    require(not retired.search(name), f'Retired research filename: {name}')
+    if name not in approved_import:
+        require(not retired.search(name), f'Retired research filename: {name}')
     require(path.suffix.lower() not in private_suffixes and path.name != '.env',
             f'Private input/signing file needs review: {name}')
-    if path.is_file() and not path.is_symlink() and path.suffix.lower() in text_suffixes:
+    if name not in approved_import and path.is_file() and not path.is_symlink() and path.suffix.lower() in text_suffixes:
         body = path.read_text(errors='replace')
         require(not retired.search(body), f'Retired research reference: {name}')
 

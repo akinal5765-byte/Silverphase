@@ -81,6 +81,7 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
 
     /// Stored fields no group owns, and why.
     static let notCopied: [String: String] = [
+        "params.filmImageLongEdge": "working resolution follows the individual photograph and its crop",
         "params.pairSceneLatitude": "resolved from each pair hole, fitted again on reopen",
         "params.pairSceneLatitudeSplit": "derived from pair spacing, resolved again on reopen",
         "decode.lensCorrection": "a property of the lens, not of the look",
@@ -144,7 +145,21 @@ struct SettingsClip: Equatable, Sendable {
             out.params.autoExposure = s.params.autoExposure
             out.params.autoExposureMethod = s.params.autoExposureMethod
             out.params.exposureCompensationEV = s.params.exposureCompensationEV
-            out.params.cameraTone = s.params.cameraTone
+            var tone = s.params.cameraTone
+            tone.clearCameraBrightnessMatch()
+            var targetTone = target.params.cameraTone
+            let matchEnabled = tone.matchesCameraBrightness == true
+            let targetWasMatched = targetTone.matchesCameraBrightness == true
+            if matchEnabled != targetWasMatched {
+                targetTone.setCameraBrightnessMatching(matchEnabled)
+            }
+            if matchEnabled || targetWasMatched {
+                tone.prepExposure = targetTone.prepExposure
+                tone.matchedCameraExposure = targetTone.matchedCameraExposure
+                tone.cameraBrightnessMatchFailed = targetTone.cameraBrightnessMatchFailed
+                tone.matchedCameraHighlightLimited = targetTone.matchedCameraHighlightLimited
+            }
+            out.params.cameraTone = tone
             // The target's report is of the target's old meter. Nil until its
             // develop, or `retargetSolvedEV`, measures the new one.
             if meterChanged { out.solvedEV = nil }

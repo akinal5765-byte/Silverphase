@@ -45,7 +45,7 @@ extension Session {
     }
 
     var lightroomRenderSettled: Bool {
-        !busy && !scheduler.pending && params == scheduler.sent
+        !busy && !inputReopenPending && !scheduler.pending && params == scheduler.sent
     }
 
     var canSaveToLightroom: Bool {

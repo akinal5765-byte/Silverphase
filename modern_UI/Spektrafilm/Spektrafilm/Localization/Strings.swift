@@ -1714,6 +1714,7 @@ extension CurveChannel {
     switch title {
     case "Positive": return L(.filmGroupPositive)
     case "Negative": return L(.filmGroupNegative)
+    case "Experimental": return T("Experimental", "实验", "實驗")
     default: return title
     }
 }

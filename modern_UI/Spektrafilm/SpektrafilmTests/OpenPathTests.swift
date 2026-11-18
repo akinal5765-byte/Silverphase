@@ -16,10 +16,62 @@
 //  only the print can show (RFC-015 §1.1, below).
 
 import Metal
+import ImageIO
 import XCTest
 
 @MainActor
 final class OpenPathTests: XCTestCase {
+    func testFilmSizeUsesTheCroppedLongEdgeInTheEngineAndExport() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "film-size-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "scene.tif")
+        try PortTestFrame.write(to: url, highContrast: true)
+
+        let session = Session()
+        session.open(urls: [url])
+        let original = await session.ensureDeveloped()
+        XCTAssertNotNil(original)
+        XCTAssertEqual(session.filmImageOriginalLongEdge, 256)
+        var crop = Geometry.default
+        crop.crop = CropRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+        session.geometry = crop
+        XCTAssertEqual(session.filmImageOriginalLongEdge, 128)
+        XCTAssertFalse(session.setFilmImageLongEdge(16_384), "the complete frame would exceed the pixel limit")
+        XCTAssertTrue(session.setFilmImageLongEdge(300))
+        let resized = await session.currentServiceSession()
+        let resizedID = try XCTUnwrap(resized, session.status)
+        XCTAssertNotEqual(resizedID, original)
+        let preview = try XCTUnwrap(session.renderer.store.print(for: url))
+        XCTAssertEqual(preview.width, 600)
+        XCTAssertEqual(preview.height, 450)
+        XCTAssertEqual(session.sourceImageSize, CGSize(width: 600, height: 450))
+        session.flushSave()
+        XCTAssertEqual(Sidecar.load(for: url)?.params.filmImageLongEdge, 300)
+
+        var recipe = ExportRecipe()
+        recipe.format = .tiff
+        recipe.folder = .fixed(path: directory.appending(path: "export").path)
+        recipe.subfolder = ""
+        let context = NamingRule.Context(originalName: "scene", filmStock: session.params.filmStock,
+                                         printStock: session.params.printStock,
+                                         pixelSize: CGSize(width: 300, height: 225), counter: 1, date: Date())
+        let outcome = try await Exporter.export(session: session, recipe: recipe,
+                                                context: context, sessionID: resizedID)
+        let output = try XCTUnwrap(outcome.urls.first)
+        let file = try XCTUnwrap(CGImageSourceCreateWithURL(output as CFURL, nil))
+        let exported = try XCTUnwrap(CGImageSourceCreateImageAtIndex(file, 0, nil))
+        XCTAssertEqual(exported.width, 300)
+        XCTAssertEqual(exported.height, 225)
+
+        XCTAssertTrue(session.setFilmImageLongEdge(nil))
+        let restored = await session.currentServiceSession()
+        XCTAssertNotEqual(restored, resizedID)
+        let restoredPreview = try XCTUnwrap(session.renderer.store.print(for: url))
+        XCTAssertEqual(restoredPreview.width, 256)
+        XCTAssertEqual(restoredPreview.height, 192)
+    }
+
     func testReplacingEngineSessionUsesThePreviewEdgeSentWithOpen() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: "preview-reopen-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

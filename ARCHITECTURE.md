@@ -1,6 +1,6 @@
 # Silverphase architecture
 
-Current implementation map, reviewed 2026-11-09. Silverphase derives from Hanze
+Current implementation map, reviewed 2026-11-18. Silverphase derives from Hanze
 Qiu's SpektraLab and Andrea Volpato's spektrafilm model. Product name changes do
 not change source or profile attribution. The [documentation index](docs/README.md)
 identifies current guides; the [earlier architecture](docs/history/ARCHITECTURE.md)
@@ -92,27 +92,46 @@ sensitivity with exposure compensation and invalidate the negative. They do not
 filter edge-printer or date-back exposure. Diffusion, halation and print glare
 are separate effects with separate physical positions.
 
-### Product B&W data
+### Pre-film preparation
+
+macOS 1.3.0 exposes preparatory tone, detail, and color controls on the
+scene-linear image. The engine meters first. The local controls use a shared
+whole-frame base before the tiled film work. Pointwise exposure and color
+preparation run before spectral upsampling. Legacy tone and scene placement
+remain decodable. The mobile controls still expose the four legacy tone fields.
+
+For supported RAW files, the desktop host fits a starting exposure against the
+embedded camera preview through the selected look, with highlight protection.
+The sidecar stores the fitted EV and the manual offset for the photograph.
+The clipboard transfers the match switch. The host combines the two values
+into the additive shoot-side exposure parameter.
+
+### Product material data
 
 `engine/resources/` contains the 28 original base profiles. Self-authored
 experimental material profiles and their generators are excluded from tracked
 product inputs. Maintainer builds optionally stage an ignored local overlay;
 `SILVERPHASE_LOCAL_MATERIALS=0` removes it for public builds. The shared catalog
-merges `LocalMaterials/StockCatalog.json` only when packaged; the experiment
-category is visible only when that overlay contains materials.
+merges `LocalMaterials/StockCatalog.json` only when packaged. The Experimental
+category also contains 29 public Fotufilm profiles adapted by Negs.
 `engine/resources_product/` carries adopted Tri-X 400, HP5 Plus 400, T-Max 100,
 Acros II and Multigrade IV RC data, paper-grade packs, and source provenance.
 The build overlays product profiles into the bundled profile directory. Legacy
 Tri-X/HP5 experimental IDs resolve to the adopted stocks for existing edits.
-Other experimental material IDs require the local overlay; without it they produce a missing
-profile error rather than silently selecting another stock. See [B&W source notes](engine/tools/profile_sources/blackwhite.md).
+Retired local-only experimental IDs require their profiles in the local
+overlay. See [B&W source notes](engine/tools/profile_sources/blackwhite.md).
 
 `channel_model: bw` uses neutral silver and disables layered color-grain behavior;
 generic monochrome decoding structures remain for compatibility. Silver paper has no
 calibrated color-paper EDR map, so EDR is gated off. Paper grades 00–5 map to
 filtration plus exposure compensation in the host, preserving negative reuse.
 These profiles and approximations do not establish accuracy for all chemistry,
-lighting, grain or real-film samples.
+lighting, grain or real-film samples. The shared model also uses the simulated
+neutral spectrum to normalize the Hanatos adaptation window and DI neutral
+response. DIR curve preparation and runtime share an amplitude-matched response
+where enabled. The enlarger uses the validated neutral filter packs, and grain
+softness is scaled by film-space pitch. See [data sources](license/DATA-SOURCES.md)
+for the provenance and scope of the calibrations.
 
 ### Film presentation
 
@@ -140,7 +159,11 @@ macOS `Session` owns selection, asynchronous decode, parameter generations,
 undo/sidecars, cache and render scheduling. `EngineClient` serializes native
 calls and gives the canvas owned results. `Session+FilmPresentation.swift`,
 `FilmCanvasInput` and `PairComposer` resolve presentation/composition outside the
-material model.
+material model. Desktop Simulation Size resamples the linear input before
+film. A cropped target resolves to a bounded working frame, and a change
+reopens the engine session for preview and full export. The setting is per
+photograph, outside the clipboard and half-frame pair workflow. Finished
+desktop exports carry the photo rating as `xmp:Rating`.
 
 iOS `MobileDocument` coordinates imported photos, per-photo state, operations,
 settings and recipes. Photos import looks up RAW resources for selected assets when Photos read access allows it and can download cloud originals before copying them into the local library. `MobileEngine` wraps the same ABI. Since 1.2.0 an in-app camera (`MobileCamera`) develops captures through the same engine into the local library, and a Camera Control widget plus a `LockedCameraCapture` extension (`ios/Silverphase/CameraExtensions/`) stage lock-screen captures into the session container and hand off to the app instead of developing in-process. Shared desktop sources

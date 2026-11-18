@@ -67,6 +67,7 @@ struct AboutWindow: View {
         Licence(id: "Colour-BSD-3-Clause.txt", title: "BSD 3-Clause — Colour Developers"),
         Licence(id: "Silverphase-Artwork-CC-BY-SA-4.0.txt", title: "CC BY-SA 4.0 — Silverphase artwork"),
         Licence(id: "Silverphase-Artwork-NOTICE.md", title: "Artwork sources and rights boundaries"),
+        Licence(id: "FOTUFILM_LICENSE.txt", title: "CC BY-SA 4.0 — Fotufilm profiles adapted by Negs"),
         Licence(id: "Runtime-Data-SOURCES.md", title: "Runtime data sources and provenance"),
     ]
 

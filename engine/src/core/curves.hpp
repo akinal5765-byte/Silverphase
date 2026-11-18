@@ -34,14 +34,26 @@ void build_interp_tables(const Vec& log_exposure, const double gamma[3],
 // reduced -- and the convention is the same on both sides of the diagonal.
 void dir_couplers_matrix(const DirCouplersParams& p, double out[9]);
 
+// Langmuir saturation for the adapted Fotufilm stocks. A zero knee leaves
+// that channel linear. The receiver uses the unscaled DIR matrix to set its knee.
+struct DirSaturation {
+    bool active = false;
+    double terms[6] = {}; // knees (RGB), then reference amplitudes (RGB)
+    double apply(int channel, double value) const;
+};
+
+DirSaturation dir_saturation(const Profile& film, const DirCouplersParams& params);
+
 // `couplers.compute_density_curves_before_dir_couplers`.
 //
 // DIR couplers raise same-layer contrast, and a film is designed so the
 // *finished* curves are the measured ones. To reproduce a measured grey ramp
 // the pipeline therefore needs the curves as they were *before* the couplers
-// acted, which is this inverse.
+// acted, which is this inverse. If the shifted axis folds, the matrix is reduced
+// in place so runtime and curve preparation use the same effective strength.
 void density_curves_before_dir_couplers(const Vec& curves, const Vec& log_exposure,
-                                        const double matrix[9], bool positive, Vec& out);
+                                        double matrix[9], bool positive,
+                                        const DirSaturation& saturation, Vec& out);
 
 // `morph_curves.apply_print_curves_morph`.
 //

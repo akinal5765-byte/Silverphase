@@ -20,6 +20,1283 @@
     0.0,
     0.0,
     68.0
+   ],
+   "fujifilm_acros_100_ii_fotufilm": [
+    0.0,
+    0.0,
+    68.0
+   ],
+   "ilford_delta_3200_fotufilm": [
+    0.0,
+    0.0,
+    68.0
+   ],
+   "ilford_fp4_plus_fotufilm": [
+    0.0,
+    0.0,
+    68.0
+   ],
+   "ilford_hp5_plus_fotufilm": [
+    0.0,
+    0.0,
+    68.0
+   ],
+   "kodak_tmax_100_fotufilm": [
+    0.0,
+    0.0,
+    68.0
+   ]
+  }
+ },
+ "fujifilm_crystal_archive_typeii": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0.0,
+    50.52273,
+    52.34711
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    40.76784,
+    49.72214
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    48.1353,
+    68.79775
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    44.5263,
+    68.02619
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    62.77159,
+    71.16512
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    41.0987,
+    61.90334
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    54.81136,
+    75.6552
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    41.11943,
+    53.4709
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    54.90316,
+    77.36301
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    62.46715,
+    91.522
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    94.93005,
+    107.3104
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    59.32043,
+    69.64757
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    68.80942,
+    71.08657
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    63.14623,
+    59.03831
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    63.20855,
+    59.05519
+   ],
+   "fujifilm_c200": [
+    0.0,
+    85.60212,
+    105.12308
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    47.93751,
+    49.80857
+   ],
+   "fujifilm_xtra_400": [
+    0.0,
+    85.51148,
+    107.87326
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    86.89662,
+    82.91436
+   ],
+   "kodak_gold_200": [
+    0.0,
+    73.33047,
+    80.3321
+   ],
+   "kodak_portra_160": [
+    0.0,
+    74.8962,
+    75.65928
+   ],
+   "kodak_portra_400": [
+    0.0,
+    67.79265,
+    73.55324
+   ],
+   "kodak_portra_800": [
+    0.0,
+    80.60068,
+    88.56958
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    80.51677,
+    89.16182
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    80.41669,
+    89.16087
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    73.97259,
+    82.64761
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    79.28433,
+    88.43087
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    41.55396,
+    51.67766
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    46.50695,
+    51.35336
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    40.80064,
+    52.98296
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    46.88508,
+    56.49191
+   ]
+  }
+ },
+ "kodak_2383": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0.0,
+    45.61299,
+    54.31059
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    42.15086,
+    50.60758
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    47.24337,
+    68.03907
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    43.73845,
+    67.33581
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    62.82469,
+    66.44471
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    40.98873,
+    57.15172
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    51.29909,
+    74.4237
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    40.75024,
+    50.29704
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    51.15919,
+    75.773
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    56.84584,
+    96.75146
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    91.96922,
+    106.6517
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    58.16022,
+    64.40108
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    63.08528,
+    72.0722
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    58.01322,
+    58.51701
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    58.13598,
+    58.65332
+   ],
+   "fujifilm_c200": [
+    0.0,
+    78.27076,
+    96.22477
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    42.29625,
+    38.75862
+   ],
+   "fujifilm_xtra_400": [
+    0.0,
+    81.13953,
+    101.10062
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    77.75904,
+    66.41719
+   ],
+   "kodak_gold_200": [
+    0.0,
+    62.81887,
+    61.49009
+   ],
+   "kodak_portra_160": [
+    0.0,
+    64.5967,
+    61.69126
+   ],
+   "kodak_portra_400": [
+    0.0,
+    57.12406,
+    59.67692
+   ],
+   "kodak_portra_800": [
+    0.0,
+    69.77813,
+    71.34891
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    69.70617,
+    72.08796
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    69.58085,
+    72.08817
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    64.05061,
+    65.73936
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    66.49199,
+    72.87813
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    44.77976,
+    52.62392
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    49.73146,
+    50.89393
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    44.21983,
+    53.62685
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    49.81508,
+    55.30053
+   ]
+  }
+ },
+ "kodak_2393": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0.0,
+    54.57164,
+    66.50227
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    51.40522,
+    62.69989
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    56.36342,
+    80.15226
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    52.77161,
+    79.4145
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    72.59036,
+    77.97354
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    50.65396,
+    68.92795
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    61.74723,
+    86.82462
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    49.77206,
+    62.01339
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    61.43544,
+    88.45605
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    66.0082,
+    109.35107
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    102.41687,
+    119.3794
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    67.67545,
+    75.9129
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    72.53919,
+    84.4879
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    67.19392,
+    70.788
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    67.2776,
+    70.85567
+   ],
+   "fujifilm_c200": [
+    0.0,
+    88.29912,
+    109.13102
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    51.30185,
+    51.28203
+   ],
+   "fujifilm_xtra_400": [
+    0.0,
+    91.53481,
+    114.20876
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    89.19438,
+    80.91732
+   ],
+   "kodak_gold_200": [
+    0.0,
+    70.61156,
+    72.43796
+   ],
+   "kodak_portra_160": [
+    0.0,
+    71.52658,
+    73.09952
+   ],
+   "kodak_portra_400": [
+    0.0,
+    64.29923,
+    71.31833
+   ],
+   "kodak_portra_800": [
+    0.0,
+    76.62518,
+    81.66331
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    76.54755,
+    82.42251
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    76.41874,
+    82.42326
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    71.74285,
+    76.98288
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    72.21862,
+    82.83381
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    53.91003,
+    65.79712
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    59.10059,
+    63.91262
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    53.4032,
+    66.65744
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    59.22365,
+    68.27587
+   ]
+  }
+ },
+ "kodak_ektacolor_edge": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0.0,
+    41.40343,
+    39.99434
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    33.2516,
+    35.73678
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    39.19068,
+    53.89
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    35.48657,
+    53.14179
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    54.82908,
+    53.31486
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    33.04579,
+    44.35882
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    46.56732,
+    59.83613
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    32.61003,
+    37.32811
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    46.55177,
+    61.46589
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    52.74737,
+    81.75267
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    85.77546,
+    92.20081
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    50.0195,
+    51.00394
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    59.91328,
+    57.85219
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    54.64258,
+    46.10328
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    54.58979,
+    46.05999
+   ],
+   "fujifilm_c200": [
+    0.0,
+    73.5565,
+    85.20464
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    36.69801,
+    28.2821
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    73.85934,
+    59.07059
+   ],
+   "kodak_gold_200": [
+    0.0,
+    59.0704,
+    55.67293
+   ],
+   "kodak_portra_160": [
+    0.0,
+    60.41274,
+    53.62808
+   ],
+   "kodak_portra_400": [
+    0.0,
+    52.4893,
+    52.11232
+   ],
+   "kodak_portra_800": [
+    0.0,
+    65.9177,
+    65.37377
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    65.80022,
+    66.06657
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    65.69665,
+    66.08068
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    59.27601,
+    59.06242
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    63.54564,
+    67.12149
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    34.08541,
+    37.64008
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    39.46925,
+    36.31126
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    33.43888,
+    38.94419
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    39.4634,
+    41.00677
+   ]
+  }
+ },
+ "kodak_endura_premier": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0.0,
+    48.53288,
+    45.26606
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    41.8967,
+    43.01795
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    47.13429,
+    60.43519
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    43.43598,
+    59.68073
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0,
+    60.941995,
+    59.18199
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    40.52073,
+    50.98057
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    53.10406,
+    65.31574
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    40.52561,
+    44.24216
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    52.89802,
+    66.76166
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    59.93723,
+    86.72269
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    92.3851,
+    97.18075
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    56.64219,
+    56.49113
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    66.86184,
+    62.97097
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    61.63464,
+    51.65259
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    61.6348,
+    51.60515
+   ],
+   "fujifilm_c200": [
+    0.0,
+    78.92859,
+    89.22505
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    42.30311,
+    32.67154
+   ],
+   "fujifilm_xtra_400": [
+    0.0,
+    81.52477,
+    94.29453
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    74.90932,
+    58.76921
+   ],
+   "kodak_gold_200": [
+    0.0,
+    60.98982,
+    56.24187
+   ],
+   "kodak_portra_160": [
+    0.0,
+    61.91188,
+    53.13506
+   ],
+   "kodak_portra_400": [
+    0.0,
+    54.65587,
+    52.28786
+   ],
+   "kodak_portra_800": [
+    0.0,
+    67.18019,
+    65.02222
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    67.07609,
+    65.71491
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    66.96601,
+    65.72398
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    61.49112,
+    59.70943
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    64.37245,
+    65.85275
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    43.15853,
+    45.04822
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    48.41239,
+    43.80324
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    42.62883,
+    46.53359
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    48.24109,
+    48.38309
+   ]
+  }
+ },
+ "kodak_portra_endura": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0,
+    37.879434,
+    35.848515
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    28.94459,
+    29.46398
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    34.73811,
+    47.63095
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    31.07789,
+    46.88857
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    50.25043,
+    47.66299
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    28.90392,
+    39.02612
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    42.36299,
+    54.1081
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    28.16689,
+    31.45414
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    42.08249,
+    55.65756
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    47.84739,
+    74.47356
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    81.65787,
+    86.45779
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    46.71767,
+    45.86372
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    55.23236,
+    51.12125
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    49.74881,
+    39.54494
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    49.75457,
+    39.54059
+   ],
+   "fujifilm_c200": [
+    0.0,
+    69.56345,
+    80.33987
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    33.4095,
+    23.62904
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    72.96056,
+    57.5521
+   ],
+   "kodak_gold_200": [
+    0.0,
+    57.69247,
+    53.29342
+   ],
+   "kodak_portra_160": [
+    0.0,
+    59.50535,
+    51.04026
+   ],
+   "kodak_portra_400": [
+    0.0,
+    51.13062,
+    48.9702
+   ],
+   "kodak_portra_800": [
+    0.0,
+    64.98114,
+    63.37223
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    64.86243,
+    64.04303
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    64.75881,
+    64.05513
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    57.81608,
+    56.50472
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    62.9247,
+    64.81829
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    29.87317,
+    31.37413
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    35.18763,
+    30.22348
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    29.16099,
+    32.70649
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    35.24274,
+    35.14313
+   ]
+  }
+ },
+ "kodak_supra_endura": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0.0,
+    36.08618,
+    36.2043
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    28.00508,
+    32.45854
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    33.80202,
+    50.59563
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    30.15565,
+    49.8548
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    49.27272,
+    50.66057
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    27.89235,
+    41.99973
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    41.37829,
+    57.07665
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    27.15024,
+    34.41994
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    41.09233,
+    58.59753
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0.0,
+    47.12796,
+    77.48297
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0.0,
+    80.79868,
+    89.44445
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    45.69181,
+    48.84517
+   ],
+   "lomography_color_100_fotufilm": [
+    0.0,
+    54.36619,
+    54.13464
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    48.72264,
+    42.38577
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    48.78194,
+    42.36967
+   ],
+   "fujifilm_c200": [
+    0.0,
+    68.6936,
+    83.34648
+   ],
+   "fujifilm_pro_400h": [
+    0.0,
+    32.32598,
+    26.61619
+   ],
+   "fujifilm_xtra_400": [
+    0.0,
+    69.83516,
+    87.08321
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    71.99372,
+    60.54861
+   ],
+   "kodak_gold_200": [
+    0.0,
+    56.70065,
+    56.28136
+   ],
+   "kodak_portra_160": [
+    0.0,
+    58.55395,
+    54.02428
+   ],
+   "kodak_portra_400": [
+    0.0,
+    50.24134,
+    51.95919
+   ],
+   "kodak_portra_800": [
+    0.0,
+    64.0798,
+    66.36456
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    63.96392,
+    67.03323
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    63.85706,
+    67.04041
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    56.88396,
+    59.49232
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    62.09372,
+    67.81797
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    28.92013,
+    34.36957
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    34.19137,
+    33.215
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    28.21476,
+    35.69913
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    34.26281,
+    38.13859
+   ]
+  }
+ },
+ "kodak_ultra_endura": {
+  "TH-KG3": {
+   "cinestill_400d_fotufilm": [
+    0,
+    45.544392,
+    43.976346
+   ],
+   "cinestill_800t_fotufilm": [
+    0.0,
+    36.70555,
+    36.64039
+   ],
+   "fujifilm_eterna_500_fotufilm": [
+    0.0,
+    41.94668,
+    54.10369
+   ],
+   "fujifilm_eterna_vivid_500_fotufilm": [
+    0.0,
+    38.24604,
+    53.33706
+   ],
+   "fujifilm_f64d_fotufilm": [
+    0.0,
+    57.80929,
+    54.21522
+   ],
+   "fujifilm_pro_160ns_fotufilm": [
+    0.0,
+    35.42199,
+    44.59847
+   ],
+   "fujifilm_reala_100_fotufilm": [
+    0.0,
+    47.9814,
+    58.93713
+   ],
+   "fujifilm_reala_500d_fotufilm": [
+    0.0,
+    35.42699,
+    37.91753
+   ],
+   "fujifilm_superia_200_fotufilm": [
+    0.0,
+    47.82528,
+    60.53004
+   ],
+   "harman_phoenix_200_fotufilm": [
+    0,
+    56.990016,
+    85.423385
+   ],
+   "kodak_aerocolor_2460_fotufilm": [
+    0,
+    89.541377,
+    96.218652
+   ],
+   "kodak_kodacolor_100_fotufilm": [
+    0.0,
+    51.4829,
+    50.09367
+   ],
+   "lomography_color_100_fotufilm": [
+    0,
+    63.926037,
+    61.674193
+   ],
+   "lomography_lomochrome_metropolis_fotufilm": [
+    0.0,
+    56.6291,
+    45.62927
+   ],
+   "lomography_lomochrome_turquoise_fotufilm": [
+    0.0,
+    56.58277,
+    45.52796
+   ],
+   "fujifilm_c200": [
+    0.0,
+    73.68375,
+    82.90949
+   ],
+   "kodak_ektar_100": [
+    0.0,
+    69.69327,
+    52.37644
+   ],
+   "kodak_gold_200": [
+    0.0,
+    55.8509,
+    49.88198
+   ],
+   "kodak_portra_160": [
+    0.0,
+    56.68113,
+    46.71474
+   ],
+   "kodak_portra_400": [
+    0.0,
+    49.41497,
+    45.92544
+   ],
+   "kodak_portra_800": [
+    0.0,
+    61.88886,
+    58.62297
+   ],
+   "kodak_portra_800_push1": [
+    0.0,
+    61.78032,
+    59.31662
+   ],
+   "kodak_portra_800_push2": [
+    0.0,
+    61.67113,
+    59.32725
+   ],
+   "kodak_ultramax_400": [
+    0.0,
+    56.28265,
+    53.34534
+   ],
+   "kodak_verita_200d": [
+    0.0,
+    59.02509,
+    59.47192
+   ],
+   "kodak_vision3_200t": [
+    0.0,
+    37.94056,
+    38.63026
+   ],
+   "kodak_vision3_250d": [
+    0.0,
+    43.23694,
+    37.39008
+   ],
+   "kodak_vision3_500t": [
+    0.0,
+    37.41178,
+    40.12014
+   ],
+   "kodak_vision3_50d": [
+    0.0,
+    43.06528,
+    41.98189
    ]
   }
  }

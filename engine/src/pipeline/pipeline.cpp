@@ -406,9 +406,11 @@ bool Pipeline::build(const Params& params, std::string& error) {
     if (params_.film_render.dir_couplers.active) {
         double matrix[9];
         dir_couplers_matrix(params_.film_render.dir_couplers, matrix);
+        const auto saturation = dir_saturation(film, params_.film_render.dir_couplers);
+        const bool positive = film.info.is_positive();
         Vec curves0;
         density_curves_before_dir_couplers(film.normalized_curves, film.data.log_exposure, matrix,
-                                           film.info.is_positive(), curves0);
+                                           positive, saturation, curves0);
         InterpTables t;
         build_interp_tables(film.data.log_exposure, gamma, curves0, t);
         baked_.coupler_curve_x = gpu_->upload_persistent_f32(t.x.data(), t.x.size(), error);
@@ -416,10 +418,10 @@ bool Pipeline::build(const Params& params, std::string& error) {
         baked_.coupler_curve_y = gpu_->upload_persistent_f32(t.y.data(), t.y.size(), error);
         baked_.coupler_matrix = gpu_->upload_persistent_f32(matrix, 9, error);
         baked_.coupler_dmax = gpu_->upload_persistent_f32(film.density_max, 3, error);
-        const double shift[1] = {0.0};   // high_exposure_couplers_shift, unused today
-        baked_.coupler_shift = gpu_->upload_persistent_f32(shift, 1, error);
-        if (!baked_.coupler_curve_x || !baked_.coupler_matrix || !baked_.coupler_dmax ||
-            !baked_.coupler_shift) return false;
+        baked_.coupler_saturation = gpu_->upload_persistent_f32(saturation.terms, 6, error);
+        baked_.coupler_receiver_saturation = positive && saturation.active;
+        if (!baked_.coupler_curve_x || !baked_.coupler_curve_inv || !baked_.coupler_curve_y ||
+            !baked_.coupler_matrix || !baked_.coupler_dmax || !baked_.coupler_saturation) return false;
     }
 
     // --- grain -------------------------------------------------------------
@@ -620,6 +622,7 @@ bool Pipeline::build(const Params& params, std::string& error) {
     node_count_ += 1;                                                    // crop_rescale
     node_count_ += scene_latitude_wanted() ? 1 : 0;                      // RFC-023
     node_count_ += camera_tone_wanted() ? 1 : 0;
+    node_count_ += local_camera_tone_wanted() ? 1 : 0;
     node_count_ += 1;                                                    // upsample
     node_count_ += 1;                                                    // exposure
     node_count_ += 1;                                                    // boost
@@ -1487,7 +1490,7 @@ bool Pipeline::node_dir_couplers(const Image& cmy, const Image& log_raw, Image& 
     if (!gpu_->dispatch("spk_couplers_correction",
                         {gpu::Arg::buf(cmy.buf), gpu::Arg::buf(baked_.coupler_matrix),
                          gpu::Arg::buf(baked_.coupler_dmax), gpu::Arg::inline_bytes(pos, 1),
-                         gpu::Arg::buf(baked_.coupler_shift), gpu::Arg::inline_bytes(n, 1),
+                         gpu::Arg::buf(baked_.coupler_saturation), gpu::Arg::inline_bytes(n, 1),
                          gpu::Arg::buf(corr.buf)},
                         cmy.pixels(), error)) return false;
 
@@ -1498,11 +1501,18 @@ bool Pipeline::node_dir_couplers(const Image& cmy, const Image& log_raw, Image& 
         corr = diffused;
     }
 
-    double a[3], b[3];
-    fill3(a, 1.0);
-    fill3(b, -1.0);
     Image log_raw_0;
-    if (!blur_.lincomb(log_raw, corr, a, b, log_raw_0, error)) return false;
+    if (baked_.coupler_receiver_saturation) {
+        if (!alloc_like(log_raw, log_raw_0, error)) return false;
+        if (!gpu_->dispatch("spk_couplers_receiver_subtract",
+                            {gpu::Arg::buf(log_raw.buf), gpu::Arg::buf(corr.buf),
+                             gpu::Arg::buf(baked_.coupler_saturation), gpu::Arg::inline_bytes(n, 1),
+                             gpu::Arg::buf(log_raw_0.buf)}, cmy.pixels(), error)) return false;
+    } else {
+        const double a[3] = {1.0, 1.0, 1.0};
+        const double b[3] = {-1.0, -1.0, -1.0};
+        if (!blur_.lincomb(log_raw, corr, a, b, log_raw_0, error)) return false;
+    }
     return curve_interp(log_raw_0, baked_.coupler_curve_x, baked_.coupler_curve_inv,
                         baked_.coupler_curve_y, baked_.film_curve_k, out, error);
 }
@@ -1537,6 +1547,10 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
     }
     Timer t(this, "filming.develop.grain");
     const double px = pixel_size_um_;
+    // The softness control keeps its existing scale at a 6 µm sample pitch.
+    // Convert its film-space radius to pixels for the current render tier.
+    constexpr double softness_reference_pitch_um = 6.0;
+    const double softness_sigma_px = g.blur * softness_reference_pitch_um / px;
     // `grain_sampler = "exact"` pins the realisation so an A/B is meaningful;
     // "stochastic" is the product path, where a fresh grain per render is the
     // honest answer. Either way the *distribution* at every density is the
@@ -1658,9 +1672,9 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
         if (!blur_.affine(grain, s, t0, scaled, error)) return false;
         grain = Image{}; // no later read; pending GPU work retains/reclaims safely
         if (params_.settings.striped && overscan_wanted() && !gpu_->flush(error)) return false;
-        if (g.blur > kMinEffectiveBlurSigma) {
+        if (softness_sigma_px > kMinEffectiveBlurSigma) {
             double sigma[3];
-            fill3(sigma, g.blur);
+            fill3(sigma, softness_sigma_px);
             return blur_.gaussian(scaled, sigma, out, error);
         }
         out = scaled;
@@ -1699,9 +1713,9 @@ bool Pipeline::grain_realise(const Image& in, Image& out, std::string& error) {
     // The last affine still names it until submission completes. Complete
     // that work now so the final blur can reuse it instead of another canvas.
     if (params_.settings.striped && overscan_wanted() && !gpu_->flush(error)) return false;
-    if (g.blur > 0.0) {
+    if (softness_sigma_px > 0.0) {
         double sigma[3];
-        fill3(sigma, g.blur);
+        fill3(sigma, softness_sigma_px);
         return blur_.gaussian(shifted, sigma, out, error);
     }
     out = shifted;
@@ -2059,6 +2073,8 @@ bool Pipeline::film_prefix(const Image& in, const FrameShape& frame, Image& cur,
     SPK_NODE(node_decode_input(cur, next, error)); cur = next;
     SPK_NODE(node_geometry(cur, next, error)); cur = next;
     SPK_NODE(node_auto_exposure(cur, next, error)); cur = next;
+    // Local tone needs one shared base for the entire metered frame.
+    if (local_camera_tone_wanted()) { SPK_NODE(node_local_camera_tone(cur, next, error)); cur = next; }
 
     // `preprocess.crop_rescale`: at the shipped defaults its only job is to
     // fix the film's pixel pitch, which every micrometre-specified effect

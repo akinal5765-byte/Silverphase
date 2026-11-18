@@ -342,7 +342,7 @@ final class FrontendPolicyTests: XCTestCase {
     /// caught by `type` rather than by someone remembering this test.
     func testTheCatalogueKnowsWhichFilmsAreSlides() {
         let catalog = StockCatalog.shared
-        let positives = catalog.films.filter(\.isPositive).map(\.id).sorted()
+        let positives = catalog.films.filter { $0.isPositive && !$0.isExperimental }.map(\.id).sorted()
         XCTAssertEqual(positives, ["fujifilm_provia_100f", "fujifilm_velvia_100",
                                    "kodak_ektachrome_100", "kodak_kodachrome_64"])
         for film in catalog.films where film.isPositive {

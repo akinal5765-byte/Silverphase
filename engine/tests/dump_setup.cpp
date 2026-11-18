@@ -174,11 +174,13 @@ int main(int argc, char** argv) {
 
             double matrix[9];
             dir_couplers_matrix(params.film_render.dir_couplers, matrix);
-            d.add(p + "dir_matrix", matrix, 9);
             Vec curves0;
             density_curves_before_dir_couplers(params.film.normalized_curves,
                                                params.film.data.log_exposure, matrix,
-                                               params.film.info.is_positive(), curves0);
+                                               params.film.info.is_positive(),
+                                               dir_saturation(params.film, params.film_render.dir_couplers),
+                                               curves0);
+            d.add(p + "dir_matrix", matrix, 9);
             d.add(p + "curves_before_couplers", curves0);
 
             Vec morphed;

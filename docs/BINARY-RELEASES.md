@@ -23,7 +23,11 @@ update checker also recognizes older unprefixed tags that carry a macOS DMG.
   Gatekeeper disablement is needed. Apple's [opening-app guidance](https://support.apple.com/102445)
   describes the system controls; local security policies may restrict them.
 
-macOS 1.2.0 (build 4) prepares Lightroom Classic single-photo external editing.
+The current macOS source version is **1.3.0 (build 5)**. See the
+[1.3.0 source release notes](../modern_UI/Spektrafilm/releases/1.3.0.md) for
+changes and verification. Use the Releases page above for installable versions.
+
+macOS 1.2.0 (build 4) introduced Lightroom Classic single-photo external editing.
 Install Silverphase in Applications and select it under Lightroom's additional
 external editor settings; no separate `.lrplugin` is needed. See the
 [illustrated guide](LIGHTROOM-CLASSIC.md) and [source version notes](../modern_UI/Spektrafilm/releases/1.2.0.md).

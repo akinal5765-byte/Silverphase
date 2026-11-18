@@ -125,27 +125,93 @@ void dir_couplers_matrix(const DirCouplersParams& p, double out[9]) {
     for (int i = 0; i < 9; ++i) out[i] *= p.amount;
 }
 
+// Amplitude-matched Langmuir response from Spektrafilm experimental (28bf883),
+// as used by Negs (97d63aa, crates/spektrafilm-model/src/couplers.rs).
+double DirSaturation::apply(int channel, double value) const {
+    const double knee = terms[channel];
+    return knee > 0.0 ? value * (knee + terms[3 + channel]) / (knee + value) : value;
+}
+
+DirSaturation dir_saturation(const Profile& film, const DirCouplersParams& params) {
+    DirSaturation saturation;
+    if (!film.info.stock.ends_with("_fotufilm") || film.info.is_monochrome()) return saturation;
+    saturation.active = true;
+    if (!film.info.is_positive()) {
+        for (int c = 0; c < 3; ++c) {
+            saturation.terms[c] = film.density_max[c];
+            saturation.terms[3 + c] = 0.5 * film.density_max[c];
+        }
+        return saturation;
+    }
+
+    auto unit = params;
+    unit.amount = 1.0;
+    double matrix[9];
+    dir_couplers_matrix(unit, matrix);
+    for (int c = 0; c < 3; ++c) {
+        double reference = 0.0;
+        for (int donor = 0; donor < 3; ++donor)
+            reference += 0.5 * film.density_max[donor] * matrix[3 * donor + c];
+        saturation.terms[c] = 2.0 * reference;
+        saturation.terms[3 + c] = reference;
+    }
+    return saturation;
+}
+
 void density_curves_before_dir_couplers(const Vec& curves, const Vec& log_exposure,
-                                        const double matrix[9], bool positive, Vec& out) {
+                                        double matrix[9], bool positive,
+                                        const DirSaturation& saturation, Vec& out) {
     const size_t k = log_exposure.size();
     // Positive film: interimage effects act in the silver development stage,
     // and silver density is taken as d_max - d.
     Vec silver(k * 3, 0.0);
     double dmax[3];
     for (int c = 0; c < 3; ++c) dmax[c] = nanmax(curves.data() + c, k, 3);
-    for (size_t i = 0; i < k; ++i)
-        for (int c = 0; c < 3; ++c)
-            silver[3 * i + size_t(c)] = positive ? dmax[c] - curves[3 * i + size_t(c)]
-                                                 : curves[3 * i + size_t(c)];
-
-    // log_exposure_0[:, m] = log_exposure - sum_k silver[:, k] * matrix[k, m]
-    Vec le0(k * 3, 0.0);
-    for (size_t i = 0; i < k; ++i)
-        for (int m = 0; m < 3; ++m) {
-            double amount = 0.0;
-            for (int kk = 0; kk < 3; ++kk) amount += silver[3 * i + size_t(kk)] * matrix[3 * kk + m];
-            le0[3 * i + size_t(m)] = log_exposure[i] - amount;
+    for (size_t i = 0; i < k; ++i) {
+        for (int c = 0; c < 3; ++c) {
+            const double density = curves[3 * i + size_t(c)];
+            silver[3 * i + size_t(c)] = positive ? dmax[c] - density : saturation.apply(c, density);
         }
+    }
+
+    // The shifted exposure axis must be invertible. Negs checks this when
+    // fitting stock presets (tools/fotufilm_port/fold_check.py at 97d63aa).
+    // Check the effective response here too, since an edit can raise the amount.
+    Vec inhibitor(k * 3, 0.0);
+    for (size_t i = 0; i < k; ++i)
+        for (int m = 0; m < 3; ++m)
+            for (int donor = 0; donor < 3; ++donor)
+                inhibitor[3 * i + size_t(m)] += silver[3 * i + size_t(donor)] * matrix[3 * donor + m];
+
+    Vec le0(k * 3, 0.0);
+    const auto shift_axis = [&](double scale) {
+        bool increasing = true;
+        for (size_t i = 0; i < k; ++i) {
+            for (int m = 0; m < 3; ++m) {
+                const size_t j = 3 * i + size_t(m);
+                const double amount = inhibitor[j] * scale;
+                le0[j] = log_exposure[i] - (positive ? saturation.apply(m, amount) : amount);
+                if (i > 0 && !(le0[j] > le0[j - 3])) increasing = false;
+            }
+        }
+        return increasing;
+    };
+    if (!shift_axis(1.0)) {
+        double lo = 0.0, hi = 1.0;
+        for (int step = 0; step < 24; ++step) {
+            const double mid = (lo + hi) * 0.5;
+            if (shift_axis(mid)) lo = mid;
+            else hi = mid;
+        }
+        // Back off from the fold so near-identical exposure samples stay
+        // separated. Scale the runtime matrix by the same amount.
+        double scale = lo * 0.98;
+        if (!shift_axis(scale)) {
+            scale = lo;
+            shift_axis(scale);
+        }
+        for (int j = 0; j < 9; ++j) matrix[j] *= scale;
+    }
 
     out.assign(k * 3, 0.0);
     Vec xs(k), ys(k);

@@ -6,6 +6,10 @@ below are complete. This review records source preparation and validation; it
 does not announce a binary release or a repository visibility change. Git history,
 original licence texts and the adopted upstream NOTICE are preserved.
 
+The catalog and test counts below describe the 2026-10-31 review. The
+[macOS 1.3.0 record](../modern_UI/Spektrafilm/releases/1.3.0.md) documents
+the current version, public material additions and verification.
+
 ## Public source scope
 
 | Area | Current state |

@@ -162,12 +162,17 @@ kernel void spk_lut2d_cubic(device const float* tc [[buffer(0)]],
     out[3u * i] = acc.x * bv; out[3u * i + 1u] = acc.y * bv; out[3u * i + 2u] = acc.z * bv;
 }
 
+inline float dir_langmuir(float value, device const float* terms, uint c) {
+    const float knee = terms[c];
+    return knee > 0.0f ? value * (knee + terms[3u + c]) / (knee + value) : value;
+}
+
 // The DIR-coupler correction field, before its spatial diffusion.
 kernel void spk_couplers_correction(device const float* cmy [[buffer(0)]],
                                     device const float* m [[buffer(1)]],
                                     device const float* dmax [[buffer(2)]],
                                     device const uint* pos [[buffer(3)]],
-                                    device const float* shift [[buffer(4)]],
+                                    device const float* saturation [[buffer(4)]],
                                     device const uint* n [[buffer(5)]],
                                     device float* out [[buffer(6)]],
                                     uint3 thread_position_in_grid [[thread_position_in_grid]]) {
@@ -175,11 +180,28 @@ kernel void spk_couplers_correction(device const float* cmy [[buffer(0)]],
     if (i >= n[0]) return;
     float c0 = cmy[3u * i], c1 = cmy[3u * i + 1u], c2 = cmy[3u * i + 2u];
     if (pos[0] != 0u) { c0 = dmax[0] - c0; c1 = dmax[1] - c1; c2 = dmax[2] - c2; }
-    float sh = shift[0];
-    c0 += sh * c0 * c0; c1 += sh * c1 * c1; c2 += sh * c2 * c2;
+    else {
+        c0 = dir_langmuir(c0, saturation, 0u);
+        c1 = dir_langmuir(c1, saturation, 1u);
+        c2 = dir_langmuir(c2, saturation, 2u);
+    }
     out[3u * i]      = c0 * m[0] + c1 * m[3] + c2 * m[6];
     out[3u * i + 1u] = c0 * m[1] + c1 * m[4] + c2 * m[7];
     out[3u * i + 2u] = c0 * m[2] + c1 * m[5] + c2 * m[8];
+}
+
+// Reversal film saturates the inhibitor arriving after spatial diffusion.
+kernel void spk_couplers_receiver_subtract(device const float* log_raw [[buffer(0)]],
+                                          device const float* correction [[buffer(1)]],
+                                          device const float* saturation [[buffer(2)]],
+                                          device const uint* n [[buffer(3)]],
+                                          device float* out [[buffer(4)]],
+                                          uint3 tid [[thread_position_in_grid]]) {
+    if (tid.x >= n[0]) return;
+    for (uint c = 0; c < 3u; ++c) {
+        const uint i = 3u * tid.x + c;
+        out[i] = log_raw[i] - dir_langmuir(correction[i], saturation, c);
+    }
 }
 
 // The fused spectral integral. 3-in / 3-out, so the wavelength axis never

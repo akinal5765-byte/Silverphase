@@ -40,7 +40,7 @@ struct GrainParams {
     double particle_scale_layers[3] = {2.0, 1.0, 0.5};
     double density_min[3] = {0.03, 0.03, 0.03};
     double uniformity[3] = {0.97, 0.99, 0.97};
-    double blur = 0.65;
+    double blur = 0.65;  // Grain softness as sigma at a 6 µm sample pitch.
     double blur_dye_clouds_um = 1.0;
     double micro_structure[2] = {0.2, 30.0};
     int n_sub_layers = 1;
@@ -307,6 +307,15 @@ struct CameraParams {
     double tone_shadows = 0.0;
     double tone_whites = 0.0;
     double tone_blacks = 0.0;
+    double local_tone_brights = 0.0;
+    double local_tone_darks = 0.0;
+    double prep_exposure_ev = 0.0;
+    double prep_contrast = 0.0;
+    double prep_lift = 0.0;
+    double prep_gain = 0.0;
+    double prep_detail = 0.0;
+    double prep_vibrance = 0.0;
+    double prep_saturation = 0.0;
 };
 
 struct EnlargerParams {

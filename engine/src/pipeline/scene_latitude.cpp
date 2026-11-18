@@ -41,6 +41,67 @@ bool Pipeline::node_camera_tone(const Image& in, Image& out, std::string& error)
                           in.pixels(), error);
 }
 
+bool Pipeline::local_camera_tone_wanted() const {
+    const auto& camera = params_.camera;
+    return !params_.debug.lut_mode && !params_.debug.deactivate_spatial_effects &&
+           !params_.film_render.overscan.pair &&
+           (camera.local_tone_brights != 0.0 || camera.local_tone_darks != 0.0 ||
+            camera.prep_exposure_ev != 0.0 || camera.prep_contrast != 0.0 ||
+            camera.prep_lift != 0.0 || camera.prep_gain != 0.0 || camera.prep_detail != 0.0 ||
+            camera.prep_vibrance != 0.0 || camera.prep_saturation != 0.0);
+}
+
+bool Pipeline::node_local_camera_tone(const Image& in, Image& out, std::string& error) {
+    // Independent Metal implementation of the local base/detail idea in
+    // Negs Prep (yosoyelchris / noahhaasis/negs, 13b1a5d). Use a compact
+    // log-luminance grid and our own response instead of its Rec.709 LUT.
+    Timer t(this, "filming.expose.local_camera_tone");
+    const auto& c = params_.camera;
+    const bool spatial = c.local_tone_brights != 0.0 || c.local_tone_darks != 0.0 || c.prep_detail != 0.0;
+    const uint32_t edge = std::max(in.w, in.h);
+    const uint32_t grid_edge = std::min(edge, 512u);
+    const uint32_t w = spatial ? std::max(1u, uint32_t(uint64_t(in.w) * grid_edge / edge)) : 0;
+    const uint32_t h = spatial ? std::max(1u, uint32_t(uint64_t(in.h) * grid_edge / edge)) : 0;
+    const uint32_t shape[] = {in.w, in.h, w, h};
+    const float y[] = {float(rgb_to_xyz_ae_.m[1][0]), float(rgb_to_xyz_ae_.m[1][1]),
+                       float(rgb_to_xyz_ae_.m[1][2]), float(slm::kMidgray)};
+    const float gain[] = {float(1.4 * c.local_tone_brights / 100.0), float(1.4 * c.local_tone_darks / 100.0)};
+    const float tone[] = {float(c.prep_contrast / 100.0), float(c.prep_lift / 100.0),
+                          float(c.prep_gain / 100.0), float(c.prep_detail / 100.0)};
+    const float colour[] = {float(std::exp2(c.prep_exposure_ev)), float(c.prep_vibrance / 100.0),
+                            float(c.prep_saturation / 100.0), 0.0f};
+    Image coefficients;
+    if (spatial) {
+        const uint32_t count = w * h;
+        Image grid;
+        grid.w = w; grid.h = h;
+        grid.buf = gpu_->alloc(grid.bytes(), error);
+        if (!grid.buf) return false;
+        if (!gpu_->dispatch("spk_local_tone_moments",
+                            {gpu::Arg::buf(in.buf), gpu::Arg::inline_bytes(shape, 4), gpu::Arg::inline_bytes(y, 4),
+                             gpu::Arg::inline_bytes(colour, 1), gpu::Arg::buf(grid.buf)}, count, error))
+            return false;
+
+        const double radius = std::max(0.65, 0.009 * grid_edge);
+        const double sigma[] = {radius, radius, 0.0};
+        Image means;
+        if (!blur_.gaussian(grid, sigma, means, error)) return false;
+        if (!gpu_->dispatch("spk_local_tone_fit",
+                            {gpu::Arg::buf(means.buf), gpu::Arg::inline_bytes(&count, 1),
+                             gpu::Arg::buf(grid.buf)}, count, error)) return false;
+        means = {};
+        if (!blur_.gaussian(grid, sigma, coefficients, error)) return false;
+    }
+    if (!alloc_like(in, out, error)) return false;
+    // The pointwise path never reads coefficients; bind an existing buffer since
+    // Metal still requires the argument, without allocating a fake grid.
+    return gpu_->dispatch("spk_local_tone_apply",
+                          {gpu::Arg::buf(in.buf), gpu::Arg::buf(spatial ? coefficients.buf : in.buf),
+                           gpu::Arg::inline_bytes(shape, 4), gpu::Arg::inline_bytes(y, 4), gpu::Arg::inline_bytes(gain, 2),
+                           gpu::Arg::inline_bytes(tone, 4), gpu::Arg::inline_bytes(colour, 4),
+                           gpu::Arg::buf(out.buf)}, in.pixels(), error);
+}
+
 bool Pipeline::scene_latitude_wanted() const {
     const SceneLatitudeParams& s = params_.camera.scene_latitude;
     // The print LUT bake renders a neutral chain; a scene transform has no

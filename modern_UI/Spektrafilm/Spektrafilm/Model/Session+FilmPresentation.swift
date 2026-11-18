@@ -65,16 +65,13 @@ extension Session {
     }
 
     func filmCanvasLogicalSize(_ texture: MTLTexture, previewEdge: Int? = nil) -> CGSize? {
-        guard params.filmPresentationActive else { return decoded?.pixelSize ?? displaySourceSize }
         guard let source = decoded?.pixelSize ?? displaySourceSize else { return nil }
-        var picture = geometry.outputSize(for: source)
-        if params.filmEdge.effective {
-            let gate = params.filmEdge.gateMM
-            let aspect = picture.width >= picture.height ? gate.long / gate.short : gate.short / gate.long
-            picture.width = min(picture.width, picture.height * aspect)
-            picture.height = picture.width / aspect
+        let picture = FilmCanvasInput.pictureSize(source, params: params, geometry: geometry)
+        if !params.filmPresentationActive {
+            guard let target = params.filmImageLongEdge else { return source }
+            return (try? FilmCanvasInput.workingSize(source: source, crop: picture, longEdge: target)) ?? source
         }
-        let long = max(picture.width, picture.height)
+        let long = (halfFramePair == nil ? params.filmImageLongEdge.map { CGFloat($0) } : nil) ?? max(picture.width, picture.height)
         let k = max(1, long / CGFloat(previewEdge ?? previewLongEdge))
         return CGSize(width: CGFloat(texture.width) * k, height: CGFloat(texture.height) * k)
     }

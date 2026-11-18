@@ -39,14 +39,15 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
     /// engine performs happily and nobody wants.
     var isPositive: Bool { type == "positive" }
     /// Stable catalog identity, independent of localized display names.
-    var isExperimental: Bool { isFilm && id.hasSuffix("_experimental") }
+    var isLocalExperimental: Bool { isFilm && id.hasSuffix("_experimental") }
+    var isExperimental: Bool { isLocalExperimental || (isFilm && id.hasSuffix("_fotufilm")) }
     var brand: String { name.split(separator: " ").first.map(String.init) ?? "" }
     /// Generated packaging artwork, separate from legacy catalog cover metadata.
     var packagingArtworkURL: URL? {
         let baseID = id == "kodak_portra_800_push1" || id == "kodak_portra_800_push2" ? "kodak_portra_800" : id
         let version = baseID == "kodak_portra_400" ? "v2" : "v1"
         return StockCatalog.bundle.url(forResource: baseID + "-packaging-" + version,
-                                       withExtension: "png", subdirectory: StockCatalog.resourceDirectory + (isExperimental ? "/LocalMaterials/FilmCovers" : "/FilmCovers"))
+                                       withExtension: "png", subdirectory: StockCatalog.resourceDirectory + (isLocalExperimental ? "/LocalMaterials/FilmCovers" : "/FilmCovers"))
     }
     var coverURL: URL? {
         cover.flatMap { StockCatalog.bundle.url(forResource: $0, withExtension: nil, subdirectory: StockCatalog.resourceDirectory + "/FilmCovers") }
@@ -79,7 +80,7 @@ struct StockCatalog: Sendable {
                 .flatMap { try? JSONDecoder().decode(Wrapper.self, from: $0) }?.stocks ?? []
             let publicIDs = Set(decoded.stocks.map(\.id))
             return StockCatalog(stocks: decoded.stocks + local.filter {
-                $0.isExperimental && !publicIDs.contains($0.id)
+                $0.isLocalExperimental && !publicIDs.contains($0.id)
             })
         }
         return StockCatalog(stocks: [])
@@ -120,8 +121,11 @@ struct StockCatalog: Sendable {
     /// filter.
     var filmGroups: [(title: String, films: [Stock])] {
         let ordered = filmsForPicker
-        return [("Positive", ordered.filter(\.isPositive)),
-                ("Negative", ordered.filter { !$0.isPositive })]
+        var groups = [("Positive", ordered.filter { $0.isPositive && !$0.isExperimental }),
+                      ("Negative", ordered.filter { !$0.isPositive && !$0.isExperimental })]
+        let experimental = ordered.filter(\.isExperimental)
+        if !experimental.isEmpty { groups.append(("Experimental", experimental)) }
+        return groups
     }
 
     /// Papers grouped for the picker: Still, then Cine.

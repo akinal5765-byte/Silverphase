@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-11-09. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-18. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -13,18 +13,19 @@ original scope. Documentation review is not a new performance or visual audit.
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | Downloads, unsigned IPA and unnotarized DMG | [Binary releases](BINARY-RELEASES.md) |
-| iOS 1.2.1 candidate, validation and known limits | [1.2.1 preparation](../ios/releases/1.2.1.md) |
+| macOS 1.3.0 source changes and validation | [1.3.0 preparation](../modern_UI/Spektrafilm/releases/1.3.0.md) |
+| iOS 1.2.5 source version and submission checks | [1.2.5 preparation](../ios/releases/1.2.5.md) |
 | App Store preparation, privacy and user support | [Release preparation](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
 | CineStill 800T adoption and validation scope | [Dated adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
 | Lightroom Classic external editing, setup and tone boundaries | [Illustrated workflow](LIGHTROOM-CLASSIC.md) / [macOS 1.2.0](../modern_UI/Spektrafilm/releases/1.2.0.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
-| Desktop acceptance and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
+| Desktop acceptance, 5219 reference and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
 | Mobile build, in-app camera capture, RAW import, print animation, export and diagnostics | [iOS engineering](../ios/README.md) |
 | iOS lock-screen camera activation limitation (unresolved) | [iOS engineering](../ios/README.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
 | Ordinary iPhone layout screenshots | [2026-11-02 simulator captures](../screenshots/ios/2026-11-02/README.md) |
 | Mobile layout and controls | [DESIGN](../ios/DESIGN.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
-| Private local materials and public-build exclusion | [Local material overlay](LOCAL-MATERIALS.md) |
+| Public experimental Fotufilm profiles and the private local overlay | [Data sources](../license/DATA-SOURCES.md#experimental-fotufilm-profiles) / [Local material overlay](LOCAL-MATERIALS.md) |
 | B&W profile origin and limitations | [B&W notes](../engine/tools/profile_sources/blackwhite.md) / [provenance](../engine/resources_product/UPSTREAM.json) |
 | Film edge/date-back model | [Film-edge notes](../engine/tools/profile_sources/film_edge.md) |
 | Production icon and design iterations | [Icon guide](../design/app-icon/README.md) |

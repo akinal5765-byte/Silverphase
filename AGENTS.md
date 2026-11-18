@@ -1,6 +1,6 @@
 # AGENTS.md — working notes for Silverphase
 
-Current repository guidance, reviewed 2026-11-09. Silverphase is an independent
+Current repository guidance, reviewed 2026-11-18. Silverphase is an independent
 derivative of SpektraLab. Preserve Git history, GPL / CC BY-SA obligations,
 and visible credit to Hanze Qiu and Andrea Volpato. `upstream` is the original
 SpektraLab repository: never push there. Commit or push only when asked.
@@ -10,8 +10,9 @@ SpektraLab repository: never push there. Commit or push only when asked.
 - [README.md](README.md) / [README.en.md](README.en.md): current product and builds.
 - [docs/README.md](docs/README.md): global documentation index and authority.
 - [ARCHITECTURE.md](ARCHITECTURE.md): desktop, iOS, shared engine and ownership.
-- [macOS guide](modern_UI/Spektrafilm/README.md) and
-  [validation](modern_UI/Spektrafilm/VALIDATION.md).
+- [macOS guide](modern_UI/Spektrafilm/README.md),
+  [validation](modern_UI/Spektrafilm/VALIDATION.md), and
+  [1.3.0 release preparation](modern_UI/Spektrafilm/releases/1.3.0.md).
 - [iOS guide](ios/README.md), [design](ios/DESIGN.md),
   [control audit](ios/CONTROL-AUDIT.md): mobile behavior and missing features.
 - [API](API-SPEC-callable-render-service.md) and
@@ -47,7 +48,9 @@ profiles and their generators were removed from the current tree on 2026-10-31;
 do not restore them as tracked product controls. An optional ignored local-material
 overlay is staged for maintainer builds; use `SILVERPHASE_LOCAL_MATERIALS=0` for
 public builds. Never commit private profiles, generated local catalogs or covers. Product B&W profiles,
-paper-grade packs and provenance are in `engine/resources_product/`. Bundle both
+paper-grade packs, the 29 public Fotufilm profiles adapted by Negs, and their
+provenance are in `engine/resources_product/`. The Experimental category can
+include public profiles and files from the optional local overlay. Bundle both
 through the platform build script. Preserve `NOTICE.md` verbatim and maintain
 `UPSTREAM.json` plus bundled license/change notices when adopting source/data.
 The engine loads the merged bundle, not `resources_product/` directly. Do not
@@ -73,6 +76,14 @@ RAW equivalence. Automatic exposure remains a recipe choice. UI event sender
 identification, cold/warm launches, cancel/error recovery and preview/save
 consistency need their own validation; passing input-retention tests is partial
 coverage. No native ABI/schema version changed for this host integration.
+
+## macOS 1.3.0 camera preparation
+
+Camera-brightness matching uses a photo-local baseline. Only its
+switch transfers in the Camera clipboard group. Simulation Size is photo-local
+geometry and reopens the native session with a resampled linear input. Keep both
+controls separate from material data. The desktop version and build number are
+set in `modern_UI/Spektrafilm/Tools/gen-project.py`.
 
 ## Build and verify
 

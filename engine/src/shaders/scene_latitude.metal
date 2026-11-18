@@ -115,3 +115,109 @@ kernel void spk_camera_tone(device const float* rgb [[buffer(0)]],
     out[3u * i + 1u] = c.g;
     out[3u * i + 2u] = c.b;
 }
+
+// Local camera tone: estimate a self-guided base on a small log-luminance grid.
+// The full-resolution application only samples the fitted coefficients, retaining
+// the original RGB and its texture. No display curve or gamut clipping here.
+inline float local_tone_luma(float3 rgb, float3 y, float grey) {
+    return clamp(log2(max(dot(max(rgb, 0.0f), y), grey * exp2(-16.0f)) / grey), -16.0f, 16.0f);
+}
+
+kernel void spk_local_tone_moments(device const packed_float3* rgb [[buffer(0)]],
+                                   constant uint4& shape [[buffer(1)]],
+                                   constant float4& luminance [[buffer(2)]],
+                                   constant float& exposure [[buffer(3)]],
+                                   device packed_float3* moments [[buffer(4)]],
+                                   uint i [[thread_position_in_grid]]) {
+    if (i >= shape.z * shape.w) return;
+    uint2 xy = uint2(i % shape.z, i / shape.z);
+    uint2 start = xy * shape.xy / shape.zw;
+    uint2 end = (xy + 1u) * shape.xy / shape.zw;
+    float sum = 0.0f;
+    float squared = 0.0f;
+    for (uint y = start.y; y < end.y; ++y) {
+        for (uint x = start.x; x < end.x; ++x) {
+            float3 c = float3(rgb[y * shape.x + x]) * exposure;
+            if (!all(isfinite(c))) c = float3(luminance.w);
+            float l = local_tone_luma(c, luminance.xyz, luminance.w);
+            sum += l;
+            squared += l * l;
+        }
+    }
+    float count = float((end.x - start.x) * (end.y - start.y));
+    moments[i] = float3(sum / count, squared / count, 0.0f);
+}
+
+kernel void spk_local_tone_fit(device const packed_float3* moments [[buffer(0)]],
+                               constant uint& count [[buffer(1)]],
+                               device packed_float3* coefficients [[buffer(2)]],
+                               uint i [[thread_position_in_grid]]) {
+    if (i >= count) return;
+    float2 m = float3(moments[i]).xy;
+    float variance = max(m.y - m.x * m.x, 0.0f);
+    float a = variance / (variance + 0.36f);
+    coefficients[i] = float3(a, (1.0f - a) * m.x, 0.0f);
+}
+
+kernel void spk_local_tone_apply(device const packed_float3* rgb [[buffer(0)]],
+                                 device const packed_float3* coefficients [[buffer(1)]],
+                                 constant uint4& shape [[buffer(2)]],
+                                 constant float4& luminance [[buffer(3)]],
+                                 constant float2& gains [[buffer(4)]],
+                                 constant float4& tone [[buffer(5)]],
+                                 constant float4& colour [[buffer(6)]],
+                                 device packed_float3* out [[buffer(7)]],
+                                 uint i [[thread_position_in_grid]]) {
+    if (i >= shape.x * shape.y) return;
+    float3 source = rgb[i];
+    float3 c = source * colour.x;
+    if (!all(isfinite(c))) { out[i] = source; return; }
+
+    // Colour-only and exposure-only edits do not need log luminance or a grid.
+    if (shape.z > 0u || any(tone.xyz != 0.0f)) {
+        float x = local_tone_luma(c, luminance.xyz, luminance.w);
+        float delta = 0.0f;
+        if (shape.z > 0u) {
+            float2 uv = (float2(i % shape.x, i / shape.x) + 0.5f) * float2(shape.zw) / float2(shape.xy) - 0.5f;
+            uv = clamp(uv, 0.0f, float2(shape.zw - 1u));
+            uint2 lo = uint2(uv);
+            uint2 hi = min(lo + 1u, shape.zw - 1u);
+            float2 t = uv - float2(lo);
+            float3 a = mix(float3(coefficients[lo.y * shape.z + lo.x]),
+                           float3(coefficients[lo.y * shape.z + hi.x]), t.x);
+            float3 b = mix(float3(coefficients[hi.y * shape.z + lo.x]),
+                           float3(coefficients[hi.y * shape.z + hi.x]), t.x);
+            float2 fit = mix(a, b, t.y).xy;
+            float base = clamp(fit.x * x + fit.y, x - 1.5f, x + 1.5f);
+
+            // Move the local base in stops, leaving its residual alone unless
+            // the midtone detail control explicitly changes it.
+            float bright = min(smoothstep(0.0f, 2.2f, base), smoothstep(0.0f, 2.2f, x));
+            float dark = min(smoothstep(0.0f, 2.2f, -base), smoothstep(0.0f, 2.2f, -x));
+            dark *= smoothstep(-10.0f, -5.0f, x);
+            delta = gains.x * bright + gains.y * dark;
+            if (tone.w != 0.0f) {
+                float mid = 1.0f - smoothstep(0.4f, 3.0f, abs(base + delta));
+                delta += 0.65f * tone.w * mid * (x - base);
+            }
+        }
+        // Broad global contrast about middle grey, then low/high end shaping.
+        // The corrections are bounded in stops and never clip HDR or create a
+        // pedestal at digital zero.
+        float e = x + delta;
+        delta += 1.6f * tone.x * e / (3.0f + abs(e));
+        e = x + delta;
+        delta += 1.4f * (tone.y * smoothstep(0.25f, 4.5f, -e)
+                      + tone.z * smoothstep(0.25f, 4.5f, e));
+        c *= exp2(delta);
+    }
+    if (colour.y != 0.0f || colour.z != 0.0f) {
+        float y = dot(c, luminance.xyz);
+        float hi = max(c.r, max(c.g, c.b));
+        float lo = min(c.r, min(c.g, c.b));
+        float muted = 1.0f - clamp((hi - lo) / max(max(abs(hi), abs(lo)), 1e-4f), 0.0f, 1.0f);
+        float chroma = (1.0f + colour.z) * (1.0f + 0.85f * colour.y * muted);
+        c = float3(y) + chroma * (c - float3(y));
+    }
+    out[i] = all(isfinite(c)) ? c : source;
+}

@@ -183,6 +183,32 @@ final class SettingsClipboardTests: XCTestCase {
 
     // MARK: - settings, not solved numbers
 
+    func testCameraBrightnessPasteTransfersTheSwitchAndKeepsOffsetsLocal() {
+        var original = source()
+        original.params.cameraTone.matchesCameraBrightness = true
+        original.params.cameraTone.matchedCameraExposure = 0.8
+        original.params.cameraTone.prepExposure = -0.2
+        XCTAssertEqual(original.params.cameraTone.effectivePrepExposure, 0.6, accuracy: 1e-9)
+
+        let on = SettingsClip(groups: [.camera], settings: original, sourceName: "src").applied(to: target())
+        XCTAssertEqual(on.params.cameraTone.matchesCameraBrightness, true)
+        XCTAssertNil(on.params.cameraTone.matchedCameraExposure)
+        XCTAssertEqual(on.params.cameraTone.effectivePrepExposure, 0, accuracy: 1e-9)
+
+        var adjusted = on
+        adjusted.params.cameraTone.matchedCameraExposure = 1.2
+        adjusted.params.cameraTone.prepExposure = 0.1
+        let repasted = SettingsClip(groups: [.camera], settings: original, sourceName: "src").applied(to: adjusted)
+        XCTAssertEqual(repasted.params.cameraTone.prepExposure, 0.1)
+        XCTAssertEqual(repasted.params.cameraTone.matchedCameraExposure, 1.2)
+
+        original.params.cameraTone.matchesCameraBrightness = nil
+        let off = SettingsClip(groups: [.camera], settings: original, sourceName: "src").applied(to: repasted)
+        XCTAssertNil(off.params.cameraTone.matchesCameraBrightness)
+        XCTAssertNil(off.params.cameraTone.matchedCameraExposure)
+        XCTAssertEqual(off.params.cameraTone.effectivePrepExposure, 1.3, accuracy: 1e-9)
+    }
+
     func testAsShotWhiteBalancePastesTheWordNotTheSourcesKelvin() {
         var s = source()
         s.decode.whiteBalance = .asShot

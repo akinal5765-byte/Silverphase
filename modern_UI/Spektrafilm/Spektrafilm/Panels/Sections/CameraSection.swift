@@ -49,6 +49,7 @@ import SwiftUI
 
 struct CameraSection: View {
     @Bindable var session: Session
+    @State private var editingLegacyTone = false
 
     var body: some View {
         PanelSection(L(.sectionCamera), key: "camera",
@@ -67,12 +68,46 @@ struct CameraSection: View {
                                            set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
                             range: -4...4, snap: 1 / 3, format: { String(format: "%+.2f", $0) })
             }
-            InspectorSubblock(title: T("Tone", "影调", "影調"), menu: { AnyView(toneMenu) }) {
-                RailRows {
-                    toneRow(T("Highlights", "高光", "高光"), \.highlights)
-                    toneRow(T("Shadows", "阴影", "陰影"), \.shadows)
-                    toneRow(T("Whites", "白色色阶", "白色色階"), \.whites)
-                    toneRow(T("Blacks", "黑色色阶", "黑色色階"), \.blacks)
+            if session.halfFramePair == nil {
+                InspectorSubblock(title: T("Prep Tone", "入片影调", "入片影調"), menu: { AnyView(toneMenu) }) {
+                    RailRows {
+                        if session.canMatchCameraBrightness { cameraBrightnessRow }
+                        prepExposureRow
+                        prepRow(T("Brights", "亮部", "亮部"), \.localBrights,
+                                help: T("Adjusts local bright areas while retaining texture.", "调整局部亮部，保留纹理。", "調整局部亮部，保留紋理。"))
+                        prepRow(T("Darks", "暗部", "暗部"), \.localDarks,
+                                help: T("Adjusts local shadows while protecting the deepest blacks.", "调整局部暗部，保护最深的黑位。", "調整局部暗部，保護最深的黑位。"))
+                        prepRow(T("Contrast", "对比度", "對比度"), \.prepContrast,
+                                help: T("Expands or compresses tones around middle grey.", "以中灰为中心拉开或收拢影调。", "以中灰為中心拉開或收攏影調。"))
+                        prepRow(T("Lift", "低端提升", "低端提升"), \.prepLift,
+                                help: T("Adjusts the low end of the scene globally.", "整体调整场景影调的低端。", "整體調整場景影調的低端。"))
+                        prepRow(T("Gain", "高端增益", "高端增益"), \.prepGain,
+                                help: T("Adjusts the high end of the scene globally.", "整体调整场景影调的高端。", "整體調整場景影調的高端。"))
+                    }
+                }
+                InspectorSubblock(title: T("Prep Detail", "入片细节", "入片細節")) {
+                    RailRows {
+                        prepRow(T("Midtone Detail", "中间调细节", "中間調細節"), \.prepDetail,
+                                help: T("Strengthens or softens local texture near the midtones.", "加强或柔化中间调的局部纹理。", "加強或柔化中間調的局部紋理。"))
+                    }
+                }
+                InspectorSubblock(title: T("Prep Colour", "入片色彩", "入片色彩")) {
+                    RailRows {
+                        prepRow(T("Colour Boost", "色彩增强", "色彩增強"), \.prepVibrance,
+                                help: T("Adjusts muted colours more than strong colours.", "优先调整较淡的颜色。", "優先調整較淡的顏色。"))
+                        prepRow(T("Saturation", "饱和度", "飽和度"), \.prepSaturation,
+                                help: T("Adjusts all colours before film exposure.", "在入片前整体调整饱和度。", "在入片前整體調整飽和度。"))
+                    }
+                }
+            }
+            if editingLegacyTone || session.params.cameraTone.hasLegacyAdjustments || session.halfFramePair != nil {
+                InspectorSubblock(title: T("Legacy Tone", "旧影调", "舊影調"), menu: { AnyView(legacyToneMenu) }) {
+                    RailRows {
+                        toneRow(T("Highlights", "高光", "高光"), \.highlights)
+                        toneRow(T("Shadows", "阴影", "陰影"), \.shadows)
+                        toneRow(T("Whites", "白色色阶", "白色色階"), \.whites)
+                        toneRow(T("Blacks", "黑色色阶", "黑色色階"), \.blacks)
+                    }
                 }
             }
             if session.halfFramePair == nil {
@@ -116,6 +151,7 @@ struct CameraSection: View {
                 }
             }
         }
+        .onChange(of: session.selection) { editingLegacyTone = false }
     }
 
     /// "As Shot ☐" under Exposure Compensation — the line the drawing puts under the
@@ -139,11 +175,68 @@ struct CameraSection: View {
         }
     }
 
+    private var cameraBrightnessRow: some View {
+        ToggleRow(label: T("Match Camera Preview Brightness", "匹配相机预览亮度", "比對相機預覽亮度"),
+                  isOn: Binding(get: { session.params.cameraTone.matchesCameraBrightness == true },
+                                set: { session.setCameraBrightnessMatching($0) }),
+                  labelFont: Theme.Font.label,
+                  help: T("Matches the camera preview once for this photo. Turn off and on to match again.",
+                          "按相机预览为此照片匹配一次。关闭后再开启即可重新匹配。",
+                          "按相機預覽為此照片比對一次。關閉後再開啟即可重新比對。"))
+    }
+
+    private var matchedExposureReadout: String? {
+        let tone = session.params.cameraTone
+        guard session.canMatchCameraBrightness, tone.matchesCameraBrightness == true else { return nil }
+        let message = session.cameraBrightnessMessage
+        if !message.isEmpty { return message }
+        guard let match = tone.matchedCameraExposure else { return nil }
+        let automatic = String(format: "%+.2f", match)
+        if tone.matchedCameraHighlightLimited == true {
+            return T("Starts at \(automatic) EV to protect highlights.",
+                     "起始曝光 \(automatic) EV，提亮受高光保护限制。",
+                     "起始曝光 \(automatic) EV，提亮受高光保護限制。")
+        }
+        return T("Matched starting exposure: \(automatic) EV.",
+                 "匹配后的起始曝光为 \(automatic) EV。",
+                 "比對後的起始曝光為 \(automatic) EV。")
+    }
+
+    private var prepExposureRow: some View {
+        let tone = session.params.cameraTone
+        let match = session.canMatchCameraBrightness && tone.matchesCameraBrightness == true
+            ? tone.matchedCameraExposure : nil
+        return ScrubSlider(label: T("Prep Exposure", "入片曝光", "入片曝光"),
+                           sublabel: matchedExposureReadout,
+                           value: Binding(get: { session.params.cameraTone.effectivePrepExposure }, set: { total in
+                               var params = session.params
+                               let offset = total - params.cameraTone.cameraExposureBaseline
+                               params.cameraTone.prepExposure = abs(offset) < 1e-9 ? nil : offset
+                               session.params = params
+                           }),
+                           range: -3...3, referenceValue: match, snap: 0.05,
+                           format: { String(format: "%+.2f EV", $0) })
+            .help(prepExposureHelp)
+    }
+
+    private var prepExposureHelp: String {
+        if session.canMatchCameraBrightness && session.params.cameraTone.matchesCameraBrightness == true {
+            return T("Shows the applied exposure. The orange tick marks the matched starting exposure.",
+                     "显示实际入片曝光。滑杆内的橙色短线标记匹配后的起始曝光。",
+                     "顯示實際入片曝光。滑桿內的橘色短線標記比對後的起始曝光。")
+        }
+        return T("Changes scene brightness without print exposure compensation.",
+                 "整体调整入片亮度，不参与印相曝光补偿。",
+                 "整體調整入片亮度，不參與印相曝光補償。")
+    }
+
     private var toneMenu: some View {
         Group {
-            Button(T("Reset Tone", "重置影调", "重設影調")) {
+            Button(T("Reset Prep", "重置入片调整", "重設入片調整")) {
                 var p = session.params
-                p.cameraTone = CameraTone()
+                let old = p.cameraTone
+                p.cameraTone = CameraTone(highlights: old.highlights, shadows: old.shadows,
+                                          whites: old.whites, blacks: old.blacks)
                 session.params = p
             }
             if session.halfFramePair == nil && session.params.sceneLatitude.active {
@@ -154,16 +247,42 @@ struct CameraSection: View {
         }
     }
 
+    private var legacyToneMenu: some View {
+        Button(T("Reset Legacy Tone", "重置旧影调", "重設舊影調")) {
+            var p = session.params
+            p.cameraTone.highlights = 0
+            p.cameraTone.shadows = 0
+            p.cameraTone.whites = 0
+            p.cameraTone.blacks = 0
+            editingLegacyTone = false
+            session.params = p
+        }
+    }
+
     private func toneRow(_ title: String, _ keyPath: WritableKeyPath<CameraTone, Double>) -> some View {
         ScrubSlider(label: title, value: Binding(
             get: { session.params.cameraTone[keyPath: keyPath] },
             set: { value in
                 var p = session.params
+                editingLegacyTone = true
                 p.cameraTone[keyPath: keyPath] = value
                 session.params = p
             }), range: CameraTone.range, zero: 0, snap: 1,
             format: { String(format: "%+.0f", $0) })
             .help(T("Adjusts scene tones before film exposure.", "在胶片曝光前调整场景影调。", "在膠片曝光前調整場景影調。"))
+    }
+
+    private func prepRow(_ title: String, _ keyPath: WritableKeyPath<CameraTone, Double?>,
+                         help: String) -> some View {
+        ScrubSlider(label: title, value: Binding(
+            get: { session.params.cameraTone[keyPath: keyPath] ?? 0 },
+            set: { value in
+                var p = session.params
+                p.cameraTone[keyPath: keyPath] = value == 0 ? nil : value
+                session.params = p
+            }), range: CameraTone.range, zero: 0, snap: 1,
+            format: { String(format: "%+.0f", $0) })
+            .help(help)
     }
 
     private var whiteBalanceMenu: some View {
