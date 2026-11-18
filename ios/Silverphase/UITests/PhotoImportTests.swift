@@ -406,6 +406,29 @@ final class PhotoImportTests: XCTestCase {
         app.terminate()
     }
 
+    @MainActor func testAboutShowsLayerlightWithoutScrolling() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--about-ui", "-mobile.language", "english"]
+        app.launch()
+        defer { app.terminate() }
+
+        let menu = app.buttons["library.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.tap()
+        app.buttons["About Silverphase"].tap()
+        let promo = app.descendants(matching: .any)["related-app.layerlight"].firstMatch
+        XCTAssertTrue(promo.waitForExistence(timeout: 5))
+        XCTAssertTrue(promo.isHittable)
+        XCTAssertTrue(app.frame.contains(promo.frame))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "About first screen"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        app.buttons["Open-source Licences & Credits"].tap()
+        XCTAssertTrue(app.staticTexts["Silverphase-GPL-3.0.txt"].waitForExistence(timeout: 5))
+    }
+
     @MainActor func testLibraryNativeToolbarLayout() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]

@@ -1004,30 +1004,71 @@ struct MobileAbout: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Silverphase") {
-                    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-                        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-                        LabeledContent(T("Version", "版本", "版本"), value: build.map { "\(version) (\($0))" } ?? version)
+                MobileRelatedAppSection(compact: true)
+                Section {
+                    NavigationLink(T("Open-source Licences & Credits", "开源许可与署名", "開源授權與署名")) {
+                        licenceDetails
                     }
-                    Text(T("Built on Hanze Qiu's native SpektraLab application and Andrea Volpato's spektrafilm physical model and measured profiles. Silverphase is an independent derivative.", "基于 Hanze Qiu 的 SpektraLab 原生应用与 Andrea Volpato 的 spektrafilm 物理模型及实测配置。Silverphase 为独立衍生项目。", "基於 Hanze Qiu 的 SpektraLab 原生應用與 Andrea Volpato 的 spektrafilm 物理模型及實測設定檔。Silverphase 為獨立衍生項目。"))
-                }
-                MobileSupportSection()
-                MobileRelatedAppSection()
-                Section(T("Open-source licences and credits", "开源许可与署名", "開源授權與署名")) {
-                    ForEach(licenseURLs, id: \.self) { url in
-                        NavigationLink(url.lastPathComponent) { ScrollView { Text((try? String(contentsOf: url, encoding: .utf8)) ?? T("The licence file could not be read", "无法读取许可文件", "無法讀取授權檔案"))
-                            .font(.caption).textSelection(.enabled).padding() }.mobilePageBackground().navigationTitle(url.lastPathComponent) }
+                    NavigationLink(T("Support & Privacy", "支持与隐私", "支援與隱私")) {
+                        Form { MobileSupportSection() }
+                            .mobilePageBackground()
+                            .navigationTitle(T("Support & Privacy", "支持与隐私", "支援與隱私"))
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                    Link(destination: URL(string: "https://github.com/akinal5765-byte/Silverphase")!) {
+                        HStack {
+                            Text(T("Source Code on GitHub", "GitHub 源代码", "GitHub 原始碼"))
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                } footer: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let version {
+                            Text(T("Version \(version)", "版本 \(version)", "版本 \(version)"))
+                                .accessibilityIdentifier("about.version")
+                        }
+                        Text(T("An independent derivative of Hanze Qiu’s SpektraLab and Andrea Volpato’s spektrafilm.", "基于 Hanze Qiu 的 SpektraLab 与 Andrea Volpato 的 spektrafilm 的独立衍生项目。", "基於 Hanze Qiu 的 SpektraLab 與 Andrea Volpato 的 spektrafilm 的獨立衍生專案。"))
                     }
                 }
             }
             .mobilePageBackground()
             .navigationTitle(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 MobilePageClose(folded: folded, title: T("Close about", "关闭关于", "關閉關於"),
                                 identifier: "about.close") { dismiss() }
             }
         }
     }
+    private var version: String? {
+        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else { return nil }
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        return build.map { "\(version) (\($0))" } ?? version
+    }
+
+    private var licenceDetails: some View {
+        Form {
+            ForEach(licenseURLs, id: \.self) { url in
+                NavigationLink(url.lastPathComponent) {
+                    ScrollView {
+                        Text((try? String(contentsOf: url, encoding: .utf8)) ?? T("The licence file could not be read", "无法读取许可文件", "無法讀取授權檔案"))
+                            .font(.caption).textSelection(.enabled).padding()
+                    }
+                    .mobilePageBackground()
+                    .navigationTitle(url.lastPathComponent)
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+        }
+        .mobilePageBackground()
+        .navigationTitle(T("Licences & Credits", "许可与署名", "授權與署名"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
     private var licenseURLs: [URL] {
         guard let folder = Bundle.main.url(forResource: "Licenses", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else { return [] }
         return ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []).sorted { $0.lastPathComponent < $1.lastPathComponent }
