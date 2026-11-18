@@ -342,6 +342,8 @@ struct MobileSupportSection: View {
 }
 
 struct MobileRelatedAppSection: View {
+    var compact = false
+
     private static let layerlightURL = URL(string: "https://apps.apple.com/app/id6756343255")!
     private static let layerlightIcon: CGImage? = {
         guard let url = Bundle.main.url(forResource: "layerlight-icon", withExtension: "png"),
@@ -352,41 +354,64 @@ struct MobileRelatedAppSection: View {
     var body: some View {
         Section(T("More from the developer", "开发者的其他应用", "開發者的其他應用程式")) {
             Link(destination: Self.layerlightURL) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 12) {
-                        Group {
-                            if let icon = Self.layerlightIcon {
-                                Image(decorative: icon, scale: 1)
-                                    .renderingMode(.original)
-                                    .resizable()
-                                    .scaledToFit()
-                            } else {
-                                Image(systemName: "camera.aperture")
-                                    .resizable()
-                                    .scaledToFit()
-                            }
-                        }
-                        .frame(width: 56, height: 56)
-                        .accessibilityHidden(true)
-                        Text(T("Layerlight · HDR photo editor", "Layerlight · HDR 图片编辑器", "Layerlight · HDR 照片編輯器"))
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
-                    }
-                    Text(T("Adds HDR light and depth to photos, and adjusts photographic styles in the iOS Photos app.", "为照片增添 HDR 光影层次，还可在 iOS「照片」中调整摄影风格。", "為照片增添 HDR 光影層次，還可在 iOS「照片」中調整攝影風格。"))
-                        .foregroundStyle(.secondary)
-                    Text(T("Photographic styles need a supported device and system version. Some features require Pro.", "摄影风格需受支持的设备与系统。部分功能需 Pro。", "攝影風格需受支援的裝置與系統。部分功能需 Pro。"))
-                        .foregroundStyle(.secondary)
-                    Label(T("View in the App Store", "在 App Store 查看", "在 App Store 檢視"), systemImage: "arrow.up.right")
-                        .foregroundStyle(MobileStyle.accent)
-                }
-                .font(.body)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
-                .contentShape(Rectangle())
+                if compact { compactLabel } else { fullLabel }
             }
             .accessibilityIdentifier("related-app.layerlight")
             .accessibilityHint(T("Opens Layerlight's page in the App Store", "打开 Layerlight 的 App Store 页面", "開啟 Layerlight 的 App Store 頁面"))
         }
+    }
+
+    private var fullLabel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                icon.frame(width: 56, height: 56)
+                Text(T("Layerlight · HDR photo editor", "Layerlight · HDR 图片编辑器", "Layerlight · HDR 照片編輯器"))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+            }
+            Text(T("Adds HDR light and depth to photos, and adjusts photographic styles in the iOS Photos app.", "为照片增添 HDR 光影层次，还可在 iOS「照片」中调整摄影风格。", "為照片增添 HDR 光影層次，還可在 iOS「照片」中調整攝影風格。"))
+                .foregroundStyle(.secondary)
+            Text(T("Photographic styles need a supported device and system version. Some features require Pro.", "摄影风格需受支持的设备与系统。部分功能需 Pro。", "攝影風格需受支援的裝置與系統。部分功能需 Pro。"))
+                .foregroundStyle(.secondary)
+            Label(T("View in the App Store", "在 App Store 查看", "在 App Store 檢視"), systemImage: "arrow.up.right")
+                .foregroundStyle(MobileStyle.accent)
+        }
+        .font(.body)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+    }
+
+    private var compactLabel: some View {
+        HStack(spacing: 12) {
+            icon.frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Layerlight").font(.body.weight(.semibold))
+                Text(T("HDR photo editor · Some features require Pro", "HDR 图片编辑器 · 部分功能需 Pro", "HDR 照片編輯器 · 部分功能需 Pro"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            Image(systemName: "arrow.up.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+        .foregroundStyle(.primary)
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+    }
+
+    private var icon: some View {
+        Group {
+            if let icon = Self.layerlightIcon {
+                Image(decorative: icon, scale: 1).resizable().scaledToFit()
+            } else {
+                Image(systemName: "camera.aperture").resizable().scaledToFit()
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
