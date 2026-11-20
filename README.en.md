@@ -11,9 +11,8 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> · English ·
-  <a href="#download">Download</a> · <a href="screenshots/current/README.md">Examples</a> ·
-  <a href="docs/README.md">Documentation</a> · <a href="#build-from-source">Build from source</a> ·
-  <a href="#also-by-the-author-layerlight">Layerlight</a>
+  <a href="#download">Download</a> · <a href="#editing-workflow">Editing workflow</a> ·
+  <a href="#release-notes">Release notes</a> · <a href="docs/README.md">Documentation</a>
 </p>
 
 Silverphase simulates **camera input → film exposure → development → printing → scanning** on device. Film and paper shape the result together. Grain, halation, and film edges form within the process. Deliver a finished image or export a Cineon intermediate that preserves film contrast for grading.
@@ -36,42 +35,48 @@ Layerlight and its icon retain their separate rights and are outside Silverphase
 
 ## Download
 
-| Platform | Version and download | Requirements |
+| Platform | Download | Requirements |
 |---|---|---|
 | macOS | [1.3.0 (build 5)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · Apple silicon DMG | macOS 15 or later |
 | iPhone and iPad | [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp) | iOS or iPadOS 18 or later |
 
-On macOS, check for updates in Settings → Software Update. The GitHub DMG is ad-hoc signed and has no Apple notarization. See the [release guide](docs/BINARY-RELEASES.md) for installation and SHA-256 verification. Silverphase is available on the App Store outside mainland China. The App Store and TestFlight show the versions available through each channel.
+On macOS, check for updates in Settings → Software Update. The GitHub DMG uses an ad-hoc signature and has no Apple notarization. [Installation and checksum guide](docs/BINARY-RELEASES.md)
 
-## What's new in macOS 1.3.0
+The iPhone and iPad app is available on the App Store outside mainland China. The App Store and TestFlight each show the version available through that channel.
 
-- **Pre-film controls.** Adjust local brights and darks, exposure, contrast, lift, gain, midtone detail, color boost, and saturation. Existing photos retain their saved tone settings.
-- **Match Camera Preview Brightness.** Supported RAW files can use the camera preview to set their starting exposure. Batch copying can carry the switch while each photo keeps its own fine-tuning.
-- **Experimental stocks and print balance.** Adds 29 Fotufilm profiles adapted by Negs. Shared engine updates cover spectral adaptation, DIR, neutral print filtration, and grain softness.
-- **Output.** JPEG, PNG, and TIFF exports carry the photo’s XMP star rating. For heavy crops that need a large output, Film → Frame ⋯ → Simulation Size generates grain and halation at the target size.
+## Editing workflow
 
-See the [1.3.0 release notes](modern_UI/Spektrafilm/releases/1.3.0.md) for the full changes and Kodak 5219 validation scope.
-
-## Edit and deliver
-
-1. **Open a photo.** Open a file or folder on macOS. Import from Photos or Files, or use the in-app camera, on iPhone and iPad. RAW compatibility depends on the Apple system decoder.
+1. **Open a photo.** Use a rendered image or a supported RAW original. RAW compatibility depends on the Apple system decoder.
 2. **Choose materials.** The public catalog contains 25 standard film profiles, 9 papers, and 29 experimental films. Print a negative or select a direct scan. Ilford Multigrade IV RC supports grades 00–5. [Full catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [Experimental profile provenance and scope](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
-3. **Adjust the process.** Control metering, white balance, development, grain, halation, physical frame size, and print filtration. Add film edges and date stamps. macOS also offers soft proofing and two-photo half-frame compositions. [macOS guide](modern_UI/Spektrafilm/README.md)
+3. **Adjust the process.** Control metering, white balance, development, grain, halation, physical frame size, and print filtration. Add film edges and date stamps.
 4. **Export.** Deliver a JPEG, 8-bit PNG, or 16-bit TIFF with your chosen color profile. The Cineon DI package provides a 16-bit log TIFF plus ProPhoto RGB and Rec.709 viewing LUTs for grading. [Export and DI guide](modern_UI/Spektrafilm/README.md#图像与输出边界)
 
-Lightroom Classic can send a single JPEG or TIFF copy to the macOS editor. Save writes the full-resolution result back to the registered copy. Lightroom’s tone rendering is baked into the input. [Illustrated setup and workflow](docs/LIGHTROOM-CLASSIC.md)
+## Platform features
+
+### macOS
+
+Work with folders, soft-proof images, and create two-photo half-frame compositions. Simulation Size lets you set the long edge after cropping so grain and halation are generated at the target size. Lightroom Classic can hand off a single JPEG or TIFF copy, and Save writes the full-resolution result back to that copy. The input retains Lightroom’s tone rendering. [macOS guide](modern_UI/Spektrafilm/README.md) · [Lightroom Classic workflow](docs/LIGHTROOM-CLASSIC.md)
 
 ### iPhone and iPad
 
-The mobile editor provides a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. iOS 1.3.0 (build 10) adds pre-film adjustments, RAW camera preview brightness matching, and star ratings in JPEG, PNG and TIFF exports. [GitHub release notes](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) · [Source and validation notes](ios/releases/1.3.0.md). See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for capture workflows, viewfinder modes, and device limitations.
+Import from Photos or Files, or use the in-app camera. The editor has a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. [iOS guide](ios/README.md) · [Controls and device limitations](ios/CONTROL-AUDIT.md)
 
-### Examples
+## Examples
 
 The desktop image below is from the October 2026 examples. The [case gallery](screenshots/current/README.md) includes multiple stocks, 100% grain crops, and halation comparisons. The platform guides describe current control locations.
 
 ![Earlier Portra 400 lotus example](screenshots/current/silverphase-lotus-2026-10-31.jpg)
 
-## Build from source
+## Release notes
+
+| Platform | 1.3.0 release notes |
+|---|---|
+| macOS (build 5) | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · [Changes and Kodak 5219 validation](modern_UI/Spektrafilm/releases/1.3.0.md) |
+| iOS and iPadOS (build 10) | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) · [Source and validation notes](ios/releases/1.3.0.md) |
+
+On both platforms, 1.3.0 adds pre-film controls, camera preview brightness matching for supported RAW files, and XMP star ratings in JPEG, PNG and TIFF exports. The shared catalogue adds 29 experimental film profiles, and the shared engine updates spectral adaptation, DIR, neutral print filtration, and grain softness. Existing edits retain their saved legacy tone settings.
+
+## Documentation and builds
 
 Both hosts use SwiftUI and a shared C++20/Metal engine. Python is used by development scripts. Image processing runs on the device.
 
@@ -91,18 +96,19 @@ See the [iOS guide](ios/README.md) for the project, device signing, and simulato
 
 ## Acknowledgements and licences
 
-Thank you to Andrea Volpato for creating **spektrafilm**, which provides the physical model for film exposure, development, and printing, along with the original measured film and paper data. [spektrafilm](https://github.com/andreavolpato/spektrafilm)
-
-Thank you to Hanze Qiu for creating **SpektraLab**, which brought the spektrafilm model into an interactive film simulation tool. Silverphase is an independent derivative of SpektraLab. [SpektraLab](https://github.com/JamesQiu2005/SpektraLab)
+- [spektrafilm](https://github.com/andreavolpato/spektrafilm) · Thank you to Andrea Volpato for the physical model of film exposure, development, and printing, and the original measured film and paper data.
+- [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) · Thank you to Hanze Qiu for bringing the spektrafilm model into an interactive film simulation tool. Silverphase is an independent derivative of SpektraLab.
+- [Negs](https://github.com/noahhaasis/negs) · Thank you to Noah Haasis for Negs and to [yosoyelchris](https://github.com/yosoyelchris) for contributing pre-film controls and camera brightness matching. Thank you to MUAStudio’s [Fotufilm](https://fotufilm.com) for the original experimental film profiles.
 
 [Licences and credits](LICENSES.md) · [Material data sources](license/DATA-SOURCES.md)
 
-### Thanks to Negs
-
-Thank you to Noah Haasis’s [Negs](https://github.com/noahhaasis/negs) and to [yosoyelchris](https://github.com/yosoyelchris), who contributed Prep and camera brightness matching to Negs. Silverphase 1.3.0 draws on Negs in the following areas.
+<details>
+<summary>What Silverphase 1.3.0 draws on from Negs</summary>
 
 - **Pre-film controls and camera brightness matching** · We drew on Negs’s tone, detail, and color adjustments and its use of the camera preview to fit each RAW file’s starting exposure. [Negs Prep](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/prep.md) · [Negs credits](https://github.com/noahhaasis/negs#credits)
 - **Simulation Size and star ratings in exports** · We drew on Negs’s pre-film linear resampling and the practice of writing photo ratings to `xmp:Rating` in finished exports. [Negs Image Size](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/image-size.md) · [Negs library and export features](https://github.com/noahhaasis/negs#a-darkroom-in-a-window)
 - **29 experimental film profiles** · We adopted Negs’s conversions of MUAStudio’s [Fotufilm](https://fotufilm.com) profiles and selected development and print parameters. [Profile sources and licensing](license/DATA-SOURCES.md#experimental-fotufilm-profiles) · [Pinned source and file provenance](engine/resources_product/UPSTREAM.json)
 - **Shared engine calibration** · We drew on Negs’s implementation of the experimental Spektrafilm model for DIR saturation, Hanatos spectral-window normalization, and the neutral print filter solver. [DIR](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-model/src/couplers.rs) · [Spectral adaptation](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/spectral_service.rs) · [Print balance](https://github.com/noahhaasis/negs/blob/97d63aaebca9654b041211dea9eebd55dd12b878/crates/spektrafilm-core/src/print_balance.rs)
 - **Stage-by-stage validation** · Negs’s verification approach informed Silverphase’s own Kodak 5219 checks for negative density, grain, and measured spectral patches. [Negs validation report](https://github.com/noahhaasis/negs/blob/479a5674bb9d43af5c08fbd7307b367bec7bf10b/docs/gpu-vs-cpu-quality.md) · [Silverphase’s 5219 checks](modern_UI/Spektrafilm/VALIDATION.md#5219-底片与光谱色样)
+
+</details>
