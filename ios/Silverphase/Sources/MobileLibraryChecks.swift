@@ -164,6 +164,9 @@ import UniformTypeIdentifiers
             var photo = MobilePhoto(name: name, filename: "fixture-\(index).jpg")
             photo.sourceMegapixels = size.width * size.height / 1_000_000; photo.sourceAspect = size.width / size.height
             photo.recipe["exposure_compensation_ev"] = .double(documentation ? 0 : index == 0 ? 1 : -Double(index))
+            if index == 1, ProcessInfo.processInfo.arguments.contains("--legacy-simulation-fixture") {
+                photo.recipe[MobileSimulationSize.key] = .double(600)
+            }
             if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, UTType.jpeg.identifier as CFString, 1, nil) {
                 CGImageDestinationAddImage(writer, image, nil); CGImageDestinationFinalize(writer)
             }

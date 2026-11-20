@@ -16,13 +16,14 @@ struct ToolTickRuler: View {
     var height: CGFloat = 44
     var step: Double? = nil
     var resolution = 0.01
+    var referenceValue: Double? = nil
     var onPreview: (Double) -> Void
     var onDragging: (Bool) -> Void
     var onEnd: () -> Void
     var onReset: () -> Void
 
     var body: some View {
-        AnimatedToolRuler(value: $value, range: range, anchor: anchor, keyMarks: keyMarks, orientation: orientation, height: height, commitsWhileDragging: false, tickStep: step, resolution: resolution,
+        AnimatedToolRuler(value: $value, range: range, anchor: anchor, keyMarks: keyMarks, orientation: orientation, height: height, commitsWhileDragging: false, tickStep: step, resolution: resolution, referenceValue: referenceValue,
                           onPreview: onPreview, onDragging: onDragging, onEnd: onEnd, onReset: onReset)
     }
 }
@@ -38,6 +39,7 @@ private struct AnimatedToolRuler: View {
     var commitsWhileDragging = true
     var tickStep: Double? = nil
     var resolution = 0.01
+    var referenceValue: Double? = nil
     var onPreview: (Double) -> Void = { _ in }
     var onDragging: (Bool) -> Void = { _ in }
     var onEnd: () -> Void = { }
@@ -51,13 +53,14 @@ private struct AnimatedToolRuler: View {
     @State private var dragStart: Double?
     @State private var overscroll = 0.0
     @State private var lastStep: Int?
+    @State private var lastFeedback = -Double.infinity
     @State private var feedback = UIImpactFeedbackGenerator(style: .light)
     private let spacing = ToolRulerScale.spacing
     private var unitsPerTick: Double { tickStep ?? ToolRulerScale.step(in: range) }
 
     var body: some View {
         ToolRulerMarks(value: displayedValue + overscroll, range: range, spacing: spacing, unitsPerTick: unitsPerTick,
-                            anchor: anchor, keyMarks: keyMarks,
+                            anchor: anchor, keyMarks: keyMarks, referenceValue: referenceValue,
                             highlightDirection: highlightDirection, highlightStrength: highlightStrength,
                             orientation: orientation)
             .frame(width: orientation == .vertical ? 26 : nil,
@@ -92,6 +95,7 @@ private struct AnimatedToolRuler: View {
             dragStart = value
             onDragging(true)
             lastStep = Int((value / unitsPerTick).rounded())
+            lastFeedback = -Double.infinity
             feedback.prepare()
         }
         let displacement = orientation == .horizontal ? translation.width : translation.height
@@ -108,14 +112,16 @@ private struct AnimatedToolRuler: View {
         let excess = proposed - clamped
         overscroll = excess / (1 + abs(excess) / (unitsPerTick * 2)) * 0.2
         let step = Int((clamped / unitsPerTick).rounded())
-        if step != lastStep {
+        let timestamp = ProcessInfo.processInfo.systemUptime
+        if step != lastStep, timestamp - lastFeedback >= 0.065 {
             let tickValue = (clamped / unitsPerTick).rounded() * unitsPerTick
             let majorUnit = ToolRulerScale.majorStep(minor: unitsPerTick)
             let major = abs(clamped - anchor) < resolution / 2 || abs(tickValue / majorUnit - (tickValue / majorUnit).rounded()) < 1e-7
             feedback.impactOccurred(intensity: major ? 1.0 : 0.6)
             feedback.prepare()
-            lastStep = step
+            lastFeedback = timestamp
         }
+        lastStep = step
     }
 
     private func dragEnded() {
@@ -169,6 +175,7 @@ private struct ToolRulerMarks: View, Animatable {
     let unitsPerTick: Double
     let anchor: Double
     let keyMarks: [Double]
+    let referenceValue: Double?
     let highlightDirection: Double
     var highlightStrength: Double
     let orientation: ToolTickRuler.Orientation
@@ -205,6 +212,13 @@ private struct ToolRulerMarks: View, Animatable {
                 context.fill(path, with: .color(.primary.opacity((major ? 0.6 : 0.3) * (1 - highlight))))
                 context.fill(path, with: .color(MobileStyle.accent.opacity(highlight)))
 
+            }
+            if let referenceValue {
+                let position = center + (referenceValue - value) / unitsPerTick * spacing
+                let rect = orientation == .horizontal
+                    ? CGRect(x: position - 1, y: size.height - 30, width: 2, height: 6)
+                    : CGRect(x: size.width - 30, y: position - 1, width: 6, height: 2)
+                context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(MobileStyle.accent))
             }
         }
         .mask(LinearGradient(stops: [

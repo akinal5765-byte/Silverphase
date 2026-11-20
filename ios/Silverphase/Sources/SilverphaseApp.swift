@@ -231,7 +231,7 @@ import OSLog
             await MobileSmokeChecks.flatImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {
             await MobileSmokeChecks.rawImportRegression()
-        } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--cinestill-regression") {
+        } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--cinestill-regression") || ProcessInfo.processInfo.arguments.contains("--camera-prep-regression") {
             do { document.importFiles([try await MobileSmokeChecks.run()]) }
             catch { document.error = error.localizedDescription }
         }
@@ -812,7 +812,19 @@ struct MobileEditor: View {
                         .accessibilityIdentifier("editor.material-done")
                 }
                 if !exporting && !(ordinaryPhone && materials) {
-                    Menu { Button(T("Reset This Stage", "重置本工艺", "重設本工藝"), systemImage: "arrow.counterclockwise") { document.resetStage(stage) } } label: {
+                    Menu {
+                        if stage == .film, document.current?.recipe[MobileSimulationSize.key] != nil {
+                            Button(T("Restore Original Simulation Size", "恢复原始模拟尺寸", "恢復原始模擬尺寸"),
+                                   systemImage: "arrow.counterclockwise") {
+                                document.endParameterInteraction()
+                                document.resetKeys([MobileSimulationSize.key])
+                            }
+                            .accessibilityIdentifier("editor.reset-simulation-size")
+                        }
+                        Button(T("Reset This Stage", "重置本工艺", "重設本工藝"), systemImage: "arrow.counterclockwise") {
+                            document.resetStage(stage)
+                        }
+                    } label: {
                         ToolbarGlyph(symbol: "ellipsis")
                     }.tint(.primary).accessibilityLabel(T("Process actions", "工艺操作", "工藝操作"))
                 }
@@ -1009,6 +1021,9 @@ struct MobileAbout: View {
                     NavigationLink(T("Open-source Licences & Credits", "开源许可与署名", "開源授權與署名")) {
                         licenceDetails
                     }
+                    NavigationLink(T("What’s New", "版本更新", "版本更新")) {
+                        releaseNotes
+                    }
                     NavigationLink(T("Support & Privacy", "支持与隐私", "支援與隱私")) {
                         Form { MobileSupportSection() }
                             .mobilePageBackground()
@@ -1048,6 +1063,27 @@ struct MobileAbout: View {
         guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else { return nil }
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         return build.map { "\(version) (\($0))" } ?? version
+    }
+
+    private var releaseNotes: some View {
+        Form {
+            Section(T("Camera & Film", "相机与胶片", "相機與膠片")) {
+                Text(T("Adjust tone, detail and colour before exposure. Supported RAWs can use the camera preview to match their starting brightness.",
+                       "在胶片曝光前调整影调、细节和色彩。受支持的 RAW 可按相机预览匹配起始亮度。",
+                       "在膠片曝光前調整影調、細節和色彩。支援的 RAW 可按相機預覽比對起始亮度。"))
+            }
+            Section(T("Materials & Export", "材料与导出", "材料與匯出")) {
+                Text(T("Experimental includes 29 Fotufilm profiles adapted by Noah Haasis’s Negs under CC BY-SA 4.0. The shared engine also updates colour separation, grain softness and neutral print filtration.",
+                       "「实验」包含由 Noah Haasis 的 Negs 转换的 29 款 Fotufilm 配置，采用 CC BY-SA 4.0 授权。共享引擎同时更新色彩分离、颗粒柔化和中性印相滤色。",
+                       "「實驗」包含由 Noah Haasis 的 Negs 轉換的 29 款 Fotufilm 配置，採用 CC BY-SA 4.0 授權。共用引擎同時更新色彩分離、顆粒柔化和中性印相濾色。"))
+                Text(T("JPEG, PNG and TIFF exports include the library star rating.",
+                       "JPEG、PNG 和 TIFF 导出包含图库星级。",
+                       "JPEG、PNG 和 TIFF 匯出包含圖庫星級。"))
+            }
+        }
+        .mobilePageBackground()
+        .navigationTitle(T("What’s New in 1.3.0", "1.3.0 版本更新", "1.3.0 版本更新"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var licenceDetails: some View {

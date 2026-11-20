@@ -406,6 +406,72 @@ final class PhotoImportTests: XCTestCase {
         app.terminate()
     }
 
+    @MainActor func testCameraPrepAndHiddenSimulationSizeInEditor() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "-mobile.language", "english"]
+        app.launch()
+        defer { app.terminate() }
+
+        let photo = app.buttons["library.photo.来源"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 15))
+        photo.tap()
+        XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
+        let film = app.processStage("film")
+        XCTAssertTrue(film.waitForExistence(timeout: 15))
+        film.tap()
+        let panel = app.descendants(matching: .any)["editor.parameters"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        let handle = app.descendants(matching: .any)["editor.panel-resize"].firstMatch
+        let grip = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        grip.press(forDuration: 0.05, thenDragTo: grip.withOffset(CGVector(dx: 0, dy: -350)))
+        XCTAssertFalse(app.buttons["editor.simulation-size"].exists)
+
+        app.processStage("camera").tap()
+        let scroll = panel.scrollViews.firstMatch
+        let readout = app.buttons["Enter Prep Exposure · EV"]
+        let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.7))
+        let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.45))
+        for _ in 0..<6 where !readout.isHittable {
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        XCTAssertTrue(readout.isHittable, app.debugDescription)
+        readout.tap()
+        let entryAlert = app.alerts["Enter Prep Exposure · EV"]
+        XCTAssertTrue(entryAlert.waitForExistence(timeout: 5))
+        let exposure = entryAlert.textFields.firstMatch
+        let prior = exposure.value as? String ?? ""
+        exposure.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: prior.count) + "0.50")
+        entryAlert.buttons["OK"].tap()
+        let ruler = app.descendants(matching: .any)["ruler.Prep Exposure · EV"].firstMatch
+        XCTAssertEqual(ruler.value as? String, "0.50")
+        XCTAssertFalse(app.buttons["Match Camera Preview Brightness"].exists, "Rendered photos cannot match an embedded RAW preview")
+    }
+
+    @MainActor func testRestoreOriginalSimulationSizeForExistingEdit() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--legacy-simulation-fixture", "-mobile.language", "english"]
+        app.launch()
+        defer { app.terminate() }
+
+        let photo = app.buttons["library.photo.目标 A"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 15))
+        photo.tap()
+        XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
+        app.processStage("film").tap()
+        XCTAssertFalse(app.buttons["editor.simulation-size"].exists)
+        let menu = app.buttons["Process actions"]
+        menu.tap()
+        let restore = app.buttons["Restore Original Simulation Size"]
+        XCTAssertTrue(restore.waitForExistence(timeout: 5))
+        restore.tap()
+        XCTAssertTrue(restore.waitForNonExistence(timeout: 5))
+        menu.tap()
+        XCTAssertTrue(app.buttons["Reset This Stage"].waitForExistence(timeout: 5))
+        XCTAssertFalse(restore.exists)
+    }
+
     @MainActor func testAboutShowsLayerlightWithoutScrolling() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--about-ui", "-mobile.language", "english"]
@@ -425,6 +491,10 @@ final class PhotoImportTests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
+        app.buttons["What’s New"].tap()
+        let release = app.navigationBars["What’s New in 1.3.0"]
+        XCTAssertTrue(release.waitForExistence(timeout: 5))
+        release.buttons.firstMatch.tap()
         app.buttons["Open-source Licences & Credits"].tap()
         XCTAssertTrue(app.staticTexts["Silverphase-GPL-3.0.txt"].waitForExistence(timeout: 5))
     }

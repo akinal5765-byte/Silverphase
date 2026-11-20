@@ -8,7 +8,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 repo = root.parents[1]
 shared = repo / 'modern_UI/Spektrafilm/Spektrafilm/Model'
-sources = sorted((root / 'Sources').glob('*.swift')) + [shared / 'StockCatalogCore.swift', shared / 'ParamValue.swift', shared / 'Geometry.swift']
+sources = sorted((root / 'Sources').glob('*.swift')) + [shared / 'StockCatalogCore.swift', shared / 'ParamValue.swift', shared / 'Geometry.swift', shared / 'CameraBrightnessFit.swift']
 def uid(value): return hashlib.sha1(value.encode()).hexdigest()[:24].upper()
 def quote(value): return '"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
 objects = []
@@ -36,10 +36,12 @@ resource_phase = obj('resources', f'isa = PBXResourcesBuildPhase; buildActionMas
 product = obj('product', 'isa = PBXFileReference; explicitFileType = wrapper.application; path = Silverphase.app; sourceTree = BUILT_PRODUCTS_DIR;')
 source_phase = obj('sources', f'isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(builds)}); runOnlyForDeploymentPostprocessing = 0;')
 script_phase = obj('engine', 'isa = PBXShellScriptBuildPhase; buildActionMask = 2147483647; alwaysOutOfDate = 1; files = (); inputPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/bash; shellScript = "bash \\\"$SRCROOT/Tools/build-engine.sh\\\"";')
+app_info = plistlib.loads((root / 'Info.plist').read_bytes())
 configs = []
 for name in ['Debug', 'Release']:
     settings = {
         'PRODUCT_NAME': 'Silverphase', 'PRODUCT_BUNDLE_IDENTIFIER': 'com.silverphase.editor',
+        'MARKETING_VERSION': app_info['CFBundleShortVersionString'], 'CURRENT_PROJECT_VERSION': app_info['CFBundleVersion'],
         'ASSETCATALOG_COMPILER_APPICON_NAME': 'Silverphase',
         'SDKROOT': 'iphoneos', 'SUPPORTED_PLATFORMS': 'iphoneos iphonesimulator', 'IPHONEOS_DEPLOYMENT_TARGET': '18.0',
         'TARGETED_DEVICE_FAMILY': '1,2', 'ARCHS': 'arm64', 'SWIFT_VERSION': '6.0',
@@ -54,7 +56,6 @@ for name in ['Debug', 'Release']:
     }
     configs.append(obj('config:' + name, 'isa = XCBuildConfiguration; name = ' + name + '; buildSettings = {' + ''.join(k + ' = ' + quote(v) + ';' for k,v in settings.items()) + '};'))
 config_list = obj('configs', f'isa = XCConfigurationList; buildConfigurations = ({",".join(configs)}); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')
-app_info = plistlib.loads((root / 'Info.plist').read_bytes())
 extension_targets, extension_dependencies, extension_phases = [], [], []
 for name, suffix, extra_sources, extensionkit in [
     ('CameraControl', 'camera-control', [], False),

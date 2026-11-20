@@ -39,7 +39,7 @@ Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的�
 | 平台 | 当前版本与入口 | 系统要求 |
 |---|---|---|
 | macOS | [1.3.0（构建 5）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · Apple Silicon DMG | macOS 15 或更高 |
-| iPhone／iPad | [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) · [iOS 1.2.5 版本说明](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.2.5) | iOS／iPadOS 18 或更高 |
+| iPhone／iPad | [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) · [iOS 1.3.0 源码说明](ios/releases/1.3.0.md) | iOS／iPadOS 18 或更高 |
 
 macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。安装及 SHA-256 校验步骤见[发布指南](docs/BINARY-RELEASES.md)。两端独立编号，iOS 可安装构建以 TestFlight 为准。
 
@@ -63,7 +63,7 @@ Lightroom Classic 可交给 macOS 版编辑单张 JPEG／TIFF 副本。保存会
 
 ### iPhone 与 iPad
 
-移动端有本地图库、评分与旗标、批量编辑和导出，以及面向常规 iPhone、iPhone Duo 和 iPad 的布局。1.2.5 加入拍摄 EV、RAW 偏好和分辨率选择，以及可重看的冲印引导。应用内相机和锁屏入口、取景模式及已知设备限制见 [iOS 指南](ios/README.md)与[平台控制对照](ios/CONTROL-AUDIT.md)。
+移动端有本地图库、评分与旗标、批量编辑和导出，以及面向常规 iPhone、iPhone Duo 和 iPad 的布局。[iOS 1.3.0 源码](ios/releases/1.3.0.md)加入入片调整、相机预览亮度匹配和导出星级。应用内相机和锁屏入口、取景模式及已知设备限制见 [iOS 指南](ios/README.md)与[平台控制对照](ios/CONTROL-AUDIT.md)。
 
 ### 效果案例
 

@@ -59,12 +59,17 @@ actor MobileDetailRenderer {
         let metadata = sourceURL == url ? self.metadata ?? MobileImageMetadata.read(url) : MobileImageMetadata.read(url)
         let tier = [2560, 3840, 5120, 7168, 10240].first { Double($0) >= pixelLongEdge } ?? Int(ceil(pixelLongEdge))
         var size = MobileExportRecipe(); size.sizeMode = "longEdge"; size.longEdge = tier
-        var mp = size.megapixels(sourceMP: metadata.megapixels, aspect: metadata.aspect, geometry: geometry)
+        let simulation = try MobileSimulationSize.workingSize(in: recipe, geometry: geometry, aspect: metadata.aspect)
+        let nativeMP = simulation.map(MobileSimulationSize.megapixels) ?? metadata.megapixels
+        var mp = size.megapixels(sourceMP: nativeMP, aspect: metadata.aspect, geometry: geometry)
+        if let edge = MobileSimulationSize.edge(in: recipe) {
+            mp = nativeMP * min(1, pow(Double(tier) / Double(edge), 2))
+        }
         if sourceURL == url, self.recipe == recipe, self.geometry == geometry, let source, sourceMP > 0 {
             // Film gates/edges change output dimensions. Use the observed
             // output scale rather than retrying the same undersized tier.
             let edge = Double(max(source.width, source.height))
-            mp = min(metadata.megapixels, max(mp, sourceMP * pow(Double(tier) / max(1, edge), 2)))
+            mp = min(nativeMP, max(mp, sourceMP * pow(Double(tier) / max(1, edge), 2)))
         }
         if source == nil || sourceURL != url || self.recipe != recipe || self.geometry != geometry || sourceMP < mp * 0.9999 {
             source = nil
@@ -95,7 +100,7 @@ actor MobileDetailRenderer {
         let tile = try Self.copy(source, rect: pixels)
         let display = try await engine.canvasImage(tile)
         try Task.checkCancellation()
-        return MobileDetailTile(image: display, rect: CGRect(x: pixels.minX / Double(source.width), y: pixels.minY / Double(source.height), width: pixels.width / Double(source.width), height: pixels.height / Double(source.height)), nativeSize: sourceMP >= metadata.megapixels * 0.999 ? CGSize(width: source.width, height: source.height) : nil)
+        return MobileDetailTile(image: display, rect: CGRect(x: pixels.minX / Double(source.width), y: pixels.minY / Double(source.height), width: pixels.width / Double(source.width), height: pixels.height / Double(source.height)), nativeSize: sourceMP >= nativeMP * 0.999 ? CGSize(width: source.width, height: source.height) : nil)
     }
     // Copy the exact pixels into a packed tile. No resampling, CI colour
     // round-trip, or borrowed provider offset hidden behind CGImage.cropping.

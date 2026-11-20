@@ -158,7 +158,31 @@ actor MobileEngine {
         engine = nil
     }
 
-    func render(url: URL, recipe: [String: WireValue], megapixels: Double = 2, geometry: MobileGeometry = MobileGeometry(), inputMetadata: MobileImageMetadata? = nil) throws -> MobileRender {
+    func matchCameraBrightness(url: URL, recipe: [String: WireValue]) async throws -> CameraBrightnessFit.Fit {
+        let metadata = MobileImageMetadata.read(url)
+        guard metadata.isRaw, let space = CGColorSpace(name: CGColorSpace.sRGB) else {
+            throw CameraBrightnessFit.Failure.reference
+        }
+        let reference = try CameraBrightnessFit.reference(at: url, aspect: metadata.aspect, space: space)
+        var neutral = recipe.filter { key, _ in
+            !MobileProcessContract.cameraToneKeys.contains(key) &&
+                ![MobileCameraPrep.match, MobileSimulationSize.key, "_printBrightnessStops", "print_exposure",
+                  "_placementHighlight", "_placementShadow", "scene_latitude_active"].contains(key)
+        }
+        for key in ["overscan_active", "date_imprint_active", "grain_active", "glare_active", "extended_dynamic_range"] {
+            neutral[key] = .bool(false)
+        }
+        let settings = neutral
+        let mp = MobilePreviewPolicy.megapixels(edge: CameraBrightnessFit.edge, aspect: metadata.aspect)
+        return try await CameraBrightnessFit.fit(reference) { ev in
+            var trial = settings
+            trial[MobileCameraPrep.exposure] = .double(ev)
+            let result = try self.render(url: url, recipe: trial, megapixels: mp, inputMetadata: metadata, brightnessProbe: true)
+            return try CameraBrightnessFit.Sample(result.image, space: space)
+        }
+    }
+
+    func render(url: URL, recipe: [String: WireValue], megapixels: Double = 2, geometry: MobileGeometry = MobileGeometry(), inputMetadata: MobileImageMetadata? = nil, brightnessProbe: Bool = false) throws -> MobileRender {
         try autoreleasepool {
             try Task.checkCancellation()
             try workGate.check()
@@ -219,14 +243,14 @@ actor MobileEngine {
             // Decoding is done once at the input boundary, including encoded RGB.
             delta["input_color_space"] = .string("ProPhoto RGB")
             delta["input_cctf_decoding"] = .bool(false)
-            delta["output_color_space"] = .string("ProPhoto RGB")
+            delta["output_color_space"] = .string(brightnessProbe ? "sRGB" : "ProPhoto RGB")
             delta["output_cctf_encoding"] = .bool(true)
             // Removing an override (reset/undo) must restore profile defaults;
             // merely sending a smaller delta would leave the old value live.
             let removedOverride = appliedRecipe.keys.contains { !["_interactivePreview", "_interactiveEdge"].contains($0) && recipe[$0] == nil }
             let filmChanged = appliedRecipe["film_stock"] != recipe["film_stock"]
-            let decodeChanged = ["_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active"].contains { appliedRecipe[$0] != recipe[$0] } || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
-            if sourceURL != url || openedMP != megapixels || session == nil || removedOverride || filmChanged || decodeChanged || (presentation && appliedGeometry != geometry) {
+            let decodeChanged = ["_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active", MobileSimulationSize.key].contains { appliedRecipe[$0] != recipe[$0] } || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
+            if sourceURL != url || openedMP != megapixels || session == nil || removedOverride || filmChanged || decodeChanged || ((presentation || recipe[MobileSimulationSize.key] != nil) && appliedGeometry != geometry) {
                 let keepKernels = recipe["_interactivePreview"]?.boolValue == true && sourceURL == url && openedMP == megapixels && megapixels <= 3
                 if keepKernels { releaseSession() } else { close() }
                 guard let device,
@@ -271,7 +295,7 @@ actor MobileEngine {
             var latitudeReply: UnsafeMutablePointer<CChar>?
             let h = recipe["_placementHighlight"]?.doubleValue ?? 0
             let sh = recipe["_placementShadow"]?.doubleValue ?? 0
-            var needsLatitude = (recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true) || h > 0 || sh > 0
+            var needsLatitude = (!brightnessProbe && recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true) || h > 0 || sh > 0
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--audit-export-legacy-work") { needsLatitude = true }
 #endif
@@ -341,7 +365,7 @@ actor MobileEngine {
             let data = Data(bytes: pixels, count: Int(result.row_stride_px * result.height) * 8)
             traceExport("host-copy")
             guard let provider = CGDataProvider(data: data as CFData),
-                  let space = CGColorSpace(name: CGColorSpace.rommrgb),
+                  let space = CGColorSpace(name: brightnessProbe ? CGColorSpace.sRGB : CGColorSpace.rommrgb),
                   let image = CGImage(width: Int(result.width), height: Int(result.height),
                                       bitsPerComponent: 16, bitsPerPixel: 64,
                                       bytesPerRow: Int(result.row_stride_px) * 8, space: space,
@@ -419,6 +443,7 @@ actor MobileEngine {
     func cropCanvasImage(url: URL, recipe: [String: WireValue], megapixels: Double) throws -> CGImage {
         guard let device else { throw MobileFailure.message(TDetached("No Metal device", "缺少 Metal 设备", "缺少 Metal 設備")) }
         var unframed = recipe
+        unframed[MobileSimulationSize.key] = nil
         unframed["overscan_active"] = .bool(false); unframed["date_imprint_active"] = .bool(false)
         let input = try decode(url: url, megapixels: megapixels, device: device, recipe: unframed, geometry: MobileGeometry())
         return try canvasImage(input.original)
@@ -491,12 +516,14 @@ actor MobileEngine {
     }
 
     func exportFiles(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
-                     options: MobileExportRecipe, stem: String) throws -> [URL] {
+                     options: MobileExportRecipe, stem: String, rating: Int? = nil) throws -> [URL] {
         try autoreleasepool {
         defer { close() }
         traceExport("export.prepare")
         let metadata = MobileImageMetadata.read(url)
-        let mp = options.megapixels(sourceMP: metadata.megapixels, aspect: metadata.aspect, geometry: geometry)
+        let simulationSize = try MobileSimulationSize.workingSize(in: recipe, geometry: geometry, aspect: metadata.aspect)
+        let mp = simulationSize.map(MobileSimulationSize.megapixels)
+            ?? options.megapixels(sourceMP: metadata.megapixels, aspect: metadata.aspect, geometry: geometry)
         close() // Release the preview arena before budgeting a large export.
         // Incremental working-set allowance, not total physical RAM. The
         // decoder now drains before film rendering; retaining its old peak
@@ -504,6 +531,9 @@ actor MobileEngine {
         let bytesPerPixel = options.format == .jpeg ? 70.0 : options.format == .di ? 140.0 : 90.0
         let allowance = (mp * bytesPerPixel + 600) * 1_000_000
         guard Double(os_proc_available_memory()) > allowance else {
+            if simulationSize != nil {
+                throw MobileFailure.message(TDetached("There is not enough memory for this simulation size. Restore the original simulation size from the Film stage menu.", "当前可用内存不足，请在胶片菜单中恢复原始模拟尺寸。", "目前可用記憶體不足，請在膠片選單中恢復原始模擬尺寸。"))
+            }
             throw MobileFailure.message(TDetached("There is not enough memory to export at this size safely. Lower the pixel limit or the output long edge.", "当前可用内存不足以安全导出此尺寸，请降低像素上限或输出长边。", "目前可用記憶體不足以安全匯出此尺寸，請降低像素上限或輸出長邊。"))
         }
         let folder = URL.temporaryDirectory.appendingPathComponent("Export-" + UUID().uuidString, isDirectory: true)
@@ -529,8 +559,9 @@ actor MobileEngine {
                 spk_result_free(&result); ownsResult = false
                 let colors = try colorPipeline()
                 close()
-                let preview = try colors.cineonView(master)
-                try writeExport(master, source: url, output: output, options: options, diPreview: preview)
+                let cropped = try simulationSize != nil && !MobileFilmGate.presents(recipe) ? geometry.apply(to: master) : master
+                let preview = try colors.cineonView(cropped)
+                try writeExport(cropped, source: url, output: output, options: options, diPreview: preview)
                 var files = [output]
                 for name in ["SpektraLab DI view, Cineon to ProPhoto RGB", "SpektraLab DI view, Cineon to Rec709"] {
                     guard let lut = Bundle.main.url(forResource: name, withExtension: "cube", subdirectory: StockCatalog.resourceDirectory + "/DI") else { throw MobileFailure.message(TDetached("The Digital Intermediate view LUT is missing", "缺少数字中间片视图 LUT", "缺少數位中間片視圖 LUT")) }
@@ -560,7 +591,7 @@ actor MobileEngine {
             let converted = try colors.convert(cropped, engine: nil, target: options.colorSpace)
             traceExport("after-output-conversion")
             traceExport("before-jpeg-write")
-            try writeExport(converted, source: url, output: output, options: options)
+            try writeExport(converted, source: url, output: output, options: options, rating: rating)
             traceExport("file-ready")
             return [output]
         } catch {
@@ -573,12 +604,12 @@ actor MobileEngine {
 #if DEBUG
     // Exercise the real encoder/metadata boundary on an already rendered tiny
     // image, without claiming the large-export memory gate passed on a simulator.
-    func writeExportForChecks(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe) throws {
-        try writeExport(image, source: source, output: output, options: options)
+    func writeExportForChecks(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe, rating: Int? = nil) throws {
+        try writeExport(image, source: source, output: output, options: options, rating: rating)
     }
 #endif
 
-    private func writeExport(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe, diPreview: CGImage? = nil) throws {
+    private func writeExport(_ image: CGImage, source: URL, output: URL, options: MobileExportRecipe, diPreview: CGImage? = nil, rating: Int? = nil) throws {
         var written = image
         let context = CIContext(options: [.cacheIntermediates: false])
         if options.format.isEightBit {
@@ -587,7 +618,7 @@ actor MobileEngine {
         }
         var properties: [CFString: Any] = [kCGImagePropertyOrientation: 1]
         if options.metadata, let input = CGImageSourceCreateWithURL(source as CFURL, nil), let metadata = CGImageSourceCopyPropertiesAtIndex(input, 0, nil) as? [CFString: Any] {
-            for key in [kCGImagePropertyExifDictionary, kCGImagePropertyIPTCDictionary, kCGImagePropertyTIFFDictionary] { properties[key] = metadata[key] }
+            for key in [kCGImagePropertyExifDictionary, kCGImagePropertyExifAuxDictionary, kCGImagePropertyIPTCDictionary, kCGImagePropertyTIFFDictionary] { properties[key] = metadata[key] }
             if options.location { properties[kCGImagePropertyGPSDictionary] = metadata[kCGImagePropertyGPSDictionary] }
         }
         var exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] ?? [:]
@@ -605,7 +636,22 @@ actor MobileEngine {
         if options.format.hasLossyQuality { properties[kCGImageDestinationLossyCompressionQuality] = min(1, max(0.1, options.quality)) }
         let preview = (options.format == .tiff && options.embedsPreview) || diPreview != nil
         guard let destination = CGImageDestinationCreateWithURL(output as CFURL, options.format.type.identifier as CFString, preview ? 2 : 1, nil) else { throw MobileFailure.message(TDetached("The export file could not be created", "无法创建导出文件", "無法創建匯出檔案")) }
-        CGImageDestinationAddImage(destination, written, properties as CFDictionary)
+        if let rating, [.jpeg, .png, .tiff].contains(options.format) {
+            let metadata = CGImageMetadataCreateMutable()
+            if let auxiliary = properties[kCGImagePropertyExifAuxDictionary] as? [CFString: Any] {
+                for (key, value) in auxiliary {
+                    CGImageMetadataSetValueMatchingImageProperty(metadata, kCGImagePropertyExifAuxDictionary,
+                                                                  key, value as CFTypeRef)
+                }
+            }
+            guard CGImageMetadataSetValueWithPath(metadata, nil, "xmp:Rating" as CFString,
+                                                  NSNumber(value: rating.clamped(to: 0...5))) else {
+                throw MobileFailure.message(TDetached("The export rating could not be written", "无法写入导出星级", "無法寫入匯出星級"))
+            }
+            CGImageDestinationAddImageAndMetadata(destination, written, metadata, properties as CFDictionary)
+        } else {
+            CGImageDestinationAddImage(destination, written, properties as CFDictionary)
+        }
         if preview {
             let previewImage = diPreview ?? image
             let factor = min(1, 1024 / Double(max(previewImage.width, previewImage.height)))
@@ -646,10 +692,13 @@ actor MobileEngine {
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--audit-export-legacy-work") { suppliedMetadata = nil }
 #endif
-        let isRaw = (suppliedMetadata ?? MobileImageMetadata.read(url)).isRaw
+        let inputMetadata = suppliedMetadata ?? MobileImageMetadata.read(url)
+        let simulationSize = try MobileSimulationSize.workingSize(in: recipe, geometry: geometry, aspect: inputMetadata.aspect)
+        let inputMP = min(megapixels, simulationSize.map(MobileSimulationSize.megapixels) ?? megapixels)
+        let isRaw = inputMetadata.isRaw
         if isRaw {
             guard let raw = CIRAWFilter(imageURL: url), raw.nativeSize.width > 0, raw.nativeSize.height > 0 else { throw MobileFailure.message(TDetached("The system cannot decode this RAW", "系统无法解码这款 RAW", "系統無法解碼這款 RAW")) }
-            raw.scaleFactor = Float(min(1, sqrt(megapixels * 1_000_000 / (raw.nativeSize.width * raw.nativeSize.height))))
+            raw.scaleFactor = Float(min(1, sqrt(inputMP * 1_000_000 / (raw.nativeSize.width * raw.nativeSize.height))))
             raw.isDraftModeEnabled = recipe["_interactivePreview"]?.boolValue == true
             decodeInfo = ["_temperature": .double(Double(raw.neutralTemperature)), "_tint": .double(Double(raw.neutralTint)),
                           "_asShotTemperature": .double(Double(raw.neutralTemperature)), "_asShotTint": .double(Double(raw.neutralTint)),
@@ -673,14 +722,19 @@ actor MobileEngine {
             image = output
         } else {
             decodeInfo = ["_raw": .bool(false), "_lensSupported": .bool(false)]
-            guard var input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
+            guard let input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
                 throw MobileFailure.message(TDetached("The image could not be read", "无法读取图像", "無法讀取影像"))
             }
-            let scale = min(1, sqrt(megapixels * 1_000_000 / (input.extent.width * input.extent.height)))
+            let scale = min(1, sqrt(inputMP * 1_000_000 / (input.extent.width * input.extent.height)))
             image = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
+        let targetSize = simulationSize.map { size in
+            let scale = min(1, sqrt(inputMP / MobileSimulationSize.megapixels(size)))
+            return CGSize(width: max(1, (size.width * scale).rounded()),
+                          height: max(1, (size.height * scale).rounded()))
+        }
         func prepared(_ input: CIImage) -> CIImage {
-            var output = input
+            var output = targetSize.map { MobileSimulationSize.resize(input, to: $0) } ?? input
             if MobileFilmGate.presents(recipe) {
                 output = geometry.apply(to: output)
                 if recipe["overscan_active"]?.boolValue == true {
@@ -695,7 +749,7 @@ actor MobileEngine {
         let extent = image.extent.integral
         let width = Int(extent.width), height = Int(extent.height)
         guard width > 0, height > 0, width <= 16384, height <= 16384,
-              width * height <= Int(megapixels * 1_000_000 * 1.05),
+              width * height <= max(256, Int(megapixels * 1_000_000 * 1.05)),
               let buffer = device.makeBuffer(length: width * height * 16, options: .storageModeShared) else {
             throw MobileFailure.message(TDetached("This image is larger than the memory budget on this phone allows", "图像尺寸超出当前移动端内存预算", "影像尺寸超出目前移動端記憶體預算"))
         }
