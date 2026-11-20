@@ -89,9 +89,13 @@ open build/DerivedData/Build/Products/Debug/Silverphase.app
 
 See the [iOS guide](ios/README.md) for the project, device signing, and simulator builds. For architecture and verification, see the [documentation index](docs/README.md), [shared engine architecture](ARCHITECTURE.md), and [validation guide](modern_UI/Spektrafilm/VALIDATION.md). Report issues on [GitHub](https://github.com/akinal5765-byte/Silverphase/issues) or see the [contribution guide](CONTRIBUTING.md).
 
-## Sources and licences
+## Acknowledgements and licences
 
-Silverphase is an independent derivative of Hanze Qiu’s [SpektraLab](https://github.com/JamesQiu2005/SpektraLab). The physical model and original measured film and paper profiles come from Andrea Volpato’s [spektrafilm](https://github.com/andreavolpato/spektrafilm). [Licences and credits](LICENSES.md) · [Material data sources](license/DATA-SOURCES.md)
+Thank you to Andrea Volpato for creating **spektrafilm**, which provides the physical model for film exposure, development, and printing, along with the original measured film and paper data. [spektrafilm](https://github.com/andreavolpato/spektrafilm)
+
+Thank you to Hanze Qiu for creating **SpektraLab**, which brought the spektrafilm model into an interactive film simulation tool. Silverphase is an independent derivative of SpektraLab. [SpektraLab](https://github.com/JamesQiu2005/SpektraLab)
+
+[Licences and credits](LICENSES.md) · [Material data sources](license/DATA-SOURCES.md)
 
 ### Thanks to Negs
 

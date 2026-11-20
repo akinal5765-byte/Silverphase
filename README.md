@@ -89,9 +89,13 @@ open build/DerivedData/Build/Products/Debug/Silverphase.app
 
 iOS 工程、真机签名及模拟器命令见 [iOS 构建指南](ios/README.md)。了解应用结构和验证方式，请看[文档索引](docs/README.md)、[共享引擎架构](ARCHITECTURE.md)和[验证指南](modern_UI/Spektrafilm/VALIDATION.md)。反馈问题或参与开发，请到 [Issues](https://github.com/akinal5765-byte/Silverphase/issues) 或查看[贡献指南](CONTRIBUTING.md)。
 
-## 来源与许可
+## 致谢与许可
 
-Silverphase 是 Hanze Qiu 的 [SpektraLab](https://github.com/JamesQiu2005/SpektraLab) 的独立衍生项目。物理模型及原始实测胶片／相纸配置来自 Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)。感谢 Noah Haasis 的 Negs 和 MUAStudio 的 Fotufilm 为实验材料提供来源。[许可与署名](LICENSES.md) · [材料数据来源](license/DATA-SOURCES.md)
+感谢 Andrea Volpato 创建 **spektrafilm**，为 Silverphase 提供模拟胶片曝光、显影和印相的物理模型，以及原始实测胶片与相纸数据。[spektrafilm](https://github.com/andreavolpato/spektrafilm)
+
+感谢 Hanze Qiu 创建 **SpektraLab**，将 spektrafilm 的模型发展为可交互的胶片模拟工具。Silverphase 是 SpektraLab 的独立衍生项目。[SpektraLab](https://github.com/JamesQiu2005/SpektraLab)
+
+[许可与署名](LICENSES.md) · [材料数据来源](license/DATA-SOURCES.md)
 
 ### 致谢 Negs
 
