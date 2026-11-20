@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Captured from the current desktop FilmParams.default.wire by the desktop
@@ -26,13 +27,19 @@ enum MobileProcessContract {
         "date_imprint_corner": .string("br"), "date_imprint_ev": .double(3.5), "date_imprint_size": .double(1),
         "date_imprint_inset_x": .double(3), "date_imprint_inset_y": .double(2.4),
     ]
-    static let cameraToneKeys = [
+    static let legacyToneKeys = [
         "camera_tone_highlights", "camera_tone_shadows", "camera_tone_whites", "camera_tone_blacks",
     ]
+    static let prepToneKeys = [
+        "camera_local_tone_brights", "camera_local_tone_darks", "camera_prep_exposure_ev",
+        "camera_prep_contrast", "camera_prep_lift", "camera_prep_gain", "camera_prep_detail",
+        "camera_prep_vibrance", "camera_prep_saturation",
+    ]
+    static let cameraToneKeys = legacyToneKeys + prepToneKeys
     static let cameraToneRange = -100.0...100.0
 
     static let steps: [String: Double] = [
-        "_temperature": 100, "_tint": 5, "exposure_compensation_ev": 1.0 / 3,
+        "camera_prep_exposure_ev": 0.05, "_temperature": 100, "_tint": 5, "exposure_compensation_ev": 1.0 / 3,
         "_grainAmount": 0.1, "grain_size_scale": 0.1, "_grainSoftness": 0.1,
         "halation_headroom_ev": 0.1, "halation_amount": 0.1, "halation_scatter_amount": 0.1, "density_curve_gamma": 0.05,
         "dir_couplers_amount": 0.05, "print_contrast": 0.05, "y_filter_shift": 1, "m_filter_shift": 1,
@@ -52,6 +59,7 @@ enum MobileProcessContract {
     static func wire(_ recipe: [String: WireValue], aspect: Double) throws -> [String: WireValue] {
         var values = try loaded.get().wire
         values.merge(recipe.filter { !$0.key.hasPrefix("_") }) { _, new in new }
+        values[MobileCameraPrep.exposure] = .double(MobileCameraPrep.totalExposure(recipe))
         func number(_ key: String, _ fallback: Double) -> Double { recipe[key]?.doubleValue ?? fallback }
         func bool(_ key: String, _ fallback: Bool) -> Bool { recipe[key]?.boolValue ?? fallback }
         let film = values["film_stock"]?.stringValue ?? "kodak_portra_400"
@@ -92,5 +100,34 @@ enum MobileProcessContract {
         // Off stages still show their desktop defaults before first activation.
         for (key, value) in clientDefaults where !key.hasPrefix("_") && values[key] == nil { values[key] = value }
         return values
+    }
+}
+
+/// The stored prep exposure is a manual offset while matching is enabled.
+enum MobileCameraPrep {
+    static let exposure = "camera_prep_exposure_ev"
+    static let match = "_matchCameraBrightness"
+    static let baseline = "_matchedCameraExposure"
+    static let limited = "_matchedCameraHighlightLimited"
+    static let failure = "_cameraBrightnessMatchFailure"
+    static let resultKeys = [baseline, limited, failure]
+    static let range = -CameraBrightnessFit.limit...CameraBrightnessFit.limit
+
+    static func enabled(_ recipe: [String: WireValue]) -> Bool { recipe[match]?.boolValue == true }
+
+    static func startingExposure(_ recipe: [String: WireValue]) -> Double {
+        enabled(recipe) ? (recipe[baseline]?.doubleValue ?? 0).clamped(to: range) : 0
+    }
+
+    static func totalExposure(_ recipe: [String: WireValue]) -> Double {
+        (startingExposure(recipe) + (recipe[exposure]?.doubleValue ?? 0)).clamped(to: range)
+    }
+
+    static func setEnabled(_ enabled: Bool, in recipe: inout [String: WireValue]) {
+        guard enabled != self.enabled(recipe) else { return }
+        let total = enabled ? 0 : totalExposure(recipe)
+        recipe[match] = enabled ? .bool(true) : nil
+        recipe[exposure] = total == 0 ? nil : .double(total)
+        for key in resultKeys { recipe[key] = nil }
     }
 }

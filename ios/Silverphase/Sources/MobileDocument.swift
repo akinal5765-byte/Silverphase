@@ -177,7 +177,15 @@ struct MobilePhoto: Codable, Identifiable {
         let wanted = max(fitPreviewEdge, min(3840, Int(viewport?.pixelLongEdge ?? 0)))
         return preferences.values.lowerPreviewInLowPower && ProcessInfo.processInfo.isLowPowerModeEnabled ? min(1920, wanted) : wanted
     }
+    private func simulationWorkingSize(_ photo: MobilePhoto) -> CGSize? {
+        try? MobileSimulationSize.workingSize(in: photo.recipe, geometry: photo.geometry, aspect: photo.sourceAspect)
+    }
+
     private func previewMegapixels(_ photo: MobilePhoto, edge: Int) -> Double {
+        if let size = simulationWorkingSize(photo), let simulationEdge = MobileSimulationSize.edge(in: photo.recipe) {
+            let scale = min(1, Double(edge) / Double(simulationEdge), 3840 / max(size.width, size.height))
+            return MobileSimulationSize.megapixels(size) * scale * scale
+        }
         let native = nativeOutputSize
         let long = max(1, max(native.width, native.height))
         let sourceCap = MobilePreviewPolicy.megapixels(edge: 3840, aspect: photo.sourceAspect)
@@ -299,7 +307,7 @@ struct MobilePhoto: Codable, Identifiable {
         }
         let renderer = exportEngine
         let files = try await renderer.exportFiles(url: source, recipe: recipe, geometry: photo.geometry,
-                                                   options: options, stem: stem)
+                                                   options: options, stem: stem, rating: photo.rating)
         guard let finished = files.first else { throw MobileFailure.message(T("No finished photo was produced", "未生成成片", "未生成成片")) }
         defer { try? FileManager.default.removeItem(at: finished.deletingLastPathComponent()) }
         try await PhotoLibraryWriter.save(finished, pairedRAW: pairedRAW)
@@ -478,8 +486,68 @@ struct MobilePhoto: Codable, Identifiable {
         }
         return MobileProcessContract.clientDefaults[key]?.doubleValue ?? MobileProcessContract.defaults[key]?.doubleValue
     }
+    var canMatchCameraBrightness: Bool {
+        guard let current, current.recipe["digital_intermediate"]?.boolValue != true else { return false }
+        return current.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .rawImage) == true
+            || resolved["_raw"]?.boolValue == true
+    }
+
+    var cameraBrightnessStatus: String? {
+        guard canMatchCameraBrightness, let recipe = current?.recipe, MobileCameraPrep.enabled(recipe) else { return nil }
+        if let match = recipe[MobileCameraPrep.baseline]?.doubleValue {
+            let ev = String(format: "%+.2f EV", match)
+            return recipe[MobileCameraPrep.limited]?.boolValue == true
+                ? T("Starts at \(ev) to protect highlights.", "起始曝光 \(ev)，提亮受高光保护限制。", "起始曝光 \(ev)，提亮受高光保護限制。")
+                : T("Matched starting exposure: \(ev)", "匹配后的起始曝光为 \(ev)", "比對後的起始曝光為 \(ev)")
+        }
+        switch recipe[MobileCameraPrep.failure]?.stringValue {
+        case CameraBrightnessFit.Failure.reference.rawValue:
+            return T("No usable camera preview.", "没有可用的相机预览。", "沒有可用的相機預覽。")
+        case CameraBrightnessFit.Failure.midtones.rawValue:
+            return T("Too few midtones in the camera preview.", "相机预览中可用的中间调太少。", "相機預覽中可用的中間調太少。")
+        case CameraBrightnessFit.Failure.range.rawValue:
+            return T("The match is outside ±3 EV.", "亮度差超出 ±3 EV。", "亮度差超出 ±3 EV。")
+        case nil:
+            return T("Matching…", "正在匹配…", "正在比對…")
+        default:
+            return T("Could not match camera brightness.", "无法匹配相机亮度。", "無法比對相機亮度。")
+        }
+    }
+
+    // Await the result before preview or export. The caller's cancellation and
+    // the original recipe guard keep late results from overwriting edits.
+    private func resolveCameraBrightness(_ photo: MobilePhoto, using renderer: MobileEngine) async throws -> MobilePhoto {
+        guard MobileCameraPrep.enabled(photo.recipe), photo.recipe["digital_intermediate"]?.boolValue != true,
+              photo.recipe[MobileCameraPrep.baseline] == nil, photo.recipe[MobileCameraPrep.failure] == nil else { return photo }
+        let source = url(for: photo)
+        let type = photo.sourceTypeIdentifier.flatMap(UTType.init) ?? UTType(filenameExtension: source.pathExtension)
+        guard type?.conforms(to: .rawImage) == true || (photo.id == selection && resolved["_raw"]?.boolValue == true)
+        else { return photo }
+        var matched = photo
+        do {
+            let fit = try await renderer.matchCameraBrightness(url: source, recipe: cameraRenderRecipe(photo))
+            matched.recipe[MobileCameraPrep.baseline] = .double(fit.exposure)
+            matched.recipe[MobileCameraPrep.limited] = fit.highlightLimited ? .bool(true) : nil
+            if let offset = matched.recipe[MobileCameraPrep.exposure]?.doubleValue {
+                matched.recipe[MobileCameraPrep.exposure] = .double(offset.clamped(to: (-3 - fit.exposure)...(3 - fit.exposure)))
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            matched.recipe[MobileCameraPrep.failure] = .string((error as? CameraBrightnessFit.Failure ?? .render).rawValue)
+        }
+        try Task.checkCancellation()
+        if let index = photos.firstIndex(where: { $0.id == photo.id }), photos[index].recipe == photo.recipe {
+            photos[index].recipe = matched.recipe
+            save()
+        }
+        return matched
+    }
+
     func value(_ key: String) -> WireValue? {
         func raw(_ key: String) -> WireValue? { current?.recipe[key] ?? pendingDefaultValues[key] ?? resolved[key] ?? MobileProcessContract.clientDefaults[key] ?? MobileProcessContract.defaults[key] }
+        if key == MobileCameraPrep.exposure { return .double(MobileCameraPrep.totalExposure(current?.recipe ?? [:])) }
+        if key == MobileCameraPrep.match { return .bool(MobileCameraPrep.enabled(current?.recipe ?? [:])) }
         if key == "_meter" { return .string(raw("auto_exposure")?.boolValue == false ? "custom" : raw("auto_exposure_method")?.stringValue ?? "center_weighted") }
         if key == "_halation" { return .string(raw("halation_active")?.boolValue == false ? "off" : raw("antihalation_mode")?.stringValue ?? "profile") }
         for prefix in ["camera", "enlarger"] where key == "_" + prefix + "Diffusion" {
@@ -489,6 +557,15 @@ struct MobilePhoto: Codable, Identifiable {
     }
     func set(_ key: String, _ value: WireValue) {
         edit { photo in
+            if key == MobileCameraPrep.match {
+                MobileCameraPrep.setEnabled(value.boolValue == true, in: &photo.recipe)
+                return
+            }
+            if key == MobileCameraPrep.exposure, let total = value.doubleValue {
+                let offset = total.clamped(to: MobileCameraPrep.range) - MobileCameraPrep.startingExposure(photo.recipe)
+                photo.recipe[key] = abs(offset) < 1e-9 ? nil : .double(offset)
+                return
+            }
             if key == "_meter", let method = value.stringValue {
                 photo.recipe["auto_exposure"] = .bool(method != "custom")
                 if method != "custom" { photo.recipe["auto_exposure_method"] = .string(method) }
@@ -578,8 +655,8 @@ struct MobilePhoto: Codable, Identifiable {
     func resetStage(_ stage: MobileStage) {
         let keys: [String]
         switch stage {
-        case .camera: keys = ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "_temperature", "_tint", "_whiteBalancePreset", "_lens", "camera_filter", "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"] + MobileProcessContract.cameraToneKeys
-        case .film: keys = ["film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit", "grain_active", "grain_sublayers_active", "_grainAmount", "grain_amount", "grain_size_scale", "_grainSoftness", "grain_softness", "halation_active", "antihalation_mode", "halation_headroom_ev", "halation_amount", "halation_scatter_amount"]
+        case .camera: keys = ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "_temperature", "_tint", "_whiteBalancePreset", "_lens", "camera_filter", "camera_diffusion_active", "camera_diffusion_family", "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"] + MobileProcessContract.cameraToneKeys + [MobileCameraPrep.match] + MobileCameraPrep.resultKeys
+        case .film: keys = [MobileSimulationSize.key, "film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit", "grain_active", "grain_sublayers_active", "_grainAmount", "grain_amount", "grain_size_scale", "_grainSoftness", "grain_softness", "halation_active", "antihalation_mode", "halation_headroom_ev", "halation_amount", "halation_scatter_amount"]
         case .development: keys = ["density_curve_gamma", "dir_couplers_active", "dir_couplers_amount"]
         case .print: keys = ["_printBrightnessStops", "print_exposure", "print_contrast", "_paperGrade", "y_filter_shift", "m_filter_shift", "preflash_exposure", "_printEffects", "enlarger_diffusion_active", "enlarger_diffusion_family", "enlarger_diffusion_strength", "enlarger_diffusion_range"]
         case .output: keys = ["_scannerActive", "_scannerStrength", "scanner_sharpening_amount", "glare_active", "glare_amount", "extended_dynamic_range"]
@@ -595,7 +672,7 @@ struct MobilePhoto: Codable, Identifiable {
     }
     func reset() { edit { $0.recipe = [:]; $0.geometry = MobileGeometry() } }
     private func invalidateNativeGeometry(from before: MobilePhoto, to after: MobilePhoto) {
-        if before.geometry != after.geometry || ["overscan_active", "overscan_format", "overscan_mode", "overscan_gate", "overscan_carrier", "overscan_camera_seed", "date_imprint_active", "_lens"].contains(where: { before.recipe[$0] != after.recipe[$0] }) {
+        if before.geometry != after.geometry || [MobileSimulationSize.key, "overscan_active", "overscan_format", "overscan_mode", "overscan_gate", "overscan_carrier", "overscan_camera_seed", "date_imprint_active", "_lens"].contains(where: { before.recipe[$0] != after.recipe[$0] }) {
             nativeCanvasSize = .zero; nativeCanvasSizeIsExact = false
         }
     }
@@ -1031,9 +1108,8 @@ struct MobilePhoto: Codable, Identifiable {
                 await cleanup?.value
                 await previewCleanup?.value
                 try Task.checkCancellation()
-                var settings = photo.recipe
-                settings["_diBlue"] = .bool(preferences.values.diBlueCompensation)
-                settings["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
+                let photo = try await resolveCameraBrightness(photo, using: engine)
+                let settings = cameraRenderRecipe(photo)
                 let result = try await engine.render(url: url, recipe: settings, megapixels: targetMP, geometry: photo.geometry)
                 guard !Task.isCancelled, generation == revision, active else { return }
                 let working = try MobileFilmGate.presents(photo.recipe) ? result.image : photo.geometry.apply(to: result.image)
@@ -1057,7 +1133,12 @@ struct MobilePhoto: Codable, Identifiable {
                 image = display; original = displayOriginal; cropSourceImage = cropDisplay
                 cacheLibraryPreview(display, photo: photo)
                 development = developmentAssets; developmentRunning = false
-                if !nativeCanvasSizeIsExact, !MobileFilmGate.presents(photo.recipe) {
+                if let size = simulationWorkingSize(photo) {
+                    let nativeMP = MobileSimulationSize.megapixels(size)
+                    let scale = sqrt(nativeMP / min(nativeMP, targetMP))
+                    nativeCanvasSize = CGSize(width: Double(working.width) * scale, height: Double(working.height) * scale)
+                    nativeCanvasSizeIsExact = scale == 1
+                } else if !nativeCanvasSizeIsExact, !MobileFilmGate.presents(photo.recipe) {
                     nativeCanvasSize = photo.geometry.outputSize(for: geometrySourceSize)
                 } else if nativeCanvasSize == .zero {
                     let nativeScale = sqrt(photo.sourceMegapixels / max(0.001, min(photo.sourceMegapixels, targetMP)))
@@ -1240,13 +1321,12 @@ struct MobilePhoto: Codable, Identifiable {
                         }
                     }
                     exportStatus = T("Exporting \(index + 1) / \(targets.count) · \(photo.name)", "正在导出 \(index + 1) / \(targets.count) · \(photo.name)", "正在匯出 \(index + 1) / \(targets.count) · \(photo.name)")
-                    var recipe = photo.recipe
-                    recipe["_diBlue"] = .bool(preferences.values.diBlueCompensation)
-                    recipe["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
+                    let photo = try await resolveCameraBrightness(photo, using: exportEngine)
+                    let recipe = cameraRenderRecipe(photo)
                     let film = recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue ?? "film"
                     let paper = recipe["print_stock"]?.stringValue ?? MobileProcessContract.defaults["print_stock"]?.stringValue ?? "paper"
                     let stem = options.stem(original: photo.name, film: film, paper: paper, counter: index + 1)
-                    let files = try await exportEngine.exportFiles(url: url(for: photo), recipe: recipe, geometry: photo.geometry, options: options, stem: stem)
+                    let files = try await exportEngine.exportFiles(url: url(for: photo), recipe: recipe, geometry: photo.geometry, options: options, stem: stem, rating: photo.rating)
                     files.forEach { folders.insert($0.deletingLastPathComponent()) }
                     if destination == .photos {
                         operation?.stage = .photos

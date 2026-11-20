@@ -55,3 +55,47 @@ struct MobileGeometry: Codable, Equatable, Sendable {
         }
     }
 }
+
+/// The requested edge is the cropped picture before the film border is added.
+enum MobileSimulationSize {
+    static let key = "_filmImageLongEdge"
+    static let edgeRange = 16...16_384
+
+    static func edge(in recipe: [String: WireValue]) -> Int? {
+        recipe[key]?.doubleValue.flatMap(Int.init(exactly:))
+    }
+
+    static func workingSize(in recipe: [String: WireValue], geometry: MobileGeometry, aspect: Double) throws -> CGSize? {
+        guard let edge = edge(in: recipe) else { return nil }
+        let crop = geometry.value.crop
+        var picture = CGSize(width: aspect * crop.width, height: crop.height)
+        if geometry.quarterTurns % 2 != 0 { picture = CGSize(width: picture.height, height: picture.width) }
+        if recipe["overscan_active"]?.boolValue == true {
+            let gate = MobileFilmGate.size(recipe["overscan_format"]?.stringValue ?? "135")
+            let ratio = picture.width >= picture.height ? gate.0 / gate.1 : gate.1 / gate.0
+            picture.width = min(picture.width, picture.height * ratio)
+            picture.height = picture.width / ratio
+        }
+        let scale = Double(edge) / max(picture.width, picture.height)
+        let size = CGSize(width: max(1, (aspect * scale).rounded()), height: max(1, scale.rounded()))
+        guard edgeRange.contains(edge), scale.isFinite, scale > 0,
+              size.width <= 16_384, size.height <= 16_384,
+              size.width * size.height <= 96_000_000 else {
+            throw MobileFailure.message(TDetached("The requested size and crop exceed the film frame’s pixel limit.", "模拟尺寸与裁切超出胶片画幅的像素上限。", "模擬尺寸與裁切超出膠片畫幅的像素上限。"))
+        }
+        return size
+    }
+
+    static func megapixels(_ size: CGSize) -> Double { size.width * size.height / 1_000_000 }
+
+    static func resize(_ image: CIImage, to size: CGSize) -> CIImage {
+        let extent = image.extent
+        guard extent.size != size else { return image }
+        let placed = image.transformed(by: .init(translationX: -extent.minX, y: -extent.minY))
+        let scale = size.height / extent.height
+        return placed.clampedToExtent().applyingFilter("CILanczosScaleTransform", parameters: [
+            kCIInputScaleKey: scale,
+            kCIInputAspectRatioKey: (size.width / extent.width) / scale
+        ]).cropped(to: CGRect(origin: .zero, size: size))
+    }
+}

@@ -97,6 +97,8 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | {
     'README.md', 'README.en.md', 'AGENTS.md', 'ARCHITECTURE.md', 'LICENSES.md',
     'docs/README.md', 'docs/LOCAL-MATERIALS.md',
     'modern_UI/Spektrafilm/releases/1.3.0.md',
+    'ios/releases/1.3.0.md',
+    'ios/Silverphase/Sources/SilverphaseApp.swift',
     'engine/src/core/curves.cpp', 'engine/src/core/curves.hpp', 'engine/src/core/params.cpp',
     str(BUNDLE / notice),
     str(BUNDLE / 'Runtime-Data-SOURCES.md'),

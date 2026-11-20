@@ -90,6 +90,17 @@ struct MobileSettingsClip {
         for key in groups.reduce(into: Set<String>()) { $0.formUnion($1.keys) } {
             result.recipe[key] = recipe[key]
         }
+        if groups.contains(.camera) {
+            let sourceMatches = MobileCameraPrep.enabled(recipe)
+            let targetMatches = MobileCameraPrep.enabled(target.recipe)
+            var targetPrep = target.recipe
+            MobileCameraPrep.setEnabled(sourceMatches, in: &targetPrep)
+            result.recipe[MobileCameraPrep.match] = targetPrep[MobileCameraPrep.match]
+            if sourceMatches || targetMatches {
+                result.recipe[MobileCameraPrep.exposure] = targetPrep[MobileCameraPrep.exposure]
+                for key in MobileCameraPrep.resultKeys { result.recipe[key] = targetPrep[key] }
+            }
+        }
         // As Shot means this target's camera. A missing individual WB axis
         // remains missing, so the target decoder supplies that axis too.
         if groups.contains(.camera), (recipe["_whiteBalancePreset"]?.stringValue ?? "asShot") == "asShot" {

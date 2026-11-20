@@ -263,6 +263,27 @@ enum MobileSmokeChecks {
             manual.recipe = ["_whiteBalancePreset": .string("custom"), "_temperature": .double(5100)]
             document.copySettings(manual, groups: [.camera]); document.pasteSettings(to: [first.id])
             try require(document.photos[1].recipe["_temperature"] == .double(5100) && document.photos[1].recipe["_tint"] == nil, "custom white balance copies only explicit axes")
+            var matchedSource = source
+            matchedSource.recipe[MobileCameraPrep.match] = .bool(true)
+            matchedSource.recipe[MobileCameraPrep.baseline] = .double(1.25)
+            matchedSource.recipe[MobileCameraPrep.exposure] = .double(0.5)
+            matchedSource.recipe["camera_prep_detail"] = .double(20)
+            matchedSource.recipe[MobileSimulationSize.key] = .double(2500)
+            first.recipe[MobileSimulationSize.key] = .double(4200)
+            let matchedClip = MobileSettingsClip(source: matchedSource, groups: [.camera, .film])
+            let pending = matchedClip.applied(to: first)
+            try require(MobileCameraPrep.enabled(pending.recipe) && pending.recipe[MobileCameraPrep.baseline] == nil
+                        && pending.recipe[MobileCameraPrep.exposure] == nil, "paste transfers the match switch and leaves the target to fit")
+            try require(pending.recipe["camera_prep_detail"] == .double(20)
+                        && pending.recipe[MobileSimulationSize.key] == .double(4200), "prep controls transfer and simulation stays photo-local")
+            var matchedTarget = pending
+            matchedTarget.recipe[MobileCameraPrep.baseline] = .double(-1)
+            matchedTarget.recipe[MobileCameraPrep.exposure] = .double(0.25)
+            let pasted = matchedClip.applied(to: matchedTarget)
+            let wire = try MobileProcessContract.wire(pasted.recipe, aspect: 1.5)
+            try require(wire[MobileCameraPrep.exposure] == .double(-0.75)
+                        && wire[MobileCameraPrep.baseline] == nil, "the target fit and offset reach the engine as one exposure")
+            first.recipe[MobileSimulationSize.key] = nil
             let allKeys = MobileClipboardGroup.allCases.flatMap { Array($0.keys) }
             try require(Set(allKeys).count == allKeys.count, "clipboard parameter groups have unique ownership")
             let lockedRecipe = document.photos[1].recipe
@@ -338,7 +359,8 @@ enum MobileSmokeChecks {
         defer { UIApplication.shared.isIdleTimerDisabled = previousIdle }
         let directory = URL.documentsDirectory
         let cineStillOnly = ProcessInfo.processInfo.arguments.contains("--cinestill-regression")
-        let reportURL = directory.appendingPathComponent(cineStillOnly ? "cinestill-report.json" : "smoke-report.json")
+        let prepOnly = ProcessInfo.processInfo.arguments.contains("--camera-prep-regression")
+        let reportURL = directory.appendingPathComponent(cineStillOnly ? "cinestill-report.json" : prepOnly ? "camera-prep-report.json" : "smoke-report.json")
         try? FileManager.default.removeItem(at: reportURL)
         var checks: [String] = []
         do {
@@ -374,6 +396,13 @@ enum MobileSmokeChecks {
             try require(first.image.width == 192 && first.image.height == 128, "输入尺寸未保留")
             try require(first.image.colorSpace?.name == CGColorSpace.rommrgb, "预览未标记 ProPhoto")
             checks.append("encoded TIFF input and tagged ProPhoto preview")
+            let prepChecks = try await checkCameraPrep(source: source, base: base, original: first.image)
+            checks += prepChecks
+            if prepOnly {
+                try JSONSerialization.data(withJSONObject: ["passed": true, "checks": prepChecks], options: [.prettyPrinted, .sortedKeys])
+                    .write(to: reportURL, options: .atomic)
+                return source
+            }
             guard let cineStill = StockCatalog.shared.stock("cinestill_800t") else {
                 throw MobileFailure.message("800T 未进入共享目录")
             }
@@ -519,12 +548,6 @@ enum MobileSmokeChecks {
             let restoredBytes = restoredPrint.image.dataProvider!.data! as Data
             try require(restoredPrint.negativeWasCached && referenceBytes == restoredBytes, "印相来回调整改变了同一负片")
             checks.append("desktop defaults, full calibration database, P3 shader, B&W grain defaults and cached-negative reprint")
-            var toneRecipe = printOnly
-            for key in MobileProcessContract.cameraToneKeys { toneRecipe[key] = .double(-30) }
-            let toned = try await engine.render(url: source, recipe: toneRecipe)
-            try require(!toned.negativeWasCached && MobileProcessContract.cameraToneKeys.allSatisfy {
-                toned.resolved[$0]?.doubleValue == -30
-            }, "相机影调应传到引擎并重新生成负片")
             try require(!(first.latitude?.bins.isEmpty ?? true), "场景宽容度与直方图未接入")
             var controls = base
             controls["camera_diffusion_active"] = .bool(true)
@@ -711,6 +734,60 @@ enum MobileSmokeChecks {
             throw error
         }
     }
+    private static func checkCameraPrep(source: URL, base: [String: WireValue], original: CGImage) async throws -> [String] {
+        let engine = MobileEngine()
+        var checks: [String] = []
+        func require(_ condition: Bool, _ message: String) throws {
+            guard condition else { throw MobileFailure.message(message) }
+            checks.append(message)
+        }
+        _ = try await engine.render(url: source, recipe: base)
+        var toneRecipe = base
+        for key in MobileProcessContract.cameraToneKeys {
+            toneRecipe[key] = .double(key == MobileCameraPrep.exposure ? -1.25 : -30)
+        }
+        let toned = try await engine.render(url: source, recipe: toneRecipe)
+        try require(!toned.negativeWasCached && MobileProcessContract.cameraToneKeys.allSatisfy {
+            toned.resolved[$0] == toneRecipe[$0]
+        }, "相机影调应传到引擎并重新生成负片")
+        var simulation = base
+        simulation[MobileSimulationSize.key] = .double(612)
+        let geometry = MobileGeometry(quarterTurns: 1, aspect: 1)
+        let metadata = MobileImageMetadata.read(source)
+        guard let simulationSize = try MobileSimulationSize.workingSize(in: simulation, geometry: geometry, aspect: metadata.aspect)
+        else { throw MobileFailure.message("Missing simulation size") }
+        let simulated = try await engine.render(url: source, recipe: simulation,
+            megapixels: MobileSimulationSize.megapixels(simulationSize), geometry: geometry)
+        let cropped = try geometry.apply(to: simulated.image)
+        try require(abs(max(cropped.width, cropped.height) - 612) <= 1, "simulation edge follows the rotated crop")
+        let thumbnail = try await engine.render(url: source, recipe: simulation, megapixels: 0.05, geometry: geometry)
+        try require(thumbnail.image.width * thumbnail.image.height < simulated.image.width * simulated.image.height,
+                    "simulation respects the preview pixel budget")
+        var framed = simulation
+        framed["overscan_active"] = .bool(true)
+        framed["overscan_format"] = .string("135_half")
+        guard let gateSize = try MobileSimulationSize.workingSize(in: framed, geometry: geometry, aspect: metadata.aspect)
+        else { throw MobileFailure.message("Missing gate simulation size") }
+        let gated = try await engine.render(url: source, recipe: framed,
+            megapixels: MobileSimulationSize.megapixels(gateSize), geometry: geometry)
+        try require(abs(max(gated.original.width, gated.original.height) - 612) <= 1,
+                    "simulation targets the exposed picture inside the film gate")
+        for format: MobileExportFormat in [.jpeg, .png, .tiff] {
+            var options = MobileExportRecipe()
+            options.format = format
+            options.metadata = false
+            let output = source.deletingLastPathComponent().appendingPathComponent("rating-check." + format.fileExtension)
+            defer { try? FileManager.default.removeItem(at: output) }
+            try await engine.writeExportForChecks(original, source: source, output: output, options: options, rating: 4)
+            let input = CGImageSourceCreateWithURL(output as CFURL, nil)
+            let xmp = input.flatMap { CGImageSourceCopyMetadataAtIndex($0, 0, nil) }
+            let rating = xmp.flatMap { CGImageMetadataCopyStringValueWithPath($0, nil, "xmp:Rating" as CFString) as String? }
+            try require(rating == "4", "\(format.rawValue) writes rating with source metadata disabled")
+        }
+        await engine.close()
+        return checks
+    }
+
     private static func catalogForFilters() -> Bool {
         let stocks = StockCatalog.shared.films
         return stocks.filter { MobileMaterialFilter.positive.includes($0, favorites: [], recent: []) }.allSatisfy(\.isPositive) &&

@@ -8,6 +8,7 @@ struct RulerParameterRow: View {
     var fractionDigits = 2
     var entryRange: ClosedRange<Double>? = nil
     var step: Double? = nil
+    var referenceValue: Double? = nil
     var onInteraction: ((Bool) -> Void)? = nil
     let onReset: () -> Void
     @State private var preview: Double?
@@ -32,7 +33,7 @@ struct RulerParameterRow: View {
                 }.buttonStyle(.plain).accessibilityLabel(T("Enter ", "输入", "輸入") + title)
             }.frame(minHeight: EditorDesign.hitSize)
             ToolTickRuler(value: $value, range: range, keyMarks: [], anchor: defaultValue,
-                          height: EditorDesign.hitSize, step: step, resolution: resolution,
+                          height: EditorDesign.hitSize, step: step, resolution: resolution, referenceValue: referenceValue,
                           onPreview: { preview = $0; if onInteraction != nil { value = $0 } },
                           onDragging: { onInteraction?($0) }, onEnd: { preview = nil },
                           onReset: onReset)

@@ -14,6 +14,8 @@ for argument in "$@"; do
     case "$argument" in
         --flat-import-regression) report_name=flat-import-report.json ;;
         --raw-import-regression) report_name=raw-import-report.json ;;
+        --clipboard-regression) report_name=clipboard-report.json ;;
+        --camera-prep-regression) report_name=camera-prep-report.json ;;
         --camera-look-regression) report_name=camera-look-report.json; attempts=180 ;;
         --locked-camera-regression) report_name=locked-camera-report.json ;;
         --camera-location-regression) report_name=camera-location-report.json ;;

@@ -24,13 +24,7 @@ struct ProcessControls: View {
                 section(T("Metering & Exposure", "测光与曝光", "測光與曝光"))
                 choice(T("Metering Mode", "测光模式", "測光模式"), "_meter", MobileMeteringMode.allCases.map { ($0.rawValue, $0.title) })
                 number(T("Exposure Compensation · EV", "曝光补偿 · EV", "曝光補償 · EV"), "exposure_compensation_ev", MobileCameraRecipe.exposureCompensationRange)
-                section(T("Tone", "影调", "影調"))
-                number(T("Highlights", "高光", "高光"), "camera_tone_highlights", MobileProcessContract.cameraToneRange, fractionDigits: 0)
-                number(T("Shadows", "阴影", "陰影"), "camera_tone_shadows", MobileProcessContract.cameraToneRange, fractionDigits: 0)
-                number(T("Whites", "白色色阶", "白色色階"), "camera_tone_whites", MobileProcessContract.cameraToneRange, fractionDigits: 0)
-                number(T("Blacks", "黑色色阶", "黑色色階"), "camera_tone_blacks", MobileProcessContract.cameraToneRange, fractionDigits: 0)
-                Button(T("Reset Tone", "重置影调", "重設影調")) { document.resetKeys(MobileProcessContract.cameraToneKeys) }
-                    .buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
+                prepControls
                 section(T("White Balance", "白平衡", "白平衡"))
                 if document.value("_raw")?.boolValue == true {
                     choice(T("White Balance Preset", "白平衡预设", "白平衡預設"), "_whiteBalancePreset", [("asShot", T("As Shot", "拍摄时", "拍攝時")), ("daylight", T("Daylight", "日光", "日光")), ("cloudy", T("Cloudy", "多云", "多雲")), ("shade", T("Shade", "阴影", "陰影")), ("tungsten", T("Tungsten", "钨丝灯", "鎢絲燈")), ("fluorescent", T("Fluorescent", "荧光灯", "螢光燈")), ("custom", T("Custom", "自定", "自定"))])
@@ -170,6 +164,50 @@ struct ProcessControls: View {
             }.disabled(document.value(prefix + "_diffusion_active")?.boolValue != true)
         }
     }
+    private var prepControls: some View {
+        let range = MobileProcessContract.cameraToneRange
+        let baseline = document.current?.recipe[MobileCameraPrep.baseline]?.doubleValue
+        return Group {
+            section(T("Prep Tone", "入片影调", "入片影調"))
+            if document.canMatchCameraBrightness {
+                flag(T("Match Camera Preview Brightness", "匹配相机预览亮度", "比對相機預覽亮度"), MobileCameraPrep.match)
+                if let status = document.cameraBrightnessStatus {
+                    Text(status).font(EditorDesign.help).foregroundStyle(MobileStyle.secondaryText)
+                }
+            }
+            RulerParameterRow(title: T("Prep Exposure · EV", "入片曝光 · EV", "入片曝光 · EV"),
+                              value: Binding(get: { document.value(MobileCameraPrep.exposure)?.doubleValue ?? 0 },
+                                             set: { document.set(MobileCameraPrep.exposure, .double($0)) }),
+                              range: MobileCameraPrep.range, defaultValue: baseline ?? 0,
+                              step: MobileProcessContract.steps[MobileCameraPrep.exposure], referenceValue: baseline,
+                              onInteraction: document.parameterInteraction,
+                              onReset: { document.resetKeys([MobileCameraPrep.exposure]) })
+            number(T("Brights", "亮部", "亮部"), "camera_local_tone_brights", range, fractionDigits: 0)
+            number(T("Darks", "暗部", "暗部"), "camera_local_tone_darks", range, fractionDigits: 0)
+            number(T("Contrast", "对比度", "對比度"), "camera_prep_contrast", range, fractionDigits: 0)
+            number(T("Lift", "低端提升", "低端提升"), "camera_prep_lift", range, fractionDigits: 0)
+            number(T("Gain", "高端增益", "高端增益"), "camera_prep_gain", range, fractionDigits: 0)
+            section(T("Prep Detail", "入片细节", "入片細節"))
+            number(T("Midtone Detail", "中间调细节", "中間調細節"), "camera_prep_detail", range, fractionDigits: 0)
+            section(T("Prep Colour", "入片色彩", "入片色彩"))
+            number(T("Colour Boost", "色彩增强", "色彩增強"), "camera_prep_vibrance", range, fractionDigits: 0)
+            number(T("Saturation", "饱和度", "飽和度"), "camera_prep_saturation", range, fractionDigits: 0)
+            Button(T("Reset Prep", "重置入片调整", "重設入片調整")) {
+                document.resetKeys(MobileProcessContract.prepToneKeys + [MobileCameraPrep.match] + MobileCameraPrep.resultKeys)
+            }.buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
+            if MobileProcessContract.legacyToneKeys.contains(where: { document.current?.recipe[$0] != nil }) {
+                section(T("Legacy Tone", "旧影调", "舊影調"))
+                number(T("Highlights", "高光", "高光"), "camera_tone_highlights", range, fractionDigits: 0)
+                number(T("Shadows", "阴影", "陰影"), "camera_tone_shadows", range, fractionDigits: 0)
+                number(T("Whites", "白色色阶", "白色色階"), "camera_tone_whites", range, fractionDigits: 0)
+                number(T("Blacks", "黑色色阶", "黑色色階"), "camera_tone_blacks", range, fractionDigits: 0)
+                Button(T("Reset Legacy Tone", "重置旧影调", "重設舊影調")) {
+                    document.resetKeys(MobileProcessContract.legacyToneKeys)
+                }.buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
+            }
+        }
+    }
+
     private var diActive: Bool { document.value("digital_intermediate")?.boolValue == true && document.value("scan_film")?.boolValue != true }
     private var printBypassed: Bool { diActive || document.value("scan_film")?.boolValue == true }
     private var paperIsMonochrome: Bool { document.value("print_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }?.isMonochrome == true }
