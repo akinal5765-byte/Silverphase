@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-11-18. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-20. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -12,10 +12,10 @@ original scope. Documentation review is not a new performance or visual audit.
 | Working rules and debugging traps | [AGENTS.md](../AGENTS.md) |
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
-| Downloads, unsigned IPA and unnotarized DMG | [Binary releases](BINARY-RELEASES.md) |
+| App Store, TestFlight and macOS downloads | [Binary releases](BINARY-RELEASES.md) |
 | macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
-| iOS source release and beta access | [1.3.0 source notes](../ios/releases/1.3.0.md) / [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |
-| App Store preparation, privacy and user support | [Release preparation](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
+| iOS 1.3.0, public download and beta access | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) / [Source notes](../ios/releases/1.3.0.md) / [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) / [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |
+| App Store distribution, privacy and user support | [Store record](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
 | CineStill 800T adoption and validation scope | [Dated adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
 | Lightroom Classic external editing, setup and tone boundaries | [Illustrated workflow](LIGHTROOM-CLASSIC.md) / [macOS 1.2.0](../modern_UI/Spektrafilm/releases/1.2.0.md) |

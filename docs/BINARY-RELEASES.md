@@ -1,13 +1,11 @@
 # Binary releases
 
 Find release notes and macOS packages on [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
-iPhone/iPad beta installation and updates use [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+iPhone and iPad users can install Silverphase from the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. Beta builds are available through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 The release notes name the exact source tag/commit, system requirements,
 signing state and validation scope. Release builds may have incomplete features.
 
-The platforms maintain independent versions and build numbers. Use GitHub Releases
-and TestFlight for the versions available to install. Historical GitHub iOS
-packages are unsigned.
+The platforms maintain independent versions and build numbers. GitHub Releases lists source milestones and macOS installers. The App Store and TestFlight show the iOS builds available for installation. Historical GitHub iOS packages are unsigned.
 
 ## macOS
 
@@ -31,6 +29,8 @@ external editor settings; no separate `.lrplugin` is needed. See the
 [illustrated guide](LIGHTROOM-CLASSIC.md) and [source version notes](../modern_UI/Spektrafilm/releases/1.2.0.md).
 
 ## iPhone and iPad
+
+Install the public version through the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. The iOS 1.3.0 (build 10) milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) and [source notes](../ios/releases/1.3.0.md).
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
@@ -73,7 +73,7 @@ shasum -a 256 -c SHA256SUMS.txt
 Each release provides the corresponding source under that exact tag through
 GitHub's **Source code (zip/tar.gz)** downloads. The source includes build scripts,
 engine code and tracked public resources; the binary bundles include licences.
-The platform build JSON records identify the source commit and packaged data.
+For downloadable binary assets, the accompanying build records identify the source commit and packaged data.
 
 ## Reproduce a release build
 
@@ -97,4 +97,4 @@ build work directory or logs.
 
 The desktop `Tools/package.sh` separately supports a Developer ID archive,
 export and notarization workflow when the required credentials are supplied.
-No store distribution, Developer ID signing or notarization schedule is promised.
+The iOS [store record](../ios/APP-STORE.md) documents distribution and upload verification.

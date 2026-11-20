@@ -1,7 +1,12 @@
-# iOS App Store preparation
+# iOS App Store distribution
 
-Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-Use App Store Connect to inspect build availability, group access, and review status.
+Silverphase is available on the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. The US, Japan and Hong Kong storefronts listed **1.2.5** on 2026-11-20. The mainland China lookup returned no listing.
+
+## 1.3.0 (10) · 2026-11-20
+
+See the [1.3.0 release notes](releases/1.3.0.md) for changes and device validation. App Store Connect record **6829987567** uses SKU `silverphase-ios` and bundle ID `com.silverphase.editor`. The deployment floor is iOS and iPadOS 18.
+
+The App Store archive was built from merge commit `187a0df` using public materials. The signed package and its three components passed signature, version, minimum OS and resource checks. The app retains the Increased Memory Limit entitlement and includes the privacy manifest. The archive and dSYMs are retained locally. Xcode confirmed delivery of **1.3.0 (10)** to App Store Connect on 2026-11-20. App Store Connect processing and App Review have separate statuses. [Exact source tag and release notes](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0)
 
 ## 1.2.1 (7) candidate · 2026-11-09
 
@@ -16,7 +21,7 @@ This source preparation does not upload, submit for review, merge or publish.
 
 The preparation and upload status below records the 2026-11-03 session.
 
-Status: preparation, 2026-11-03. First release is completely free, targeting global
+At that time, the planned first release was free, targeting global
 availability including China mainland. App Store Connect record **6829987567**
 has been created with SKU `silverphase-ios`, bundle ID `com.silverphase.editor`
 and Simplified Chinese as its primary language. Build **1.1.1 (3)** was uploaded
@@ -87,7 +92,7 @@ recommendation, not a requirement for using Silverphase. Apple permits promotion
 of the developer's own apps under review guideline 3.2.1(i); this does not resolve
 the separate upstream licensing question.
 
-## Distribution prerequisites
+## Distribution maintenance
 
 - Resolve GPL-3.0-or-later compatibility with the intended Apple distribution
   terms, including any necessary permissions from the relevant rights holders.
@@ -98,9 +103,7 @@ the separate upstream licensing question.
   `com.silverphase.editor` is available and register that exact identifier with
   the Increased Memory Limit capability. Distribution provisioning must retain
   `com.apple.developer.kernel.increased-memory-limit`.
-- Create an iOS app record in App Store Connect using the confirmed bundle ID;
-  select the intended primary language, SKU, free price and release territories.
-  Name availability and account agreements have not been checked.
+- Use the existing App Store Connect record for updates. Check storefront availability, pricing and any pending agreements in App Store Connect.
 - Publish a privacy policy and support page with the maintainer's contact details.
   Add an accessible privacy-policy link inside the app before submission.
 - Supply current iPhone and iPad screenshots, description, keywords, category,

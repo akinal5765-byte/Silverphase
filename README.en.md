@@ -39,9 +39,9 @@ Layerlight and its icon retain their separate rights and are outside Silverphase
 | Platform | Version and download | Requirements |
 |---|---|---|
 | macOS | [1.3.0 (build 5)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · Apple silicon DMG | macOS 15 or later |
-| iPhone and iPad | [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) · [iOS 1.3.0 source notes](ios/releases/1.3.0.md) | iOS or iPadOS 18 or later |
+| iPhone and iPad | [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp) | iOS or iPadOS 18 or later |
 
-On macOS, check for updates in Settings → Software Update. The GitHub DMG is ad-hoc signed and has no Apple notarization. See the [release guide](docs/BINARY-RELEASES.md) for installation and SHA-256 verification. The platforms have independent versions. TestFlight shows the available mobile build.
+On macOS, check for updates in Settings → Software Update. The GitHub DMG is ad-hoc signed and has no Apple notarization. See the [release guide](docs/BINARY-RELEASES.md) for installation and SHA-256 verification. Silverphase is available on the App Store outside mainland China. The App Store and TestFlight show the versions available through each channel.
 
 ## What's new in macOS 1.3.0
 
@@ -63,7 +63,7 @@ Lightroom Classic can send a single JPEG or TIFF copy to the macOS editor. Save 
 
 ### iPhone and iPad
 
-The mobile editor provides a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. The [iOS 1.3.0 source](ios/releases/1.3.0.md) adds pre-film adjustments, camera preview brightness matching and export ratings. See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for capture workflows, viewfinder modes, and device limitations.
+The mobile editor provides a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. iOS 1.3.0 (build 10) adds pre-film adjustments, RAW camera preview brightness matching, and star ratings in JPEG, PNG and TIFF exports. [GitHub release notes](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) · [Source and validation notes](ios/releases/1.3.0.md). See the [iOS guide](ios/README.md) and [control audit](ios/CONTROL-AUDIT.md) for capture workflows, viewfinder modes, and device limitations.
 
 ### Examples
 

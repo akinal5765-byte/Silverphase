@@ -1,6 +1,6 @@
 # Silverphase 支持 / Support
 
-Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。
+Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 正式版在中国大陆区以外的 App Store 提供。[App Store](https://apps.apple.com/hk/app/silverphase-%E8%83%B6%E7%89%87%E6%A8%A1%E6%8B%9F/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
 
 ## 联系维护者
 
@@ -30,7 +30,7 @@ Issues 是公开渠道。请勿上传私人原片、位置、证件、密码或�
 
 ## English
 
-Silverphase is a free film and print simulation editor for iPhone and iPad, requiring iOS / iPadOS 18 or later. RAW compatibility depends on Apple's system RAW decoder.
+Silverphase is a free film and print simulation editor for iPhone and iPad, requiring iOS / iPadOS 18 or later. RAW compatibility depends on Apple's system RAW decoder. The public version is available on the App Store outside mainland China. [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp)
 
 Contact the maintainer through [GitHub Issues](https://github.com/akinal5765-byte/Silverphase/issues). Include the device, OS and app versions, reproduction steps, expected behavior and actual behavior. Issues are public. Remove private information from screenshots and do not post private originals, location information, credentials, identity documents or complete diagnostic logs. A GitHub account is required to submit an issue, but not to read existing issues.
 

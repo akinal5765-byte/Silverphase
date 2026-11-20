@@ -60,9 +60,7 @@ time. Keep private photos and logs outside the repository.
 
 ## Installation and downloads
 
-Install the beta on iPhone or iPad through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
-App Store preparation and remaining distribution requirements are tracked in
-[APP-STORE.md](APP-STORE.md).
+Install Silverphase on iPhone or iPad from the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. Join [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) for beta builds. See [App Store distribution](APP-STORE.md) for the release record.
 
 Historical unsigned device IPA builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
 
@@ -108,7 +106,7 @@ python3 modern_UI/Spektrafilm/Tools/gen-project.py
 python3 ios/Silverphase/Tools/gen-project.py --check
 ```
 
-The source version is **1.3.0 (10)**. See the [1.3.0 source notes](releases/1.3.0.md). TestFlight shows which beta build is currently available.
+The source version is **1.3.0 (10)**. See the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) and [source notes](releases/1.3.0.md). The App Store and TestFlight show the builds available to install.
 
 ## Current behavior
 
