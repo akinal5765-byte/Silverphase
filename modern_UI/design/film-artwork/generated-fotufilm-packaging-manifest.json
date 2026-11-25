@@ -1,0 +1,149 @@
+{
+  "generator": "built-in imagegen",
+  "date": "2026-11-24",
+  "referenceImages": false,
+  "template": "packaging-prompt-v1.md",
+  "items": [
+    {
+      "id": "agfa_agfachrome_100_fotufilm",
+      "file": "agfa_agfachrome_100_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Agfa Agfachrome 100，标称 ISO 100。经典 AGFA AGFACHROME 100 反转片包装。采用该速度自己的包装色块与字号。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "agfa_agfachrome_200_fotufilm",
+      "file": "agfa_agfachrome_200_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Agfa Agfachrome 200，标称 ISO 200。经典 AGFA AGFACHROME 200 反转片包装。采用该速度自己的包装色块与字号。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "agfa_agfachrome_50_fotufilm",
+      "file": "agfa_agfachrome_50_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Agfa Agfachrome 50，标称 ISO 50。经典 AGFA AGFACHROME 50 反转片包装。采用该速度自己的包装色块与字号。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fotufilm_infrared_color_fotufilm",
+      "file": "fotufilm_infrared_color_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Infrared Color，不标感光度。这是创意数码胶片配置，没有零售包装。做成档案标签式封面，主文字仅为 INFRARED COLOR，次文字 CREATIVE PROFILE。以暗胭脂红、近红外假色的粉红与青灰组成平面印刷色块。不要伪造胶片品牌、厂家或规格。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_astia_100f_fotufilm",
+      "file": "fujifilm_astia_100f_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Fujichrome Astia 100F Professional，标称感光度为 ISO 100。以这款胶片真实、经典的零售盒正面为依据，尽可能还原其标志性配色、色块比例、品牌字样、字体风格和感光度数字位置。主文字仅保留 FUJIFILM / FUJICHROME / ASTIA 100F / PROFESSIONAL；不要混入 Velvia 或 Provia。包装正面平面化为 16:9 横向，正视无透视，画面铺满，不含侧面、背景或投影。保留轻微印刷纸质感，缩小后型号清晰。外边缘直角，不要卡片边框、收藏图标、角标、界面控件或水印。不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_eterna_500_fotufilm",
+      "file": "fujifilm_eterna_500_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Eterna 500，标称 EI 500。参照 FUJIFILM ETERNA 500 电影底片卷罐的平面印刷标签，主型号 ETERNA 500。清楚区别于 ETERNA VIVID 500，不展示罐子或透视。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_eterna_vivid_500_fotufilm",
+      "file": "fujifilm_eterna_vivid_500_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Eterna Vivid 500，标称 EI 500。参照 FUJIFILM ETERNA VIVID 500 电影底片卷罐的平面印刷标签。保留大字 VIVID 500，不展示罐子或透视。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_f64d_fotufilm",
+      "file": "fujifilm_f64d_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Fujicolor F-64D，标称 EI 64。参照 FUJIFILM FUJICOLOR F-64D 日光型电影底片卷罐标签，强调 F-64D。不要写 ETERNA。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_pro_160ns_fotufilm",
+      "file": "fujifilm_pro_160ns_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Fujicolor Pro 160NS，标称 ISO 160。复原 FUJIFILM FUJICOLOR PRO 160NS PROFESSIONAL 包装文字。将 160NS 保持在同一行，不要写 160S 或 400H。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_reala_100_fotufilm",
+      "file": "fujifilm_reala_100_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Fujicolor Superia Reala 100，标称 ISO 100。明确呈现 SUPERIA REALA 和 100，按经典消费包装配色，勿与 Superia X-TRA 混用。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_reala_500d_fotufilm",
+      "file": "fujifilm_reala_500d_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Fujicolor Reala 500D，标称 EI 500。用 FUJIFILM REALA 500D 日光型电影底片卷罐历史标签式版面。500D 必须完整，不要混入 Superia Reala 100。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_superia_200_fotufilm",
+      "file": "fujifilm_superia_200_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Fujifilm Fujicolor Superia 200，标称 ISO 200。典型 FUJIFILM FUJICOLOR SUPERIA 200 零售正面，保留鲜绿与白色主体以及红色品牌字。只显示 200，不混入 REALA 或 X-TRA。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "harman_phoenix_200_fotufilm",
+      "file": "harman_phoenix_200_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Harman Phoenix 200，标称 ISO 200。参照第一代 HARMAN PHOENIX 200 包装，强调原版的紫色、橙红和几何凤凰图案。不要写 PHOENIX II。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "ilford_delta_3200_fotufilm",
+      "file": "ilford_delta_3200_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Ilford Delta 3200 Professional，包装使用 3200 型号，不加 ISO 3200 说法。使用经典 ILFORD DELTA 3200 PROFESSIONAL 黑白胶片盒的黑白品牌框、大号数字和对应色带。保持 ILFORD DELTA 3200 字样。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "ilford_fp4_plus_fotufilm",
+      "file": "ilford_fp4_plus_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Ilford FP4 Plus，标称 ISO 125。使用经典 ILFORD FP4 PLUS 白底黑字与深色条块包装，明确 FP4 PLUS、125；不写 HP5 或 400。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "kodak_aerochrome_1443_fotufilm",
+      "file": "kodak_aerochrome_1443_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Kodak Aerochrome III Infrared Film 1443，不添加未经确认的感光度。以 Kodak 航空摄影胶片卷装的历史工业包装标签为依据，技术标签版式。主文 KODAK / AEROCHROME III / INFRARED FILM / 1443，勿伪造民用 35mm 盒。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "kodak_aerocolor_2460_fotufilm",
+      "file": "kodak_aerocolor_2460_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Kodak Aerocolor IV Negative Film 2460，不添加未经确认的感光度。以 Kodak 航空摄影胶片卷装的历史工业包装标签为依据，技术标签版式。明确 KODAK / AEROCOLOR IV / NEGATIVE FILM / 2460，勿写 AEROCHROME 或其他重装品牌。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodachrome_200_fotufilm",
+      "file": "kodak_kodachrome_200_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Kodak Kodachrome 200，标称 ISO 200。经典 Kodak Kodachrome 200 盒正面，保留该型号独特包装色块和字体。仅标 200，不加 25 或 64。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodachrome_25_fotufilm",
+      "file": "kodak_kodachrome_25_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Kodak Kodachrome 25，标称 ISO 25。经典 Kodak Kodachrome 25 盒正面，保留黄色、红色以及 Kodachrome 的经典字样。仅标 25，不加 64 或 200。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodacolor_100_fotufilm",
+      "file": "kodak_kodacolor_100_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Kodak Kodacolor 100，标称 ISO 100。参照经典 KODAK KODACOLOR 100 彩色负片包装。确切复现 KODACOLOR 字样，不出现 KODACHROME、GOLD、EKTAR。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "lomography_color_100_fotufilm",
+      "file": "lomography_color_100_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Lomography Color Negative 100，标称 ISO 100。采用 Lomography Color Negative 100 包装平面身份，醒目 100 和 LOMOGRAPHY / COLOR NEGATIVE，避免混入 LomoChrome。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "lomography_lomochrome_metropolis_fotufilm",
+      "file": "lomography_lomochrome_metropolis_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Lomography LomoChrome Metropolis，包装标注 ISO 100–400。按照实际 Lomography LomoChrome Metropolis 盒的文字与设计，清楚显示 LOMOCHROME METROPOLIS。不要混入 Turquoise 或 Purple。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    },
+    {
+      "id": "lomography_lomochrome_turquoise_fotufilm",
+      "file": "lomography_lomochrome_turquoise_fotufilm-packaging-v1.png",
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Lomography LomoChrome Turquoise，包装标注 ISO 100–400。按照实际 Lomography LomoChrome Turquoise 包装的蓝绿、橙色与图形风格，清楚显示 LOMOCHROME TURQUOISE。不要混入 Metropolis 或 Purple。 以该型号的经典包装或工业标签正面为依据，保留标志性配色、色块、品牌字样、型号层级和清晰度。款式信息不足时优先使用有依据的品牌字样与型号，避免编造认证、生产批次或读不出的字。平面化为 16:9 横向，正视、无透视，画面铺满，无盒子侧面、外部背景或投影。轻微印刷纸质感，缩略图上型号仍可辨识。直角边缘，由应用裁切。不要生成卡片边框、收藏图标、来源角标、界面控件或水印。画面不要印 Fotufilm 字样。不使用输入参考图。输出一张完整图片。"
+    }
+  ],
+  "reused": [
+    {
+      "id": "cinestill_400d_fotufilm",
+      "file": "cinestill_400d_fotufilm.jpg"
+    },
+    {
+      "id": "cinestill_800t_fotufilm",
+      "file": "cinestill_800t-packaging-v1.png"
+    },
+    {
+      "id": "fujifilm_acros_100_ii_fotufilm",
+      "file": "fujifilm_neopan_acros_100_ii-packaging-v1.png"
+    },
+    {
+      "id": "fujifilm_velvia_50_fotufilm",
+      "file": "fujifilm_velvia_50_fotufilm.jpg"
+    },
+    {
+      "id": "ilford_hp5_plus_fotufilm",
+      "file": "ilford_hp5_plus_400-packaging-v1.png"
+    },
+    {
+      "id": "kodak_tmax_100_fotufilm",
+      "file": "kodak_tmax_100-packaging-v1.png"
+    }
+  ]
+}

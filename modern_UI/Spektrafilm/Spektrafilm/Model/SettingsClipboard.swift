@@ -33,7 +33,7 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
     static func fromStored(_ names: [String]) -> Set<ClipboardGroup> {
         let legacy: [String: Set<ClipboardGroup>] = [
             "filmAndPaper": [.film, .print, .output],
-            "exposure": [.camera, .print], "whiteBalance": [.camera, .print],
+            "exposure": [.film, .print], "whiteBalance": [.camera, .print],
             "filmEffects": [.camera, .film, .development],
             "printEffects": [.print, .output], "scenePlacement": [.camera],
         ]
@@ -54,13 +54,14 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
     var paths: [String] {
         switch self {
         case .camera:
-            ["params.cameraFilter", "params.autoExposure", "params.autoExposureMethod", "params.exposureCompensationEV",
+            ["params.cameraFilter",
              "decode.whiteBalance", "decode.temperature", "decode.tint",
              "params.cameraDiffusion", "params.cameraDiffusionStrength", "params.cameraDiffusionRange",
              "params.cameraTone", "params.sceneLatitude", "placementNeedsFit"]
         case .film:
             // The film format sets the physical scale of grain and halation.
-            ["params.filmEdge", "params.dateBack", "params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
+            ["params.autoExposure", "params.autoExposureMethod", "params.exposureCompensationEV",
+             "params.filmEdge", "params.dateBack", "params.filmStock", "params.filmFormatMM", "params.filmFrame", "params.filmSide", "params.sideLengthMM",
              "params.grainActive", "params.grainSizeScale", "params.grainSoftness", "params.halationActive", "params.halationAmount", "params.halationHeadroom", "params.antihalationMode",
              "params.effects.grain", "params.effects.grainLayered", "params.effects.scatter"]
         case .development:
@@ -107,8 +108,8 @@ enum ClipboardGroup: String, CaseIterable, Codable, Sendable, Identifiable {
 
     @MainActor var help: String {
         switch self {
-        case .camera: T("Metering, film exposure, white balance, lens filters and scene placement. The target fits its own scene.", "测光、胶片曝光、白平衡、镜头滤镜与场景安置；目标照片按自身画面重新拟合。", "測光、膠片曝光、白平衡、鏡頭濾鏡與場景安置；目標照片按自身畫面重新擬合。")
-        case .film: T("Film stock, format, grain, halation and scatter.", "胶片型号、画幅、颗粒、光晕与散射。", "膠片型號、畫幅、顆粒、光暈與散射。")
+        case .camera: T("Prep tone, white balance, lens filters and scene placement. The target fits its own scene.", "入片影调、白平衡、镜头滤镜与场景安置；目标照片按自身画面重新拟合。", "入片影調、白平衡、鏡頭濾鏡與場景安置；目標照片按自身畫面重新擬合。")
+        case .film: T("Film stock, metering, film exposure, format, grain, halation and scatter.", "胶片型号、测光、胶片曝光、画幅、颗粒、光晕与散射。", "膠片型號、測光、膠片曝光、畫幅、顆粒、光暈與散射。")
         case .development: T("Development contrast and colour separation.", "显影反差与色彩分离。", "顯影反差與色彩分離。")
         case .print: T("Paper/output mode, print exposure, filter pack, preflash and enlarger diffusion.", "相纸与输出模式、印相曝光、滤色、预闪及柔光放大。", "相紙與輸出模式、印相曝光、濾色、預閃及柔光放大。")
         case .output: T("Scan sharpening, print glare and highlight expansion.", "扫描锐化、印相眩光与高光层次保留。", "掃描銳化、印相眩光與高光層次保留。")
@@ -129,6 +130,14 @@ struct SettingsClip: Equatable, Sendable {
         var out = target
         let s = settings
         if groups.contains(.film) {
+            let meterChanged = out.params.autoExposure != s.params.autoExposure
+                || out.params.autoExposureMethod != s.params.autoExposureMethod
+            out.params.autoExposure = s.params.autoExposure
+            out.params.autoExposureMethod = s.params.autoExposureMethod
+            out.params.exposureCompensationEV = s.params.exposureCompensationEV
+            // The target's report is of the target's old meter. Nil until its
+            // develop, or `retargetSolvedEV`, measures the new one.
+            if meterChanged { out.solvedEV = nil }
             out.params.filmEdge = s.params.filmEdge
             out.params.dateBack = s.params.dateBack
             out.params.filmStock = s.params.filmStock
@@ -140,11 +149,6 @@ struct SettingsClip: Equatable, Sendable {
         }
         if groups.contains(.camera) {
             out.params.cameraFilter = s.params.cameraFilter
-            let meterChanged = out.params.autoExposure != s.params.autoExposure
-                || out.params.autoExposureMethod != s.params.autoExposureMethod
-            out.params.autoExposure = s.params.autoExposure
-            out.params.autoExposureMethod = s.params.autoExposureMethod
-            out.params.exposureCompensationEV = s.params.exposureCompensationEV
             var tone = s.params.cameraTone
             tone.clearCameraBrightnessMatch()
             var targetTone = target.params.cameraTone
@@ -160,9 +164,6 @@ struct SettingsClip: Equatable, Sendable {
                 tone.matchedCameraHighlightLimited = targetTone.matchedCameraHighlightLimited
             }
             out.params.cameraTone = tone
-            // The target's report is of the target's old meter. Nil until its
-            // develop, or `retargetSolvedEV`, measures the new one.
-            if meterChanged { out.solvedEV = nil }
         }
         if groups.contains(.camera) {
             out.decode.whiteBalance = s.decode.whiteBalance

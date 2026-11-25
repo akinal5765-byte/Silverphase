@@ -3363,27 +3363,8 @@ final class Session: CanvasHost {
         }
     }
 
-    /// The "As Shot" box under Film Exposure.
-    ///
-    /// It reads ticked when the frame is on the **linearized baseline**: the
-    /// meter off and no compensation, which is the photograph exposed exactly
-    /// as the camera recorded it. That is a *derived* state, like the two
-    /// white-balance boxes beside it — it is ticked whenever the pair of
-    /// values says so, not because a box was clicked.
-    var filmExposureIsAsShot: Bool {
-        !params.autoExposure && params.exposureCompensationEV == 0
-    }
-
-    /// Ticking it: "+0.0 baseline (also `As Shot`, clicking this automatically
-    /// switches AE method to custom)" — the PRD's own sentence, and both
-    /// halves of it, because either one alone leaves the frame somewhere else.
-    ///
-    /// Unticking is deliberately a no-op. The box is a statement about two
-    /// numbers, and "not the baseline" does not say *which* other exposure to
-    /// go to; the way off it is to drag the slider or choose a method, which
-    /// is also how the box came to be ticked.
-    func setFilmExposureAsShot(_ on: Bool) {
-        guard on, !filmExposureIsAsShot else { return }
+    func clearFilmMeteringAndExposure() {
+        guard params.autoExposure || params.exposureCompensationEV != 0 else { return }
         var p = params
         p.autoExposure = false
         p.exposureCompensationEV = 0
@@ -4270,10 +4251,10 @@ final class Session: CanvasHost {
             cameraBrightnessFailure = nil
         }
         sidecar = next
-        if clip.groups.contains(.film) { recomputeFilmFormat(beforeOpen: true) }
-        // The clip carries a Tone, so the label follows the paste the same way
-        // it follows the pill.
-        if clip.groups.contains(.camera) { retargetSolvedEV() }
+        if clip.groups.contains(.film) {
+            recomputeFilmFormat(beforeOpen: true)
+            retargetSolvedEV()
+        }
         if clip.groups.contains(.masks) {
             selectedMaskID = sidecar.masks.first?.id
             syncMasks()

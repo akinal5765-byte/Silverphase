@@ -306,7 +306,7 @@ final class ThumbnailCache: @unchecked Sendable {
         return CacheKey(kind: .thumbnail,
                         sourceIdentity: CacheKey.sourceIdentity(for: url),
                         configuration: CacheKey.encodedConfiguration(state),
-                        engineVersion: "developed-thumbnail-v1")
+                        engineVersion: "developed-thumbnail-v3")
     }
 
     private static func image(from payload: DiskCachePayload) -> CGImage? {

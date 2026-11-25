@@ -848,6 +848,22 @@ private struct MaterialBrowserCard: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Metric.browserCoverRadius, style: .continuous))
+            .overlay(alignment: .bottomLeading) {
+                if !compact, choice.stock?.isFotufilm == true {
+                    sourceBadge.padding(Theme.Metric.space4)
+                }
+            }
+            .accessibilityHidden(true)
+    }
+
+    private var sourceBadge: some View {
+        Text("Fotufilm")
+            .font(Theme.Font.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, Theme.Metric.space4)
+            .padding(.vertical, Theme.Metric.space2)
+            .background(.black.opacity(0.78), in: Capsule())
+            .fixedSize()
             .accessibilityHidden(true)
     }
 
@@ -856,7 +872,10 @@ private struct MaterialBrowserCard: View {
             Text(choice.cardTitle).font(Theme.Font.chooserCard).foregroundStyle(Theme.text)
                 .lineLimit(1)
                 .padding(.trailing, compact ? Theme.Metric.browserToolbarHeight : 0)
-            Text(choice.subtitle).font(Theme.Font.caption).foregroundStyle(Theme.Ink.secondary).lineLimit(1)
+            HStack(spacing: Theme.Metric.space4) {
+                Text(choice.subtitle).font(Theme.Font.caption).foregroundStyle(Theme.Ink.secondary).lineLimit(1)
+                if compact, choice.stock?.isFotufilm == true { sourceBadge }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, compact ? 0 : Theme.Metric.browserTextInset - Theme.Metric.browserCardInset)

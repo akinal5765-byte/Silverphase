@@ -66,6 +66,25 @@ struct BrowserSelection: ViewModifier {
     }
 }
 
+extension View {
+    func fotufilmBadge(for stock: Stock?) -> some View {
+        overlay(alignment: .bottomLeading) {
+            if stock?.isFotufilm == true {
+                Text("Fotufilm")
+                    .font(EditorDesign.badge)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(.black.opacity(0.78), in: Capsule())
+                    .fixedSize()
+                    .padding(4)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
 /// Same image, title and subtitle baselines for every card; no white inversion.
 struct BrowserCard<Artwork: View>: View {
     let title: String?

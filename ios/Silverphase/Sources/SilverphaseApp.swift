@@ -253,7 +253,7 @@ enum MobileStage: String, CaseIterable, Identifiable {
 
     func title(in language: MobileLanguage) -> String {
         switch self {
-        case .camera: T("Capture", "拍摄", "拍攝", in: language)
+        case .camera: T("Prep", "预处理", "預處理", in: language)
         case .film: T("Film", "胶片", "膠片", in: language)
         case .development: T("Development", "显影", "顯影", in: language)
         case .print: T("Color Enlargement", "彩色放大", "彩色放大", in: language)
@@ -813,6 +813,13 @@ struct MobileEditor: View {
                 }
                 if !exporting && !(ordinaryPhone && materials) {
                     Menu {
+                        if stage == .film {
+                            Button(T("Turn Off Metering and Set 0 EV", "关闭测光并归零", "關閉測光並歸零")) {
+                                document.setValues(["auto_exposure": .bool(false), "exposure_compensation_ev": .double(0)])
+                            }
+                            .disabled(document.current == nil || (document.value("_meter")?.stringValue == "custom"
+                                      && document.value("exposure_compensation_ev")?.doubleValue == 0))
+                        }
                         if stage == .film, document.current?.recipe[MobileSimulationSize.key] != nil {
                             Button(T("Restore Original Simulation Size", "恢复原始模拟尺寸", "恢復原始模擬尺寸"),
                                    systemImage: "arrow.counterclockwise") {

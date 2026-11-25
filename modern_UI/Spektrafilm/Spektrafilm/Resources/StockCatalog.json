@@ -55,7 +55,7 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
+   "cover": "cinestill_400d_fotufilm.jpg",
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -340,7 +340,7 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
+   "cover": "fujifilm_velvia_50_fotufilm.jpg",
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null

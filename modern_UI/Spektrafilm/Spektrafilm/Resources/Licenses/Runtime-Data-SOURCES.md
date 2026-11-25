@@ -145,7 +145,9 @@ the amplitude-matched Langmuir response from Spektrafilm experimental
 (`28bf883`) as implemented by Negs (GPL-3.0). Silverphase applies it in both
 curve preparation and C++/Metal development, on the donor side for negatives
 and after diffusion on the receiver side for reversals. These adaptations
-have not been calibrated against Fotufilm output or a physical film reference.
+have not been calibrated against Fotufilm output or a physical film reference. See the
+[DIR edge-response audit](../modern_UI/Spektrafilm/VALIDATION.md#fotufilm-dir-边缘增强复查)
+for the current spatial limit and the cases with residual overshoot.
 
 
 ## Colour print balance

@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <string_view>
+#include <utility>
 
 namespace spk {
 
@@ -1289,6 +1291,37 @@ std::vector<Blur::Component> Pipeline::dir_coupler_diffusion() const {
     // whole-frame for a blur that never runs.
     if (!dcp.active) return comps;
     if (!(dcp.diffusion_size_um > 0.0)) return comps;
+    // A normalized mix of local and diffused inhibition preserves the
+    // uniform-exposure response used to pre-correct the density curves.
+    // These weights are renderer defaults for the Fotufilm stocks that
+    // needed less spatial inhibition in the multi-exposure edge probe.
+    static constexpr std::pair<std::string_view, double> spatial_mix_by_stock[] = {
+        {"agfa_agfachrome_100_fotufilm", 0.70},
+        {"agfa_agfachrome_50_fotufilm", 0.70},
+        {"cinestill_400d_fotufilm", 0.45},
+        {"cinestill_800t_fotufilm", 0.45},
+        {"fotufilm_infrared_color_fotufilm", 0.30},
+        {"fujifilm_eterna_500_fotufilm", 0.25},
+        {"fujifilm_eterna_vivid_500_fotufilm", 0.20},
+        {"fujifilm_f64d_fotufilm", 0.22},
+        {"fujifilm_pro_160ns_fotufilm", 0.28},
+        {"fujifilm_reala_100_fotufilm", 0.14},
+        {"fujifilm_reala_500d_fotufilm", 0.30},
+        {"fujifilm_superia_200_fotufilm", 0.12},
+        {"harman_phoenix_200_fotufilm", 0.08},
+        {"kodak_aerochrome_1443_fotufilm", 0.48},
+        {"kodak_aerocolor_2460_fotufilm", 0.55},
+        {"kodak_kodacolor_100_fotufilm", 0.32},
+        {"lomography_color_100_fotufilm", 0.34},
+    };
+    const auto& stock = params_.film.info.stock;
+    double spatial_mix = 1.0;
+    for (const auto& [id, mix] : spatial_mix_by_stock) {
+        if (stock == id) {
+            spatial_mix = mix;
+            break;
+        }
+    }
     const double size_px = dcp.diffusion_size_um / pixel_size_um_;
     const double tail_px = dcp.diffusion_tail_um / pixel_size_um_;
     const double wt = dcp.diffusion_tail_weight;
@@ -1301,6 +1334,13 @@ std::vector<Blur::Component> Pipeline::dir_coupler_diffusion() const {
     std::vector<Blur::Component> tail;
     Blur::exponential_components(lambda, weight, tail);
     comps.insert(comps.end(), tail.begin(), tail.end());
+    if (spatial_mix < 1.0) {
+        for (auto& comp : comps)
+            for (double& channel : comp.weight) channel *= spatial_mix;
+        Blur::Component local{};
+        fill3(local.weight, 1.0 - spatial_mix);
+        comps.push_back(local);
+    }
     return comps;
 }
 

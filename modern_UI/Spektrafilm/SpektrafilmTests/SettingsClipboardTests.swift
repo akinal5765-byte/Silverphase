@@ -16,7 +16,7 @@ final class SettingsClipboardTests: XCTestCase {
         XCTAssertEqual(ClipboardGroup.fromStored(["filmAndPaper"]), [.film, .print, .output])
         XCTAssertEqual(ClipboardGroup.fromStored(["filmEffects"]), [.camera, .film, .development])
         XCTAssertEqual(ClipboardGroup.fromStored(["printEffects"]), [.print, .output])
-        XCTAssertEqual(ClipboardGroup.fromStored(["exposure", "whiteBalance", "scenePlacement"]), [.camera, .print])
+        XCTAssertEqual(ClipboardGroup.fromStored(["exposure", "whiteBalance", "scenePlacement"]), [.camera, .film, .print])
         XCTAssertEqual(ClipboardGroup.fromStored(["output", "development", "unknown"]), [.output, .development])
     }
 
@@ -160,7 +160,7 @@ final class SettingsClipboardTests: XCTestCase {
             XCTAssertFalse(diff.isEmpty, "\(g.rawValue) pasted nothing")
             // The one field outside a group a paste may touch: Exposure clears
             // the report of the old meter.
-            let allowed = g == .camera ? ["solvedEV"] : []
+            let allowed = g == .film ? ["solvedEV"] : []
             for path in diff where !g.paths.contains(where: { owned(path, by: $0) }) && !allowed.contains(path) {
                 XCTFail("pasting \(g.rawValue) changed \(path), which it does not own")
             }
@@ -228,14 +228,14 @@ final class SettingsClipboardTests: XCTestCase {
     }
 
     func testExposureClearsTheReportOnlyWhenTheMeterChanges() {
-        let changedMeter = SettingsClip(groups: [.camera], settings: source(), sourceName: "src").applied(to: target())
+        let changedMeter = SettingsClip(groups: [.film], settings: source(), sourceName: "src").applied(to: target())
         XCTAssertNil(changedMeter.solvedEV, "the old meter's report survived a change of meter")
         XCTAssertEqual(changedMeter.params.exposureCompensationEV, 1.5)
 
         var sameMeter = source()
         sameMeter.params.autoExposure = true
         sameMeter.params.autoExposureMethod = FilmParams().autoExposureMethod
-        let kept = SettingsClip(groups: [.camera], settings: sameMeter, sourceName: "src").applied(to: target())
+        let kept = SettingsClip(groups: [.film], settings: sameMeter, sourceName: "src").applied(to: target())
         XCTAssertEqual(kept.solvedEV, 0.4, "the report was dropped although the meter is the same")
     }
 

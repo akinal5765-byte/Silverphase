@@ -1,50 +1,3 @@
-//  CameraSection.swift — how the photograph enters the film: Metering Mode,
-//  Exposure Compensation, Temperature, Tint, Lens Correction and shooting
-//  diffusion.
-//
-//  **v3 (2026-09-18) renamed three things and added one.** The section is
-//  **Input / Capture**; `AE Method` is **Metering Mode**. Both are visual renames
-//  only — `session.aeMethod` keeps its name, its offered values and its
-//  legacy restoration, which handoff §7 requires. The addition is a **reset
-//  arrow on the header**, beside the "•••". Its scope is left open by §8.3,
-//  so it is wired to the one reset this section already had a name for —
-//  exposure compensation — and the tooltip says exactly that rather than implying it
-//  resets the section. Camera's labels are set at 9 pt in a 70 pt column,
-//  which is v3's measurement and narrower than the rail's shared 84.
-//
-//  The 2026-09-17 drawing's first section, and every row of it is a row of
-//  the drawing. No well: controls sit directly on the rail, which is what
-//  changed across the whole interface — a well now holds a *choice from a
-//  set* (the film and print lists) and nothing else.
-//
-//  **Metering** (`auto_exposure` + `auto_exposure_method`, and the pill is
-//  wired to `Session.aeMethod`). The four intents are what the engine's meter
-//  follows: overall correctness (`balanced`), a subject in the middle
-//  (`center`), the brightest part kept (`protect highlights`), the darkest
-//  kept (`protect shadows`). `Custom` is the meter **off** — the PRD's
-//  "linearized baseline as the +0.0 baseline" — and it needed no new field,
-//  because `camera.auto_exposure` has been in the schema all along.
-//
-//  **Exposure Compensation** (`exposure_compensation_ev`) sits directly under it, as
-//  the PRD asks, because the two are one decision read in two lines: the
-//  method chooses a baseline and the slider offsets it. It is **film
-//  placement, not print brightness** — the print gain is taken from a mid-grey
-//  exposed at this offset (`printing.cpp`), so the print re-normalises what
-//  the slider moves: measured on the smoke frame, a 4 EV sweep moves the mean
-//  print luminance by 2.4 %, downward, while the contrast rises. What it buys
-//  is where the scene sits on the film curve: grain, latitude, saturation.
-//
-//  **Temperature and Tint** are unchanged, as the PRD says ("How Temperature
-//  and Tint is wired remain unchanged") — decode-side white balance, with the
-//  "As Shot" box each axis has always had (`WhiteBalanceRows`).
-//
-//  **Vignetting** is client-side (Layer 2's lens fall-off). The engine has no
-//  vignette parameter; it sits here because that is where a photographer
-//  looks for it.
-//
-//  **Lens Correction** is decode-side too, and the one row in this section
-//  that can be non-selectable — see `Session.lensCorrectionEnabled`.
-
 import SwiftUI
 
 struct CameraSection: View {
@@ -53,37 +6,22 @@ struct CameraSection: View {
 
     var body: some View {
         PanelSection(L(.sectionCamera), key: "camera",
-                     blockTitle: T("Metering & Exposure", "测光与曝光", "測光與曝光"),
-                     menu: { AnyView(exposureMenu) }) {
-            RailRows {
-                PillMenu(label: L(.cameraMetering),
-                         options: AEMethod.offered,
-                         title: { L($0.key) },
-                         selection: Binding(get: { session.aeMethod },
-                                            set: { session.aeMethod = $0 }))
-                    .disabled(session.halfFramePair != nil)
-                ScrubSlider(label: L(.cameraFilmExposure),
-                            sublabelView: asShotLine,
-                            value: Binding(get: { session.params.exposureCompensationEV },
-                                           set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
-                            range: -4...4, snap: 1 / 3, format: { String(format: "%+.2f", $0) })
-            }
+                     blockTitle: session.halfFramePair == nil ? T("Prep Tone", "入片影调", "入片影調") : legacyToneTitle,
+                     menu: { session.halfFramePair == nil ? AnyView(toneMenu) : AnyView(legacyToneMenu) }) {
             if session.halfFramePair == nil {
-                InspectorSubblock(title: T("Prep Tone", "入片影调", "入片影調"), menu: { AnyView(toneMenu) }) {
-                    RailRows {
-                        if session.canMatchCameraBrightness { cameraBrightnessRow }
-                        prepExposureRow
-                        prepRow(T("Brights", "亮部", "亮部"), \.localBrights,
-                                help: T("Adjusts local bright areas while retaining texture.", "调整局部亮部，保留纹理。", "調整局部亮部，保留紋理。"))
-                        prepRow(T("Darks", "暗部", "暗部"), \.localDarks,
-                                help: T("Adjusts local shadows while protecting the deepest blacks.", "调整局部暗部，保护最深的黑位。", "調整局部暗部，保護最深的黑位。"))
-                        prepRow(T("Contrast", "对比度", "對比度"), \.prepContrast,
-                                help: T("Expands or compresses tones around middle grey.", "以中灰为中心拉开或收拢影调。", "以中灰為中心拉開或收攏影調。"))
-                        prepRow(T("Lift", "低端提升", "低端提升"), \.prepLift,
-                                help: T("Adjusts the low end of the scene globally.", "整体调整场景影调的低端。", "整體調整場景影調的低端。"))
-                        prepRow(T("Gain", "高端增益", "高端增益"), \.prepGain,
-                                help: T("Adjusts the high end of the scene globally.", "整体调整场景影调的高端。", "整體調整場景影調的高端。"))
-                    }
+                RailRows {
+                    if session.canMatchCameraBrightness { cameraBrightnessRow }
+                    prepExposureRow
+                    prepRow(T("Brights", "亮部", "亮部"), \.localBrights,
+                            help: T("Adjusts local bright areas while retaining texture.", "调整局部亮部，保留纹理。", "調整局部亮部，保留紋理。"))
+                    prepRow(T("Darks", "暗部", "暗部"), \.localDarks,
+                            help: T("Adjusts local shadows while protecting the deepest blacks.", "调整局部暗部，保护最深的黑位。", "調整局部暗部，保護最深的黑位。"))
+                    prepRow(T("Contrast", "对比度", "對比度"), \.prepContrast,
+                            help: T("Expands or compresses tones around middle grey.", "以中灰为中心拉开或收拢影调。", "以中灰為中心拉開或收攏影調。"))
+                    prepRow(T("Lift", "低端提升", "低端提升"), \.prepLift,
+                            help: T("Adjusts the low end of the scene globally.", "整体调整场景影调的低端。", "整體調整場景影調的低端。"))
+                    prepRow(T("Gain", "高端增益", "高端增益"), \.prepGain,
+                            help: T("Adjusts the high end of the scene globally.", "整体调整场景影调的高端。", "整體調整場景影調的高端。"))
                 }
                 InspectorSubblock(title: T("Prep Detail", "入片细节", "入片細節")) {
                     RailRows {
@@ -100,21 +38,18 @@ struct CameraSection: View {
                     }
                 }
             }
-            if editingLegacyTone || session.params.cameraTone.hasLegacyAdjustments || session.halfFramePair != nil {
-                InspectorSubblock(title: T("Legacy Tone", "旧影调", "舊影調"), menu: { AnyView(legacyToneMenu) }) {
-                    RailRows {
-                        toneRow(T("Highlights", "高光", "高光"), \.highlights)
-                        toneRow(T("Shadows", "阴影", "陰影"), \.shadows)
-                        toneRow(T("Whites", "白色色阶", "白色色階"), \.whites)
-                        toneRow(T("Blacks", "黑色色阶", "黑色色階"), \.blacks)
+            if session.halfFramePair != nil {
+                legacyToneRows
+            } else {
+                if editingLegacyTone || session.params.cameraTone.hasLegacyAdjustments {
+                    InspectorSubblock(title: legacyToneTitle, menu: { AnyView(legacyToneMenu) }) {
+                        legacyToneRows
                     }
                 }
-            }
-            if session.halfFramePair == nil {
-            InspectorSubblock(title: T("White Balance", "白平衡", "白平衡"),
-                              menu: { AnyView(whiteBalanceMenu) }) {
-                WhiteBalanceRows(session: session)
-            }
+                InspectorSubblock(title: T("White Balance", "白平衡", "白平衡"),
+                                  menu: { AnyView(whiteBalanceMenu) }) {
+                    WhiteBalanceRows(session: session)
+                }
             }
             InspectorSubblock(title: T("Lens & Diffusion", "镜头与柔化", "鏡頭與柔化")) {
                 RailRows {
@@ -154,24 +89,14 @@ struct CameraSection: View {
         .onChange(of: session.selection) { editingLegacyTone = false }
     }
 
-    /// "As Shot ☐" under Exposure Compensation — the line the drawing puts under the
-    /// first three sliders. What it means and what clicking it does are
-    /// `Session.filmExposureIsAsShot` and `setFilmExposureAsShot(_:)`; this is
-    /// only the two views.
-    private var asShotLine: AnyView {
-        AnyView(AsShotLine(isOn: Binding(get: { session.filmExposureIsAsShot },
-                                         set: { session.setFilmExposureAsShot($0) }),
-                           enabled: true))
-    }
+    private var legacyToneTitle: String { T("Legacy Tone", "旧影调", "舊影調") }
 
-    /// What the drawing has no room for and the section still needs: the
-    /// white-balance presets and the neutral picker, which were a pill and an
-    /// eyedropper on a row of their own. The drawing's Camera section is five
-    /// rows and none of them is that row — so they are here, in the "•••" the
-    /// drawing *does* give every section.
-    private var exposureMenu: some View {
-        Button(L(.helpResetFilmExposure)) {
-            var p = session.params; p.exposureCompensationEV = 0; session.params = p
+    private var legacyToneRows: some View {
+        RailRows {
+            toneRow(T("Highlights", "高光", "高光"), \.highlights)
+            toneRow(T("Shadows", "阴影", "陰影"), \.shadows)
+            toneRow(T("Whites", "白色色阶", "白色色階"), \.whites)
+            toneRow(T("Blacks", "黑色色阶", "黑色色階"), \.blacks)
         }
     }
 
@@ -306,17 +231,7 @@ struct CameraSection: View {
     }
 }
 
-/// "As Shot" and its box, on the second line of a slider row.
-///
-/// The box's own padding is a hit area rather than layout (it is drawn 8 pt),
-/// so the negative vertical padding keeps the line from growing to suit it.
-///
-/// **One view, three rows.** It draws the line under Exposure Compensation here and
-/// under Temperature and Tint in `WhiteBalanceRows`, so its label is one
-/// string in all three places: the two white-balance rows cannot say "As
-/// Shot" while this one says 拍摄时设置 without a `label:` parameter, which
-/// would be a shape change this pass was told not to make. The spec lists
-/// "As Shot" once, next to Exposure Compensation.
+/// Lets either white-balance axis follow the recorded camera value.
 struct AsShotLine: View {
     @Binding var isOn: Bool
     var enabled: Bool
@@ -331,7 +246,7 @@ struct AsShotLine: View {
         // *is* a switch: "this value is the one the camera recorded". What was
         // wrong was its shape, not its existence.
         HStack(spacing: 0) {
-            Text(L(.cameraFilmExposureAsShot))
+            Text(L(.whiteBalanceAsShot))
                 .font(Theme.Font.sublabel)
                 .foregroundStyle(Theme.Ink.tertiary)
             Spacer(minLength: Theme.Metric.space4)

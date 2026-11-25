@@ -21,9 +21,6 @@ struct ProcessControls: View {
                         document.resetKeys(["_placementHighlight", "_placementShadow"])
                     }.buttonStyle(.plain).font(EditorDesign.parameter).frame(minHeight: EditorDesign.hitSize)
                 }
-                section(T("Metering & Exposure", "测光与曝光", "測光與曝光"))
-                choice(T("Metering Mode", "测光模式", "測光模式"), "_meter", MobileMeteringMode.allCases.map { ($0.rawValue, $0.title) })
-                number(T("Exposure Compensation · EV", "曝光补偿 · EV", "曝光補償 · EV"), "exposure_compensation_ev", MobileCameraRecipe.exposureCompensationRange)
                 prepControls
                 section(T("White Balance", "白平衡", "白平衡"))
                 if document.value("_raw")?.boolValue == true {
@@ -49,6 +46,9 @@ struct ProcessControls: View {
                 choice(T("Colour Filter", "光谱滤镜", "光譜濾鏡"), "camera_filter", [("", T("Off", "关闭", "關閉")), ("w8", T("No. 8 · Yellow", "8号 · 黄", "8號 · 黃")), ("w11", T("No. 11 · Yellow-Green", "11号 · 黄绿", "11號 · 黃綠")), ("w12", T("No. 12 · Deep Yellow", "12号 · 深黄", "12號 · 深黃")), ("w15", T("No. 15 · Deep Yellow", "15号 · 深黄", "15號 · 深黃")), ("w21", T("No. 21 · Orange", "21号 · 橙", "21號 · 橙")), ("w25", T("No. 25 · Red", "25号 · 红", "25號 · 紅")), ("w47", T("No. 47 · Blue", "47号 · 蓝", "47號 · 藍")), ("w58", T("No. 58 · Green", "58号 · 绿", "58號 · 綠"))])
                 diffusion(T("Shooting Diffusion", "拍摄柔光", "拍攝柔光"), prefix: "camera")
             case .film:
+                section(T("Metering & Exposure", "测光与曝光", "測光與曝光"))
+                choice(T("Metering Mode", "测光模式", "測光模式"), "_meter", MobileMeteringMode.allCases.map { ($0.rawValue, $0.title) })
+                number(T("Film Exposure · EV", "胶片曝光 · EV", "膠片曝光 · EV"), "exposure_compensation_ev", MobileCameraRecipe.exposureCompensationRange)
                 section(T("Frame", "画幅", "畫幅"))
                 choice(T("Film Format", "胶片规格", "膠片規格"), "_filmFrame", MobileProcessContract.frames.map { ($0.id, $0.id == "Custom" ? T("Custom", "自定", "自定") : $0.id) })
                 choice(T("Size Basis", "尺寸基准", "尺寸基準"), "_filmSide", [("short", T("Short", "短边", "短邊")), ("long", T("Long", "长边", "長邊"))])

@@ -128,8 +128,8 @@ struct MaterialChooser: View {
                 if paper { document.setPaper(stock) } else { document.setFilm(stock) }
                 recent.removeAll { $0 == stock.id }; recent.insert(stock.id, at: 0)
             } label: {
-                if vertical { materialRow(stock.name, subtitle: subtitle(stock), selected: isSelected(stock)) { artwork(stock) } }
-                else { BrowserCard(title: shortName(stock.name), subtitle: subtitle(stock), width: EditorDesign.materialCardWidth, selected: isSelected(stock)) { artwork(stock) } }
+                if vertical { materialRow(stock.displayName, subtitle: subtitle(stock), selected: isSelected(stock)) { artwork(stock) } }
+                else { BrowserCard(title: shortName(stock.displayName), subtitle: subtitle(stock), width: EditorDesign.materialCardWidth, selected: isSelected(stock)) { artwork(stock) } }
             }.buttonStyle(.plain).id(stock.id)
             .accessibilityLabel(stock.name + ", " + subtitle(stock))
             .accessibilityIdentifier("materials.stock." + stock.id)
@@ -150,7 +150,7 @@ struct MaterialChooser: View {
                 Image(systemName: paper ? "photo" : "film").font(.system(size: EditorDesign.glyphSize)).frame(maxWidth: .infinity, maxHeight: .infinity).background(MobileStyle.well)
             }
             if favorites.contains(stock.id) { Image(systemName: "star.fill").font(.system(size: 12)).foregroundStyle(MobileStyle.accent).padding(6).shadow(radius: 2) }
-        }
+        }.fotufilmBadge(for: stock)
     }
     private func materialRow<Artwork: View>(_ title: String, subtitle: String, selected: Bool, @ViewBuilder artwork: () -> Artwork) -> some View {
         HStack(spacing: 12) {
@@ -224,7 +224,7 @@ struct PhoneMaterialModule: View {
         if paper && positive { return T("Positive film, direct scan", "正片直接扫描", "正片直接掃描") }
         if paper && document.value("scan_film")?.boolValue == true { return T("No Print Profile", "不使用相纸", "不使用相紙") }
         if paper && document.value("digital_intermediate")?.boolValue == true { return T("Digital Intermediate", "数字中间片", "數位中間片") }
-        return stock?.name ?? (paper ? T("Choose Paper", "选择相纸", "選擇相紙") : T("Choose Film", "选择胶片", "選擇膠片"))
+        return stock?.displayName ?? (paper ? T("Choose Paper", "选择相纸", "選擇相紙") : T("Choose Film", "选择胶片", "選擇膠片"))
     }
     private var subtitle: String {
         if bypassesPaper { return T("Scan film directly", "直接扫描胶片", "直接掃描膠片") }
@@ -247,6 +247,7 @@ struct PhoneMaterialModule: View {
                     }
                 }
                 .frame(width: 64, height: 48).clipped()
+                .fotufilmBadge(for: stock)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(paper ? T("Current paper", "当前相纸", "目前相紙") : T("Current film", "当前胶片", "目前膠片")).font(EditorDesign.help).foregroundStyle(.secondary)
@@ -264,7 +265,9 @@ struct PhoneMaterialModule: View {
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel((paper ? T("Paper, ", "相纸，", "相紙，") : T("Film, ", "胶片，", "膠片，")) + name + (paper && positive ? "" : T(", change", "，更换", "，更換")))
+        .accessibilityLabel((paper ? T("Paper, ", "相纸，", "相紙，") : T("Film, ", "胶片，", "膠片，"))
+                            + name + (stock?.isFotufilm == true ? ", Fotufilm" : "")
+                            + (paper && positive ? "" : T(", change", "，更换", "，更換")))
         .accessibilityIdentifier(paper ? "editor.change-paper" : "editor.change-film")
         .disabled(document.current == nil || document.delivering || document.isInteractionLocked || (paper && positive))
     }

@@ -792,12 +792,14 @@ struct MobileCameraView: View {
                                     filmID = stock.id
                                     setFilmPicker(false)
                                 } label: {
-                                    BrowserCard(title: stock.name, subtitle: stock.speedLabel ?? "", width: 96, selected: stock.id == film?.id) {
-                                        if let artwork = stock.packagingArtworkURL ?? stock.coverURL {
-                                            FilmstripThumbnail(url: artwork, fillsFrame: true)
-                                        } else {
-                                            Image(systemName: "film").frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        }
+                                    BrowserCard(title: stock.displayName, subtitle: stock.speedLabel ?? "", width: 96, selected: stock.id == film?.id) {
+                                        Group {
+                                            if let artwork = stock.packagingArtworkURL ?? stock.coverURL {
+                                                FilmstripThumbnail(url: artwork, fillsFrame: true)
+                                            } else {
+                                                Image(systemName: "film").frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            }
+                                        }.fotufilmBadge(for: stock)
                                     }
                                 }
                                 .buttonStyle(.plain)

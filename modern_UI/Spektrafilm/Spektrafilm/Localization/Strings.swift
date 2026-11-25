@@ -55,7 +55,7 @@ enum S: String, CaseIterable, Sendable {
     case sectionCurve, sectionColorBalance
 
     // MARK: Camera
-    case cameraMetering, cameraFilmExposure, cameraFilmExposureAsShot
+    case cameraMetering, filmExposure, whiteBalanceAsShot
     case cameraTemperature, cameraTint, cameraVignetting, cameraLensCorrection
 
     // MARK: the metering pill's options
@@ -164,7 +164,7 @@ extension S {
         case .railPresets: "Film & Paper"
         case .railDevelop: "Film Process"
         case .railEdit: "Parameters"
-        case .sectionCamera: "Input / Capture"
+        case .sectionCamera: "Prep"
         case .latitudeUnmeasurable: "This film and paper do not print a rising tone scale, so there is no latitude to measure. A slide printed onto print film comes out as a negative."
         case .latitudeNoLight: "The frame has no light in it to measure."
         case .filmFormatSize: "Size"
@@ -276,8 +276,8 @@ extension S {
 
         // Camera
         case .cameraMetering: "Metering Mode"
-        case .cameraFilmExposure: "Exposure Compensation"
-        case .cameraFilmExposureAsShot: "As Shot"
+        case .filmExposure: "Film Exposure"
+        case .whiteBalanceAsShot: "As Shot"
         case .cameraTemperature: "Temperature"
         case .cameraTint: "Tint"
         case .cameraVignetting: "Vignetting"
@@ -634,7 +634,7 @@ extension S {
         case .railPresets: "胶片与相纸"
         case .railDevelop: "胶片工艺"
         case .railEdit: "参数"
-        case .sectionCamera: "输入 / 拍摄"
+        case .sectionCamera: "预处理"
         case .latitudeUnmeasurable: "当前胶片与相纸的输出不随曝光递增，无法测量宽容度。反转片印到电影正片上会得到负像。"
         case .latitudeNoLight: "画面中没有可测量的光。"
         case .filmFormatSize: "尺寸"
@@ -741,8 +741,8 @@ extension S {
 
         // Camera
         case .cameraMetering: "测光模式"
-        case .cameraFilmExposure: "曝光补偿"
-        case .cameraFilmExposureAsShot: "拍摄时设置"
+        case .filmExposure: "胶片曝光"
+        case .whiteBalanceAsShot: "拍摄时设置"
         case .cameraTemperature: "色温"
         case .cameraTint: "色调"
         case .cameraVignetting: "暗角"
@@ -876,7 +876,7 @@ extension S {
         case .helpPickNeutral: "在图像中选取中性色"
         case .helpWhiteBalancePreset: "白平衡预设"
         case .helpReset: "重置"
-        case .helpResetFilmExposure: "重置曝光补偿"
+        case .helpResetFilmExposure: "重置胶片曝光"
         case .helpResetChannels: "重置所有通道"
         case .helpResetCrop: "重置裁剪"
         case .helpStraightenZero: "拉直到 0°"
@@ -1083,7 +1083,7 @@ extension S {
         case .railPresets: "膠片與相紙"
         case .railDevelop: "膠片工藝"
         case .railEdit: "參數"
-        case .sectionCamera: "輸入 / 拍攝"
+        case .sectionCamera: "預處理"
         case .latitudeUnmeasurable: "目前膠片與相紙的輸出不隨曝光遞增，無法測量寬容度。反轉片印到電影正片上會得到負像。"
         case .latitudeNoLight: "畫面中沒有可測量的光。"
         case .filmFormatSize: "尺寸"
@@ -1190,8 +1190,8 @@ extension S {
 
         // Camera
         case .cameraMetering: "測光模式"
-        case .cameraFilmExposure: "曝光補償"
-        case .cameraFilmExposureAsShot: "拍攝時設定"
+        case .filmExposure: "膠片曝光"
+        case .whiteBalanceAsShot: "拍攝時設定"
         case .cameraTemperature: "色溫"
         case .cameraTint: "色調"
         case .cameraVignetting: "暗角"
@@ -1325,7 +1325,7 @@ extension S {
         case .helpPickNeutral: "在影像中選取中性色"
         case .helpWhiteBalancePreset: "白平衡預設"
         case .helpReset: "重設"
-        case .helpResetFilmExposure: "重設曝光補償"
+        case .helpResetFilmExposure: "重設膠片曝光"
         case .helpResetChannels: "重設所有通道"
         case .helpResetCrop: "重設裁切"
         case .helpStraightenZero: "拉直到 0°"
