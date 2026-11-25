@@ -33,6 +33,18 @@ for name in names:
     elif ('Silverphase' in name and '.icon/' in name) or name.startswith(('design/app-icon/previews/', 'screenshots/app-icon.')):
         kind, evidence = 'icon-artwork', 'design/app-icon/README.md and local vector generators; Git history retains authorship.'
         terms = 'Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained.'
+    elif name in {
+        'docs/showcase/01-paper-study.png', 'docs/showcase/02-film-studies.png',
+        'docs/showcase/03-800t-night.png', 'docs/showcase/04-film-edge-covers.png',
+    }:
+        kind, evidence = 'approved-product-showcase', 'docs/showcase/README.md; maintainer-approved project fixtures and release of the derived cards.'
+        terms = 'Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant.'
+    elif name == 'docs/site/silverphase-icon.png':
+        kind, evidence = 'icon-artwork', 'Reduced copy of the tracked screenshots/app-icon.png for the project website.'
+        terms = 'Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained.'
+    elif name == 'docs/site/layerlight-icon.png':
+        kind, evidence = 'related-app-promotional-icon', 'Reduced copy of the tracked screenshots/related-apps/layerlight-icon.png for owner-requested promotion.'
+        terms = 'Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants.'
     elif name.startswith('screenshots/current/'):
         kind, evidence = 'approved-current-ui-case', 'screenshots/current/manifest.json and maintainer authorization, 2026-10-31.'
         terms = 'Project demonstration screenshot use approved; RAW photographs remain local-only and are not blanket relicensed.'

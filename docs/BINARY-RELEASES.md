@@ -7,7 +7,7 @@ signing state and validation scope. Release builds may have incomplete features.
 
 The platforms maintain independent versions and build numbers. GitHub Releases lists source milestones and macOS installers. The App Store and TestFlight show the iOS builds available for installation. Historical GitHub iOS packages are unsigned.
 
-The repository source is 1.3.1 for [macOS](../modern_UI/Spektrafilm/releases/1.3.1.md) and [iOS/iPadOS](../ios/releases/1.3.1.md). The distribution links below lead to the channels that provide installable builds.
+The current documented source milestone is 1.3.1 for [macOS](../modern_UI/Spektrafilm/releases/1.3.1.md) and [iOS/iPadOS](../ios/releases/1.3.1.md). The distribution links below lead to the channels that provide installable builds.
 
 ## macOS
 

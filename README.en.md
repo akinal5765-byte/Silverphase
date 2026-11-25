@@ -11,27 +11,11 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> · English ·
-  <a href="#download">Download</a> · <a href="#editing-workflow">Editing workflow</a> ·
+  <a href="https://akinal5765-byte.github.io/Silverphase/site/en.html">Website</a> · <a href="#download">Download</a> · <a href="#examples">Examples</a> · <a href="#editing-workflow">Workflow</a> ·
   <a href="#release-notes">Release notes</a> · <a href="docs/README.md">Documentation</a>
 </p>
 
-Silverphase simulates **camera input → film exposure → development → printing → scanning** on device. Film and paper shape the result together. Grain, halation, and film edges form within the process. Deliver a finished image or export a Cineon intermediate that preserves film contrast for grading.
-
-## Also by the author: Layerlight
-
-<table>
-  <tr>
-    <td width="112" align="center"><a href="https://apps.apple.com/app/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight app icon"></a></td>
-    <td>
-      <strong>Layerlight · HDR Photo Editor</strong><br>
-      A separate proprietary app by the same author, available on the App Store for iPhone and iPad.
-      <p>Shape HDR highlights and Gain Maps with light, contrast, and softness controls. Supports HEIC Photographic Styles workflows, plus crop, frames, watermarks, and batch export. Photographic Styles editing requires compatible devices and systems; some features require Pro.</p>
-      <a href="https://apps.apple.com/app/id6756343255"><strong>View and download on the App Store →</strong></a>
-    </td>
-  </tr>
-</table>
-
-Layerlight and its icon retain their separate rights and are outside Silverphase's open-source licences. See the [related-app artwork notice](screenshots/related-apps/README.md) for the icon's provenance.
+Silverphase is an open-source, on-device darkroom for **macOS, iPhone, and iPad**. Take a photo through **camera input → film exposure → development → printing → scanning**. Changing the paper can change the result without changing the negative. Grain, halation, and film edges are formed inside the process.
 
 ## Download
 
@@ -43,6 +27,49 @@ Layerlight and its icon retain their separate rights and are outside Silverphase
 On macOS, check for updates in Settings → Software Update. The GitHub DMG uses an ad-hoc signature and has no Apple notarization. [Installation and checksum guide](docs/BINARY-RELEASES.md)
 
 The iPhone and iPad app is available on the App Store outside mainland China. The App Store and TestFlight each show the version available through that channel.
+
+## Also by the author: Layerlight
+
+<table>
+  <tr>
+    <td width="112" align="center"><a href="https://apps.apple.com/app/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight app icon"></a></td>
+    <td>
+      <strong>Layerlight · Quick photo lighting for iPhone and iPad</strong><br>
+      A separate, proprietary app by the same author.
+      <p>Adjust the light in an everyday photo in a few taps, then compare with the original. Photographic Styles editing is a bonus on compatible devices and systems; some features require Pro.</p>
+      <a href="https://apps.apple.com/app/id6756343255"><strong>View on the App Store →</strong></a> · <a href="https://www.youtube.com/shorts/F1xEDz2V0ms">Watch the 27-second demo</a>
+    </td>
+  </tr>
+</table>
+
+Layerlight and its icon retain their separate rights and are outside Silverphase's open-source licences. See the [related-app artwork notice](screenshots/related-apps/README.md) for the icon's provenance.
+
+## Examples
+
+### Three scenes, three stocks
+
+[![Silverphase film studies: Portra 400 lotus, Acros II white bird, and CineStill 800T storefront](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
+
+These are three independent Silverphase renders, not a controlled stock comparison. Grain and halation are enabled.
+
+<details>
+<summary>See the paper comparison, 1:1 night detail, and the 35 mm film edge</summary>
+
+**Same negative, two papers.** Compare the RAW reference with Portra Endura and Supra Endura prints from the same Portra 400 negative. The lower row crops the same coordinates at 1:1 in each render.
+
+[![Lotus RAW reference, two paper simulations, and matching detail crops](docs/showcase/01-paper-study.png)](docs/showcase/01-paper-study.png)
+
+**After dark with CineStill 800T.** The storefront is rendered at 7008 × 4672 px. The sign and pavement crops show the native detail without upscaling.
+
+[![CineStill 800T storefront with separate 1:1 halation and grain details](docs/showcase/03-800t-night.png)](docs/showcase/03-800t-night.png)
+
+**Beyond the frame.** A Silverphase-rendered 135 film edge with perforations and frame markings, alongside four covers from the app.
+
+[![Silverphase-rendered 35 mm film edge and four stock-library covers](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
+
+</details>
+
+Each finished card is 2560 × 1600 px (16:10). [Recipes, source and artwork notes](docs/showcase/README.md) · [Earlier desktop UI captures](screenshots/current/README.md) · [iPhone layout captures](screenshots/ios/2026-11-02/README.md)
 
 ## Editing workflow
 
@@ -60,12 +87,6 @@ Work with folders, soft-proof images, and create two-photo half-frame compositio
 ### iPhone and iPad
 
 Import from Photos or Files, or use the in-app camera. The editor has a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. [iOS guide](ios/README.md) · [Controls and device limitations](ios/CONTROL-AUDIT.md)
-
-## Examples
-
-The desktop image below is from the October 2026 examples. The [case gallery](screenshots/current/README.md) includes multiple stocks, 100% grain crops, and halation comparisons. The platform guides describe current control locations.
-
-![Earlier Portra 400 lotus example](screenshots/current/silverphase-lotus-2026-10-31.jpg)
 
 ## Release notes
 

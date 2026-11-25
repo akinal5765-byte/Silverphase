@@ -199,6 +199,48 @@
       "rights_scope": "Workflow documentation only. Adobe and Apple UI and trademarks retain their respective rights; no new third-party UI licence grant is asserted."
     },
     {
+      "path": "docs/showcase/01-paper-study.png",
+      "sha256": "6ce2eb05520888b204928c243d914ed77f477016caedb2e597658ba04f969423",
+      "kind": "approved-product-showcase",
+      "evidence": "docs/showcase/README.md; maintainer-approved project fixtures and release of the derived cards.",
+      "rights_scope": "Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant."
+    },
+    {
+      "path": "docs/showcase/02-film-studies.png",
+      "sha256": "a9f2e20f6ad16cc9e651f4f78093b0e2959feea562e2c03c40cbb8b6fa00011d",
+      "kind": "approved-product-showcase",
+      "evidence": "docs/showcase/README.md; maintainer-approved project fixtures and release of the derived cards.",
+      "rights_scope": "Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant."
+    },
+    {
+      "path": "docs/showcase/03-800t-night.png",
+      "sha256": "a315e7cb1d31816325e759caf179363676621859380b197d2e5a06ccb903d4e3",
+      "kind": "approved-product-showcase",
+      "evidence": "docs/showcase/README.md; maintainer-approved project fixtures and release of the derived cards.",
+      "rights_scope": "Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant."
+    },
+    {
+      "path": "docs/showcase/04-film-edge-covers.png",
+      "sha256": "577862bf5a1154aa5b9863d6077a983ebefe9b946ff916407a7faf02e110731b",
+      "kind": "approved-product-showcase",
+      "evidence": "docs/showcase/README.md; maintainer-approved project fixtures and release of the derived cards.",
+      "rights_scope": "Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant."
+    },
+    {
+      "path": "docs/site/layerlight-icon.png",
+      "sha256": "328f151532c2be7fb1676ffe6b452ecf4930a655315eb3097243638ced023c39",
+      "kind": "related-app-promotional-icon",
+      "evidence": "Reduced copy of the tracked screenshots/related-apps/layerlight-icon.png for owner-requested promotion.",
+      "rights_scope": "Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants."
+    },
+    {
+      "path": "docs/site/silverphase-icon.png",
+      "sha256": "f6140caf52f1727adf0ff60d1c63e7335cada837bd334df2f6c618cbbcaea455",
+      "kind": "icon-artwork",
+      "evidence": "Reduced copy of the tracked screenshots/app-icon.png for the project website.",
+      "rights_scope": "Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained."
+    },
+    {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/agfa_agfachrome_100_fotufilm-packaging-v1.png",
       "sha256": "0312cb48a3486ee9aadda2b0ec1240cec85349a8a4702b6cd30239602774ad81",
       "kind": "generated-cover",

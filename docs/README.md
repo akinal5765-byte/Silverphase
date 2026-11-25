@@ -13,10 +13,10 @@ original scope. Documentation review is not a new performance or visual audit.
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | App Store, TestFlight and macOS downloads | [Binary releases](BINARY-RELEASES.md) |
-| 1.3.1 downloads | [macOS DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) / [iOS source release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) |
+| 1.3.1 macOS installer and iOS source release | [macOS DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) / [iOS source release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) |
 | 1.3.1 source notes and verification | [macOS build 6](../modern_UI/Spektrafilm/releases/1.3.1.md) / [iOS and iPadOS build 11](../ios/releases/1.3.1.md) |
 | macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
-| iOS 1.3.0, public download and beta access | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) / [Source notes](../ios/releases/1.3.0.md) / [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) / [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |
+| iOS 1.3.0 historical release | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) / [Source notes](../ios/releases/1.3.0.md) |
 | App Store distribution, privacy and user support | [Store record](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
 | CineStill 800T adoption and validation scope | [Dated adoption checks](../performance/VALIDATION-CINESTILL-2026-11-02.md) |
 | Desktop structure/build/export | [macOS engineering](../modern_UI/Spektrafilm/README.md) |
@@ -34,7 +34,8 @@ original scope. Documentation review is not a new performance or visual audit.
 | Open-source preparation and contribution terms | [Licensing map](../LICENSES.md) / [Contributing](../CONTRIBUTING.md) / [Release review](OPEN-SOURCE-RELEASE.md) |
 | Asset provenance and runtime data | [Artwork scope](../license/ARTWORK.md) / [Visual inventory](../license/media-inventory.json) / [Data sources](../license/DATA-SOURCES.md) / [Stored array inventory](../license/data-inventory.json) |
 | Image/data/software licenses | [Bundled notices](../modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/README.txt) |
-| Current screenshot cases and pinned RAW workflow | [Current captures](../screenshots/current/README.md) / [2026-10-31 case validation](../performance/VALIDATION-CASES-2026-10-31.md) |
+| Product images and how they were rendered | [Current product showcase](showcase/README.md) |
+| Dated desktop UI captures and fixed photo validation | [2026-10-31 captures](../screenshots/current/README.md) / [Case validation](../performance/VALIDATION-CASES-2026-10-31.md) |
 | Earlier release verification | [2026-10-31 release review](OPEN-SOURCE-RELEASE.md) / [local and public builds](../performance/VALIDATION-LOCAL-MATERIALS-2026-10-31.md) |
 | Earlier implementation and measurements | [Historical snapshots](history/) / [RFCs](../rfc/) / [dated reports](../performance/) |
 

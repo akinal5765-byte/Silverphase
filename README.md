@@ -11,27 +11,11 @@
 
 <p align="center">
   简体中文 · <a href="README.en.md">English</a> ·
-  <a href="#下载">下载</a> · <a href="#编辑流程">编辑流程</a> ·
+  <a href="https://akinal5765-byte.github.io/Silverphase/">官网</a> · <a href="#下载">下载</a> · <a href="#效果案例">效果案例</a> · <a href="#编辑流程">编辑流程</a> ·
   <a href="#版本记录">版本记录</a> · <a href="docs/README.md">文档</a>
 </p>
 
-Silverphase 在设备上模拟 **相机输入 → 胶片曝光 → 显影 → 印相 → 扫描**。胶片和相纸共同决定成像，颗粒、光晕和片边在工艺流程中形成。可以直接交付成片，也可以输出保留胶片反差的 Cineon 中间文件。
-
-## 也试试 Layerlight
-
-<table>
-  <tr>
-    <td width="112" align="center"><a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight 应用图标"></a></td>
-    <td>
-      <strong>Layerlight · HDR 图片编辑器</strong><br>
-      同一作者开发的独立闭源应用，已在 App Store 上架，支持 iPhone 与 iPad。
-      <p>调整 HDR 高光与 Gain Map 光影层，控制光感、反差和柔和度；支持 HEIC 摄影风格工作流，并提供裁切、画框、水印与批量导出等功能。摄影风格编辑需要受支持的设备和系统；部分功能需 Pro。</p>
-      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a>
-    </td>
-  </tr>
-</table>
-
-Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的开源许可。图标来源见[相关应用素材说明](screenshots/related-apps/README.md)。
+Silverphase 是面向 **macOS、iPhone 和 iPad** 的开源数字暗房。在设备上模拟 **相机输入 → 胶片曝光 → 显影 → 印相 → 扫描**。同一张底片可以换相纸再印；颗粒、光晕和片边都在工艺里形成。
 
 ## 下载
 
@@ -43,6 +27,49 @@ Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的�
 macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.md)
 
 iPhone 和 iPad 的正式版在中国大陆区以外的 App Store 提供。可安装版本以 App Store 和 TestFlight 各自显示为准。
+
+## 也试试 Layerlight
+
+<table>
+  <tr>
+    <td width="112" align="center"><a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight 应用图标"></a></td>
+    <td>
+      <strong>Layerlight · 手机照片调光</strong><br>
+      同一作者开发的独立闭源应用，适用于 iPhone 与 iPad。
+      <p>几步把日常照片的光调到顺眼，还能和原图对比。兼容设备与系统上也可以编辑摄影风格；部分功能需 Pro。</p>
+      <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a> · <a href="https://www.youtube.com/shorts/F1xEDz2V0ms">观看 27 秒演示</a>
+    </td>
+  </tr>
+</table>
+
+Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的开源许可。图标来源见[相关应用素材说明](screenshots/related-apps/README.md)。
+
+## 效果案例
+
+### 三个场景，三款胶片
+
+[![Silverphase 三胶片样片：Portra 400 荷花、Acros II 白鸟、CineStill 800T 便利店夜景](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
+
+三张图是独立的成片示例，不是同一场景的胶片对照。三张都开启了颗粒和光晕。
+
+<details>
+<summary>展开看两种相纸、夜景 1:1 细节和 135 片边</summary>
+
+**同一张底片，两种相纸。** 对照同一张 RAW 的原图参考，以及同一 Portra 400 模拟底片在两款 Endura 相纸上的成片。下排是同位置的 1:1 裁切。
+
+[![荷花的 RAW 参考、两种相纸模拟与同位置细节](docs/showcase/01-paper-study.png)](docs/showcase/01-paper-study.png)
+
+**800T 夜景。** 便利店以 7008 × 4672 像素渲染。右侧原尺寸裁切展示招牌边缘的光晕和路面的颗粒，未放大。
+
+[![CineStill 800T 便利店夜景和两块 1:1 局部](docs/showcase/03-800t-night.png)](docs/showcase/03-800t-night.png)
+
+**画幅之外。** 齿孔、边码和帧号由 Silverphase 渲染，旁边是应用材料库中的四张封面。
+
+[![真实渲染的 135 片边及四款应用内胶片封面](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
+
+</details>
+
+四张成稿均为 2560 × 1600 像素（16:10）。[参数、照片来源与授权范围](docs/showcase/README.md) · [早期桌面界面案例](screenshots/current/README.md) · [iPhone 布局案例](screenshots/ios/2026-11-02/README.md)
 
 ## 编辑流程
 
@@ -60,12 +87,6 @@ iPhone 和 iPad 的正式版在中国大陆区以外的 App Store 提供。可�
 ### iPhone 与 iPad
 
 可从「照片」或「文件」导入，也可直接拍摄。支持本地图库、评分与旗标、批量编辑与导出，并为常规 iPhone、iPhone Duo 和 iPad 提供各自的布局。[iOS 指南](ios/README.md) · [平台控制与设备限制](ios/CONTROL-AUDIT.md)
-
-## 效果案例
-
-下图来自 2026 年 10 月的桌面案例。不同胶片、100% 颗粒与光晕对照见[案例页](screenshots/current/README.md)。当前界面位置以各平台指南为准。
-
-![历史效果案例，Portra 400 荷花](screenshots/current/silverphase-lotus-2026-10-31.jpg)
 
 ## 版本记录
 
