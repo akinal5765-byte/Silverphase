@@ -1,0 +1,72 @@
+/* One idea per chapter. Only effects that demonstrate something get a stage. */
+.narrative-home {
+  --stage-border:#b880564f;
+  --stage-black:#15110e;
+  --story-soft:#d6c5b3;
+  --chapter-inset:5.6rem;
+}
+.narrative-home .hero {
+  display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;
+  align-items:start;gap:clamp(1.15rem,2.4vw,2.4rem);padding-block:clamp(1.5rem,3.8vh,3.3rem) 2.6rem;
+}
+.narrative-home .hero-copy {padding:0;text-align:center;max-width:58rem;width:100%}
+.narrative-home .hero-copy .overprint {padding-top:.84rem;container-type:inline-size}
+.narrative-home .hero .overprint-label {margin:.92rem auto 0;background:transparent;border:0;padding:.16rem}
+.narrative-home .hero .overprint-plate {inset:-.34em 0 auto;text-align:center}
+.narrative-home .hero .overprint-ghost {font-size:min(clamp(3.15rem,10vw,10rem),var(--ghost-fit));--ghost-fit:36cqi}
+.narrative-home .hero .lead {margin:.7rem auto 1rem;max-width:42rem}
+.narrative-home .hero-cta {display:inline-flex;align-items:center;justify-content:center}
+.narrative-home .hero-print {width:min(100%,66rem,max(31rem,calc(100vh - 10.5rem)))}
+.narrative-home .print-stage {box-shadow:0 1px 0 #e6aa7350,0 30px 90px #0503028f}
+.narrative-home .hero .print-caption {height:auto;min-height:0;padding-top:.82rem}
+.narrative-home :is(.story-chapter,#film-edge,#film-covers,.device) {scroll-margin-top:var(--chapter-inset)}
+.narrative-home .story-intro .lead {max-width:39rem;margin-top:.8rem}
+.narrative-home .selected {background:radial-gradient(ellipse at 12% 0,#3b24195e,transparent 60%),#1d1511}
+.narrative-home .selected .selected-grid {border-color:var(--stage-border);padding-top:1.25rem}
+.narrative-home .selection > div {padding-inline:.12rem}
+.narrative-home .selected .selection span:not(.print-carriage) {color:var(--story-soft)}
+.stock-story {background:#110e0d;border-block:1px solid var(--stage-border);padding-block:clamp(3.6rem,7.5vw,8rem)}
+.stock-story .wrap {max-width:69rem}
+.stock-intro {max-width:44rem;margin-bottom:clamp(1.5rem,3vw,2.8rem)}
+.stock-intro .lead {max-width:41rem;margin:.8rem 0 0}
+
+
+
+
+.stock-frame {aspect-ratio:3 / 2;outline:1px solid var(--stage-border);box-shadow:0 20px 70px #0504036b}
+.stock-figure figcaption {margin-top:.7rem;display:flex;justify-content:space-between;align-items:center;gap:.6rem 1.3rem;flex-wrap:wrap;color:var(--story-soft)}
+.narrative-home .film-materials {padding-block-start:clamp(4rem,8vw,9rem)}
+.narrative-home .native {background:radial-gradient(ellipse at 25% 25%,#512d1959,transparent 65%),#211812}
+.narrative-home .native .section-row {align-items:flex-end}
+.narrative-home .native .section-row .lead {max-width:41rem;margin-top:.85rem}
+.narrative-home .native .switch {flex-shrink:0;border:1px solid var(--stage-border);border-radius:var(--corner);padding:.2rem;gap:0}
+.narrative-home .native .switch a {border-radius:var(--corner)}
+.narrative-home .device-mac .capture img,
+.narrative-home .device-ipad .capture img {outline:1px solid var(--stage-border);box-shadow:0 16px 56px #0a05058a}
+.narrative-home .get {margin-block:clamp(1.3rem,4vw,4rem);border-block:1px solid var(--stage-border)}
+.narrative-home .get-copy .eyebrow {color:var(--safelight)}
+@media (max-width:950px) {
+  .narrative-home .native .section-row {align-items:flex-start;flex-direction:column;gap:.7rem}
+}
+.narrative-home .mast {position:sticky;top:0;z-index:4}
+.narrative-home .mast nav {flex-wrap:wrap}
+.narrative-home :is(.story-chapter,.film-materials) h2 {font-size:var(--type-section)}
+.narrative-home :is(.story-chapter,.film-materials) h3 {font-size:var(--type-subsection)}
+@media (max-width:760px) {
+  .narrative-home .mast {position:relative}
+  .narrative-home {--chapter-inset:1rem}
+}
+@media (max-width:650px) {
+  .narrative-home .hero {gap:1.25rem;padding-bottom:1.65rem}
+  .narrative-home .hero-print {width:100%}
+  .narrative-home .hero .print-caption {display:block}
+  .narrative-home .hero .print-caption strong {display:block}
+  .narrative-home .hero .overprint-plate {inset:-.25em 0 auto}
+
+
+  .narrative-home .section-row {gap:.85rem}
+
+  .stock-frame .frame-labels {inset:.42rem .42rem auto}
+  .stock-frame .frame-labels span {font-size:.74rem;padding:.18rem .35rem}
+}
+.narrative-home .hero .overprint-plate > .overprint-ghost {margin-inline:auto}

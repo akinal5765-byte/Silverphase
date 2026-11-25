@@ -1,0 +1,21 @@
+# Silverphase website typography / 官网排版
+
+- 中文：标题使用站内 Noto Serif CJK SC（宋体，700），正文用苹方／系统无衬线 400，正文行高 1.75。标题不套用英文负字距，使用 0.025em。标题下面的说明用无衬线 650，约 13 px，字距 0.12em，不用手写体代替说明。
+- English: Noto Serif Display (700 for page titles and card titles, 400 for section titles); system sans (400) for body copy at 1.6 line height. The display letter spacing is −0.04em. Secondary display labels use 650 sans, about 13 px, uppercase with 0.14em tracking.
+- Both: body copy starts at 16 px. Primary controls use the same box height, 48 px on desktop and 44 px on phones. The desktop download and print controls share the same bottom line, while phones stack them in reading order. Apple’s default dark-mode system orange is reserved for emphasis, focus, and the primary controls; photographs retain their own colors. Uncoated-paper neutrals and one hairline are used around photos without cropping off edges or adding inspection markers.
+- Fonts are provided as small WOFF subsets with system fallbacks and their bundled license notices.
+- The whole site is darkroom charcoal (#191511), with warm-white paper text (#f9eddd) and Apple system orange (#ff9230 for the default dark appearance). The overprint is a low-contrast English outline at 400 weight, set behind the localized title and excluded from the accessibility tree. The real title and orange sublabel retain full readability. The hero enters as a physical negative carrier: it slides straight into place and settles without rotation, overshoot, or bounce. The heading registers on its own more heavily damped spring. The negative never develops automatically. Below the fold, large headings register ahead of sublabels, and the three proofs arrive with different speeds and travel. The strip travels laterally, cover shelves settle by column, and a device screenshot leads its caption. The same vocabulary continues through the sample and notes pages. Scroll position controls progress in both directions; native scrolling, persistent controls and the comparison frame are never moved by the motion layer. The opening negative uses the offline Motion spring generator; the rest uses eased viewport progress. No third-party scripts are loaded. The backdrop type scales to fit its entire word rather than clipping. Reduced-motion visitors see the settled layout; no JavaScript is required to expose any content. The scroll position is never scripted by the motion layer.
+
+## Homepage story
+
+The bilingual homepage gives each chapter its own purpose: a playable negative to establish the promise; three contrasting film outcomes; two native Silverphase renders of the same original on Fujifilm Superia X-TRA 400 and Kodak Vision3 500T (both upstream spektrafilm profiles), with the same paper and grain and halation enabled; an evolving film-edge proof plus stock covers; and the three real native interfaces before download. A single top navigation links the main chapters. The film comparison uses the accessible slider pattern from the study page. New chapters use the shared h2/h3 scale, with one 6 px corner token shared across photos, media frames, and interface controls.
+
+## Motion references
+
+- [Apple MacBook Pro display](https://www.apple.com/macbook-pro/proled-xdr-display/): separate the whole product from the close look in a single sequence, as in the display-to-diode section. Here the print stays still while the rendered border is uncovered, then the complete print stays at its original brightness while the copy identifies the markings.
+- [Studio Freight](https://studiofreight.com/): give type and the next panel separate points of arrival as you move between sections; do not copy the site's scroll interception.
+- [Halide](https://halide.cam/): let real photos and the real interface share the storytelling; keep competing effects away from the evidence.
+
+Color reference: [Apple Human Interface Guidelines, system colors](https://developer.apple.com/design/human-interface-guidelines/color#Specifications).
+
+The three film-edge beats use identical section-sized display type, English outline, orange format label and body spacing. The CJK display subset is checked against the headings on all localized pages; rebuild it after changing copy.

@@ -27,7 +27,7 @@ fieldset {border: 0; padding: 0; min-width: 0}
 .wrap {width: min(90%, 87rem); margin-inline: auto}
 h1, h2, .wordmark, .case h2, .selection h3 {font-family: var(--serif); font-weight: 500}
 h1 {font-size: clamp(3.2rem, 6.4vw, 6.7rem); line-height: 1.02; letter-spacing: -.055em; text-wrap: balance}
-h2 {font-size: clamp(2.05rem, 3.6vw, 3.8rem); line-height: 1.15; letter-spacing: -.045em; text-wrap: balance}
+h2 {font-size: var(--type-section); line-height: 1.15; letter-spacing: -.045em; text-wrap: balance}
 h3 {font-size: 1.32rem; line-height: 1.3; font-weight: 600}
 :lang(zh-CN) h1, :lang(zh-CN) h2, :lang(zh-CN) h3 {letter-spacing: -.035em; line-height: 1.2}
 p {text-wrap: pretty}
@@ -40,13 +40,13 @@ a:hover {text-decoration-thickness: 2px}
 .mast {border-bottom: 1px solid var(--rule)}
 .mast-inner {display: flex; align-items: center; gap: 2.3rem; min-height: 4.65rem}
 .brand {display: inline-flex; align-items: center; gap: .58rem; font-size: 1.42rem; letter-spacing: -.045em; font-weight: 650; text-decoration: none}
-.brand img {width: 2rem; height: 2rem; border-radius: .48rem}
+.brand img {width: 2rem; height: 2rem; border-radius:var(--corner)}
 .mast nav, .utilities {display: flex; align-items: center; gap: clamp(1rem, 2.3vw, 2.4rem)}
 .mast nav {margin-left: auto}
 .mast nav a, .utilities a {display: inline-flex; align-items: center; min-height: 2.75rem; text-decoration: none; font-size: .94rem}
 .mast nav a:hover, .mast nav [aria-current], .utilities .lang:hover {text-decoration: underline; text-underline-offset: .42em}
 .utilities {gap: 1.25rem}
-.get-link, .solid {color: var(--white); background: var(--charcoal); border-radius: 99px; padding: .5rem 1.25rem; font-weight: 550; text-decoration: none}
+.get-link, .solid {color: var(--white); background: var(--charcoal); border-radius:var(--corner); padding: .5rem 1.25rem; font-weight: 550; text-decoration: none}
 .solid {display: inline-block; padding: .7rem 1.5rem}
 .get-link:hover, .solid:hover {background: #000}
 .hero {display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr); gap: clamp(1.8rem, 4vw, 5rem); align-items: center; padding-block: clamp(2rem, 4.5vw, 5rem)}
@@ -61,10 +61,10 @@ a:hover {text-decoration-thickness: 2px}
   background: #242424;
   touch-action: pan-y pinch-zoom;
 }
-.print-stage {aspect-ratio: 3 / 2}
+.print-stage {position: relative; isolation: isolate; overflow: hidden; background: #242424; aspect-ratio: 3 / 2}
 .case.portrait .comparison {aspect-ratio: 1067 / 1600}
 .case.landscape .comparison {aspect-ratio: 1600 / 1067}
-.comparison > img, .comparison > canvas, .comparison > video {
+.comparison > img, .print-stage > :is(img, canvas, video) {
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: fill; pointer-events: none; user-select: none;
 }
@@ -80,29 +80,28 @@ a:hover {text-decoration-thickness: 2px}
   touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none;
 }
 .grip {
-  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius:var(--corner);
   background: #fff; color: #131313; border: 1px solid #363636;
   font: 600 1.5rem/1 Arial, sans-serif; box-shadow: 0 1px 5px #0006; pointer-events: none;
 }
 .divider:focus-visible {outline: none}
 .divider:focus-visible .grip {outline: 3px solid #fff; outline-offset: 3px; box-shadow: 0 0 0 8px #222}
 .frame-labels {position: absolute; z-index: 2; inset: .8rem .8rem auto; display: flex; justify-content: space-between; pointer-events: none}
-.frame-labels span {background: #151515e8; padding: .25rem .6rem; color: white; font-weight: 550; font-size: .85rem; border-radius: .22rem}
+.frame-labels span {background: #151515e8; padding: .25rem .6rem; color: white; font-weight: 550; font-size: .85rem; border-radius:var(--corner)}
 .play-print {
   position: absolute; z-index: 4; bottom: 1rem; left: 1rem; display: inline-flex;
   align-items: center; gap: .68rem; min-height: 48px; padding: .6rem 1rem;
-  background: white; border: 1px solid #242424; border-radius: .45rem;
+  background: white; border: 1px solid #242424; border-radius:var(--corner);
   color: #171717; font: 650 .97rem/1.25 var(--sans); box-shadow: 0 2px 8px #0003;
 }
 .play-print:hover {background: #eee}
 .play-print:focus-visible {outline: 3px solid white; outline-offset: 3px; box-shadow: 0 0 0 8px #222}
 .play-icon {width: 0; height: 0; border-block: .42rem solid transparent; border-left: .72rem solid currentColor}
 [data-mode="playing"] .play-icon {border: 0; background: currentColor; height: .7rem; width: .7rem}
-.hero-print:not([data-mode="split"]) :is(.frame-labels, .raw-layer),
-.hero-print:not([data-mode="split"]) .comparison::after {visibility: hidden}
+.print-label {justify-content: flex-start}
 .print-caption {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem}
 .switch {display: inline-flex; flex-wrap: wrap; align-items: center; gap: .2rem}
-.switch a {display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: .3rem .82rem; border-radius: .32rem; font-size: .94rem; text-decoration: none}
+.switch a {display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: .3rem .82rem; border-radius:var(--corner); font-size: .94rem; text-decoration: none}
 .switch [aria-current] {background: #d1d1d1; color: #171717}
 .switch a:hover {text-decoration: underline}
 .print-caption {padding-top: .7rem; color: var(--muted); font-size: .83rem}
@@ -111,13 +110,11 @@ a:hover {text-decoration-thickness: 2px}
 .selected, .native, .get, .reading, .notes {padding-block: clamp(3.2rem, 6.5vw, 6.5rem)}
 .selected {background: #f2f2f2; color: #171717}
 .selected .eyebrow, .selected .selection span {color: #555}
-.selected-grid {display: grid; grid-template-columns: .8fr 1.22fr 1.22fr; gap: clamp(1rem, 2.6vw, 3rem); align-items: end}
+.selected-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 2.6vw, 3rem); align-items: start}
 .selection {text-decoration: none; min-width: 0}
 .selection:hover h3 {text-decoration: underline; text-underline-offset: .2em}
-.selection img {width: 100%}
+.selection img {width: 100%; height: auto; aspect-ratio: 1600 / 1067; object-fit: contain}
 .selection h3 {font-size: clamp(1.35rem, 2.1vw, 2.2rem); margin: .8rem 0 .15rem}
-.selection:first-child {max-width: 21rem}
-.selection:last-child {align-self: end}
 .native {background: #e8e8e8}
 .device {display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,.75fr); align-items: center; gap: clamp(2rem, 5vw, 6rem); padding: 1rem 0}
 .device + .device {border-top: 1px solid var(--rule)}
@@ -133,7 +130,7 @@ a:hover {text-decoration-thickness: 2px}
 .platforms h3 {font-size: 1.4rem}
 .platforms p, .get-copy > p:last-child {color: var(--muted); margin: .45rem 0}
 .related {border-top: 1px solid var(--rule); padding: 2rem 0; display: grid; grid-template-columns: auto 1fr auto; gap: 1.3rem; align-items: center}
-.related img {width: 3.5rem; border-radius: .7rem}
+.related img {width: 3.5rem; border-radius:var(--corner)}
 .related .eyebrow {margin-bottom: .2rem}
 .related h3 {margin-bottom: .35rem}
 .related p:not(.eyebrow) {color: var(--muted)}
@@ -206,9 +203,7 @@ a:hover {text-decoration-thickness: 2px}
   .hero-cta {display: none}
   .print-caption {align-items: start; gap: .12rem .7rem; padding-top: .45rem}
   .section-row {align-items: start; flex-wrap: wrap; gap: .65rem; margin-bottom: 1.4rem}
-  .selected-grid {grid-template-columns: 1fr 1fr; gap: 1.45rem 1rem}
-  .selection:first-child {grid-row: span 2; align-self: center}
-  .selection:last-child {grid-column: 2}
+  .selected-grid {grid-template-columns: 1fr; gap: 1.6rem}
   .selection h3 {font-size: 1.18rem; margin-top: .45rem}
   .selection span {font-size: .81rem}
   .device, .get, .reading, .footer-grid, .process {grid-template-columns: 1fr}
@@ -260,7 +255,7 @@ h1, h2 {letter-spacing: -.055em}
 .hero {grid-template-columns: minmax(0,.8fr) minmax(0,1.45fr)}
 .hero h1, html:lang(en) .hero h1 {font-size: clamp(3.2rem, 5.5vw, 5.9rem); line-height: 1.02; letter-spacing: -.055em}
 .hero-copy .lead {max-width: 33rem}
-.solid, .get-link {border-radius: .4rem}
+.solid, .get-link {border-radius:var(--corner)}
 .collection-head h1 {font-size: clamp(2.5rem, 5vw, 5.1rem); max-width: 14ch}
 .selected {border-block: 1px solid var(--rule)}
 .selected .section-row {margin-bottom: 1.6rem}
@@ -283,3 +278,289 @@ h1, h2 {letter-spacing: -.055em}
   .hero-copy .lead {margin-block: .4rem .6rem}
   .play-print {bottom: .4rem; left: .4rem}
 }
+
+
+/* Film materials, after the sample row and separate from the hero. */
+.film-materials {padding-block: clamp(3.5rem, 7vw, 7rem)}
+.border-feature {display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: clamp(1.4rem, 6vw, 6rem); align-items: center}
+.material-copy p {max-width: 32rem; margin: .7rem 0 0; color: var(--muted)}
+.border-feature figure {max-width: 34rem; width: 100%; justify-self: end}
+.border-feature img, .cover-grid img {width: 100%; height: auto}
+.border-feature figcaption, .cover-grid figcaption {margin-top: .55rem}
+.cover-feature {margin-top: clamp(3rem, 6vw, 6rem); padding-top: clamp(2.5rem, 5vw, 4.5rem); border-top: 1px solid #d2d2d2}
+.cover-grid {display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(.9rem, 2vw, 1.6rem); margin-top: 1.6rem}
+.cover-grid figure {min-width: 0}
+.art-credit {margin: 1.4rem 0 0; color: var(--muted)}
+@media (max-width: 700px) {
+  .border-feature {grid-template-columns: 1fr}
+  .border-feature figure {justify-self: start}
+  .cover-grid {grid-template-columns: repeat(2, minmax(0, 1fr))}
+}
+
+/* Darkroom design system: locale-specific display faces, shared controls. */
+@font-face {font-family:"Silverphase Song";src:url("fonts/silverphase-song-sc-v2.woff") format("woff");font-style:normal;font-weight:700;font-display:swap}
+@font-face {font-family:"Silverphase Display";src:url("fonts/silverphase-display.woff") format("woff");font-style:normal;font-weight:400;font-display:swap}
+html:lang(zh-CN) {
+  --display:"Silverphase Song","Songti SC",STSong,"Noto Serif CJK SC",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;
+  --display-weight:700;--display-track:.025em;--display-leading:1.2;--body-leading:1.75;
+}
+html:lang(en) {
+  --display:"Silverphase Display","Iowan Old Style",Baskerville,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --display-weight:400;--display-track:-.04em;--display-leading:1.03;--body-leading:1.6;
+}
+:root {--paper:#f7f5f0;--ink:#1d1a17;--muted:#5c5550;--rule:#d8d0c5;--charcoal:#25221f;--safelight:#8a392b;--paper-shadow:#eeeae2;--control-height:3rem}
+body {line-height:var(--body-leading)}
+h1,h2,h3,.wordmark,.case h2,.selection h3,.device h3 {
+  font-family:var(--display);font-weight:var(--display-weight);line-height:var(--display-leading);letter-spacing:var(--display-track);
+}
+h3,.platforms h3 {font-size:var(--type-subsection)}
+:lang(zh-CN) :is(h1,h2,h3) {letter-spacing:var(--display-track);line-height:var(--display-leading)}
+.hero h1,html:lang(en) .hero h1 {font-size:clamp(2.55rem,5.25vw,6.15rem);line-height:var(--display-leading);letter-spacing:var(--display-track)}
+html:lang(zh-CN) .hero h1 {font-size:clamp(2.45rem,5.25vw,5.5rem)}
+.display-subtitle,.eyebrow {font-family:var(--sans);font-size:.83rem;font-weight:650;line-height:1.4;color:var(--safelight)}
+.display-subtitle {margin-top:.42rem;letter-spacing:.095em}
+html:lang(en) .display-subtitle {letter-spacing:.14em;text-transform:uppercase}
+html:lang(zh-CN) .display-subtitle {letter-spacing:.12em}
+.hero-copy .lead {font-size:clamp(1rem,1.4vw,1.22rem);line-height:var(--body-leading);margin:1.1rem 0 1.4rem}
+.darkroom-field {background:#25211f;color:#fff9ee}
+.darkroom-field .lead,.darkroom-field .print-caption {color:#ddd4c8}
+.darkroom-field .print-caption strong {color:#fff9ee}
+.darkroom-field .display-subtitle {color:#efae97}
+.darkroom-field .print-stage {outline:1px solid #e5caba59;outline-offset:0}
+.darkroom-field .hero-cta,.darkroom-field .play-print {
+  display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-height);
+  padding:.55rem 1rem; border:1px solid; border-radius:var(--corner); font:650 .95rem/1.15 var(--sans); white-space:nowrap;
+}
+.darkroom-field .hero-cta {background:transparent;color:#fff9ee;border-color:#cab9a9}
+.darkroom-field .hero-cta:hover {background:#433932}
+.darkroom-field .hero-cta:focus-visible {outline-color:#fff9ee}
+.darkroom-field .play-print {background:#fff9ee;color:#211b18;border-color:#fff9ee}
+.darkroom-field .play-print:hover {background:#e9ddcd}
+.selected {background:var(--paper-shadow);color:var(--ink)}
+.selected .selection span,.work-credit {color:var(--muted)}
+.native {background:#ede9e2}
+.selection img,.cover-grid img,.border-feature img {outline:1px solid #332a201c;outline-offset:-1px}
+.frame-labels span {border-radius:var(--corner)}
+.cover-grid {grid-template-columns:repeat(4,minmax(0,1fr));row-gap:1.7rem}
+.site-foot {background:#25211f}
+@media (min-width:901px) {
+  .hero {--caption-block:2.8rem;--hero-inset:1rem;align-items:end}
+  .hero-copy {padding-bottom:calc(var(--caption-block) + var(--hero-inset))}
+  .hero-print .print-caption {min-height:var(--caption-block);height:var(--caption-block);padding-top:0;align-items:center}
+  .darkroom-field .play-print {bottom:var(--hero-inset)}
+}
+@media (max-width:900px) {
+  .hero {align-items:center}
+  .hero-copy {padding-bottom:0}
+}
+@media (max-width:700px) {.cover-grid {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:650px) {
+  :root {--control-height:2.75rem}
+  .hero {align-items:stretch}
+  .hero h1,html:lang(en) .hero h1,html:lang(zh-CN) .hero h1 {font-size:clamp(2.1rem,8.4vw,3.4rem)}
+  .hero-copy .lead {font-size:1rem; margin:.52rem 0 .65rem;line-height:1.53}
+  .display-subtitle {margin-top:.35rem}
+  .hero .display-subtitle {font-size:.78rem}
+}
+@media (prefers-reduced-motion:reduce) {.darkroom-field .play-print {display:inline-flex}}
+
+/* Safelight system: a continuous darkroom, not a light site with a dark hero. */
+:root {
+  color-scheme:dark;
+  --paper:#191511;--ink:#f9eddd;--muted:#c4b3a3;--rule:#584337;--charcoal:#211914;
+  --accent:#ff9230;--safelight:var(--accent);--ember:var(--accent);--paper-shadow:#211812;--white:#f9eddd;
+}
+body {background:var(--paper);color:var(--ink)}
+.mast {background:#15110e;border-bottom:1px solid #71452d}
+.brand img {outline:1px solid #ab643740}
+.get-link,.solid {background:var(--safelight);color:#281710}
+.get-link:hover,.solid:hover {background:color-mix(in srgb,var(--accent) 85%,white);color:#281710}
+:focus-visible {outline-color:var(--accent)}
+.skip:focus {background:var(--accent);color:#29170e}
+.darkroom-field {
+  background: radial-gradient(ellipse at 82% 6%,#6e301960,transparent 63%),linear-gradient(140deg,#201613,#16120f 64%,#201510);
+  color:var(--ink);border-bottom:1px solid #71452d;
+}
+.darkroom-field .lead,.darkroom-field .print-caption {color:#d6c2b0}
+.darkroom-field .display-subtitle {color:var(--safelight)}
+.darkroom-field .hero-cta {color:#fff0dd;border-color:#bd825d}
+.darkroom-field .hero-cta:hover {background:#493020}
+.darkroom-field .play-print {background:var(--safelight);border-color:var(--safelight);color:#26170f}
+.darkroom-field .play-print:hover {background:color-mix(in srgb,var(--accent) 85%,white)}
+.darkroom-field .print-stage {outline-color:#ba784f}
+.mast nav [aria-current],.text-link,.work-credit a,.art-credit a,.note-links a {color:var(--safelight)}
+.selected {background:linear-gradient(150deg,#2c1e16 0%,#211812 55%,#1d1510 100%);color:var(--ink)}
+.native {background:#241b15;border-block:1px solid var(--rule)}
+.cover-feature,.site-foot {border-color:var(--rule)}
+.site-foot {background:#130f0d;color:#ecdece;border-top:1px solid var(--rule)}
+.switch [aria-current] {background:color-mix(in srgb,var(--accent) 18%,#251b15);color:var(--accent)}
+.case .recipe,.detail-study .recipe {color:#e3b794}
+.selection img,.cover-grid img,.border-feature img,.case-image,.detail-frame {outline:1px solid #c28a6066;outline-offset:-1px}
+.selection:focus-visible {outline-offset:6px}
+.grip {background:#ffe3c9;color:#29190f;border-color:#5a3f2c}
+.frame-labels span {background:#24190fed;color:#fff0dc}
+.tech-note summary:hover,.related .text-link:hover {color:color-mix(in srgb,var(--accent) 75%,white)}
+
+/* Overprint: the large shadow impression shares space with the real type.
+   It never supplies an accessible name or pushes the section off the grid. */
+.overprint {position:relative;isolation:isolate;min-width:0;padding-top:clamp(.6rem,1.4vw,1.3rem)}
+.overprint :is(h1,h2,h3.edge-title) {position:relative;z-index:1}
+.overprint-ghost {
+  position:absolute;z-index:0;pointer-events:none;user-select:none;inset:auto auto .02em -.025em;
+  font:var(--display-weight) clamp(3.6rem,7.9vw,8rem)/.82 var(--display);
+  letter-spacing:var(--display-track);color:transparent;-webkit-text-stroke:1px #d381506b;
+  white-space:nowrap;
+}
+.overprint-label {position:relative;z-index:1;display:table;padding:.1rem .15rem .1rem .56rem;border-left:2px solid var(--ember);margin-top:.2rem}
+.hero .overprint {padding-top:clamp(1.2rem,2.2vw,2.8rem)}
+.hero .overprint-ghost {inset:-.04em auto auto -.03em;font-size:clamp(4.1rem,7.8vw,8.5rem);-webkit-text-stroke:1px #ef995c85}
+.darkroom-field .overprint-label {background:#241913ee}
+.overprint:has(+.lead) {max-width:100%}
+@media (max-width:650px) {
+  .overprint {padding-top:.85rem}
+  .overprint-ghost {font-size:clamp(3rem,11vw,4.8rem)}
+  .hero .overprint {padding-top:.9rem}
+  .hero .overprint-ghost {font-size:clamp(3rem,11vw,4.8rem)}
+}
+/* Tone-on-tone second impression and a deliberate English weight hierarchy. */
+@font-face {font-family:"Silverphase Display";src:url("fonts/silverphase-display-bold.woff") format("woff");font-style:normal;font-weight:700;font-display:swap}
+.overprint .overprint-ghost,.hero .overprint .overprint-ghost,.detail-study .overprint .overprint-ghost {
+  font-family:"Silverphase Display","Iowan Old Style",Georgia,serif;
+  font-weight:400;letter-spacing:-.05em;-webkit-text-stroke:.75px #624431;
+  max-inline-size:100%;overflow:clip;
+}
+.overprint .overprint-ghost {-webkit-text-stroke-color:#543727}
+.hero .overprint .overprint-ghost {font-size:clamp(3.1rem,6.9vw,7.1rem);-webkit-text-stroke-color:#65412e}
+html:lang(zh-CN) .overprint-ghost {font-size:clamp(3rem,6.8vw,7rem)}
+html:lang(en) h1, html:lang(en) :is(.case h2,.selection h3,.detail-grid h3,.platforms h3) {font-weight:700}
+html:lang(en) :is(.mast nav a,.text-link) {font-weight:600}
+html:lang(en) .hero h1 {font-size:clamp(2.5rem,5.1vw,5.7rem);letter-spacing:-.045em}
+@media (max-width:650px) {
+  .hero .overprint .overprint-ghost,html:lang(zh-CN) .overprint-ghost {font-size:clamp(3rem,10vw,4.5rem)}
+  html:lang(en) .hero h1 {font-size:clamp(2.1rem,8.3vw,3.35rem)}
+}
+
+/* Fit the actual whole word, not a clipped text box. The fit is derived from
+   the bundled font's unkerned metrics, with room for both outline edges. */
+.overprint-plate {position:absolute;inset:auto .2rem .02em 0;container-type:inline-size;pointer-events:none;user-select:none;z-index:0;overflow:visible}
+.hero .overprint-plate {inset:-.3em .2rem auto 0}
+.overprint .overprint-plate > .overprint-ghost {
+  position:static;display:block;width:max-content;max-inline-size:none;overflow:visible;color:transparent;
+  padding-inline:.065em;line-height:1.04;
+  font-size:clamp(1.65rem,4.1vw,3.15rem);
+  font-size:min(clamp(3rem,7.25vw,7.2rem),var(--ghost-fit));
+}
+.hero .overprint .overprint-plate > .overprint-ghost {
+  font-size:clamp(1.7rem,4.2vw,3.3rem);
+  font-size:min(clamp(3.2rem,7.2vw,7.4rem),var(--ghost-fit));
+}
+@media (max-width:650px) {
+  .hero .overprint-plate {inset:-.2em .2rem auto 0}
+  .overprint .overprint-plate > .overprint-ghost,.hero .overprint .overprint-plate > .overprint-ghost {
+    font-size:min(clamp(2.65rem,12vw,4.55rem),var(--ghost-fit));
+  }
+}
+.print-carriage {display:block;position:relative;overflow:hidden;isolation:isolate;background:#100c0a}
+.print-carriage > img {display:block}
+/* Real displacement, then a damped settle. Curves are generated by Motion. */
+@supports (animation-timing-function: linear(0, 1)) {
+  @media (prefers-reduced-motion:no-preference) {
+    .hero {
+      --plate-y:30px;
+    }
+    .hero-print .print-stage {
+      transform-origin:32% 72%;
+      animation:plate-seat var(--spring-plate-time) var(--spring-plate) 110ms backwards;
+    }
+    .hero-print .print-stage:has(:focus-visible) {animation:none}
+    .hero .overprint > h1 {
+      animation:headline-register var(--spring-register-time) var(--spring-register) 30ms backwards;
+    }
+    .hero .overprint-plate {
+      animation:ghost-register var(--spring-register-time) var(--spring-register) 10ms backwards;
+    }
+    @keyframes plate-seat {
+      from {transform:translateY(var(--plate-y))}
+      to {transform:translateY(0)}
+    }
+    @keyframes headline-register {
+      from {transform:translateY(27px)}
+      to {transform:translateY(0)}
+    }
+    @keyframes ghost-register {
+      from {transform:translateX(-18px)}
+      to {transform:translateX(0)}
+    }
+
+    @media (max-width:650px) {
+      .hero {--plate-y:22px}
+    }
+  }
+}
+
+/* Thin registration marks frame the sequence without touching the prints. */
+.selected .selected-grid {padding-block-start:.72rem;border-top:1px solid #9c654356}
+.selected .selection {min-width:0}
+.cover-grid .print-carriage {outline:1px solid #e3a67532;outline-offset:-1px}
+.native .device .capture {isolation:isolate}
+
+/* Film-edge demonstration uses one native render. The plate stays still;
+   the mask exposes the printed border without changing the photo's scale. */
+#film-edge {--image-top:14.9%;--image-right:2.3%;--image-bottom:15.5%;--image-left:1.2%}
+.edge-reveal,.edge-detail {margin-top:1.5rem;padding-top:1.4rem;border-top:1px solid var(--rule)}
+.edge-beat .overprint .edge-title {font-size:var(--type-section)}
+.edge-beat .overprint .display-subtitle {color:var(--accent)}
+.edge-beat > p {margin:.82rem 0 0}
+.edge-beat .overprint-plate {inset-block-end:.15rem}
+.edge-baseline > div {aspect-ratio:1085 / 724;position:relative;overflow:hidden;background:#100c0a}
+.edge-baseline img {position:absolute;width:103.62%;max-width:none;left:-1.24%;top:-21.4%}
+.edge-stage .print-carriage {background:#100c0a}
+.edge-caption-live {display:none}
+.edge-story .edge-caption-still {display:none}
+.edge-story .edge-caption-live {display:grid;color:var(--safelight);font-weight:650}
+.edge-caption-live > span {grid-area:1/1;visibility:hidden}
+.edge-story[data-edge-step="0"] .edge-caption-live > span:nth-child(1),
+.edge-story[data-edge-step="1"] .edge-caption-live > span:nth-child(2),
+.edge-story[data-edge-step="2"] .edge-caption-live > span:nth-child(3) {visibility:visible}
+@media (min-width:771px) {
+  .border-feature:not(.edge-story) .edge-copy {grid-row:span 2}
+  .border-feature:not(.edge-story) .edge-baseline,.border-feature:not(.edge-story) .edge-stage {grid-column:2}
+}
+@media (min-width:900px) and (min-height:640px) and (prefers-reduced-motion:no-preference) {
+  .border-feature.edge-story {align-items:start}
+  .edge-story .edge-copy {display:grid}
+  .edge-story .edge-baseline {display:none}
+  .edge-story .edge-overview,.edge-story .edge-reveal,.edge-story .edge-detail {display:flex;flex-direction:column;justify-content:center}
+  .edge-story .edge-overview {min-height:48vh}
+  .edge-story .edge-reveal {min-height:46vh;margin:0;padding:1rem 0}
+  .edge-story .edge-detail {min-height:54vh;margin:0;padding:1rem 0}
+  .edge-story .edge-stage {
+    position:sticky;top:clamp(2rem,11vh,7rem);
+    width:min(100%,60vh,34rem);
+    justify-self:end;
+  }
+  .edge-story .edge-stage .print-carriage {box-shadow:0 0 0 1px #d6a07055,0 22px 65px #08050380}
+}
+@media (max-width:770px) {
+  .border-feature {grid-template-columns:1fr}
+  .border-feature figure {justify-self:start}
+  .edge-copy {display:contents}
+  .edge-overview {order:0}
+  .edge-baseline {order:1}
+  .edge-reveal {order:2;margin-top:0}
+  .edge-stage {order:3}
+  .edge-detail {order:4;margin-top:0}
+}
+
+/* Shared typography and media corners; clip comparisons once, at their frame. */
+:root {--type-section:clamp(2.05rem,3.6vw,3.8rem);--type-subsection:clamp(1.2rem,1.7vw,1.55rem);--corner:6px}
+main img:not(.comparison > img,.print-stage > img,.print-carriage > img), .print-stage, .comparison, .print-carriage, .edge-baseline > div {border-radius:var(--corner)}
+
+/* One corner token for UI chrome and media; leave no pill or sharp alternate. */
+:where(.narrative-home,.cases,.notes,body) :is(
+  img, .solid, .get-link, .play-print, .frame-labels span,
+  .switch, .switch a, .grip, .comparison, .print-stage, .print-carriage,
+  .edge-baseline > div, .platforms > div, .tech-note, .skip:focus
+) {border-radius:var(--corner)}

@@ -10,19 +10,19 @@
   'use strict';
   const demo = document.querySelector('[data-develop]');
   if (!demo) return;
-  const duration = 2200;
+  const duration = 3400;
+  const clipRate = 0.65;
   const stage = demo.querySelector('.print-stage');
   const canvas = stage.querySelector('canvas');
-  const slider = stage.querySelector('.divider');
+  const negative = stage.querySelector('.negative');
+  const labels = stage.querySelectorAll('[data-print-state]');
   const positive = stage.querySelector('.positive');
   const play = stage.querySelector('[data-play]');
   const playLabel = play.querySelector('[data-play-label]');
   const status = demo.querySelector('[data-status]');
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
-  let raf = 0, generation = 0, gpu, negativeTask;
-  let returnToCompare = 0;
+  let raf = 0, generation = 0, gpu;
   const firstPlayLabel = playLabel.textContent;
-  let hasPlayed = false;
   const vertexSource = `
 attribute vec2 xy;
 varying vec2 uv;
@@ -167,12 +167,6 @@ void main() {
       gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     };
   }
-  const load = (src) => new Promise((resolve,reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = () => reject(new Error('Missing render'));
-    im.src = src;
-  });
   // The fallback clip was rendered with the same shader and endpoints.
   const clip = document.createElement('video');
   clip.hidden = true;
@@ -185,48 +179,50 @@ void main() {
   function setView(mode) {
     generation++;
     cancelAnimationFrame(raf);
-    clearTimeout(returnToCompare);
     clip.pause();
     clip.hidden = true;
     canvas.hidden = true;
     demo.dataset.mode = mode;
-    slider.hidden = mode !== 'split';
+    negative.hidden = mode === 'print';
+    positive.hidden = mode !== 'print';
+    for (const label of labels) label.hidden = label.dataset.printState !== mode;
     playLabel.textContent = mode === 'playing' ? demo.dataset.skip :
-      (hasPlayed ? demo.dataset.replay : firstPlayLabel);
+      mode === 'print' ? (preference.matches ? demo.dataset.reset : demo.dataset.replay) :
+      firstPlayLabel;
   }
-  function finish(message = demo.dataset.finished, holdPrint = false) {
-    hasPlayed = true;
-    setView(holdPrint && !preference.matches ? 'print' : 'split');
+  function finish(message = demo.dataset.finished) {
+    setView('print');
     status.textContent = message;
-    if (demo.dataset.mode === 'print') {
-      // Hold the actual final still briefly, then restore the visitor's divider.
-      returnToCompare = setTimeout(() => setView('split'), 260);
-    }
   }
 
   async function playClip(token) {
     if (token !== generation) return;
     if (preference.matches) { finish(); return; }
-    if (!clip.getAttribute('src')) clip.src = new URL('develop-replay.mp4', positive.src).href;
-    if (clip.readyState > 0) clip.currentTime = 0;
-    clip.onended = () => { if (token === generation) finish(demo.dataset.finished, true); };
-    clip.onerror = () => { if (token === generation) finish(demo.dataset.fallback); };
     try {
+      if (!clip.getAttribute('src')) clip.src = new URL('develop-replay.mp4', positive.src).href;
+      clip.defaultPlaybackRate = clipRate;
+      clip.playbackRate = clipRate;
+      if (clip.readyState > 0) clip.currentTime = 0;
+      clip.onended = () => { if (token === generation) finish(); };
+      clip.onerror = () => { if (token === generation) finish(demo.dataset.fallback); };
       await clip.play();
       if (token === generation && !preference.matches) clip.hidden = false;
     } catch { if (token === generation) finish(demo.dataset.fallback); }
   }
-  async function replay() {
-    if (demo.dataset.mode === 'playing' || preference.matches) { finish(); return; }
+  async function develop() {
+    if (demo.dataset.mode === 'playing') { finish(); return; }
+    if (preference.matches) {
+      if (demo.dataset.mode === 'print') {
+        setView('negative');
+        status.textContent = negative.alt;
+      } else finish();
+      return;
+    }
     setView('playing');
     const token = generation;
     status.textContent = demo.dataset.playing;
     try {
-      negativeTask ||= load(demo.dataset.negative).catch(error => {
-        negativeTask = undefined;
-        throw error;
-      });
-      const [negative] = await Promise.all([negativeTask, positive.decode()]);
+      await Promise.all([negative.decode(), positive.decode()]);
       if (token !== generation) return;
       if (negative.naturalWidth !== positive.naturalWidth || negative.naturalHeight !== positive.naturalHeight) {
         finish(demo.dataset.fallback);
@@ -242,17 +238,17 @@ void main() {
       function advance(now) {
         if (token !== generation) return;
         const t = Math.min(1, Math.max(0, (now - start) / duration));
-        if (t >= 1 || preference.matches) { finish(demo.dataset.finished, true); return; }
+        if (t >= 1 || preference.matches) { finish(); return; }
         gpu(t);
         raf = requestAnimationFrame(advance);
       }
       raf = requestAnimationFrame(advance);
     } catch { await playClip(token); }
   }
-  play.addEventListener('click', replay);
+  play.addEventListener('click', develop);
   function updateMotion() {
-    if (preference.matches && demo.dataset.mode !== 'split') finish();
-    play.hidden = preference.matches;
+    if (demo.dataset.mode !== 'playing') setView(demo.dataset.mode);
+    else if (preference.matches) finish();
   }
   if (preference.addEventListener) preference.addEventListener('change', updateMotion);
   else preference.addListener(updateMotion);
@@ -266,6 +262,6 @@ void main() {
     }
   });
   window.addEventListener('pagehide', () => { if (demo.dataset.mode === 'playing') finish(); });
-  setView('split');
-  updateMotion();
+  setView('negative');
+  play.hidden = false;
 })();
