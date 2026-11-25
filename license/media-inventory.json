@@ -227,11 +227,368 @@
       "rights_scope": "Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant."
     },
     {
+      "path": "docs/site/covers/acros-ii.webp",
+      "sha256": "1d669b87782f5b0f7b4dd532c6d4e73f6a8f6bac67eea45fdfb16c5733d1a93b",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_neopan_acros_100_ii-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/cinestill-800t.webp",
+      "sha256": "cbc79e170eabd49b83458e08e28adeef5db2ff537a4cb682d05315ba00350b78",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/cinestill_800t-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/eterna-500.webp",
+      "sha256": "45ada9f8b3b8a8c5087675b06ddd7af107d82ef03c9422e40a861336e6815f7d",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_eterna_500_fotufilm-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/hp5-plus.webp",
+      "sha256": "35399be330906b1bca488a623e9b305b6a5e94f8c5226fa60ace6a74880e2c48",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/ilford_hp5_plus_400-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/portra-400.webp",
+      "sha256": "819eb7ac493d3a11148324c5c18b4402ac727ac912d46f9fd1d1df3d9f711cf9",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_400-packaging-v2.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/pro-160ns.webp",
+      "sha256": "422594f4d0364b038fe40fe5433fa5f3d8cfa969ce20a62489c4a2186189d603",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_pro_160ns_fotufilm-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/reala-100.webp",
+      "sha256": "e718e15551c43a9e6689bcd30cb60076983d7bc93802049fd9e0f7ed904a974d",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_reala_100_fotufilm-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/covers/vision3-250d.webp",
+      "sha256": "0249d62802c30ade7f29199ecfbc95073877ee5993d362449c11156a294aa4ea",
+      "kind": "web-cover",
+      "evidence": "docs/site/media-provenance.json: Reduced app cover (WebP). modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_vision3_250d-packaging-v1.png; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded."
+    },
+    {
+      "path": "docs/site/gallery/01-raw.webp",
+      "sha256": "5bf3d4c9be89417f0e70694cb96f718c9db92a26327c7370c710e0e6747b8a5f",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Steam locomotive — display-decoded WebP reference, not a RAW file. docs/site/study-en.html#case-01; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/01.webp",
+      "sha256": "2c42f2056ffd6f56ec4010b10656af669819b2fc5d2951d3da005a3d01875504",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Steam locomotive — rendered print. docs/site/study-en.html#case-01; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/02-raw.webp",
+      "sha256": "de33f7a51735e67c93e36a9a2749207ac0894097de3b1088cbdf7b7847f01d74",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Red eaves — display-decoded WebP reference, not a RAW file. docs/site/study-en.html#case-02; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/02.webp",
+      "sha256": "922dbdafb2ed04dc106a83aeeaf88fd28fec29c5e3cf21459eda3920e108a7e4",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Red eaves — rendered print. docs/site/study-en.html#case-02; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/03-raw.webp",
+      "sha256": "376202b98c0816ac4206926113d439b76256775dc1ae14072a6b14faf02acf90",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Dew on lotus leaf — display-decoded WebP reference, not a RAW file. docs/site/study-en.html#case-03; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/03.webp",
+      "sha256": "7467fc2825dac8195e8aa6704bd50e0cd6ebf6da13d8a04b321085d356a8c2fe",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Dew on lotus leaf — rendered print. docs/site/study-en.html#case-03; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/04-raw.webp",
+      "sha256": "c7fa7f70d11c21c852324ed3cf24fca609c8917a4e4642759b86976f334958e2",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: White bird in foliage — display-decoded WebP reference, not a RAW file. docs/site/study-en.html#case-04; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/04.webp",
+      "sha256": "bf5617a4607d6bcfba5cb7fde782b99f2640aa2cbbcdf1a6f5f2edf4f9f25e1c",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: White bird in foliage — rendered print. docs/site/study-en.html#case-04; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/05-raw.webp",
+      "sha256": "bd8669423dce2b26887823478dd7789f9276beaabe3a5a93e92e111fad36d660",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Yellow train under clouds — display-decoded WebP reference, not a RAW file. docs/site/study-en.html#case-05; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/05.webp",
+      "sha256": "c7a83a0ed1d3fda8dde9ae4fe8aa522d645d689faa7cefd6ec5446e71218f39d",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Yellow train under clouds — rendered print. docs/site/study-en.html#case-05; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/06-raw.webp",
+      "sha256": "c89cbcb7decd7d47370bc01752c3497700a0d450eba83842f33d416a379a24c3",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Sunset through clouds — display-decoded WebP reference, not a RAW file. docs/site/study-en.html#case-06; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/gallery/06.webp",
+      "sha256": "b0c3fe3ec714628a3d4c1f953e3525a81390c032a9b4172f69fad556288f1d4f",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Sunset through clouds — rendered print. docs/site/study-en.html#case-06; docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/interface/ios-editor-en-v7.webp",
+      "sha256": "86c5342aebc61dd6444deae34b2a161e1a97ed7d81bb5b0a85d02e28a45b9f74",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Native iPhone editor, English UI, yellow train case. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "docs/site/interface/ios-editor-v7.webp",
+      "sha256": "e9ddc1f5ed6d81d222fc1f9e85ffb144cd6b4969e1de83c478e6d1b41abc9930",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Native iPhone editor, Simplified Chinese UI, yellow train case. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "docs/site/interface/ipad-editor-en-v7.webp",
+      "sha256": "6b936cc2719b6232e8ffdc4fdfb78505104fc54e197664fdee5bb5ef9d0dca04",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Native iPad editor, English UI, lotus leaf case. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "docs/site/interface/ipad-editor-v7.webp",
+      "sha256": "09e5ed111c44af6c96b4d9d0f7e54fd2caccdff24f8135d87f50a64a2723eddc",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Native iPad editor, Simplified Chinese UI, lotus leaf case. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "docs/site/interface/macos-editor-en-v7.webp",
+      "sha256": "37651bd882a7e9dd3b6478ac72b7607572ff55c91fa72623d555206ccf2f6e33",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Native Mac editor, English UI, lotus leaf case. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "docs/site/interface/macos-editor-v7.webp",
+      "sha256": "047049bcc8feadb8f07381fa441b008a78435bada6381a954fa9588c3f1c34d9",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Native Mac editor, Simplified Chinese UI, lotus leaf case. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "docs/site/interface/macos-editor.webp",
+      "sha256": "d83c25ff6155bd1a2f395139fa3155d18d6fd80928951899251d68d17e11d0a3",
+      "kind": "web-ui",
+      "evidence": "docs/site/media-provenance.json: Earlier native Mac editor capture retained from the first photo gallery update. docs/showcase/README.md; original editor capture recorded in its published revision; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms."
+    },
+    {
       "path": "docs/site/layerlight-icon.png",
       "sha256": "328f151532c2be7fb1676ffe6b452ecf4930a655315eb3097243638ced023c39",
       "kind": "related-app-promotional-icon",
       "evidence": "Reduced copy of the tracked screenshots/related-apps/layerlight-icon.png for owner-requested promotion.",
       "rights_scope": "Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants."
+    },
+    {
+      "path": "docs/site/plates/acros-grade-00.webp",
+      "sha256": "b3db8a5234c6cefd69ad0584572426a9879235b93f05f7e68a8c78effadab341",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: White bird, Acros II on Ilford Multigrade IV RC grade 00. docs/site/notes-en.html#grades; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/acros-grade-4.webp",
+      "sha256": "4bd50fba9e27d5ffec8a3ba0f87a9084629897858f3fcb402650bbc499425b6e",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Same bird negative, Ilford Multigrade IV RC grade 4. docs/site/notes-en.html#grades; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/bird.webp",
+      "sha256": "ab943b0dd6706e9a70675a1041a65a3443894571e760a08a564dff997f088d53",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Earlier Acros II bird proof; retained with the published web demonstration. docs/showcase/README.md; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/develop-negative.webp",
+      "sha256": "941ffe592fa83c510e0dcb0cc61487e696950111951947fdeb1fa131319caa73",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Lotus-leaf negative-stage preview for the film-to-print demonstration. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/develop-print.webp",
+      "sha256": "1e8755ce94184338b4dd6b842ab64620626532c5ca4b6fd23b2edd040e24af3d",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Reala 100 / Crystal Archive Type II positive for the same replay. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/develop-replay.mp4",
+      "sha256": "027f778b291ef0c406b8e21a9e7676d09478eb979e7a935efdac597dff0c2f4b",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Motion demonstration from the two published lotus-leaf still endpoints; not camera footage. docs/showcase/README.md#native-ui-and-six-additional-photograph-studies; published as fcbcebf7c71d00b7849286f6fe594b443b35d5da.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/glow.webp",
+      "sha256": "f2593eefef98e3910edd4d3cba05f54843a16932ed60c2ecdb00207edadd1eed",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Lit-sign crop from CineStill 800T storefront study. docs/site/notes-en.html#texture; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/grain.webp",
+      "sha256": "185a32493059828e66811fcf761ff51e2b8c2c4c3f90cb63b3a71b2841d46712",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pavement-grain crop from the same night print. docs/site/notes-en.html#texture; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/lotus-portra.webp",
+      "sha256": "d1bd3e9c7295bf50141b1c391c391a2913b1505f29e65925f6e58ec89b942e26",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pink lotus, Portra 400 detail for grain comparison. docs/site/study-en.html#details; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/lotus-reference.webp",
+      "sha256": "f9a9da312234fe8adcfdc236e6677faf3e9055ed7b27d046778208ff2fe2c8c4",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Display-decoded pink lotus detail for grain comparison; not a RAW file. docs/site/study-en.html#details; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/lotus-superia-xtra-400.webp",
+      "sha256": "b28a51982c297afa9760a5ceb70deec0f73e4edb0e28145d9ec01f78ef498ca3",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Same lotus-leaf input and paper as the Vision3 output, developed with Superia X-TRA 400. docs/site/en.html#workflow; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/lotus-vision3-500t.webp",
+      "sha256": "1dbc59af7b056e340b8ded664c74dc0780e895ec1dded1a24f9b02c45b441b19",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Same lotus-leaf input and paper as the Superia output, developed with Vision3 500T. docs/site/en.html#workflow; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/lotus.webp",
+      "sha256": "9811ebe6ad291c37db6e03ed3a0019f9eab6eb82f7c1e8e351994e424c274738",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Earlier pink-lotus Portra 400/Portra Endura proof. docs/showcase/README.md; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/night-clean.webp",
+      "sha256": "4c6130d40a346a47d23967c4c8f6f39ace1d7e8fd34b69a4a393f61b439f9217",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: CineStill 800T storefront full frame without crop markers. docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/night.webp",
+      "sha256": "2d53e1724bef257bf41fde24b5834d31bd95cc678b785a224b30cc1b7e330dc4",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Earlier CineStill 800T storefront proof. docs/showcase/README.md; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/portra-detail.webp",
+      "sha256": "a90f3dc296f33a3c7991ed27ad2ba874d8bd211f8a788ae6685f8ccb277d7594",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Matching pink-lotus region from the Portra Endura print. docs/showcase/README.md; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/portra.webp",
+      "sha256": "7d12791dbcd49f186cee805873b74daae6e28ab117a95658c7d8fe7a89d6a621",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pink lotus, Portra 400 negative on Portra Endura. docs/site/notes-en.html#comparison-lab; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/raw-detail.webp",
+      "sha256": "100e22d803b0aae69c706b4c29508885ebae753b9e30672c32fdf4d1ed051d32",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pink-lotus camera-decode reference crop, not a RAW file. docs/showcase/README.md; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/raw.webp",
+      "sha256": "ab7271c47915c457e82d571ff495f1ae156a162d253273497a0f59fed50eba00",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pink-lotus camera-decoded WebP reference, not a RAW file. docs/showcase/README.md; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/sign-soft.webp",
+      "sha256": "162ccb64cd8906b4d77512c8fab8067e7ce9047b7735339be49159f5fb333411",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: CineStill 800T illuminated sign, halation 0.4×. docs/site/study-en.html#details; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/sign-strong.webp",
+      "sha256": "627f3b9e4725b25be5019ae654fcd03c95ff3300513673d2adf745b4029f943b",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Same sign and framing, halation 1.6×. docs/site/study-en.html#details; published as b62ed5d72a5d75a1f580d07ff858a5181b14ac63.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/strip.webp",
+      "sha256": "d10f943ede046bbd67ed6f635eb9df57bf3d4eab3990a2e32a78a1f48715985b",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pink-lotus Portra 400 print in engine-generated 135 film edge. docs/site/notes-en.html#process; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/supra-detail.webp",
+      "sha256": "c862b1d5f6c3cf68ab20dc2a5198632a65dd9e41637cd0afe98c284e57e3cf82",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Matching pink-lotus region from the Supra Endura print. docs/showcase/README.md; published as 567df39477c6f8e58d40e563c93ec425d625a1a6.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
+    },
+    {
+      "path": "docs/site/plates/supra.webp",
+      "sha256": "6c58119a4991e4414091b501882f419d5f013ee370cc11250bff91fa03669bb5",
+      "kind": "web-photo",
+      "evidence": "docs/site/media-provenance.json: Pink lotus, same Portra 400 negative printed on Supra Endura. docs/site/notes-en.html#comparison-lab; published as e6011ca47db2c851fba7a20f5cf6f3586d422388.",
+      "rights_scope": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant."
     },
     {
       "path": "docs/site/silverphase-icon.png",

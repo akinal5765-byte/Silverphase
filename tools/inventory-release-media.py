@@ -12,13 +12,28 @@ p.add_argument('--check', action='store_true')
 a = p.parse_args()
 names = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT)
 names = sorted(set(names.decode().rstrip('\0').split('\0')))
-media_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif', '.heic', '.tif', '.tiff', '.exr', '.pdf'}
+media_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif', '.heic', '.tif', '.tiff', '.exr', '.pdf', '.mp4'}
 cover_root = 'modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/'
 manifests = {}
 for m in (ROOT / 'modern_UI/design/film-artwork').glob('generated-*-manifest.json'):
     for item in json.loads(m.read_text()).get('items', []):
         if 'file' in item:
             manifests[cover_root + item['file']] = str(m.relative_to(ROOT))
+website_manifest = 'docs/site/media-provenance.json'
+website = json.loads((ROOT / website_manifest).read_text())['assets']
+website_scopes = {
+    'web-cover': 'Reduced app artwork. Project-controlled portion: CC-BY-SA-4.0; third-party packaging and brand elements excluded.',
+    'web-photo': 'Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant.',
+    'web-ui': 'Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms.',
+}
+for name, record in website.items():
+    path = Path(name)
+    if (path.as_posix() != name or path.parent.as_posix() not in {
+            'docs/site/covers', 'docs/site/gallery', 'docs/site/interface', 'docs/site/plates'}
+            or path.suffix.lower() not in {'.webp', '.mp4'} or record['kind'] not in website_scopes
+            or not (ROOT / path).is_file() or name not in names
+            or (ROOT / path).is_symlink()):
+        raise SystemExit(f'Invalid website media provenance entry: {name}')
 entries = []
 for name in names:
     path = ROOT / name
@@ -39,6 +54,14 @@ for name in names:
     }:
         kind, evidence = 'approved-product-showcase', 'docs/showcase/README.md; maintainer-approved project fixtures and release of the derived cards.'
         terms = 'Silverphase project demonstration only for photos. No RAW redistribution; third-party packaging is excluded from the project artwork grant.'
+    elif name in website:
+        record = website[name]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != record['sha256']:
+            raise SystemExit(f'Website media bytes changed; update reviewed provenance for: {name}')
+        kind = record['kind']
+        evidence = (f"{website_manifest}: {record['case']} {record['evidence']}; "
+                    f"published as {record['published_commit']}.")
+        terms = website_scopes[kind]
     elif name == 'docs/site/silverphase-icon.png':
         kind, evidence = 'icon-artwork', 'Reduced copy of the tracked screenshots/app-icon.png for the project website.'
         terms = 'Silverphase-controlled additions: CC-BY-SA-4.0; existing upstream rights and platform-renderer rights retained.'

@@ -105,6 +105,10 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | ado
     'tools/check-open-source.py',
     'README.md', 'README.en.md', 'AGENTS.md', 'ARCHITECTURE.md', 'LICENSES.md',
     'docs/README.md', 'docs/LOCAL-MATERIALS.md',
+    # Published site copy credits the reviewed profiles and cover sources.
+    # Only these explicit paths are exempt; new research files are still blocked.
+    'docs/index.html', 'docs/showcase/README.md', 'docs/site/en.html',
+    'docs/site/study.html', 'docs/site/study-en.html', 'docs/site/media-provenance.json',
     'modern_UI/Spektrafilm/releases/1.3.0.md',
     'modern_UI/Spektrafilm/releases/1.3.1.md',
     'modern_UI/Spektrafilm/README.md',
