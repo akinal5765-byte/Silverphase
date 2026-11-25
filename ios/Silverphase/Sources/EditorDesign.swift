@@ -91,6 +91,7 @@ struct BrowserCard<Artwork: View>: View {
     let subtitle: String
     let width: CGFloat
     let selected: Bool
+    var stock: Stock? = nil
     @ViewBuilder let artwork: () -> Artwork
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -98,6 +99,7 @@ struct BrowserCard<Artwork: View>: View {
                 .frame(width: width - EditorDesign.cardInset * 2, height: EditorDesign.artworkHeight + (title == nil ? 14 : 0))
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: EditorDesign.artworkRadius, style: .continuous))
+                .fotufilmBadge(for: stock)
                 .padding(.bottom, 4)
             if let title {
                 Text(title).font(EditorDesign.cardTitle).foregroundStyle(.primary)
