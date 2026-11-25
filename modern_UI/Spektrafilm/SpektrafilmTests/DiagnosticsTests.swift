@@ -642,7 +642,8 @@ final class DiagnosticsTests: XCTestCase {
             lastError: "This frame is larger than SpektraLab can render.",
             machine: ["model": "Mac16,7", "gpu": "Apple M4 Max"],
             settings: ["log_level": "normal"],
-            previousSession: PreviousSessionReport(file: "spektralab-x.jsonl", endedCleanly: false, ageSeconds: 12)))
+            previousSession: PreviousSessionReport(file: "spektralab-x.jsonl", endedCleanly: false, ageSeconds: 12),
+            materialPackFingerprint: String(repeating: "ab", count: 32)))
 
         // A real unzip, because "it is a zip" is a claim about every tool the
         // user might open it with, not about this test's parser.
@@ -654,6 +655,8 @@ final class DiagnosticsTests: XCTestCase {
         let summary = try run("/usr/bin/unzip", ["-p", bundle.path, "summary.json"])
         XCTAssertTrue(summary.contains("\"file_names_included\" : false"))
         XCTAssertTrue(summary.contains("spektrafilm-0.9"))
+        XCTAssertTrue(summary.contains("current_material_pack_sha256"))
+        XCTAssertTrue(summary.contains(String(repeating: "ab", count: 32)))
         XCTAssertTrue(summary.contains("\"ended_cleanly\" : false"))
         try run("/usr/bin/unzip", ["-t", bundle.path])
 

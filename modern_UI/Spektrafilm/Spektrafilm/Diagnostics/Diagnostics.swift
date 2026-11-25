@@ -621,7 +621,8 @@ final class Diagnostics {
             lastError: lastError,
             machine: Diagnostics.machineBlock(),
             settings: settingsSnapshot(),
-            previousSession: previousSession)
+            previousSession: previousSession,
+            materialPackFingerprint: StockCatalog.materialPackFingerprint)
         let includeNames = includeFileNamesInBundle
         log.info(.app, "saving a diagnostic bundle", [
             .init("destination", destination.path), .init("file_names", includeNames),

@@ -49,3 +49,11 @@ See the [privacy policy](PRIVACY.md) and [source and licences](https://github.co
 近似取景用于构图。测光、柔光和系统视频处理均可能影响它与 RAW 成片的差异。设置可选择近似、系统或实验性原生预览；应用内相机还提供胶片曝光补偿、RAW 偏好和分辨率选择。拍摄定位需授权，可在设置中关闭。导出是否保留位置由导出设置决定。[iOS 1.2.5 说明](../ios/releases/1.2.5.md)
 
 The approximate viewfinder aids composition. Metering, diffusion, and system video processing can affect how it differs from the developed RAW. Settings offer approximate, system, and experimental native previews. The in-app camera also offers film exposure compensation, RAW preference, and resolution choices. Capture location requires permission, can be disabled, and follows export metadata policy. [iOS 1.2.5 notes](../ios/releases/1.2.5.md)
+
+## 材料指纹 / Material fingerprint
+
+如果同一张照片和配方更新前后的颜色不同，可在支持此功能的 iOS 版本里从「关于 Silverphase → 复制当前材料指纹」复制一串 SHA-256。在 macOS 手动保存的诊断包中，只需从 `summary.json` 复制 `current_material_pack_sha256`，不用分享整个诊断包。请同时记录 App 版本和构建号。
+
+指纹是当前应用所带材料数据（胶片／相纸配置、合并后的印相滤色、相纸级别和预计算表）的校验值。不同值表示随包材料字节有差异，但不能断定这就是色差的原因；相同值也不能排除解码器或引擎代码变动。它不标记旧编辑，不会固定材料版本，也不会上传数据。
+
+For a color change after updating, copy the current material fingerprint from iOS About Silverphase, or copy only `current_material_pack_sha256` from the `summary.json` inside a macOS diagnostics bundle you saved. Include the app version and build. This SHA-256 identifies the material data staged with the running app, not the engine code or the data used by an older edit. Different hashes identify different material bytes, not necessarily the cause of a visual change. No edit migration, version pinning, or upload occurs.

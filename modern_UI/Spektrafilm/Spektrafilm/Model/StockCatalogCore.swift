@@ -101,6 +101,27 @@ struct StockCatalog: Sendable {
 
     private struct Wrapper: Decodable { let stocks: [Stock] }
 
+    /// A fingerprint of the *currently staged* material data. This never
+    /// identifies the materials that rendered an old sidecar, nor the engine
+    /// executable, and is not used to choose a profile at runtime.
+    static let materialPackFingerprint: String? = {
+        guard let url = bundle.url(forResource: "material-pack-fingerprint", withExtension: "json",
+                                   subdirectory: resourceDirectory + "/engine"),
+              let bytes = try? Data(contentsOf: url) else { return nil }
+        return parseMaterialPackFingerprint(bytes)
+    }()
+
+    static func parseMaterialPackFingerprint(_ bytes: Data) -> String? {
+        struct Manifest: Decodable { let algorithm: String; let sha256: String }
+        guard let manifest = try? JSONDecoder().decode(Manifest.self, from: bytes),
+              manifest.algorithm == "silverphase-material-pack-v1",
+              manifest.sha256.utf8.count == 64,
+              manifest.sha256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
+        else { return nil }
+        return manifest.sha256
+    }
+
+
     var films: [Stock] { stocks.filter(\.isFilm) }
     var papers: [Stock] { stocks.filter(\.isPaper) }
     static func canonicalID(_ id: String) -> String {
