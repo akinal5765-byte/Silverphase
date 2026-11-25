@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> · English ·
-  <a href="docs/site/en.html">Website source</a> · <a href="#download">Download</a> · <a href="#also-by-the-author-layerlight">Layerlight</a> · <a href="#examples">Examples</a> · <a href="#editing-workflow">Workflow</a> ·
+  <a href="https://akinal5765-byte.github.io/Silverphase/site/en.html">Website</a> · <a href="#download">Download</a> · <a href="#also-by-the-author-layerlight">Layerlight</a> · <a href="#examples">Examples</a> · <a href="#editing-workflow">Workflow</a> ·
   <a href="#release-notes">Release notes</a> · <a href="docs/README.md">Documentation</a>
 </p>
 
