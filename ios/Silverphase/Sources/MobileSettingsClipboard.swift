@@ -22,9 +22,9 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
     @MainActor var detail: String {
         switch self {
         case .camera:
-            T("Metering, exposure, tone, white balance, filters and scene placement.", "测光、曝光、影调、白平衡、滤镜与场景置位。", "測光、曝光、影調、白平衡、濾鏡與場景置位。")
+            T("Prep tone, white balance, filters and scene placement.", "入片影调、白平衡、滤镜与场景置位。", "入片影調、白平衡、濾鏡與場景置位。")
         case .film:
-            T("Film stock, physical frame, grain, halation and scatter.", "胶片型号、物理画幅、颗粒、光晕与散射。", "膠片型號、物理畫幅、顆粒、光暈與散射。")
+            T("Film stock, metering, film exposure, physical frame, grain, halation and scatter.", "胶片型号、测光、胶片曝光、物理画幅、颗粒、光晕与散射。", "膠片型號、測光、膠片曝光、物理畫幅、顆粒、光暈與散射。")
         case .development:
             T("Development contrast and the DIR effect.", "显影反差与 DIR 效应。", "顯影反差與 DIR 效應。")
         case .print:
@@ -40,11 +40,11 @@ enum MobileClipboardGroup: String, CaseIterable, Identifiable, Sendable {
     var keys: Set<String> {
         switch self {
         case .camera:
-            Set(MobileProcessContract.cameraToneKeys + ["auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "camera_filter",
+            Set(MobileProcessContract.cameraToneKeys + ["camera_filter",
              "_whiteBalancePreset", "_temperature", "_tint", "camera_diffusion_active", "camera_diffusion_family",
              "camera_diffusion_strength", "camera_diffusion_range", "_placementHighlight", "_placementShadow"])
         case .film:
-            ["film_stock", "film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit",
+            ["film_stock", "auto_exposure", "auto_exposure_method", "exposure_compensation_ev", "film_format_mm", "_filmFrame", "_filmSide", "_sideLengthMM", "_sideUnit",
              "grain_active", "grain_sublayers_active", "_grainAmount", "grain_amount", "grain_size_scale",
              "_grainSoftness", "grain_softness", "halation_active", "antihalation_mode", "halation_headroom_ev", "halation_amount", "halation_scatter_amount"]
         case .development: ["density_curve_gamma", "dir_couplers_active", "dir_couplers_amount"]

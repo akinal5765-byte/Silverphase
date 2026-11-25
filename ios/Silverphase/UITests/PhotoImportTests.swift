@@ -279,7 +279,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertGreaterThan(canvas.frame.width, app.frame.width * 0.95, "Portrait canvas must not reserve a side toolbar column")
         XCTAssertLessThanOrEqual(canvas.frame.minY, app.frame.minY + 2)
         XCTAssertGreaterThanOrEqual(canvas.frame.maxY, app.frame.maxY - 2)
-        XCTAssertFalse(app.navigationBars.staticTexts["拍摄"].exists)
+        XCTAssertFalse(app.navigationBars.staticTexts["预处理"].exists)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "editor.photo-info").firstMatch.exists)
         canvas.pinch(withScale: 2, velocity: 1)
         let fit = try XCTUnwrap(canvas.value as? String)
@@ -349,12 +349,12 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(camera.isSelected)
         camera.tap()
         XCTAssertTrue(panel.waitForExistence(timeout: 3), "Tapping the selected process must reopen its panel")
-        XCTAssertEqual(app.staticTexts["inspector.title"].label, "拍摄")
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "预处理")
         app.buttons["editor.export"].tap()
         XCTAssertEqual(app.staticTexts["inspector.title"].label, "导出成片")
         XCTAssertTrue(camera.isSelected)
         camera.tap()
-        XCTAssertEqual(app.staticTexts["inspector.title"].label, "拍摄",
+        XCTAssertEqual(app.staticTexts["inspector.title"].label, "预处理",
                        "Tapping the selected process must leave export")
     }
 
@@ -363,7 +363,7 @@ final class PhotoImportTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--compact-editor-ui-regression"]
         app.launch()
-        let camera = app.buttons["拍摄"]
+        let camera = app.buttons["预处理"]
         XCTAssertTrue(camera.waitForExistence(timeout: 15))
         let panel = app.descendants(matching: .any).matching(identifier: "editor.parameters").firstMatch
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
@@ -392,7 +392,7 @@ final class PhotoImportTests: XCTestCase {
                 info.exists && info.frame.minY >= back.frame.maxY + 8 && info.frame.minY <= back.frame.maxY + 32 && !info.frame.intersects(back.frame)
             }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
-            XCTAssertFalse(app.navigationBars.staticTexts["拍摄"].exists)
+            XCTAssertFalse(app.navigationBars.staticTexts["预处理"].exists)
             XCTAssertFalse(info.label.contains("来源"))
             XCTAssertFalse(info.label.contains("96"))
             let orientationShot = XCTAttachment(screenshot: app.screenshot())
@@ -627,7 +627,7 @@ final class PhotoImportTests: XCTestCase {
         first.tap()
         XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["filmstrip.photo.目标 A"].exists, "Single-photo editing hides filmstrip")
-        let ruler = app.descendants(matching: .any).matching(identifier: "ruler.曝光补偿 · EV").firstMatch
+        let ruler = app.openFilmExposure()
         for _ in 0..<5 { if ruler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
         XCTAssertEqual(ruler.value as? String, "1.00")
         app.terminate()
@@ -639,8 +639,9 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(first.waitForExistence(timeout: 3)); XCTAssertTrue(second.exists); XCTAssertFalse(source.exists)
         first.tap()
         XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 5))
-        for _ in 0..<5 { if ruler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
-        XCTAssertEqual(ruler.value as? String, "1.00", "Pasted edit survives actual process termination")
+        let reopenedRuler = app.openFilmExposure()
+        for _ in 0..<5 { if reopenedRuler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
+        XCTAssertEqual(reopenedRuler.value as? String, "1.00", "Pasted edit survives actual process termination")
         app.terminate()
     }
 
@@ -720,11 +721,11 @@ final class PhotoImportTests: XCTestCase {
         let toolbar = XCTAttachment(screenshot: app.screenshot()); toolbar.name = "Photo toolbar icons"; toolbar.lifetime = .keepAlways; add(toolbar)
         app.buttons["clipboard.copy"].tap()
         XCTAssertTrue(app.buttons["clipboard.confirm-copy"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.switches["clipboard.group.camera"].value as? String, "1")
+        XCTAssertEqual(app.switches["clipboard.group.film"].value as? String, "1")
         app.buttons["清除"].tap()
         XCTAssertFalse(app.buttons["clipboard.confirm-copy"].isEnabled)
-        app.switches["clipboard.group.camera"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertEqual(app.switches["clipboard.group.camera"].value as? String, "1")
+        app.switches["clipboard.group.film"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(app.switches["clipboard.group.film"].value as? String, "1")
         XCTAssertTrue(app.buttons["clipboard.confirm-copy"].isEnabled)
         let copySheet = XCTAttachment(screenshot: app.screenshot()); copySheet.name = "Copy parameter scope"; copySheet.lifetime = .keepAlways; add(copySheet)
         app.buttons["clipboard.confirm-copy"].tap()
@@ -745,7 +746,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertFalse(app.buttons["clipboard.confirm-copy"].exists)
         app.buttons["filmstrip.done"].tap()
         first.tap()
-        let ruler = app.descendants(matching: .any).matching(identifier: "ruler.曝光补偿 · EV").firstMatch
+        let ruler = app.openFilmExposure()
         for _ in 0..<5 { if ruler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
         XCTAssertEqual(ruler.value as? String, "1.00")
         if app.buttons["editor.undo"].exists { app.buttons["editor.undo"].tap() }
@@ -772,10 +773,10 @@ final class PhotoImportTests: XCTestCase {
         if app.state == .notRunning { app.launch() } else { app.activate() }
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["editor.export"])
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 35), .completed)
-        let ruler = app.descendants(matching: .any).matching(identifier: "ruler.曝光补偿 · EV").firstMatch
+        let ruler = app.openFilmExposure()
         for _ in 0..<5 { if ruler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
         XCTAssertTrue(ruler.isHittable)
-        app.buttons["输入曝光补偿 · EV"].tap()
+        app.buttons["输入胶片曝光 · EV"].tap()
         let field = app.alerts.textFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 3))
         field.tap()
@@ -799,7 +800,7 @@ final class PhotoImportTests: XCTestCase {
         let defaultAgain = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "0.00"), object: ruler)
         XCTAssertEqual(XCTWaiter.wait(for: [defaultAgain], timeout: 5), .completed)
         ruler.press(forDuration: 0.8)
-        XCTAssertFalse(app.buttons["重置曝光补偿 · EV"].exists)
+        XCTAssertFalse(app.buttons["重置胶片曝光 · EV"].exists)
         XCTAssertFalse(app.buttons["重置场景置位"].exists)
         app.terminate()
     }
@@ -855,7 +856,7 @@ final class PhotoImportTests: XCTestCase {
         dragStart.press(forDuration: 0.1, thenDragTo: dragStart.withOffset(CGVector(dx: 45, dy: 28)))
         let originalTransform = canvas.value as? String
         print("Stage controls: " + app.buttons.allElementsBoundByIndex.map { $0.identifier + ":" + $0.label }.joined(separator: " | "))
-        for title in ["胶片", "显影", "彩色放大", "扫描", "拍摄"] {
+        for title in ["胶片", "显影", "彩色放大", "扫描", "预处理"] {
             app.buttons[title].tap()
             XCTAssertEqual(canvas.value as? String, originalTransform, "Stage changed the canvas transform: " + title)
         }
@@ -865,7 +866,7 @@ final class PhotoImportTests: XCTestCase {
         canvas.pinch(withScale: 1.2, velocity: 0.5)
         let manualTransform = canvas.value as? String
         XCTAssertTrue(manualTransform?.hasPrefix("manual;") == true)
-        for title in ["胶片", "拍摄"] {
+        for title in ["胶片", "预处理"] {
             app.buttons[title].tap()
             XCTAssertEqual(canvas.value as? String, manualTransform, "Stage changed the manually zoomed physical pixel scale")
         }
@@ -955,7 +956,7 @@ final class PhotoImportTests: XCTestCase {
                 XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 35), .completed)
             }
             XCTAssertFalse(app.tabBars.firstMatch.exists, "Seven stages must avoid system tab overflow")
-            for (id, title) in [("camera", "拍摄"), ("film", "胶片"), ("development", "显影"), ("print", "彩色放大"), ("output", "扫描"), ("geometry", "构图"), ("filmEdge", "片边")] {
+            for (id, title) in [("camera", "预处理"), ("film", "胶片"), ("development", "显影"), ("print", "彩色放大"), ("output", "扫描"), ("geometry", "构图"), ("filmEdge", "片边")] {
                 let control = app.processStage(id)
                 XCTAssertTrue(control.waitForExistence(timeout: 5), "Missing native stage: " + title)
                 if !arguments.contains("--compact-editor-ui-regression") {
@@ -1060,6 +1061,14 @@ final class PhotoImportTests: XCTestCase {
 }
 
 private extension XCUIApplication {
+    func openFilmExposure() -> XCUIElement {
+        processStage("film").tap()
+        let parameters = buttons["editor.material-toggle"]
+        let ruler = descendants(matching: .any).matching(identifier: "ruler.胶片曝光 · EV").firstMatch
+        if parameters.exists && !ruler.exists { parameters.tap() }
+        return ruler
+    }
+
     func processStage(_ id: String) -> XCUIElement {
         let button = buttons["stage." + id]
         if button.exists { return button }

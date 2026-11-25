@@ -152,31 +152,43 @@ struct FilmSection: View {
     /// The film's own parameters, on the right rail.
     private var paramSection: some View {
         PanelSection(L(.sectionFilm), key: "film",
-                     blockTitle: T("Frame", "画幅", "畫幅"),
-                     menu: { AnyView(formatMenu) }) {
+                     blockTitle: T("Metering & Exposure", "测光与曝光", "測光與曝光"),
+                     menu: { AnyView(exposureMenu) }) {
             VStack(alignment: .leading, spacing: 0) {
                 RailRows {
-                    // `title: { $0.id }` — a film format is `135`, `120`, `APS`
-                    // and so on, which the spec keeps as they are. Only the
-                    // row's label is translated.
-                    // **No `fill: false`.** It asked for a 107 pt pill at the
-                    // trailing edge, and Modern ignores it (`FormatPicker`'s
-                    // `fillsControlColumn`): a 344 pt panel's controls share
-                    // one left edge and one right edge, so a row that stopped
-                    // two thirds of the way across read as an unfinished one.
-                    PillMenu(label: L(.filmFormat), options: FilmFrame.all, title: { $0.id },
-                             selection: Binding(get: { session.filmFrame },
-                                                set: { session.setFilmFrame($0) }),
-                             trailingBadge: { $0.isCine })
-                    PillMenu(label: L(.filmFormatSide), options: FilmSide.allCases, title: { L($0.key) },
-                             selection: Binding(get: { session.filmSide },
-                                                set: { session.setFilmSide($0) }))
-                    UnitField(label: L(.filmFormatSideLength),
-                              value: Binding(get: { session.params.sideLengthMM },
-                                             set: { session.setSideLengthMM($0) }),
-                              unit: unit,
-                              enabled: isCustom,
-                              reason: L(.reasonNonCustomSideLength))
+                    PillMenu(label: L(.cameraMetering), options: AEMethod.offered, title: { L($0.key) },
+                             selection: Binding(get: { session.aeMethod },
+                                                set: { session.aeMethod = $0 }))
+                        .disabled(session.halfFramePair != nil)
+                    ScrubSlider(label: L(.filmExposure),
+                                value: Binding(get: { session.params.exposureCompensationEV },
+                                               set: { var p = session.params; p.exposureCompensationEV = $0; session.params = p }),
+                                range: -4...4, snap: 1 / 3, format: { String(format: "%+.2f EV", $0) })
+                }
+                InspectorSubblock(title: T("Frame", "画幅", "畫幅"), menu: { AnyView(formatMenu) }) {
+                    RailRows {
+                        // `title: { $0.id }` — a film format is `135`, `120`, `APS`
+                        // and so on, which the spec keeps as they are. Only the
+                        // row's label is translated.
+                        // **No `fill: false`.** It asked for a 107 pt pill at the
+                        // trailing edge, and Modern ignores it (`FormatPicker`'s
+                        // `fillsControlColumn`): a 344 pt panel's controls share
+                        // one left edge and one right edge, so a row that stopped
+                        // two thirds of the way across read as an unfinished one.
+                        PillMenu(label: L(.filmFormat), options: FilmFrame.all, title: { $0.id },
+                                 selection: Binding(get: { session.filmFrame },
+                                                    set: { session.setFilmFrame($0) }),
+                                 trailingBadge: { $0.isCine })
+                        PillMenu(label: L(.filmFormatSide), options: FilmSide.allCases, title: { L($0.key) },
+                                 selection: Binding(get: { session.filmSide },
+                                                    set: { session.setFilmSide($0) }))
+                        UnitField(label: L(.filmFormatSideLength),
+                                  value: Binding(get: { session.params.sideLengthMM },
+                                                 set: { session.setSideLengthMM($0) }),
+                                  unit: unit,
+                                  enabled: isCustom,
+                                  reason: L(.reasonNonCustomSideLength))
+                    }
                 }
                 InspectorSubblock(title: T("Grain & Halation", "颗粒与光晕", "顆粒與光暈"),
                                   menu: { AnyView(effectsMenu) }) {
@@ -283,6 +295,18 @@ struct FilmSection: View {
     private func param(_ kp: WritableKeyPath<FilmParams, Bool>) -> Binding<Bool> {
         Binding(get: { session.params[keyPath: kp] },
                 set: { var p = session.params; p[keyPath: kp] = $0; session.params = p })
+    }
+
+    @ViewBuilder private var exposureMenu: some View {
+        Button(L(.helpResetFilmExposure)) {
+            var p = session.params
+            p.exposureCompensationEV = 0
+            session.params = p
+        }
+        Button(T("Turn Off Metering and Set 0 EV", "关闭测光并归零", "關閉測光並歸零")) {
+            session.clearFilmMeteringAndExposure()
+        }
+        .disabled(!session.params.autoExposure && session.params.exposureCompensationEV == 0)
     }
 
     @ViewBuilder private var formatMenu: some View {
