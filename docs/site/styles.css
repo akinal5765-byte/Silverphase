@@ -1,12 +1,12 @@
-/* Silverphase — photographic prints and darkroom notes */
+/* Silverphase product site */
 :root {
   color-scheme: light;
-  --paper: #f7f7f1;
-  --ink: #1b241f;
-  --muted: #535e56;
-  --rule: #c9cec6;
-  --forest: #213e33;
-  --white: #fafbf4;
+  --paper: #fafafa;
+  --ink: #161616;
+  --muted: #565656;
+  --rule: #cecece;
+  --charcoal: #242424;
+  --white: #fff;
   --serif: "Iowan Old Style", Baskerville, "Songti SC", "Noto Serif CJK SC", Georgia, serif;
   --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
 }
@@ -21,7 +21,7 @@ button, fieldset {color: inherit}
 figure, fieldset, h1, h2, h3, p, ol {margin: 0}
 fieldset {border: 0; padding: 0; min-width: 0}
 [hidden] {display: none !important}
-:focus-visible {outline: 3px solid #ca642a; outline-offset: 4px}
+:focus-visible {outline: 3px solid #494949; outline-offset: 4px}
 .sr, .skip:not(:focus) {position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap}
 .skip:focus {position: fixed; z-index: 5; left: 1rem; top: 1rem; background: white; padding: .7rem}
 .wrap {width: min(90%, 87rem); margin-inline: auto}
@@ -46,51 +46,79 @@ a:hover {text-decoration-thickness: 2px}
 .mast nav a, .utilities a {display: inline-flex; align-items: center; min-height: 2.75rem; text-decoration: none; font-size: .94rem}
 .mast nav a:hover, .mast nav [aria-current], .utilities .lang:hover {text-decoration: underline; text-underline-offset: .42em}
 .utilities {gap: 1.25rem}
-.get-link, .solid {color: var(--white); background: var(--forest); border-radius: 99px; padding: .5rem 1.25rem; font-weight: 550; text-decoration: none}
+.get-link, .solid {color: var(--white); background: var(--charcoal); border-radius: 99px; padding: .5rem 1.25rem; font-weight: 550; text-decoration: none}
 .solid {display: inline-block; padding: .7rem 1.5rem}
-.get-link:hover, .solid:hover {background: #122d23}
+.get-link:hover, .solid:hover {background: #000}
 .hero {display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr); gap: clamp(1.8rem, 4vw, 5rem); align-items: center; padding-block: clamp(2rem, 4.5vw, 5rem)}
 .hero-copy {padding-bottom: 2rem}
 .hero-copy .lead {margin: 1.35rem 0 1.6rem; max-width: 28rem}
 .hero-print {min-width: 0}
-.print-stage {position: relative; aspect-ratio: 3 / 2; background: #26392b; overflow: hidden; isolation: isolate; --split: 50%}
-.print-stage > img, .print-stage > canvas, .print-stage > video {position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain}
+.comparison {
+  --split: 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #242424;
+  touch-action: pan-y pinch-zoom;
+}
+.print-stage {aspect-ratio: 3 / 2}
+.case.portrait .comparison {aspect-ratio: 1067 / 1600}
+.case.landscape .comparison {aspect-ratio: 1600 / 1067}
+.comparison > img, .comparison > canvas, .comparison > video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: fill; pointer-events: none; user-select: none;
+}
 .raw-layer {clip-path: inset(0 calc(100% - var(--split)) 0 0)}
-.split-line {position: absolute; left: var(--split); top: 0; bottom: 0; width: 1px; background: #fff}
-.split-line::after {content: '‹ ›'; display: grid; place-items: center; position: absolute; top: 50%; transform: translate(-50%,-50%); left: 0; width: 2.3rem; height: 2.3rem; border-radius: 50%; background: #f7f7f1; color: #273c2f; font: 600 1rem/1 var(--sans); letter-spacing: .03em; box-shadow: 0 1px 5px #0003}
-.frame-labels {position: absolute; inset: auto .8rem .8rem; display: flex; justify-content: space-between; pointer-events: none}
-.frame-labels span {background: #17271fee; padding: .2rem .55rem; color: #fff; font-size: .81rem; border-radius: .18rem}
-.split-input {position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; touch-action: pan-y; appearance: none; -webkit-appearance: none; background: transparent}
-.split-input::-webkit-slider-thumb {appearance: none; width: 1px; height: 100%}
-.split-input::-moz-range-thumb {width: 1px; height: 100%; border: none}
-.print-stage:has(.split-input:focus-visible) {outline: 3px solid #ca642a; outline-offset: 3px}
-[data-mode="raw"] .raw-layer {clip-path: none}
-[data-mode="print"] .raw-layer, [data-mode="playing"] .raw-layer, [data-mode="raw"] .frame-labels span:last-child, [data-mode="print"] .frame-labels span:first-child,
-[data-mode="playing"] .frame-labels, .hero-print:not([data-mode="split"]) .split-line {display: none}
-[data-mode="print"] .frame-labels {justify-content: end}
-.proof-tools, .print-caption {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem}
-.proof-tools {padding: .7rem 0; border-bottom: 1px solid var(--rule)}
-.switch {display: inline-flex; align-items: center; flex-wrap: wrap; gap: .13rem}
-.switch button, .switch a, .switch label, .replay {display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; border: 0; padding: .3rem .82rem; border-radius: 99px; background: transparent; color: var(--ink); font-size: .9rem; line-height: 1.25; text-decoration: none}
-.switch [aria-pressed="true"], .switch [aria-current], .raw-choice:checked ~ .case-meta label:first-child, .film-choice:checked ~ .case-meta label:last-child {background: #dee5db; color: #203c2c}
-.switch a:hover, .switch button:hover, .switch label:hover {text-decoration: underline}
-.replay {font-weight: 600; padding-right: .1rem}
-.replay::before {content: "↻"; line-height: 1; font: 1.35rem var(--sans); margin-right: .4rem}
-.replay:hover {text-decoration: underline}
+.comparison::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: var(--split); z-index: 1;
+  width: 2px; transform: translateX(-50%); background: white; box-shadow: 0 0 2px #000c; pointer-events: none;
+}
+.divider {
+  position: absolute; z-index: 3; top: 0; bottom: 0; width: 48px;
+  left: clamp(0px, calc(var(--split) - 24px), calc(100% - 48px));
+  display: grid; place-items: center; cursor: ew-resize; outline: none;
+  touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none;
+}
+.grip {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: #fff; color: #131313; border: 1px solid #363636;
+  font: 600 1.5rem/1 Arial, sans-serif; box-shadow: 0 1px 5px #0006; pointer-events: none;
+}
+.divider:focus-visible {outline: none}
+.divider:focus-visible .grip {outline: 3px solid #fff; outline-offset: 3px; box-shadow: 0 0 0 8px #222}
+.frame-labels {position: absolute; z-index: 2; inset: .8rem .8rem auto; display: flex; justify-content: space-between; pointer-events: none}
+.frame-labels span {background: #151515e8; padding: .25rem .6rem; color: white; font-weight: 550; font-size: .85rem; border-radius: .22rem}
+.play-print {
+  position: absolute; z-index: 4; bottom: 1rem; left: 1rem; display: inline-flex;
+  align-items: center; gap: .68rem; min-height: 48px; padding: .6rem 1rem;
+  background: white; border: 1px solid #242424; border-radius: .45rem;
+  color: #171717; font: 650 .97rem/1.25 var(--sans); box-shadow: 0 2px 8px #0003;
+}
+.play-print:hover {background: #eee}
+.play-print:focus-visible {outline: 3px solid white; outline-offset: 3px; box-shadow: 0 0 0 8px #222}
+.play-icon {width: 0; height: 0; border-block: .42rem solid transparent; border-left: .72rem solid currentColor}
+[data-mode="playing"] .play-icon {border: 0; background: currentColor; height: .7rem; width: .7rem}
+.hero-print:not([data-mode="split"]) :is(.frame-labels, .raw-layer),
+.hero-print:not([data-mode="split"]) .comparison::after {visibility: hidden}
+.print-caption {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem}
+.switch {display: inline-flex; flex-wrap: wrap; align-items: center; gap: .2rem}
+.switch a {display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: .3rem .82rem; border-radius: .32rem; font-size: .94rem; text-decoration: none}
+.switch [aria-current] {background: #d1d1d1; color: #171717}
+.switch a:hover {text-decoration: underline}
 .print-caption {padding-top: .7rem; color: var(--muted); font-size: .83rem}
 .print-caption strong {color: var(--ink); font-size: .98rem; font-weight: 550}
 .section-row {display: flex; justify-content: space-between; align-items: end; gap: 2rem; margin-bottom: 2rem}
 .selected, .native, .get, .reading, .notes {padding-block: clamp(3.2rem, 6.5vw, 6.5rem)}
-.selected {background: #1d3028; color: #f3f6ed}
-.selected .eyebrow, .selected .selection span {color: #cbd8cb}
+.selected {background: #f2f2f2; color: #171717}
+.selected .eyebrow, .selected .selection span {color: #555}
 .selected-grid {display: grid; grid-template-columns: .8fr 1.22fr 1.22fr; gap: clamp(1rem, 2.6vw, 3rem); align-items: end}
 .selection {text-decoration: none; min-width: 0}
 .selection:hover h3 {text-decoration: underline; text-underline-offset: .2em}
 .selection img {width: 100%}
 .selection h3 {font-size: clamp(1.35rem, 2.1vw, 2.2rem); margin: .8rem 0 .15rem}
 .selection:first-child {max-width: 21rem}
-.selection:last-child {align-self: center}
-.native {background: #e9ede6}
+.selection:last-child {align-self: end}
+.native {background: #e8e8e8}
 .device {display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,.75fr); align-items: center; gap: clamp(2rem, 5vw, 6rem); padding: 1rem 0}
 .device + .device {border-top: 1px solid var(--rule)}
 .capture {display: grid; place-items: center; min-width: 0}
@@ -109,7 +137,7 @@ a:hover {text-decoration-thickness: 2px}
 .related .eyebrow {margin-bottom: .2rem}
 .related h3 {margin-bottom: .35rem}
 .related p:not(.eyebrow) {color: var(--muted)}
-.site-foot {background: #19271f; color: #e0e8de; padding: 2.05rem 0}
+.site-foot {background: #222; color: #eee; padding: 2.05rem 0}
 .footer-grid {display: grid; grid-template-columns: .7fr 1.5fr 1fr; gap: 2rem; align-items: center}
 .footer-grid p, .footer-grid .text-link {font-size: .88rem}
 .wordmark {font-size: 1.7rem; text-decoration: none; letter-spacing: -.05em}
@@ -124,15 +152,10 @@ a:hover {text-decoration-thickness: 2px}
 .case:nth-child(3) {align-self: center}
 .case:nth-child(4) {justify-self: center}
 .case:nth-child(6) {margin-top: 3.5rem}
-.case-image {display: grid}
-.case-image img {width: 100%; grid-area: 1 / 1}
-.case-image .raw, .raw-choice:checked ~ .case-image .film {visibility: hidden}
-.raw-choice:checked ~ .case-image .raw {visibility: visible}
 .case-meta {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .3rem 1rem; margin: .8rem 0 .25rem}
 .case-meta h2 {font-size: clamp(1.55rem, 2.3vw, 2.4rem)}
 .case p {color: var(--muted); max-width: 39rem}
-.case .recipe {margin-top: .6rem; font-weight: 580; color: #34483b}
-.raw-choice:focus-visible ~ .case-meta label:first-child, .film-choice:focus-visible ~ .case-meta label:last-child {outline: 3px solid #ca642a; outline-offset: 3px}
+.case .recipe {margin-top: .6rem; font-weight: 580; color: #464646}
 .process {display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: clamp(2rem, 6vw, 7rem); padding: 1rem 0 3rem}
 .process-image img {margin: auto; max-height: 36rem; width: auto}
 .process-image p {margin-top: .55rem; color: var(--muted); font-size: .875rem}
@@ -179,11 +202,8 @@ a:hover {text-decoration-thickness: 2px}
   .hero {display: flex; flex-direction: column; align-items: stretch; gap: 1.2rem; padding-block: 1.4rem 1.6rem}
   .hero .eyebrow {margin-bottom: .38rem}
   .hero h1 {font-size: clamp(2.55rem, 9vw, 3.45rem); line-height: 1.1}
-  .hero h1 br {display: none}
   .hero-copy .lead {font-size: 1rem; margin: .65rem 0 0; max-width: 36rem}
   .hero-cta {display: none}
-  .proof-tools {padding: .3rem 0; gap: .15rem}
-  .switch button, .switch a, .switch label {padding-inline: .68rem}
   .print-caption {align-items: start; gap: .12rem .7rem; padding-top: .45rem}
   .section-row {align-items: start; flex-wrap: wrap; gap: .65rem; margin-bottom: 1.4rem}
   .selected-grid {grid-template-columns: 1fr 1fr; gap: 1.45rem 1rem}
@@ -209,8 +229,8 @@ a:hover {text-decoration-thickness: 2px}
   .footer-grid > div {grid-column: auto}
   .compare-pair {grid-template-columns: 1fr; gap: .5rem}
 }
-@media (prefers-reduced-motion: reduce) {.replay {display: none}}
-.work-credit {margin-top: 1.7rem; font-size: .9rem; color: #d4dfd3}
+@media (prefers-reduced-motion: reduce) {.play-print {display: none}}
+.work-credit {margin-top: 1.7rem; font-size: .9rem; color: #505050}
 
 /* Keep navigation and proof controls on one line on smaller phones. */
 .utilities a, .mast nav a {white-space: nowrap}
@@ -218,8 +238,6 @@ a:hover {text-decoration-thickness: 2px}
   html:lang(en) .hero h1 {font-size: clamp(3rem, 5.4vw, 5.6rem)}
 }
 @media (max-width: 410px) {
-  .proof-tools .switch button {padding-inline: .43rem}
-  .proof-tools .replay {padding-left: .2rem}
   .mast nav {gap: 1rem}
 }
 @media (max-width: 360px) {
@@ -234,8 +252,34 @@ a:hover {text-decoration-thickness: 2px}
   .hero .eyebrow {display: none}
   .hero h1 {font-size: 2rem}
   .hero-copy .lead {font-size: 1rem; line-height: 1.45}
-  .proof-tools .switch button, .proof-tools .replay {font-size: .835rem}
-  .proof-tools .switch button {padding-inline: .35rem}
   .collection-head h1 {font-size: 2.75rem}
 }
-.print-stage:has(.split-input[hidden]) .split-line::after {display: none}
+
+h1, h2, .wordmark, .case h2, .selection h3, .device h3 {font-family: var(--sans); font-weight: 620}
+h1, h2 {letter-spacing: -.055em}
+.hero {grid-template-columns: minmax(0,.8fr) minmax(0,1.45fr)}
+.hero h1, html:lang(en) .hero h1 {font-size: clamp(3.2rem, 5.5vw, 5.9rem); line-height: 1.02; letter-spacing: -.055em}
+.hero-copy .lead {max-width: 33rem}
+.solid, .get-link {border-radius: .4rem}
+.collection-head h1 {font-size: clamp(2.5rem, 5vw, 5.1rem); max-width: 14ch}
+.selected {border-block: 1px solid var(--rule)}
+.selected .section-row {margin-bottom: 1.6rem}
+.related {padding-block: 2.4rem}
+.related h3 {font-size: 1.65rem}
+@media(max-width: 650px) {
+  .hero {gap: 1rem}
+  .hero h1, html:lang(en) .hero h1 {font-size: clamp(2.3rem, 8.6vw, 3rem)}
+  .hero-copy .lead {margin: .6rem 0 .8rem; line-height: 1.48}
+  .hero-cta {display: inline-flex; align-items: center; min-height: 44px; padding: .5rem 1rem}
+  .hero-print .print-caption {margin-top: .22rem}
+  .play-print {bottom: .6rem; left: .6rem; min-height: 44px; font-size: .9rem; padding: .45rem .8rem; gap: .52rem}
+  .frame-labels {inset: .55rem .55rem auto}
+  .home .mast .get-link {display: none}
+  .collection-head h1 {max-width: 100%}
+}
+@media(max-width: 360px) {
+  .hero {gap: .7rem; padding-top: .9rem}
+  .hero h1, html:lang(en) .hero h1 {font-size: 2.12rem}
+  .hero-copy .lead {margin-block: .4rem .6rem}
+  .play-print {bottom: .4rem; left: .4rem}
+}

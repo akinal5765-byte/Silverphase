@@ -13,14 +13,16 @@
   const duration = 2200;
   const stage = demo.querySelector('.print-stage');
   const canvas = stage.querySelector('canvas');
-  const slider = stage.querySelector('input');
+  const slider = stage.querySelector('.divider');
   const positive = stage.querySelector('.positive');
-  const controls = demo.querySelector('.proof-tools');
-  const choices = [...controls.querySelectorAll('[data-mode-choice]')];
-  const play = controls.querySelector('[data-play]');
+  const play = stage.querySelector('[data-play]');
+  const playLabel = play.querySelector('[data-play-label]');
   const status = demo.querySelector('[data-status]');
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
   let raf = 0, generation = 0, gpu, negativeTask;
+  let returnToCompare = 0;
+  const firstPlayLabel = playLabel.textContent;
+  let hasPlayed = false;
   const vertexSource = `
 attribute vec2 xy;
 varying vec2 uv;
@@ -183,39 +185,31 @@ void main() {
   function setView(mode) {
     generation++;
     cancelAnimationFrame(raf);
+    clearTimeout(returnToCompare);
     clip.pause();
     clip.hidden = true;
     canvas.hidden = true;
     demo.dataset.mode = mode;
     slider.hidden = mode !== 'split';
-    play.textContent = mode === 'playing' ? demo.dataset.skip : demo.dataset.replay;
-    for (const button of choices) {
-      button.setAttribute('aria-pressed', String(button.dataset.modeChoice === mode));
-    }
-    status.textContent = '';
+    playLabel.textContent = mode === 'playing' ? demo.dataset.skip :
+      (hasPlayed ? demo.dataset.replay : firstPlayLabel);
   }
-  function finish(message = demo.dataset.finished) {
-    setView('print');
+  function finish(message = demo.dataset.finished, holdPrint = false) {
+    hasPlayed = true;
+    setView(holdPrint && !preference.matches ? 'print' : 'split');
     status.textContent = message;
-  }
-  function drawSplit() {
-    stage.style.setProperty('--split', slider.value + '%');
-  }
-  for (const button of choices) button.addEventListener('click', () => {
-    if (button.dataset.modeChoice === 'split') {
-      slider.value = '50';
-      drawSplit();
+    if (demo.dataset.mode === 'print') {
+      // Hold the actual final still briefly, then restore the visitor's divider.
+      returnToCompare = setTimeout(() => setView('split'), 260);
     }
-    setView(button.dataset.modeChoice);
-  });
-  slider.addEventListener('input', drawSplit);
+  }
 
   async function playClip(token) {
     if (token !== generation) return;
     if (preference.matches) { finish(); return; }
     if (!clip.getAttribute('src')) clip.src = new URL('develop-replay.mp4', positive.src).href;
     if (clip.readyState > 0) clip.currentTime = 0;
-    clip.onended = () => { if (token === generation) finish(); };
+    clip.onended = () => { if (token === generation) finish(demo.dataset.finished, true); };
     clip.onerror = () => { if (token === generation) finish(demo.dataset.fallback); };
     try {
       await clip.play();
@@ -248,7 +242,7 @@ void main() {
       function advance(now) {
         if (token !== generation) return;
         const t = Math.min(1, Math.max(0, (now - start) / duration));
-        if (t >= 1 || preference.matches) { finish(); return; }
+        if (t >= 1 || preference.matches) { finish(demo.dataset.finished, true); return; }
         gpu(t);
         raf = requestAnimationFrame(advance);
       }
@@ -257,7 +251,7 @@ void main() {
   }
   play.addEventListener('click', replay);
   function updateMotion() {
-    if (preference.matches && demo.dataset.mode === 'playing') finish();
+    if (preference.matches && demo.dataset.mode !== 'split') finish();
     play.hidden = preference.matches;
   }
   if (preference.addEventListener) preference.addEventListener('change', updateMotion);
@@ -272,8 +266,6 @@ void main() {
     }
   });
   window.addEventListener('pagehide', () => { if (demo.dataset.mode === 'playing') finish(); });
-  drawSplit();
   setView('split');
   updateMotion();
-  controls.hidden = false;
 })();
