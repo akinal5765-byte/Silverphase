@@ -37,7 +37,7 @@ Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的�
 
 | 平台 | 下载入口 | 系统要求 |
 |---|---|---|
-| macOS | [1.3.0（构建 5）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · Apple Silicon DMG | macOS 15 或更高 |
+| macOS | [1.3.1（构建 6）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) · Apple Silicon DMG | macOS 15 或更高 |
 | iPhone／iPad | [App Store](https://apps.apple.com/hk/app/silverphase-%E8%83%B6%E7%89%87%E6%A8%A1%E6%8B%9F/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
 
 macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.md)

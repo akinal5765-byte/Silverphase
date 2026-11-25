@@ -13,6 +13,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | App Store, TestFlight and macOS downloads | [Binary releases](BINARY-RELEASES.md) |
+| 1.3.1 downloads | [macOS DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) / [iOS source release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) |
 | 1.3.1 source notes and verification | [macOS build 6](../modern_UI/Spektrafilm/releases/1.3.1.md) / [iOS and iPadOS build 11](../ios/releases/1.3.1.md) |
 | macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
 | iOS 1.3.0, public download and beta access | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) / [Source notes](../ios/releases/1.3.0.md) / [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) / [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |

@@ -37,7 +37,7 @@ Layerlight and its icon retain their separate rights and are outside Silverphase
 
 | Platform | Download | Requirements |
 |---|---|---|
-| macOS | [1.3.0 (build 5)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · Apple silicon DMG | macOS 15 or later |
+| macOS | [1.3.1 (build 6)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) · Apple silicon DMG | macOS 15 or later |
 | iPhone and iPad | [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp) | iOS or iPadOS 18 or later |
 
 On macOS, check for updates in Settings → Software Update. The GitHub DMG uses an ad-hoc signature and has no Apple notarization. [Installation and checksum guide](docs/BINARY-RELEASES.md)

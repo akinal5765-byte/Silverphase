@@ -23,7 +23,7 @@ update checker also recognizes older unprefixed tags that carry a macOS DMG.
   Gatekeeper disablement is needed. Apple's [opening-app guidance](https://support.apple.com/102445)
   describes the system controls; local security policies may restrict them.
 
-Download **macOS 1.3.0 (build 5)** from its [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0). The [version notes](../modern_UI/Spektrafilm/releases/1.3.0.md) describe the changes and verification.
+Download **macOS 1.3.1 (build 6)** from its [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1). The [version notes](../modern_UI/Spektrafilm/releases/1.3.1.md) describe the changes and verification.
 
 macOS 1.2.0 (build 4) introduced Lightroom Classic single-photo external editing.
 Install Silverphase in Applications and select it under Lightroom's additional
@@ -32,7 +32,7 @@ external editor settings; no separate `.lrplugin` is needed. See the
 
 ## iPhone and iPad
 
-Install the public version through the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. The iOS 1.3.0 (build 10) milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) and [source notes](../ios/releases/1.3.0.md).
+Install the public version through the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. The iOS 1.3.1 (build 11) source milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) and [source notes](../ios/releases/1.3.1.md).
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
