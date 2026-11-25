@@ -806,7 +806,7 @@ static inline float3 cam16ucsInto(float3 rgb, constant OutputTransformUniforms &
     float d = Mp / safe;
     moved = d > threshold;
     // Before the knee, because after it every pixel is inside by construction
-    // — the knee's limit is 1. This is "the container could not hold it".
+    // — the knee's limit is at most 1. This is "the container could not hold it".
     outside = d > 1.0f;
     if (moved) {
         float sc = limit - threshold;

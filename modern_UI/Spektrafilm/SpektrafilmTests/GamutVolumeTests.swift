@@ -295,7 +295,10 @@ final class GamutVolumeTests: XCTestCase {
             print(String(format: "  %@ — outside P3: linear-cube test %.5f %%, kernel %.5f %% "
                          + "(lightness compression off), %.5f %% (on)",
                          key, linear * 100, noLC * 100, withLC * 100))
-            XCTAssertEqual(noLC, linear, accuracy: max(linear * 0.5, 1e-5),
+            // With the final-space knee preserving more chroma, more pixels
+            // land where the interpolated C_max and exact cube can disagree.
+            // Match the upstream measurement floor of 0.002 percentage points.
+            XCTAssertEqual(noLC, linear, accuracy: max(linear * 0.5, 2e-5),
                            "\(key): the CAM16 chroma test and the linear-cube test disagree — "
                            + "they are the same question asked two ways")
         }
