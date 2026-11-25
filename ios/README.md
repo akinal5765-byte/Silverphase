@@ -60,7 +60,7 @@ time. Keep private photos and logs outside the repository.
 
 ## Installation and downloads
 
-Install Silverphase on iPhone or iPad from the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. Join [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) for beta builds. See [App Store distribution](APP-STORE.md) for the release record.
+Install Silverphase on iPhone or iPad from the [App Store in mainland China](https://apps.apple.com/cn/app/id6829987567) or the [App Store in other regions](https://apps.apple.com/app/id6829987567). Join [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) for beta builds. See [App Store distribution](APP-STORE.md) for the release record.
 
 Historical unsigned device IPA builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
 
