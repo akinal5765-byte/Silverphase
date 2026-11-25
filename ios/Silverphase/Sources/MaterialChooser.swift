@@ -128,8 +128,11 @@ struct MaterialChooser: View {
                 if paper { document.setPaper(stock) } else { document.setFilm(stock) }
                 recent.removeAll { $0 == stock.id }; recent.insert(stock.id, at: 0)
             } label: {
-                if vertical { materialRow(stock.displayName, subtitle: subtitle(stock), selected: isSelected(stock)) { artwork(stock) } }
-                else { BrowserCard(title: shortName(stock.displayName), subtitle: subtitle(stock), width: EditorDesign.materialCardWidth, selected: isSelected(stock)) { artwork(stock) } }
+                if vertical {
+                    materialRow(stock.displayName, subtitle: subtitle(stock), selected: isSelected(stock), stock: stock) { artwork(stock) }
+                } else {
+                    BrowserCard(title: shortName(stock.displayName), subtitle: subtitle(stock), width: EditorDesign.materialCardWidth, selected: isSelected(stock), stock: stock) { artwork(stock) }
+                }
             }.buttonStyle(.plain).id(stock.id)
             .accessibilityLabel(stock.name + ", " + subtitle(stock))
             .accessibilityIdentifier("materials.stock." + stock.id)
@@ -150,11 +153,12 @@ struct MaterialChooser: View {
                 Image(systemName: paper ? "photo" : "film").font(.system(size: EditorDesign.glyphSize)).frame(maxWidth: .infinity, maxHeight: .infinity).background(MobileStyle.well)
             }
             if favorites.contains(stock.id) { Image(systemName: "star.fill").font(.system(size: 12)).foregroundStyle(MobileStyle.accent).padding(6).shadow(radius: 2) }
-        }.fotufilmBadge(for: stock)
+        }
     }
-    private func materialRow<Artwork: View>(_ title: String, subtitle: String, selected: Bool, @ViewBuilder artwork: () -> Artwork) -> some View {
+    private func materialRow<Artwork: View>(_ title: String, subtitle: String, selected: Bool, stock: Stock? = nil, @ViewBuilder artwork: () -> Artwork) -> some View {
         HStack(spacing: 12) {
             artwork().frame(width: 72, height: 40).clipped().clipShape(RoundedRectangle(cornerRadius: 6))
+                .fotufilmBadge(for: stock)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(EditorDesign.selectedValue).foregroundStyle(.primary).lineLimit(2)
                 Text(subtitle).font(EditorDesign.help).foregroundStyle(.secondary).lineLimit(1)
