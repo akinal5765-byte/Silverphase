@@ -1067,6 +1067,7 @@ final class Session: CanvasHost {
     private var developTask: Task<String?, Never>?
     /// The decode in flight. `ensureDeveloped` waits on it; a reopen replaces it.
     private var loadTask: Task<Void, Never>?
+    private var pendingInitialCameraCrop: URL?
     /// A restored print is shown immediately, then its engine session is
     /// prepared after a short navigation debounce. A later click cancels it.
     private var restoredPrintTask: Task<Void, Never>?
@@ -1662,7 +1663,13 @@ final class Session: CanvasHost {
         developTask?.cancel(); developTask = nil
         renderer.dropFullRender()
         let sidecarStarted = Date()
-        sidecar = Sidecar.load(for: url) ?? Sidecar()
+        let saved = Sidecar.load(for: url)
+        sidecar = saved ?? Sidecar()
+        // Any existing sidecar wins, including a deliberate Reset or a file
+        // from a newer build that this reader couldn't decode.
+        let readCameraCrop = saved == nil && url.pathExtension.lowercased() == "3fr" &&
+            !FileManager.default.fileExists(atPath: Sidecar.url(for: url).path)
+        pendingInitialCameraCrop = readCameraCrop ? url : nil
         canvasLog("frame select sidecar \(Int(Date().timeIntervalSince(sidecarStarted) * 1000)) ms")
         // Except a frame with an edit the engine has not rendered — a paste
         // made while another frame was on the canvas (RFC-027 §4). That edit
@@ -1736,6 +1743,19 @@ final class Session: CanvasHost {
         sampleMemory("frame_switch")
         let gen = pipeline.supersede()
         loadTask = Task {
+            if readCameraCrop {
+                let crop = await Task.detached(priority: .userInitiated) {
+                    ImageDecoder.initialHasselbladGeometry(url)
+                }.value
+                guard !Task.isCancelled, selection == url, pipeline.isCurrent(gen) else { return }
+                pendingInitialCameraCrop = nil
+                if let crop, sidecar.geometry == .default,
+                   !FileManager.default.fileExists(atPath: Sidecar.url(for: url).path) {
+                    sidecar.geometry = crop
+                    savedGeometry[url] = crop
+                    renderer.geometry = params.filmPresentationActive ? .default : crop
+                }
+            }
             await load(url, generation: gen)
             // **The develop, after the load never inside it.** `load` has two
             // early returns and the display-cache one — the path most opens
@@ -3102,6 +3122,7 @@ final class Session: CanvasHost {
     func flushSave() {
         saveTask?.cancel()
         guard let url = selection else { return }
+        if pendingInitialCameraCrop == url, sidecar == Sidecar() { return }
         try? editSnapshot.save(for: url)
         savedGeometry[url] = sidecar.geometry
     }
