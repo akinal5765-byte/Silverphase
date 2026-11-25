@@ -11,7 +11,7 @@
 
 <p align="center">
   简体中文 · <a href="README.en.md">English</a> ·
-  <a href="https://akinal5765-byte.github.io/Silverphase/">官网</a> · <a href="#下载">下载</a> · <a href="#效果案例">效果案例</a> · <a href="#编辑流程">编辑流程</a> ·
+  <a href="docs/index.html">官网源码</a> · <a href="#下载">下载</a> · <a href="#效果案例">效果案例</a> · <a href="#编辑流程">编辑流程</a> ·
   <a href="#版本记录">版本记录</a> · <a href="docs/README.md">文档</a>
 </p>
 
