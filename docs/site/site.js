@@ -1,42 +1,46 @@
+/* Preserve section links as articles move between the gallery and notes. */
 (() => {
-  const grid = document.querySelector('#comparison');
-  if (!grid) return;
-  const full = document.querySelector('#swap-full');
-  const detail = document.querySelector('#swap-detail');
-  const name = document.querySelector('#swap-name');
-  const note = document.querySelector('#swap-note');
-  const buttons = [...document.querySelectorAll('button[data-print]')];
-  for (const button of buttons) {
-    button.addEventListener('click', () => {
-      const key = button.dataset.print;
-      const data = document.getElementById('paper-' + key).content;
-      full.src = grid.dataset.src + key + '.webp';
-      detail.src = grid.dataset.src + key + '-detail.webp';
-      name.textContent = data.querySelector('span').textContent;
-      note.textContent = data.querySelector('p').textContent;
-      for (const candidate of buttons) candidate.setAttribute('aria-pressed', String(candidate === button));
+  const panels = [...document.querySelectorAll('.device')];
+  const controls = document.querySelector('[data-device-controls]');
+  const language = document.querySelector('[data-language]');
+  const defaultDevice = matchMedia('(max-width: 650px)').matches ? 'interface-iphone' : 'interface-mac';
+  function showDevice(id) {
+    for (const panel of panels) panel.hidden = panel.id !== id;
+    for (const link of controls.querySelectorAll('a')) {
+      if (link.hash === '#' + id) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    }
+  }
+  function readSection() {
+    const id = location.hash.slice(1);
+    const target = document.getElementById(id);
+    if (target && target.hasAttribute('data-forward')) {
+      location.replace(target.href);
+      return;
+    }
+    if (language) language.hash = target ? location.hash : '';
+    if (panels.length && (!id || target?.classList.contains('device'))) {
+      showDevice(target?.id || defaultDevice);
+    }
+    if (target?.matches('.case input[type="radio"]')) target.checked = true;
+    if (target?.tagName === 'DETAILS') target.open = true;
+    if (id && target && (target.matches('.device, .tech-note') || target.closest('.collection'))) {
+      const section = target.closest('.case') || target;
+      requestAnimationFrame(() => section.scrollIntoView({block: 'start'}));
+    }
+  }
+  if (controls) {
+    controls.hidden = false;
+    showDevice(defaultDevice);
+    controls.addEventListener('click', event => {
+      const link = event.target.closest('a');
+      if (!link || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+      event.preventDefault();
+      showDevice(link.hash.slice(1));
+      history.replaceState(null, '', link.hash);
+      language.hash = link.hash;
     });
   }
-  document.documentElement.classList.add('interactive');
-})();
-
-(() => {
-  const proof = document.querySelector('[data-proof]');
-  if (proof) {
-    const input = proof.querySelector('input');
-    const draw = () => proof.style.setProperty('--split', input.value + '%');
-    input.addEventListener('input', draw);
-    draw();
-    proof.classList.add('proof-ready');
-  }
-  if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const observed = document.querySelectorAll('.paper .section-head, .stock-grid, .night-grid, .workflow, .strip-grid');
-    const observer = new IntersectionObserver(entries => {
-      for (const entry of entries) if (entry.isIntersecting) {
-        entry.target.classList.add('arrived');
-        observer.unobserve(entry.target);
-      }
-    }, {threshold: 0.13});
-    observed.forEach(node => observer.observe(node));
-  }
+  window.addEventListener('hashchange', readSection);
+  readSection();
 })();

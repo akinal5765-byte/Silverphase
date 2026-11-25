@@ -11,16 +11,16 @@
   const demo = document.querySelector('[data-develop]');
   if (!demo) return;
   const duration = 2200;
-  const first = demo.querySelector('[data-negative]');
-  const direct = demo.querySelector('[data-still]');
-  const play = demo.querySelector('[data-play]');
+  const stage = demo.querySelector('.print-stage');
+  const canvas = stage.querySelector('canvas');
+  const slider = stage.querySelector('input');
+  const positive = stage.querySelector('.positive');
+  const controls = demo.querySelector('.proof-tools');
+  const choices = [...controls.querySelectorAll('[data-mode-choice]')];
+  const play = controls.querySelector('[data-play]');
   const status = demo.querySelector('[data-status]');
-  const canvas = demo.querySelector('canvas');
-  const meter = demo.querySelector('.develop-meter > i');
-  const d = demo.dataset;
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
-  let raf = 0, busy = false, shown = 'negative', gpu, print;
-  let generation = 0;
+  let raf = 0, generation = 0, gpu, negativeTask;
   const vertexSource = `
 attribute vec2 xy;
 varying vec2 uv;
@@ -171,141 +171,109 @@ void main() {
     im.onerror = () => reject(new Error('Missing render'));
     im.src = src;
   });
-  const negativeURL = first.src, printURL = direct.href;
-  const negativeAlt = first.alt;
-  // Pre-rendered by this same GLSL program, for browsers with no WebGL.
+  // The fallback clip was rendered with the same shader and endpoints.
   const clip = document.createElement('video');
-  clip.className = 'develop-video';
   clip.hidden = true;
   clip.muted = true;
   clip.playsInline = true;
   clip.preload = 'none';
-  clip.setAttribute('aria-hidden','true');
-  canvas.parentElement.insertBefore(clip,canvas);
+  clip.setAttribute('aria-hidden', 'true');
+  stage.insertBefore(clip, canvas);
 
-  let negativeTask, printTask;
-  const getNegative = () => (negativeTask ||= load(negativeURL).catch(error => { negativeTask = undefined; throw error; }));
-  const getPrint = () => (printTask ||= load(printURL).catch(error => { printTask = undefined; throw error; }));
-  const stop = () => {
+  function setView(mode) {
     generation++;
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
-    busy = false;
-    canvas.hidden = true;
+    cancelAnimationFrame(raf);
     clip.pause();
     clip.hidden = true;
-    play.removeAttribute('aria-disabled');
-  };
-  function still(which,caption) {
-    stop();
-    shown = which;
-    const finished = shown === 'print';
-    first.src = finished ? printURL : negativeURL;
-    first.alt = finished ? d.printAlt : negativeAlt;
-    direct.href = finished ? negativeURL : printURL;
-    direct.textContent = finished ? d.viewNegative : d.viewPrint;
-    play.textContent = finished ? d.replay : d.play;
-    status.textContent = caption || (finished ? d.statusPrint : d.statusNegative);
-    meter.style.transform = finished ? 'scaleX(1)' : 'scaleX(0)';
-  }
-  direct.addEventListener('click', async (event) => {
-    // Leave the native link usable for opening the still image in a new tab.
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    const target = busy || shown === 'negative' ? 'print' : 'negative';
-    stop();
-    const token = generation;
-    try {
-      await (target === 'print' ? getPrint() : getNegative());
-      if (token === generation) still(target);
-    } catch {
-      if (token === generation) status.textContent = d.statusError;
+    canvas.hidden = true;
+    demo.dataset.mode = mode;
+    slider.hidden = mode !== 'split';
+    play.textContent = mode === 'playing' ? demo.dataset.skip : demo.dataset.replay;
+    for (const button of choices) {
+      button.setAttribute('aria-pressed', String(button.dataset.modeChoice === mode));
     }
+    status.textContent = '';
+  }
+  function finish(message = demo.dataset.finished) {
+    setView('print');
+    status.textContent = message;
+  }
+  function drawSplit() {
+    stage.style.setProperty('--split', slider.value + '%');
+  }
+  for (const button of choices) button.addEventListener('click', () => {
+    if (button.dataset.modeChoice === 'split') {
+      slider.value = '50';
+      drawSplit();
+    }
+    setView(button.dataset.modeChoice);
   });
+  slider.addEventListener('input', drawSplit);
 
   async function playClip(token) {
     if (token !== generation) return;
-    if (preference.matches) { still('print'); return; }
-    status.textContent = d.statusDeveloping;
-    direct.href = printURL;
-    direct.textContent = d.skip;
-    if (!clip.getAttribute('src')) clip.src = new URL('develop-replay.mp4', printURL).href;
+    if (preference.matches) { finish(); return; }
+    if (!clip.getAttribute('src')) clip.src = new URL('develop-replay.mp4', positive.src).href;
     if (clip.readyState > 0) clip.currentTime = 0;
-    clip.ontimeupdate = () => {
-      if (token === generation) meter.style.transform = 'scaleX(' + Math.min(1,clip.currentTime / 2.2) + ')';
-    };
-    clip.onended = () => { if (token === generation) still('print'); };
-    clip.onerror = () => { if (token === generation) still('print',d.statusStill); };
+    clip.onended = () => { if (token === generation) finish(); };
+    clip.onerror = () => { if (token === generation) finish(demo.dataset.fallback); };
     try {
       await clip.play();
       if (token === generation && !preference.matches) clip.hidden = false;
-    } catch {
-      if (token === generation) still('print',d.statusStill);
-    }
+    } catch { if (token === generation) finish(demo.dataset.fallback); }
   }
-
-  play.addEventListener('click', async () => {
-    if (busy) return;
-    busy = true;
-    play.setAttribute('aria-disabled','true');
-    const token = ++generation;
-    status.textContent = d.statusLoading;
+  async function replay() {
+    if (demo.dataset.mode === 'playing' || preference.matches) { finish(); return; }
+    setView('playing');
+    const token = generation;
+    status.textContent = demo.dataset.playing;
     try {
-      const [negative,positive] = await Promise.all([getNegative(),getPrint()]);
+      negativeTask ||= load(demo.dataset.negative).catch(error => {
+        negativeTask = undefined;
+        throw error;
+      });
+      const [negative] = await Promise.all([negativeTask, positive.decode()]);
       if (token !== generation) return;
       if (negative.naturalWidth !== positive.naturalWidth || negative.naturalHeight !== positive.naturalHeight) {
-        play.hidden = true;
-        still('print',d.statusStill);
+        finish(demo.dataset.fallback);
         return;
       }
-      if (preference.matches) { still('print'); return; }
-      const pixelRatio = Math.min(window.devicePixelRatio || 1,1.5);
-      const ratio = Math.min(1,Math.min(1280,Math.max(1,canvas.parentElement.clientWidth * pixelRatio)) / negative.naturalWidth);
-      canvas.width = Math.max(1,Math.round(negative.naturalWidth * ratio));
-      canvas.height = Math.max(1,Math.round(negative.naturalHeight * ratio));
-      if (!gpu) {
-        try { gpu = makeGPU(negative,positive); }
-        catch { await playClip(token); return; }
-      }
-      status.textContent = d.statusDeveloping;
-      direct.href = printURL;
-      direct.textContent = d.skip;
-      canvas.hidden = false;
+      const width = Math.min(1280, positive.naturalWidth, stage.clientWidth * Math.min(devicePixelRatio || 1, 1.5));
+      canvas.width = Math.max(1, Math.round(width));
+      canvas.height = Math.max(1, Math.round(width * positive.naturalHeight / positive.naturalWidth));
+      if (!gpu) gpu = makeGPU(negative, positive);
       gpu(0);
+      canvas.hidden = false;
       const start = performance.now();
       function advance(now) {
         if (token !== generation) return;
-        const t = Math.max(0,Math.min(1,(now - start)/duration));
-        if (t >= 1 || preference.matches) { still('print'); return; }
+        const t = Math.min(1, Math.max(0, (now - start) / duration));
+        if (t >= 1 || preference.matches) { finish(); return; }
         gpu(t);
-        meter.style.transform = 'scaleX(' + t + ')';
         raf = requestAnimationFrame(advance);
       }
       raf = requestAnimationFrame(advance);
-    } catch {
-      if (token !== generation) return;
-      stop();
-      status.textContent = d.statusError;
-    }
-  });
-  function preferenceChanged() {
-    if (preference.matches && busy) {
-      stop();
-      const token = generation;
-      getPrint().then(() => { if (token === generation) still('print'); }).catch(() => {
-        if (token === generation) status.textContent = d.statusError;
-      });
-    }
+    } catch { await playClip(token); }
+  }
+  play.addEventListener('click', replay);
+  function updateMotion() {
+    if (preference.matches && demo.dataset.mode === 'playing') finish();
     play.hidden = preference.matches;
   }
-  if (preference.addEventListener) preference.addEventListener('change',preferenceChanged);
-  else preference.addListener(preferenceChanged);
-  canvas.addEventListener('webglcontextlost',event => {
+  if (preference.addEventListener) preference.addEventListener('change', updateMotion);
+  else preference.addListener(updateMotion);
+  canvas.addEventListener('webglcontextlost', event => {
     event.preventDefault();
     gpu = undefined;
-    if (busy && clip.hidden) { if (raf) cancelAnimationFrame(raf); raf = 0; void playClip(generation); }
+    if (demo.dataset.mode === 'playing' && !canvas.hidden) {
+      cancelAnimationFrame(raf);
+      canvas.hidden = true;
+      void playClip(generation);
+    }
   });
-  canvas.addEventListener('webglcontextrestored',() => { play.hidden=preference.matches; });
-  window.addEventListener('pagehide',() => { if (busy) still(shown); });
-  play.hidden = preference.matches;
+  window.addEventListener('pagehide', () => { if (demo.dataset.mode === 'playing') finish(); });
+  drawSplit();
+  setView('split');
+  updateMotion();
+  controls.hidden = false;
 })();
