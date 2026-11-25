@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="比较 RAW、胶片模拟和两种相纸，并放大颗粒和光晕。">
-<title>Silverphase · 比较实验室</title><link rel="icon" href="silverphase-icon.png"><link rel="stylesheet" href="styles.css?v=5"><script defer src="study.js"></script></head>
+<title>Silverphase · 比较实验室</title><link rel="icon" href="silverphase-icon.png"><link rel="stylesheet" href="styles.css?v=6"><script defer src="study.js?v=6"></script></head>
 <body><a class="skip" href="#study">跳到比较</a>
 <header class="top"><div class="shell navwrap"><a class="brand" href="../index.html"><img src="silverphase-icon.png" width="34" height="34" alt="">Silverphase</a>
-<nav aria-label="导航"><a href="#comparison-lab">相纸</a><a href="#texture">颗粒与光晕</a><a href="#contact-sheet">作品</a></nav><a class="language" href="study-en.html" hreflang="en">EN</a></div></header>
+<nav aria-label="导航"><a href="#comparison-lab">相纸</a><a href="#grades">黑白纸号</a><a href="#texture">颗粒与光晕</a><a href="#contact-sheet">作品</a></nav><a class="language" href="study-en.html" hreflang="en">EN</a></div></header>
 <main id="study" class="shell">
 <section class="section lab-intro"><p class="kicker">SILVERPHASE 暗房笔记</p><h1>比较实验室</h1><p class="intro">先看同一张照片怎么变，再看差异出在哪一步。所有样片来自 Silverphase 的实际渲染，不是实体相纸扫描。</p></section>
 <section id="comparison-lab" class="lab-block"><div class="section-head"><p class="kicker">受控对照</p><h2>一张荷花，三种参考。</h2><p class="intro">左右都能换。先用 RAW 看整体变化，再在两种相纸之间切换。切到细节时，左右取自同一位置。</p></div>
@@ -14,18 +14,28 @@
  <div class="lab-views" role="group" aria-label="显示范围"><button type="button" data-view="full" aria-pressed="true">全图</button><button type="button" data-view="detail" aria-pressed="false">同位置细节</button></div>
 </div>
 <figure class="hero-art contact-print lab-proof"><div class="proof" data-lab-proof>
-<img class="lab-back" src="plates/portra.webp" width="768" height="504" alt="Portra 400 / Portra Endura">
-<img class="proof-front" src="plates/raw.webp" width="768" height="504" alt="RAW 原片参考">
+<img class="lab-back" src="plates/portra.webp" width="1680" height="1120" alt="Portra 400 / Portra Endura">
+<img class="proof-front" src="plates/raw.webp" width="1680" height="1120" alt="RAW 原片参考">
 <div class="proof-move" aria-hidden="true"><span>‹ ›</span></div>
 <input class="proof-input" type="range" min="0" max="100" value="50" aria-label="拖动比较左图与右图"></div>
 <figcaption class="lab-labels" aria-live="polite"><strong data-left-label>RAW 原片参考</strong><strong data-right-label>Portra 400 / Portra Endura</strong></figcaption></figure>
 <noscript><p><a href="../showcase/01-paper-study.png">打开包含三种参考的完整 PNG</a></p></noscript>
 <details class="lab-method"><summary>实验条件与对比边界</summary>
 <p>RAW 参考由 Apple 解码，不含模拟。两张印相共用同一份 Portra 400 底片缓存，胶片曝光比测光基准高 +0.67 EV，两种相纸的印相曝光值设为 0.88；各用自己的内置中性校准。颗粒和光晕保留。细节取自 4096 像素宽渲染中的同一位置。</p></details>
-<p class="lab-source"><a class="under" href="../showcase/01-paper-study.png">打开 2560 × 1600 原始展示卡</a></p></section>
+<p class="lab-source"><a class="under" href="../showcase/01-paper-study.png">打开有取样位置标记的 2560 × 1600 展示卡</a></p></section>
+<section class="lab-block grade-study" id="grades">
+  <div class="section-head"><p class="kicker">黑白印相 · 受控对照</p>
+  <h2>同一张黑白底片，两种纸号。</h2>
+  <p class="intro">看鸟眼周围、羽毛阴影和背景：00 号更柔和，4 号把明暗分得更开。两张都保留颗粒和光晕，全图不加取样框。</p></div>
+  <div class="grade-grid">
+  <figure><a href="plates/acros-grade-00.webp"><img src="plates/acros-grade-00.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="00 号纸上的白鸟与柔和的背景过渡"></a><figcaption>00 号 · 低反差</figcaption></figure>
+  <figure><a href="plates/acros-grade-4.webp"><img src="plates/acros-grade-4.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="4 号纸上的白鸟与更深的背景"></a><figcaption>4 号 · 高反差</figcaption></figure>
+  </div>
+  <details class="lab-method"><summary>纸号、滤色与曝光补偿</summary><p>相同的 Acros II 模拟底片、Ilford Multigrade IV RC 相纸、TH-KG3 放大光源和 +0.33 EV 胶片曝光。只换纸号：每种纸号使用应用内对应的放大机滤色与中灰曝光补偿，因此有效印相曝光并不相同。引擎第二次印相复用了同一份底片。</p></details>
+ </section>
 <section class="section" id="texture"><div class="section-head"><p class="kicker">细节观察</p><h2>同一张夜景，两处局部。</h2><p class="intro">这是同一张 800T 成片的两个位置，不是关闭与开启效果的 A/B。沿亮招牌看红橙色光晕，再沿地面的亮带看颗粒。</p></div>
 <div class="detail-grid"><figure><img src="plates/glow.webp" alt="招牌局部" width="772" height="428" loading="lazy" decoding="async"><figcaption>招牌边缘 · 光晕</figcaption></figure><figure><img src="plates/grain.webp" alt="路面局部" width="772" height="424" loading="lazy" decoding="async"><figcaption>路面亮带 · 颗粒</figcaption></figure></div>
-<p class="method">CineStill 800T / Kodak Vision 2383 · 35 mm · 颗粒 1× · 胶片光晕开启；7008 × 4672 渲染。</p><p class="lab-source"><a class="under" href="../showcase/03-800t-night.png">打开全幅与原像素局部</a></p></section>
+<p class="method">CineStill 800T / Kodak Vision 2383 · 35 mm · 颗粒 1× · 胶片光晕开启；7008 × 4672 渲染。</p><p class="lab-source"><a class="under" href="../showcase/03-800t-night.png">打开有取样标记的全幅与原像素局部</a></p></section>
 <section class="section" id="contact-sheet"><div class="section-head"><p class="kicker">不同场景</p><h2>看看光线与材料怎么搭。</h2><p class="intro">这些照片用不同配方，不是同一张底片换胶片的测试。</p></div><div class="stock-grid">
  <figure class="stock"><img src="plates/lotus.webp" alt="Portra 400" width="764" height="500" loading="lazy" decoding="async"><figcaption><h3>Portra 400</h3><p>Portra Endura</p></figcaption></figure>
  <figure class="stock"><img src="plates/bird.webp" alt="Acros II" width="768" height="500" loading="lazy" decoding="async"><figcaption><h3>Acros II</h3><p>Ilford Multigrade IV RC</p></figcaption></figure>

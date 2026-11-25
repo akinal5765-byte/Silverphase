@@ -14,31 +14,33 @@
 <link rel="alternate" hreflang="en" href="https://akinal5765-byte.github.io/Silverphase/site/en.html">
 <link rel="alternate" hreflang="zh-CN" href="https://akinal5765-byte.github.io/Silverphase/">
 <link rel="icon" href="site/silverphase-icon.png">
-<link rel="stylesheet" href="site/styles.css?v=5">
+<link rel="stylesheet" href="site/styles.css?v=6">
 <script defer src="site/site.js?v=3"></script>
 </head>
-<body>
+<body class="editorial-page">
 <a class="skip" href="#main">跳到主要内容</a>
 <header class="top">
 <div class="shell navwrap">
 <a class="brand" href="index.html"><img src="site/silverphase-icon.png" width="34" height="34" alt="">Silverphase</a>
-<nav aria-label="导航"><a href="#paper">相纸对照</a><a href="#work">作品</a><a class="why-nav" href="#why">为什么选它</a><a href="#process">流程</a><a href="#layerlight">Layerlight</a></nav>
+<nav aria-label="网站导航"><a href="#work">作品</a><a href="#why">应用界面</a><a href="#process">暗房流程</a><a href="site/study.html">对照实验</a></nav>
 <a class="language" href="site/en.html" hreflang="en" lang="en">EN</a>
 <a class="nav-download" href="#download">下载</a>
 </div>
 </header>
 <main id="main">
+<div class="hero-field">
 <section class="hero shell" aria-labelledby="headline">
  <div class="hero-text">
-  <p class="kicker">Mac、iPhone 与 iPad 的开源虚拟暗房</p>
-  <h1 id="headline"><span class="headline-line">把照片</span><span class="headline-line">带进<span class="headline-accent">暗房</span></span></h1>
-  <p class="lede">从原片到胶片印相。调整入片影调、选胶片和相纸，在设备上完成自己的暗房配方。</p>
- </div>
- <figure class="hero-art contact-print">
- <div class="contact-head"><span>胶片试片</span><span>PORTRA 400</span></div>
+       <p class="kicker">光谱胶片模拟　/　01</p>
+       <h1 id="headline">给照片，<br>一间<span class="headline-accent">暗房</span>。</h1>
+       <p class="lede">选一卷胶片，换一张相纸，让同一张照片有不同的印法。Silverphase 是 Mac、iPhone 与 iPad 上免费开源的虚拟暗房。</p>
+       <div class="actions"><a class="button hot" href="#download">下载 Silverphase <span aria-hidden="true">↓</span></a><a class="under" href="site/study.html">查看照片对照 <span aria-hidden="true">↗</span></a></div>
+      </div>
+      <figure class="hero-art contact-print">
+ <div class="contact-head"><span>暗房试片</span><span>PORTRA 400</span></div>
  <div class="proof" data-proof>
-  <img src="site/plates/portra.webp" width="768" height="504" alt="Portra 400 胶片与 Portra Endura 相纸模拟的荷花" fetchpriority="high">
-  <img class="proof-front" src="site/plates/raw.webp" width="768" height="504" alt="" decoding="async">
+  <img src="site/plates/portra.webp" width="1680" height="1120" alt="Portra 400 胶片与 Portra Endura 相纸模拟的荷花" fetchpriority="high">
+  <img class="proof-front" src="site/plates/raw.webp" width="1680" height="1120" alt="" decoding="async">
   <div class="proof-move" aria-hidden="true"><span><svg viewBox="0 0 32 16" width="32" height="16" fill="none"><path d="m9 3-5 5 5 5m14-10 5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
   <input class="proof-input" type="range" min="0" max="100" value="50" aria-label="比较左侧未套用模拟的 RAW 原片参考和右侧胶片模拟成片" aria-describedby="proof-hint">
  </div>
@@ -49,55 +51,145 @@
  </figcaption>
  <noscript><p><a href="#paper">查看两种相纸对照</a></p></noscript>
  </figure>
- <div class="actions"><a class="button hot" href="#download">下载 Silverphase</a><a class="under" href="site/study.html">打开比较实验室</a></div>
+</section>
+</div>
+<nav class="shell hero-index" aria-label="本页索引">
+ <a href="#why"><span>01</span>原生应用 ↘</a>
+ <a href="#profiles"><span>02</span>实验胶片 ↘</a>
+ <a href="#work"><span>03</span>胶片作品 ↘</a>
+ <a href="#paper"><span>04</span>印相实验 ↘</a>
+</nav>
+<section class="native section" id="why" aria-labelledby="native-title"><div class="shell">
+  <div class="section-head section-split"><div><p class="kicker">01　/　原生应用</p><h2 id="native-title">暗房，就在手边。</h2></div><p class="intro">从 iPhone 的相机与图库，到 Mac 上的文件夹、印相和输出。同一套渲染引擎，两套适合设备的工作流。</p></div>
+  <div class="native-grid">
+    <article class="native-mac">
+      <figure><div class="native-visual desktop-visual">
+       <!-- V6_MAC_IMAGE -->
+<img src="site/interface/macos-editor.webp" width="1840" height="1183" loading="lazy" decoding="async" alt="Silverphase macOS 原生编辑器，显示照片与控制界面">
+<!-- /V6_MAC_IMAGE -->
+      </div><figcaption><!-- V6_MAC_CAPTION -->
+macOS 实际截图：胶片控制、材料卡与显影后的负片。
+<!-- /V6_MAC_CAPTION --></figcaption></figure>
+      <p class="technical">MACOS</p><h3>桌面印相台</h3>
+      <p>管理文件夹，软打样，组合双照片半格。也可从 Lightroom Classic 送来渲染后的 JPEG 或 TIFF 副本。</p>
+      <a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/docs/LIGHTROOM-CLASSIC.md">Lightroom Classic 往返说明 ↗</a>
+    </article>
+    <article class="native-mobile">
+      <figure><div class="native-visual phone-visual">
+       <!-- V6_IOS_IMAGE -->
+<img src="site/interface/ios-editor.webp" width="805" height="1750" loading="lazy" decoding="async" alt="iPhone 上的 Silverphase 原生应用界面">
+<!-- /V6_IOS_IMAGE -->
+      </div><figcaption><!-- V6_IOS_CAPTION -->
+iPhone 模拟器实际截图：胶片选择器，画布使用测试色块。
+<!-- /V6_IOS_CAPTION --></figcaption></figure>
+      <p class="technical">IPHONE / IPAD</p><h3>从拍摄到出片</h3>
+      <p>拍摄或导入原片，选片、评级、复制调整，再批量导出。原片和逐张编辑保存在本地图库。</p>
+      <a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/ios/README.md">移动端指南 ↗</a>
+    </article>
+  </div>
+  <p class="native-note">各平台的控件与输出选项有差别；图库不跨设备同步。</p>
+</div></section>
+
+
+<section class="profile-section section" id="profiles" aria-labelledby="profiles-title"><div class="shell profile-grid">
+ <div class="profile-count" aria-hidden="true"><span class="kicker">材料索引　/　A</span><span class="profile-number">29<span>↗</span></span><span class="profile-inventory">FOTUFILM → NEGS → SILVERPHASE</span></div>
+ <div class="profile-copy"><p class="kicker">02　/　材料库</p><h2 id="profiles-title">29 款实验胶片配置。</h2>
+  <p class="intro">除了标准胶片，材料库还收录了 29 款实验配置：源自 MUAStudio 的 Fotufilm，经 Negs 转换后纳入 Silverphase。在胶片选择器的「实验」分类里，可拿同一张照片试出与标准胶片不同的方向。</p>
+  <ul class="profile-samples" aria-label="实验配置示例"><li>Harman Phoenix 200</li><li>Fujifilm Eterna 500</li><li>Ilford Delta 3200</li><li>Kodak Aerochrome 1443</li></ul>
+  <div class="profile-links"><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/license/DATA-SOURCES.md#experimental-fotufilm-profiles">来源与许可 ↗</a> <a class="under" href="https://github.com/noahhaasis/negs">Negs ↗</a> <a class="under" href="https://fotufilm.com">Fotufilm ↗</a></div>
+ </div>
+</div></section>
+<section class="shell section gallery-section" id="work" aria-labelledby="gallery-title">
+ <div class="section-head section-split"><div><p class="kicker">03　/　胶片作品</p><h2 id="gallery-title">看胶片如何写下光。</h2></div><p class="intro">照片使用各自的胶片、相纸和配方。这里看完整画面，不是固定条件下的横评。</p></div>
+ <div class="gallery-grid">
+ <!-- V6_EXISTING_GALLERY -->
+
+<!-- /V6_EXISTING_GALLERY -->
+ <!-- V6_NEW_GALLERY -->
+<figure class="gallery-frame gallery-portrait"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">切换照片：蒸汽机车</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-01" id="film-01" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-01" id="raw-01">
+ <div class="gallery-image"><div class="gallery-film"><img src="site/gallery/01.webp" width="1067" height="1600" alt="蒸汽机车，胶片模拟成片" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="site/gallery/01-raw.webp" width="1067" height="1600" alt="蒸汽机车，未套用胶片模拟的 RAW 参考" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-01">胶片模拟</label><label for="raw-01">RAW 参考</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">01</span><div><h3>蒸汽机车</h3><p>Fujifilm Eterna 500 <span>/</span> Kodak Vision 2383</p></div><span class="gallery-tag">Fotufilm 实验配置</span></figcaption></figure>
+<figure class="gallery-frame gallery-portrait"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">切换照片：红墙屋檐</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-02" id="film-02" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-02" id="raw-02">
+ <div class="gallery-image"><div class="gallery-film"><img src="site/gallery/02.webp" width="1067" height="1600" alt="红墙屋檐，胶片模拟成片" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="site/gallery/02-raw.webp" width="1067" height="1600" alt="红墙屋檐，未套用胶片模拟的 RAW 参考" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-02">胶片模拟</label><label for="raw-02">RAW 参考</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">02</span><div><h3>红墙屋檐</h3><p>Fujifilm Pro 160NS <span>/</span> Supra Endura</p></div><span class="gallery-tag">Fotufilm 实验配置</span></figcaption></figure>
+<figure class="gallery-frame gallery-landscape"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">切换照片：荷叶上的水珠</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-03" id="film-03" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-03" id="raw-03">
+ <div class="gallery-image"><div class="gallery-film"><img src="site/gallery/03.webp" width="1600" height="1067" alt="荷叶上的水珠，胶片模拟成片" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="site/gallery/03-raw.webp" width="1600" height="1067" alt="荷叶上的水珠，未套用胶片模拟的 RAW 参考" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-03">胶片模拟</label><label for="raw-03">RAW 参考</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">03</span><div><h3>荷叶上的水珠</h3><p>Fujifilm Reala 100 <span>/</span> Fujifilm Crystal Archive Type II</p></div><span class="gallery-tag">Fotufilm 实验配置</span></figcaption></figure>
+<figure class="gallery-frame gallery-landscape"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">切换照片：林间白鸟</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-04" id="film-04" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-04" id="raw-04">
+ <div class="gallery-image"><div class="gallery-film"><img src="site/gallery/04.webp" width="1600" height="1067" alt="林间白鸟，胶片模拟成片" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="site/gallery/04-raw.webp" width="1600" height="1067" alt="林间白鸟，未套用胶片模拟的 RAW 参考" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-04">胶片模拟</label><label for="raw-04">RAW 参考</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">04</span><div><h3>林间白鸟</h3><p>Ilford HP5 Plus <span>/</span> Ilford Multigrade IV RC</p></div><span class="gallery-tag">Fotufilm 实验配置</span></figcaption></figure>
+<figure class="gallery-frame gallery-portrait"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">切换照片：云下的黄色列车</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-05" id="film-05" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-05" id="raw-05">
+ <div class="gallery-image"><div class="gallery-film"><img src="site/gallery/05.webp" width="1067" height="1600" alt="云下的黄色列车，胶片模拟成片" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="site/gallery/05-raw.webp" width="1067" height="1600" alt="云下的黄色列车，未套用胶片模拟的 RAW 参考" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-05">胶片模拟</label><label for="raw-05">RAW 参考</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">05</span><div><h3>云下的黄色列车</h3><p>CineStill 400D <span>/</span> Portra Endura</p></div><span class="gallery-tag">Fotufilm 实验配置</span></figcaption></figure>
+<figure class="gallery-frame gallery-landscape"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">切换照片：云层里的落日</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-06" id="film-06" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-06" id="raw-06">
+ <div class="gallery-image"><div class="gallery-film"><img src="site/gallery/06.webp" width="1600" height="1067" alt="云层里的落日，胶片模拟成片" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="site/gallery/06-raw.webp" width="1600" height="1067" alt="云层里的落日，未套用胶片模拟的 RAW 参考" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-06">胶片模拟</label><label for="raw-06">RAW 参考</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">06</span><div><h3>云层里的落日</h3><p>Kodak Vision3 250D <span>/</span> Kodak Vision 2383</p></div><span class="gallery-tag">标准配置</span></figcaption></figure>
+<!-- /V6_NEW_GALLERY -->
+ </div>
+ <div class="gallery-foot"><a class="under" href="#night">放大看 800T 夜景的颗粒和光晕 ↓</a></div>
 </section>
 <section class="paper light" id="paper">
 <div class="shell">
  <div class="section-head"><p class="kicker">相纸实验</p><h2>同一张底片，两种相纸。</h2><p class="intro">两张模拟印相来自同一张 Portra 400 底片。右侧可以换相纸，也可以切回未经过胶片模拟的 RAW 参考。先看整体，再看花瓣边缘和花心。</p></div>
  <div class="comparison-bar"><strong>左侧固定：Portra Endura</strong><div class="choices" role="group" aria-label="切换右侧对照"><button type="button" data-print="raw" aria-pressed="false" aria-controls="comparison">原图参考</button><button type="button" data-print="supra" aria-pressed="true" aria-controls="comparison">Supra Endura</button></div></div>
  <div id="comparison" class="comparison-grid" data-src="site/plates/">
- <figure><img src="site/plates/portra.webp" width="768" height="504" alt="Portra Endura 模拟印相" loading="lazy" decoding="async"><figcaption>Portra Endura</figcaption></figure>
- <figure><img src="site/plates/supra.webp" width="768" height="504" alt="右侧对照全图" id="swap-full" decoding="async"><figcaption id="swap-name" aria-live="polite">Supra Endura</figcaption></figure>
+ <figure><img src="site/plates/portra.webp" width="1680" height="1120" alt="Portra Endura 模拟印相" loading="lazy" decoding="async"><figcaption>Portra Endura</figcaption></figure>
+ <figure><img src="site/plates/supra.webp" width="1680" height="1120" alt="右侧对照全图" id="swap-full" decoding="async"><figcaption id="swap-name" aria-live="polite">Supra Endura</figcaption></figure>
  <figure><img src="site/plates/portra-detail.webp" width="768" height="408" alt="Portra Endura 原像素局部" loading="lazy" decoding="async"><figcaption>同位置细节</figcaption></figure>
  <figure><img src="site/plates/supra-detail.webp" width="768" height="408" alt="右侧对照的同位置细节" id="swap-detail" decoding="async"><figcaption>同位置细节</figcaption></figure>
  </div>
- <div class="lab-lead"><a class="button outline" href="site/study.html">自选左右样片，并切换同位置细节</a></div><div class="recipe-note"><p id="swap-note">仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p><a class="under" href="showcase/01-paper-study.png">查看 2560 px 完整对照图</a></div><template id="paper-raw"><span>原图参考</span><p>Apple 系统解码，未应用胶片模拟。</p></template><template id="paper-portra"><span>Portra Endura</span><p>同一张 Portra 400 模拟底片，使用 Portra Endura 的内置中性校准。</p></template><template id="paper-supra"><span>Supra Endura</span><p>仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p></template>
+ <div class="lab-lead"><a class="button outline" href="site/study.html">自选左右样片，并切换同位置细节</a> <a class="under grade-link" href="site/study.html#grades">看黑白纸号 00 与 4 的对照</a></div><div class="recipe-note"><p id="swap-note">仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p><a class="under" href="showcase/01-paper-study.png">查看 2560 px 带位置标记的对照图</a></div><template id="paper-raw"><span>原图参考</span><p>Apple 系统解码，未应用胶片模拟。</p></template><template id="paper-portra"><span>Portra Endura</span><p>同一张 Portra 400 模拟底片，使用 Portra Endura 的内置中性校准。</p></template><template id="paper-supra"><span>Supra Endura</span><p>仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p></template>
  <p class="method">对照条件：胶片曝光较测光基准 +0.67 EV，两种相纸的印相曝光值均为 0.88。每张相纸使用自己的内置中性校准。局部取自 4096 px 成片的同一坐标。</p>
 </div>
 </section>
-<section class="section shell" id="why">
- <div class="section-head"><p class="kicker">为什么选 Silverphase</p><h2>把暗房工艺放进日常拍照。</h2><p class="intro">胶片、相纸、颗粒和光晕并不是我们独有。Silverphase 的重点是把这些工艺连到 Apple 设备的实际照片工作流：拍摄、选片、批量处理和交付。</p></div>
- <div class="stock-grid workflow-proof">
- <article><p class="kicker">iPhone / iPad</p><h3>拍摄、选片和批量处理</h3><p>用应用内相机拍摄，或从「照片」和「文件」导入。原片与逐张编辑保存在本地图库，可评分、加旗标、将选定的调整应用到多张照片并批量导出。</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/ios/README.md">移动端指南</a></article>
- <article><p class="kicker">macOS</p><h3>在你的桌面流程里印相</h3><p>用文件夹管理一组照片，可软打样、组合双照片半格，也能从 Lightroom Classic 送来渲染后的 JPEG 或 TIFF 副本，再把结果保存回 Lightroom 登记的文件。</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/docs/LIGHTROOM-CLASSIC.md">Lightroom Classic 往返说明</a></article>
- <article><p class="kicker">输出</p><h3>交付成片，或留给下一步调色</h3><p>可导出 JPEG、PNG 或 16 位 TIFF。Cineon DI 是绕过相纸印相的 16 位对数 TIFF，附查看 LUT，适合把模拟底片带到其他工具继续处理。</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/modern_UI/Spektrafilm/README.md#图像与输出边界">输出格式与边界</a></article>
- </div>
- <div class="ecosystem"><h3>怎么选工作流？</h3><dl>
- <div><dt>Silverphase</dt><dd>原生静态照片暗房：iPhone／iPad 的拍摄与图库，Mac 的文件夹、印相与交付。各平台控件不完全相同；两端共享渲染引擎，不代表图库跨设备同步。</dd></div>
- <div><dt><a href="https://spektrafilm.114c.de/">spektrafilm OFX</a></dt><dd>如果工作从 Resolve 等 OFX 宿主的时间线开始，先看它的插件；该项目也提供 Mac 独立版和 iPhone 公测，不是只做视频。</dd></div>
- <div><dt><a href="https://getnegs.com/spektrafilm">Negs</a></dt><dd>如果重点是跨平台，或想直接在浏览器里试 spektrafilm，先看 Negs。</dd></div>
- </dl><p class="method">按公开文档比较工作流，不是画质或速度排名。</p></div>
-</section>
-<section class="shell section" id="work">
- <div class="section-head"><p class="kicker">胶片作品</p><h2>三种光，三卷胶片。</h2><p class="intro">日光彩负、黑白负片和钨丝灯彩负。这里是三张各自调校的照片，不是固定场景的横评。</p></div>
- <div class="stock-grid"><figure class="stock"><img src="site/plates/lotus.webp" width="768" height="500" alt="荷花 · Portra Endura" loading="lazy" decoding="async"><figcaption><h3>Portra 400</h3><span>荷花 · Portra Endura</span><p>看粉色花瓣在亮部怎样过渡，以及花心黄色如何与周围分开。</p></figcaption></figure><figure class="stock"><img src="site/plates/bird.webp" width="768" height="500" alt="白鸟 · Ilford Multigrade IV RC" loading="lazy" decoding="async"><figcaption><h3>Acros II</h3><span>白鸟 · Ilford Multigrade IV RC</span><p>去掉颜色，羽毛与背景之间的层次就成了主角。</p></figcaption></figure><figure class="stock"><img src="site/plates/night.webp" width="1528" height="1012" alt="便利店 · Kodak Vision 2383" loading="lazy" decoding="async"><figcaption><h3>CineStill 800T</h3><span>便利店 · Kodak Vision 2383</span><p>夜景的亮招牌与暗路面，给光晕和颗粒各留出了一个观察点。</p></figcaption></figure></div>
- <a class="under subtle-link" href="showcase/02-film-studies.png">查看完整胶片作品卡</a>
-</section>
 <section class="night section" id="night">
 <div class="shell night-grid">
- <div><div class="section-head"><p class="kicker">放大看夜景</p><h2>亮处有光晕，<br>暗处有颗粒。</h2><p class="intro">在同一张 800T 夜景里，放大招牌的光边，再看看被照亮的路面。两张细节直接取自 7008 × 4672 渲染，没有额外锐化。</p></div><p class="technical">CineStill 800T / Kodak Vision 2383<br>35 mm · 颗粒 1× · 原胶片光晕开启</p><a class="under" href="showcase/03-800t-night.png">查看全幅与 1:1 细节</a></div>
- <div class="detail-grid"><figure class="recipe"><img src="site/plates/glow.webp" width="772" height="428" alt="招牌亮部边缘的模拟光晕" loading="lazy" decoding="async"><figcaption>招牌边缘 · 光晕</figcaption></figure><figure class="recipe"><img src="site/plates/grain.webp" width="772" height="424" alt="照亮的路面上的模拟胶片颗粒" loading="lazy" decoding="async"><figcaption>路面 · 颗粒</figcaption></figure></div>
+ <div><div class="section-head"><p class="kicker">放大看夜景</p><h2>亮处有光晕，<br>暗处有颗粒。</h2><p class="intro">在同一张 800T 夜景里，放大招牌的光边，再看看被照亮的路面。两张细节直接取自 7008 × 4672 渲染，没有额外锐化。</p></div><p class="technical">CineStill 800T / Kodak Vision 2383<br>35 mm · 颗粒 1× · 原胶片光晕开启</p><a class="under" href="showcase/03-800t-night.png">查看带位置标记的 1:1 对照图</a></div>
+ <div class="night-plates"><!-- V6_NIGHT_IMAGE -->
+<figure class="night-full"><img src="site/plates/night-clean.webp" width="1680" height="1120" alt="800T 模拟的便利店夜景" loading="lazy" decoding="async"><figcaption>便利店 · 全图</figcaption></figure>
+<!-- /V6_NIGHT_IMAGE --><div class="detail-grid"><figure class="recipe"><img src="site/plates/glow.webp" width="772" height="428" alt="招牌亮部边缘的模拟光晕" loading="lazy" decoding="async"><figcaption>招牌边缘 · 光晕</figcaption></figure><figure class="recipe"><img src="site/plates/grain.webp" width="772" height="424" alt="照亮的路面上的模拟胶片颗粒" loading="lazy" decoding="async"><figcaption>路面 · 颗粒</figcaption></figure></div></div>
 </div>
 </section>
+
 <section class="section shell" id="process">
  <div class="workflow">
  <div><div class="section-head"><p class="kicker">工作流程</p><h2>第一步是预处理。</h2><p class="intro">把起始影调、底片和相纸分开调整。成片变了，你能回到真正影响它的那一步。</p></div>
  <p class="method">界面里还有构图和片边工具。功能和输出选项因平台而异。</p>
  <a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/README.md">读完整项目文档</a></div>
- <div class="stages"><details name="process" open><summary>预处理</summary><div class="stage"><h3>先整理入片，再决定胶片风格。</h3><p>控制入片曝光、亮暗部、反差、细节与色彩。对支持的 RAW，可以匹配相机预览亮度作为起点。</p><p class="stage-controls">入片曝光 · 影调 · 中间调细节 · 色彩</p></div></details><details name="process" ><summary>胶片</summary><div class="stage"><h3>选择让光落在什么底片上。</h3><p>选胶片和画幅，按胶片的测光基准调整曝光。这里的胶片曝光与预处理阶段的入片曝光不是一回事。</p><p class="stage-controls">胶片 · 画幅 · 测光与曝光</p></div></details><details name="process" ><summary>显影</summary><div class="stage"><h3>让潜影变成底片。</h3><p>在底片阶段调整显影表现，再把得到的底片交给后面的彩色放大或扫描。</p><p class="stage-controls">底片显影</p></div></details><details name="process" ><summary>彩色放大</summary><div class="stage"><h3>底片相同，印出来不必相同。</h3><p>换相纸或调整印相曝光与滤色。上面的荷花对照固定了底片和印相曝光，方便单独看相纸带来的变化。</p><p class="stage-controls">相纸 · 印相曝光 · 滤色</p></div></details><details name="process" ><summary>扫描</summary><div class="stage"><h3>决定成片如何离开暗房。</h3><p>选择扫描与输出设置，导出成片。桌面版如需外部调色，可查看 Cineon DI 输出说明。</p><p class="stage-controls">扫描 · 输出 · 导出</p></div></details></div>
+ <div class="stages numbered-stages"><details name="process" open><summary>预处理</summary><div class="stage"><h3>先整理入片，再决定胶片风格。</h3><p>控制入片曝光、亮暗部、反差、细节与色彩。对支持的 RAW，可以匹配相机预览亮度作为起点。</p><p class="stage-controls">入片曝光 · 影调 · 中间调细节 · 色彩</p></div></details><details name="process" ><summary>胶片</summary><div class="stage"><h3>选择让光落在什么底片上。</h3><p>选胶片和画幅，按胶片的测光基准调整曝光。这里的胶片曝光与预处理阶段的入片曝光不是一回事。</p><p class="stage-controls">胶片 · 画幅 · 测光与曝光</p></div></details><details name="process" ><summary>显影</summary><div class="stage"><h3>让潜影变成底片。</h3><p>在底片阶段调整显影表现，再把得到的底片交给后面的彩色放大或扫描。</p><p class="stage-controls">底片显影</p></div></details><details name="process" ><summary>彩色放大</summary><div class="stage"><h3>底片相同，印出来不必相同。</h3><p>换相纸或调整印相曝光与滤色。上面的荷花对照固定了底片和印相曝光，方便单独看相纸带来的变化。</p><p class="stage-controls">相纸 · 印相曝光 · 滤色</p></div></details><details name="process" ><summary>扫描</summary><div class="stage"><h3>决定成片如何离开暗房。</h3><p>选择扫描与输出设置，导出成片。桌面版如需外部调色，可查看 Cineon DI 输出说明。</p><p class="stage-controls">扫描 · 输出 · 导出</p></div></details></div>
  </div>
 </section>
-<section class="strip section">
+<section class="strip section" id="edge">
  <div class="shell strip-grid">
  <img src="site/plates/strip.webp" width="1124" height="1040" alt="荷花的 135 胶片条，两侧可见齿孔与边码" loading="lazy" decoding="async">
  <div><div class="section-head"><p class="kicker">画框之外</p><h2>齿孔、边码，也能留在画面里。</h2><p class="intro">这条 135 片边上的齿孔、边码与帧号由 Silverphase 的引擎渲染，不是排版时后来加上的。完整展示图还选录了四款应用内的胶片封面。</p></div><a class="under" href="showcase/04-film-edge-covers.png">看完整片边与封面</a></div>

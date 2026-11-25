@@ -14,33 +14,33 @@
 <link rel="alternate" hreflang="en" href="https://akinal5765-byte.github.io/Silverphase/site/en.html">
 <link rel="alternate" hreflang="zh-CN" href="https://akinal5765-byte.github.io/Silverphase/">
 <link rel="icon" href="../site/silverphase-icon.png">
-<link rel="stylesheet" href="../site/styles.css?v=5">
+<link rel="stylesheet" href="../site/styles.css?v=6">
 <script defer src="../site/site.js?v=3"></script>
 </head>
-<body>
+<body class="editorial-page">
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
 <div class="shell navwrap">
 <a class="brand" href="../index.html"><img src="../site/silverphase-icon.png" width="34" height="34" alt="">Silverphase</a>
-<nav aria-label="Navigation"><a href="#paper">Paper study</a><a href="#work">Gallery</a><a class="why-nav" href="#why">Why Silverphase</a><a href="#process">Process</a><a href="#layerlight">Layerlight</a></nav>
+<nav aria-label="Site navigation"><a href="#work">Gallery</a><a href="#why">The apps</a><a href="#process">Process</a><a href="study-en.html">Lab</a></nav>
 <a class="language" href="../index.html" hreflang="zh-CN" lang="zh-CN">简中</a>
 <a class="nav-download" href="#download">Download</a>
 </div>
 </header>
 <main id="main">
+<div class="hero-field">
 <section class="hero shell" aria-labelledby="headline">
  <div class="hero-text">
-  <p class="kicker">OPEN SOURCE · AN APPLE DARKROOM</p>
-  <h1 id="headline">Bring your <br>photos into <br><span>the darkroom.</span></h1>
-  <p class="lede">See the same photo before film simulation and as a Portra 400 print. Then make your own in Silverphase, from Prep to the finished image.</p>
-  <div class="actions"><a class="button hot" href="#download">Get Silverphase</a><a class="under" href="study-en.html">Open the comparison lab</a></div>
-  <p class="devices">Mac · iPhone · iPad</p>
- </div>
- <figure class="hero-art contact-print">
- <div class="contact-head"><span>FILM STUDY</span><span>PORTRA 400</span></div>
+       <p class="kicker">SPECTRAL FILM SIMULATION &nbsp; / &nbsp; 01</p>
+       <h1 id="headline">A darkroom<br>for your <span class="headline-accent">digital<br>photographs.</span></h1>
+       <p class="lede">Choose a film stock, change the paper, and print the same photograph differently. A free, open-source virtual darkroom for Mac, iPhone and iPad.</p>
+       <div class="actions"><a class="button hot" href="#download">Get Silverphase <span aria-hidden="true">↓</span></a><a class="under" href="study-en.html">Explore the comparison <span aria-hidden="true">↗</span></a></div>
+      </div>
+      <figure class="hero-art contact-print">
+ <div class="contact-head"><span>CONTACT PROOF</span><span>PORTRA 400</span></div>
  <div class="proof" data-proof>
-  <img src="../site/plates/portra.webp" width="768" height="504" alt="Lotus rendered with Portra 400 and Portra Endura" fetchpriority="high">
-  <img class="proof-front" src="../site/plates/raw.webp" width="768" height="504" alt="" decoding="async">
+  <img src="../site/plates/portra.webp" width="1680" height="1120" alt="Lotus rendered with Portra 400 and Portra Endura" fetchpriority="high">
+  <img class="proof-front" src="../site/plates/raw.webp" width="1680" height="1120" alt="" decoding="async">
   <div class="proof-move" aria-hidden="true"><span><svg viewBox="0 0 32 16" width="32" height="16" fill="none"><path d="m9 3-5 5 5 5m14-10 5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
   <input class="proof-input" type="range" min="0" max="100" value="50" aria-label="Compare the RAW reference on the left with the Portra 400 film simulation on the right" aria-describedby="proof-hint">
  </div>
@@ -52,53 +52,144 @@
  <noscript><p><a href="#paper">See both papers</a></p></noscript>
  </figure>
 </section>
+</div>
+<nav class="shell hero-index" aria-label="On this page">
+ <a href="#why"><span>01</span>The apps ↘</a>
+ <a href="#profiles"><span>02</span>Experimental profiles ↘</a>
+ <a href="#work"><span>03</span>The contact sheet ↘</a>
+ <a href="#paper"><span>04</span>Paper study ↘</a>
+</nav>
+<section class="native section" id="why" aria-labelledby="native-title"><div class="shell">
+  <div class="section-head section-split"><div><p class="kicker">01 &nbsp; / &nbsp; NATIVE APPS</p><h2 id="native-title">A darkroom within reach.</h2></div><p class="intro">From the camera and library on iPhone to folders, printing and output on Mac. One rendering engine, two native workflows.</p></div>
+  <div class="native-grid">
+    <article class="native-mac">
+      <figure><div class="native-visual desktop-visual">
+       <!-- V6_MAC_IMAGE -->
+<img src="interface/macos-editor.webp" width="1840" height="1183" loading="lazy" decoding="async" alt="Native Silverphase editor for macOS, showing the photograph and editor controls">
+<!-- /V6_MAC_IMAGE -->
+      </div><figcaption><!-- V6_MAC_CAPTION -->
+Silverphase for macOS.
+<!-- /V6_MAC_CAPTION --></figcaption></figure>
+      <p class="technical">MACOS</p><h3>The desktop printing bench</h3>
+      <p>Work from folders, soft-proof a print or compose a two-photo half-frame. Lightroom Classic can send a rendered JPEG or TIFF copy.</p>
+      <a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/docs/LIGHTROOM-CLASSIC.md">Lightroom Classic round trip ↗</a>
+    </article>
+    <article class="native-mobile">
+      <figure><div class="native-visual phone-visual">
+       <!-- V6_IOS_IMAGE -->
+<img src="interface/ios-editor.webp" width="805" height="1750" loading="lazy" decoding="async" alt="The native Silverphase app on iPhone">
+<!-- /V6_IOS_IMAGE -->
+      </div><figcaption><!-- V6_IOS_CAPTION -->
+Silverphase for iPhone.
+<!-- /V6_IOS_CAPTION --></figcaption></figure>
+      <p class="technical">IPHONE / IPAD</p><h3>From capture to export</h3>
+      <p>Shoot or import, rate and flag frames, copy adjustments and export in batches. Originals and per-photo edits stay in the local library.</p>
+      <a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/ios/README.md">Mobile guide ↗</a>
+    </article>
+  </div>
+  <p class="native-note">Controls and output options vary by platform; the app libraries do not sync across devices.</p>
+</div></section>
+
+
+<section class="profile-section section" id="profiles" aria-labelledby="profiles-title"><div class="shell profile-grid">
+ <div class="profile-count" aria-hidden="true"><span class="kicker">MATERIAL INDEX &nbsp; / &nbsp; A</span><span class="profile-number">29<span>↗</span></span><span class="profile-inventory">FOTUFILM → NEGS → SILVERPHASE</span></div>
+ <div class="profile-copy"><p class="kicker">02 &nbsp; / &nbsp; THE MATERIAL LIBRARY</p><h2 id="profiles-title">29 experimental film profiles.</h2>
+  <p class="intro">Beyond the standard stocks, the library includes 29 experimental profiles from MUAStudio’s Fotufilm, adapted by Negs and brought into Silverphase. Find them under Experimental in the film picker and try them alongside the standard stocks on the same frame.</p>
+  <ul class="profile-samples" aria-label="Examples of experimental profiles"><li>Harman Phoenix 200</li><li>Fujifilm Eterna 500</li><li>Ilford Delta 3200</li><li>Kodak Aerochrome 1443</li></ul>
+  <div class="profile-links"><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/license/DATA-SOURCES.md#experimental-fotufilm-profiles">Sources and licensing ↗</a> <a class="under" href="https://github.com/noahhaasis/negs">Negs ↗</a> <a class="under" href="https://fotufilm.com">Fotufilm ↗</a></div>
+ </div>
+</div></section>
+<section class="shell section gallery-section" id="work" aria-labelledby="gallery-title">
+ <div class="section-head section-split"><div><p class="kicker">03 &nbsp; / &nbsp; THE CONTACT SHEET</p><h2 id="gallery-title">See what film does with light.</h2></div><p class="intro">Each photo has its own stock, paper and recipe. See the full photographs here; this is not a controlled comparison.</p></div>
+ <div class="gallery-grid">
+ <!-- V6_EXISTING_GALLERY -->
+
+<!-- /V6_EXISTING_GALLERY -->
+ <!-- V6_NEW_GALLERY -->
+<figure class="gallery-frame gallery-portrait"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">Switch view: Steam locomotive</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-01" id="film-01" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-01" id="raw-01">
+ <div class="gallery-image"><div class="gallery-film"><img src="gallery/01.webp" width="1067" height="1600" alt="Steam locomotive, film simulation" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="gallery/01-raw.webp" width="1067" height="1600" alt="Steam locomotive, RAW reference with no film simulation" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-01">Film</label><label for="raw-01">RAW reference</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">01</span><div><h3>Steam locomotive</h3><p>Fujifilm Eterna 500 <span>/</span> Kodak Vision 2383</p></div><span class="gallery-tag">Experimental · Fotufilm</span></figcaption></figure>
+<figure class="gallery-frame gallery-portrait"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">Switch view: Red eaves</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-02" id="film-02" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-02" id="raw-02">
+ <div class="gallery-image"><div class="gallery-film"><img src="gallery/02.webp" width="1067" height="1600" alt="Red eaves, film simulation" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="gallery/02-raw.webp" width="1067" height="1600" alt="Red eaves, RAW reference with no film simulation" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-02">Film</label><label for="raw-02">RAW reference</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">02</span><div><h3>Red eaves</h3><p>Fujifilm Pro 160NS <span>/</span> Supra Endura</p></div><span class="gallery-tag">Experimental · Fotufilm</span></figcaption></figure>
+<figure class="gallery-frame gallery-landscape"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">Switch view: Dew on a lotus leaf</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-03" id="film-03" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-03" id="raw-03">
+ <div class="gallery-image"><div class="gallery-film"><img src="gallery/03.webp" width="1600" height="1067" alt="Dew on a lotus leaf, film simulation" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="gallery/03-raw.webp" width="1600" height="1067" alt="Dew on a lotus leaf, RAW reference with no film simulation" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-03">Film</label><label for="raw-03">RAW reference</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">03</span><div><h3>Dew on a lotus leaf</h3><p>Fujifilm Reala 100 <span>/</span> Fujifilm Crystal Archive Type II</p></div><span class="gallery-tag">Experimental · Fotufilm</span></figcaption></figure>
+<figure class="gallery-frame gallery-landscape"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">Switch view: White bird in foliage</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-04" id="film-04" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-04" id="raw-04">
+ <div class="gallery-image"><div class="gallery-film"><img src="gallery/04.webp" width="1600" height="1067" alt="White bird in foliage, film simulation" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="gallery/04-raw.webp" width="1600" height="1067" alt="White bird in foliage, RAW reference with no film simulation" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-04">Film</label><label for="raw-04">RAW reference</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">04</span><div><h3>White bird in foliage</h3><p>Ilford HP5 Plus <span>/</span> Ilford Multigrade IV RC</p></div><span class="gallery-tag">Experimental · Fotufilm</span></figcaption></figure>
+<figure class="gallery-frame gallery-portrait"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">Switch view: Yellow train under clouds</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-05" id="film-05" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-05" id="raw-05">
+ <div class="gallery-image"><div class="gallery-film"><img src="gallery/05.webp" width="1067" height="1600" alt="Yellow train under clouds, film simulation" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="gallery/05-raw.webp" width="1067" height="1600" alt="Yellow train under clouds, RAW reference with no film simulation" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-05">Film</label><label for="raw-05">RAW reference</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">05</span><div><h3>Yellow train under clouds</h3><p>CineStill 400D <span>/</span> Portra Endura</p></div><span class="gallery-tag">Experimental · Fotufilm</span></figcaption></figure>
+<figure class="gallery-frame gallery-landscape"><fieldset class="gallery-toggle">
+ <legend class="visually-hidden">Switch view: Sunset through clouds</legend>
+ <input class="visually-hidden gallery-film-choice" type="radio" name="view-06" id="film-06" checked>
+ <input class="visually-hidden gallery-raw-choice" type="radio" name="view-06" id="raw-06">
+ <div class="gallery-image"><div class="gallery-film"><img src="gallery/06.webp" width="1600" height="1067" alt="Sunset through clouds, film simulation" loading="lazy" decoding="async"></div><div class="gallery-raw"><img src="gallery/06-raw.webp" width="1600" height="1067" alt="Sunset through clouds, RAW reference with no film simulation" loading="lazy" decoding="async"></div></div>
+ <div class="gallery-choice"><label for="film-06">Film</label><label for="raw-06">RAW reference</label></div>
+</fieldset>
+<figcaption><span class="gallery-no">06</span><div><h3>Sunset through clouds</h3><p>Kodak Vision3 250D <span>/</span> Kodak Vision 2383</p></div><span class="gallery-tag">Standard stock</span></figcaption></figure>
+<!-- /V6_NEW_GALLERY -->
+ </div>
+ <div class="gallery-foot"><a class="under" href="#night">See 800T grain and halation up close ↓</a></div>
+</section>
 <section class="paper light" id="paper">
 <div class="shell">
  <div class="section-head"><p class="kicker">THE PAPER STUDY</p><h2>Same negative. Two papers.</h2><p class="intro">Both simulated prints come from the same Portra 400 negative. Switch the right-hand image between papers and an unsimulated RAW reference. Look at the whole image, then inspect the petal edges and the yellow center.</p></div>
  <div class="comparison-bar"><strong>Left fixed: Portra Endura</strong><div class="choices" role="group" aria-label="Change the right-hand image"><button type="button" data-print="raw" aria-pressed="false" aria-controls="comparison">RAW reference</button><button type="button" data-print="supra" aria-pressed="true" aria-controls="comparison">Supra Endura</button></div></div>
  <div id="comparison" class="comparison-grid" data-src="../site/plates/">
- <figure><img src="../site/plates/portra.webp" width="768" height="504" alt="Portra Endura simulated print" loading="lazy" decoding="async"><figcaption>Portra Endura</figcaption></figure>
- <figure><img src="../site/plates/supra.webp" width="768" height="504" alt="Right-hand comparison, full frame" id="swap-full" decoding="async"><figcaption id="swap-name" aria-live="polite">Supra Endura</figcaption></figure>
+ <figure><img src="../site/plates/portra.webp" width="1680" height="1120" alt="Portra Endura simulated print" loading="lazy" decoding="async"><figcaption>Portra Endura</figcaption></figure>
+ <figure><img src="../site/plates/supra.webp" width="1680" height="1120" alt="Right-hand comparison, full frame" id="swap-full" decoding="async"><figcaption id="swap-name" aria-live="polite">Supra Endura</figcaption></figure>
  <figure><img src="../site/plates/portra-detail.webp" width="768" height="408" alt="Portra Endura matching detail" loading="lazy" decoding="async"><figcaption>Matching detail</figcaption></figure>
  <figure><img src="../site/plates/supra-detail.webp" width="768" height="408" alt="Matching detail for the right-hand image" id="swap-detail" decoding="async"><figcaption>Matching detail</figcaption></figure>
  </div>
- <div class="lab-lead"><a class="button outline" href="study-en.html">Choose both sides and switch to matching details</a></div><div class="recipe-note"><p id="swap-note">Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p><a class="under" href="../showcase/01-paper-study.png">Open the full 2560 px comparison</a></div><template id="paper-raw"><span>RAW reference</span><p>Apple’s RAW decode, with no film simulation.</p></template><template id="paper-portra"><span>Portra Endura</span><p>The same Portra 400 negative, printed with Portra Endura’s built-in neutral calibration.</p></template><template id="paper-supra"><span>Supra Endura</span><p>Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p></template>
+ <div class="lab-lead"><a class="button outline" href="study-en.html">Choose both sides and switch to matching details</a> <a class="under grade-link" href="study-en.html#grades">Compare B&W paper grades 00 and 4</a></div><div class="recipe-note"><p id="swap-note">Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p><a class="under" href="../showcase/01-paper-study.png">Open the annotated 2560 px comparison</a></div><template id="paper-raw"><span>RAW reference</span><p>Apple’s RAW decode, with no film simulation.</p></template><template id="paper-portra"><span>Portra Endura</span><p>The same Portra 400 negative, printed with Portra Endura’s built-in neutral calibration.</p></template><template id="paper-supra"><span>Supra Endura</span><p>Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p></template>
  <p class="method">Method: +0.67 EV from metered film exposure, with the print exposure value held at 0.88. Each paper uses its built-in neutral calibration. Detail crops use the same coordinates in the 4096 px renders.</p>
 </div>
 </section>
-<section class="section shell" id="why">
- <div class="section-head"><p class="kicker">WHY SILVERPHASE</p><h2>A darkroom built around still photos.</h2><p class="intro">Film, paper, grain and halation are shared across this ecosystem. Silverphase focuses on the work around them: capturing, selecting, processing and delivering still photographs on Apple devices.</p></div>
- <div class="stock-grid workflow-proof">
- <article><p class="kicker">iPhone / iPad</p><h3>Shoot, select and work in batches</h3><p>Shoot in the app or import from Photos and Files. The local library keeps originals and per-photo edits; rate and flag frames, copy selected adjustments, and export a batch.</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/ios/README.md">Read the mobile guide</a></article>
- <article><p class="kicker">macOS</p><h3>Print within your desktop workflow</h3><p>Work from folders, soft-proof a print and compose a two-photo half-frame. Lightroom Classic can send a rendered JPEG or TIFF copy and keep the returned result in its catalog.</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/docs/LIGHTROOM-CLASSIC.md">See the Lightroom Classic round trip</a></article>
- <article><p class="kicker">OUTPUT</p><h3>Finish a print or hand it off for grading</h3><p>Export a finished JPEG, PNG or 16-bit TIFF. Cineon DI bypasses print paper and delivers a 16-bit log TIFF with viewing LUTs for further work elsewhere.</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/modern_UI/Spektrafilm/README.md#图像与输出边界">See output formats and limits</a></article>
- </div>
- <div class="ecosystem"><h3>Which workflow fits?</h3><dl>
- <div><dt>Silverphase</dt><dd>A native still-photo darkroom: capture and organize on iPhone or iPad; use folders, printing and output tools on Mac. The apps share a rendering engine, not a synced library, and controls differ by platform.</dd></div>
- <div><dt><a href="https://spektrafilm.114c.de/">spektrafilm OFX</a></dt><dd>Start there if your workflow begins on a Resolve or other OFX timeline. The project also offers a Mac standalone app and an iPhone beta.</dd></div>
- <div><dt><a href="https://getnegs.com/spektrafilm">Negs</a></dt><dd>Start there for cross-platform work or if you want to try spektrafilm directly in a browser.</dd></div>
- </dl><p class="method">A workflow guide based on public documentation, not a ranking of image quality or speed.</p></div>
-</section>
-<section class="shell section" id="work">
- <div class="section-head"><p class="kicker">FILM STUDIES</p><h2>Three scenes, three stocks.</h2><p class="intro">A daylight color negative, a black-and-white negative and a tungsten color negative. Each image has its own recipe; this is not a controlled stock comparison.</p></div>
- <div class="stock-grid"><figure class="stock"><img src="../site/plates/lotus.webp" width="768" height="500" alt="Lotus · Portra Endura" loading="lazy" decoding="async"><figcaption><h3>Portra 400</h3><span>Lotus · Portra Endura</span><p>Look for the pink petals’ transition into the highlights, and how the yellow center separates from the petals.</p></figcaption></figure><figure class="stock"><img src="../site/plates/bird.webp" width="768" height="500" alt="White bird · Ilford Multigrade IV RC" loading="lazy" decoding="async"><figcaption><h3>Acros II</h3><span>White bird · Ilford Multigrade IV RC</span><p>Without color, the tonal separation between feathers and background becomes the subject.</p></figcaption></figure><figure class="stock"><img src="../site/plates/night.webp" width="1528" height="1012" alt="Storefront · Kodak Vision 2383" loading="lazy" decoding="async"><figcaption><h3>CineStill 800T</h3><span>Storefront · Kodak Vision 2383</span><p>A bright sign and a dark street give halation and grain each a place to look.</p></figcaption></figure></div>
- <a class="under subtle-link" href="../showcase/02-film-studies.png">Open the full stock showcase</a>
-</section>
 <section class="night section" id="night">
 <div class="shell night-grid">
- <div><div class="section-head"><p class="kicker">AFTER DARK, UP CLOSE</p><h2>Glow at the sign.<br>Grain in the street.</h2><p class="intro">In the same 800T night scene, look at the glowing edges of the sign, then the lit pavement. Both details are crops from a 7008 × 4672 render with no added sharpening.</p></div><p class="technical">CineStill 800T / Kodak Vision 2383<br>35 mm · 1× grain · Stock halation enabled</p><a class="under" href="../showcase/03-800t-night.png">Open the full frame and 1:1 details</a></div>
- <div class="detail-grid"><figure class="recipe"><img src="../site/plates/glow.webp" width="772" height="428" alt="Simulated halation around the lit sign" loading="lazy" decoding="async"><figcaption>Sign edge · Halation</figcaption></figure><figure class="recipe"><img src="../site/plates/grain.webp" width="772" height="424" alt="Simulated film grain in the lit pavement" loading="lazy" decoding="async"><figcaption>Pavement · Grain</figcaption></figure></div>
+ <div><div class="section-head"><p class="kicker">AFTER DARK, UP CLOSE</p><h2>Glow at the sign.<br>Grain in the street.</h2><p class="intro">In the same 800T night scene, look at the glowing edges of the sign, then the lit pavement. Both details are crops from a 7008 × 4672 render with no added sharpening.</p></div><p class="technical">CineStill 800T / Kodak Vision 2383<br>35 mm · 1× grain · Stock halation enabled</p><a class="under" href="../showcase/03-800t-night.png">Open the annotated 1:1 study</a></div>
+ <div class="night-plates"><!-- V6_NIGHT_IMAGE -->
+<figure class="night-full"><img src="plates/night-clean.webp" width="1680" height="1120" alt="Night storefront rendered with CineStill 800T" loading="lazy" decoding="async"><figcaption>Storefront · full frame</figcaption></figure>
+<!-- /V6_NIGHT_IMAGE --><div class="detail-grid"><figure class="recipe"><img src="../site/plates/glow.webp" width="772" height="428" alt="Simulated halation around the lit sign" loading="lazy" decoding="async"><figcaption>Sign edge · Halation</figcaption></figure><figure class="recipe"><img src="../site/plates/grain.webp" width="772" height="424" alt="Simulated film grain in the lit pavement" loading="lazy" decoding="async"><figcaption>Pavement · Grain</figcaption></figure></div></div>
 </div>
 </section>
+
 <section class="section shell" id="process">
  <div class="workflow">
  <div><div class="section-head"><p class="kicker">THE PROCESS</p><h2>It starts with Prep.</h2><p class="intro">Keep the starting image, negative and print separate. When a print changes, you know which stage to return to.</p></div>
  <p class="method">Crop and Film Edge are separate tools. Controls and export options vary by platform.</p>
  <a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/README.en.md">Read the project documentation</a></div>
- <div class="stages"><details name="process" open><summary>Prep</summary><div class="stage"><h3>Set up the input before choosing a film look.</h3><p>Set input exposure, brights and darks, contrast, detail and color. With supported RAW files, match the camera preview brightness as a starting point.</p><p class="stage-controls">Input exposure · Tone · Midtone detail · Color</p></div></details><details name="process" ><summary>Film</summary><div class="stage"><h3>Choose what the light lands on.</h3><p>Choose a stock and film format, then adjust exposure relative to the film metering baseline. This is separate from input exposure in Prep.</p><p class="stage-controls">Stock · Format · Metering and exposure</p></div></details><details name="process" ><summary>Development</summary><div class="stage"><h3>Develop the latent image into a negative.</h3><p>Adjust development at the negative stage before passing the result to color enlargement or scanning.</p><p class="stage-controls">Negative development</p></div></details><details name="process" ><summary>Color Enlargement</summary><div class="stage"><h3>A single negative can make different prints.</h3><p>Change the paper, print exposure or filtration. The lotus study holds the negative and print exposure constant to show what changing the paper does.</p><p class="stage-controls">Paper · Print exposure · Filtration</p></div></details><details name="process" ><summary>Scan</summary><div class="stage"><h3>Decide how the image leaves the darkroom.</h3><p>Set up the scan and output to deliver your image. For external grading on Mac, see the Cineon DI export guide.</p><p class="stage-controls">Scan · Output · Export</p></div></details></div>
+ <div class="stages numbered-stages"><details name="process" open><summary>Prep</summary><div class="stage"><h3>Set up the input before choosing a film look.</h3><p>Set input exposure, brights and darks, contrast, detail and color. With supported RAW files, match the camera preview brightness as a starting point.</p><p class="stage-controls">Input exposure · Tone · Midtone detail · Color</p></div></details><details name="process" ><summary>Film</summary><div class="stage"><h3>Choose what the light lands on.</h3><p>Choose a stock and film format, then adjust exposure relative to the film metering baseline. This is separate from input exposure in Prep.</p><p class="stage-controls">Stock · Format · Metering and exposure</p></div></details><details name="process" ><summary>Development</summary><div class="stage"><h3>Develop the latent image into a negative.</h3><p>Adjust development at the negative stage before passing the result to color enlargement or scanning.</p><p class="stage-controls">Negative development</p></div></details><details name="process" ><summary>Color Enlargement</summary><div class="stage"><h3>A single negative can make different prints.</h3><p>Change the paper, print exposure or filtration. The lotus study holds the negative and print exposure constant to show what changing the paper does.</p><p class="stage-controls">Paper · Print exposure · Filtration</p></div></details><details name="process" ><summary>Scan</summary><div class="stage"><h3>Decide how the image leaves the darkroom.</h3><p>Set up the scan and output to deliver your image. For external grading on Mac, see the Cineon DI export guide.</p><p class="stage-controls">Scan · Output · Export</p></div></details></div>
  </div>
 </section>
-<section class="strip section">
+<section class="strip section" id="edge">
  <div class="shell strip-grid">
  <img src="../site/plates/strip.webp" width="1124" height="1040" alt="Lotus in a 135 film strip, with perforations and edge markings" loading="lazy" decoding="async">
  <div><div class="section-head"><p class="kicker">BEYOND THE FRAME</p><h2>Keep the perforations in the picture.</h2><p class="intro">The engine renders this 135 strip’s perforations, edge markings and frame number. They are not layout overlays. The complete plate also includes four covers from the in-app library.</p></div><a class="under" href="../showcase/04-film-edge-covers.png">See the strip and stock covers</a></div>

@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Compare RAW, film and print papers, and inspect grain and halation.">
-<title>Silverphase · Comparison lab</title><link rel="icon" href="silverphase-icon.png"><link rel="stylesheet" href="styles.css?v=5"><script defer src="study.js"></script></head>
+<title>Silverphase · Comparison lab</title><link rel="icon" href="silverphase-icon.png"><link rel="stylesheet" href="styles.css?v=6"><script defer src="study.js?v=6"></script></head>
 <body><a class="skip" href="#study">Skip to comparisons</a>
 <header class="top"><div class="shell navwrap"><a class="brand" href="en.html"><img src="silverphase-icon.png" width="34" height="34" alt="">Silverphase</a>
-<nav aria-label="Navigation"><a href="#comparison-lab">Papers</a><a href="#texture">Texture</a><a href="#contact-sheet">Studies</a></nav><a class="language" href="study.html" hreflang="zh-CN">简中</a></div></header>
+<nav aria-label="Navigation"><a href="#comparison-lab">Papers</a><a href="#grades">B&W grades</a><a href="#texture">Texture</a><a href="#contact-sheet">Studies</a></nav><a class="language" href="study.html" hreflang="zh-CN">简中</a></div></header>
 <main id="study" class="shell">
 <section class="section lab-intro"><p class="kicker">SILVERPHASE DARKROOM NOTES</p><h1>Comparison lab</h1><p class="intro">See how one image changes, then isolate which stage changed it. Every simulated print here is a real Silverphase render, not a scan of a physical print.</p></section>
 <section id="comparison-lab" class="lab-block"><div class="section-head"><p class="kicker">CONTROLLED COMPARISON</p><h2>One lotus, three references.</h2><p class="intro">Choose either side. Start with RAW versus film for the overall change, then compare the two papers. The detail view uses matching coordinates.</p></div>
@@ -14,18 +14,28 @@
  <div class="lab-views" role="group" aria-label="Image view"><button type="button" data-view="full" aria-pressed="true">Full frame</button><button type="button" data-view="detail" aria-pressed="false">Matching detail</button></div>
 </div>
 <figure class="hero-art contact-print lab-proof"><div class="proof" data-lab-proof>
-<img class="lab-back" src="plates/portra.webp" width="768" height="504" alt="Portra 400 / Portra Endura">
-<img class="proof-front" src="plates/raw.webp" width="768" height="504" alt="RAW reference">
+<img class="lab-back" src="plates/portra.webp" width="1680" height="1120" alt="Portra 400 / Portra Endura">
+<img class="proof-front" src="plates/raw.webp" width="1680" height="1120" alt="RAW reference">
 <div class="proof-move" aria-hidden="true"><span>‹ ›</span></div>
 <input class="proof-input" type="range" min="0" max="100" value="50" aria-label="Move the split between the left and right images"></div>
 <figcaption class="lab-labels" aria-live="polite"><strong data-left-label>RAW reference</strong><strong data-right-label>Portra 400 / Portra Endura</strong></figcaption></figure>
 <noscript><p><a href="../showcase/01-paper-study.png">Open the full PNG with all three references</a></p></noscript>
 <details class="lab-method"><summary>Methods and limits</summary>
 <p>The RAW reference is Apple’s decode with no simulation. The prints share a cached Portra 400 negative, with +0.67 EV from metered film exposure and a print exposure setting of 0.88. Each paper uses its built-in neutral calibration. Grain and halation remain enabled. Detail samples are from matching coordinates in the 4096 px-wide renders.</p></details>
-<p class="lab-source"><a class="under" href="../showcase/01-paper-study.png">Open the original 2560 × 1600 plate</a></p></section>
+<p class="lab-source"><a class="under" href="../showcase/01-paper-study.png">Open the annotated 2560 × 1600 plate</a></p></section>
+<section class="lab-block grade-study" id="grades">
+  <div class="section-head"><p class="kicker">BLACK-AND-WHITE PRINT · CONTROLLED COMPARISON</p>
+  <h2>One black-and-white negative. Two paper grades.</h2>
+  <p class="intro">Look around the eye, the feather shadows and the background. Grade 00 keeps the transitions softer; grade 4 opens up stronger separation. Both keep grain and halation, with no sample boxes on the full image.</p></div>
+  <div class="grade-grid">
+  <figure><a href="plates/acros-grade-00.webp"><img src="plates/acros-grade-00.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="The bird on grade 00, with softer transitions in the background"></a><figcaption>Grade 00 · Low contrast</figcaption></figure>
+  <figure><a href="plates/acros-grade-4.webp"><img src="plates/acros-grade-4.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="The bird on grade 4, with a deeper background"></a><figcaption>Grade 4 · High contrast</figcaption></figure>
+  </div>
+  <details class="lab-method"><summary>Paper grade, filtration and exposure compensation</summary><p>Same simulated Acros II negative, Ilford Multigrade IV RC paper, TH-KG3 enlarger illuminant and +0.33 EV film exposure. Switching the grade applies Silverphase’s built-in filtration and mid-gray exposure compensation, so the effective print exposure is not equal. The second print reuses the same cached negative.</p></details>
+ </section>
 <section class="section" id="texture"><div class="section-head"><p class="kicker">TEXTURE STUDY</p><h2>One night frame, two details.</h2><p class="intro">Two regions of the same 800T rendering, not an effect-on/effect-off test. Follow the orange-red glow at the sign, then look at grain on the illuminated pavement.</p></div>
 <div class="detail-grid"><figure><img src="plates/glow.webp" alt="Sign edge crop" width="772" height="428" loading="lazy" decoding="async"><figcaption>Sign edge · Halation</figcaption></figure><figure><img src="plates/grain.webp" alt="Pavement crop" width="772" height="424" loading="lazy" decoding="async"><figcaption>Lit pavement · Grain</figcaption></figure></div>
-<p class="method">CineStill 800T / Kodak Vision 2383 · 35 mm · 1× grain · stock halation enabled; 7008 × 4672 render.</p><p class="lab-source"><a class="under" href="../showcase/03-800t-night.png">Open the full frame and original-size crops</a></p></section>
+<p class="method">CineStill 800T / Kodak Vision 2383 · 35 mm · 1× grain · stock halation enabled; 7008 × 4672 render.</p><p class="lab-source"><a class="under" href="../showcase/03-800t-night.png">Open the annotated frame and original-size crops</a></p></section>
 <section class="section" id="contact-sheet"><div class="section-head"><p class="kicker">SEPARATE RECIPES</p><h2>Match a stock to the light.</h2><p class="intro">These are different scenes with independent recipes, not a controlled stock test.</p></div><div class="stock-grid">
  <figure class="stock"><img src="plates/lotus.webp" alt="Portra 400" width="764" height="500" loading="lazy" decoding="async"><figcaption><h3>Portra 400</h3><p>Portra Endura</p></figcaption></figure>
  <figure class="stock"><img src="plates/bird.webp" alt="Acros II" width="768" height="500" loading="lazy" decoding="async"><figcaption><h3>Acros II</h3><p>Ilford Multigrade IV RC</p></figcaption></figure>

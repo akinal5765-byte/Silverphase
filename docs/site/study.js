@@ -16,7 +16,8 @@
       const label = select.selectedOptions[0].textContent;
       image.src = 'plates/' + select.value + suffix;
       image.alt = label;
-      image.height = view === 'detail' ? 408 : 504;
+      image.width = view === 'detail' ? 768 : 1680;
+      image.height = view === 'detail' ? 408 : 1120;
       document.querySelector('[data-' + side + '-label]').textContent = label;
     }
   }

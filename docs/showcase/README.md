@@ -16,3 +16,22 @@ The three source photographs (lotus, white bird and night storefront) are the ma
 The four library cover artworks are credited to **Silverphase contributors / akinal5765-byte**. They were resized and arranged for the showcase. The project-controlled portion follows CC BY-SA 4.0; stock names, brand logos and recognizable third-party packaging are excluded. No stock manufacturer affiliation or endorsement is claimed. The site’s separate Layerlight icon identifies the author’s proprietary app and is excluded from Silverphase’s grants.
 
 The website’s WebP plates under `docs/site/plates/` are compressed crops of the showcase cards above, not additional renders. The downloadable PNGs preserve the full layouts and original-size detail crops. On the website, the paper comparison keeps Portra Endura fixed on the left and switches the right panel between Supra Endura and the unsimulated RAW reference.
+
+### Native UI and six additional photograph studies
+
+The six new website gallery scenes were rendered on Apple Metal with the Silverphase 1.3.1 engine. Both views of each scene have matched geometry. RAW references are Apple's default display decode, not the unrendered sensor data. The simulated prints retain grain and halation. WebP exports preserve the complete frame; marker boxes are present only on the linked annotated study plates. The source photographs are approved cases in the project's release-case fixture manifest; original RAWs are not distributed.
+
+| Scene | Film | Paper | Film exposure | Print exposure setting |
+| --- | --- | --- | --- | --- |
+| Steam locomotive | Fujifilm Eterna 500 (Fotufilm) | Kodak Vision 2383 | +0.84 EV | 0.91 |
+| Red eaves | Fujifilm Pro 160NS (Fotufilm) | Supra Endura | +0.67 EV | 0.96 |
+| Dew on a lotus leaf | Fujifilm Reala 100 (Fotufilm) | Fujifilm Crystal Archive Type II | +0.67 EV | 0.97 |
+| White bird in foliage | Ilford HP5 Plus (Fotufilm) | Ilford Multigrade IV RC, grade 2 | +0.50 EV | 1.00 |
+| Yellow train under clouds | CineStill 400D (Fotufilm) | Portra Endura | +0.34 EV | 0.94 |
+| Sunset through clouds | Kodak Vision3 250D | Kodak Vision 2383 | +0.34 EV | 0.89 |
+
+Exposure offsets are relative to each scene's metered baseline. These are different scenes and recipes, not a fixed-scene ranking of films. The Fotufilm-origin experimental profiles were adapted through Negs; see [profile provenance and licensing](../../license/DATA-SOURCES.md#experimental-fotufilm-profiles).
+
+The black-and-white study uses the same cached Acros II negative and Ilford Multigrade IV RC paper in both prints (+0.333 EV film exposure, TH-KG3 enlarger). Grade 00 uses yellow filtration 199.0 and compensated print setting 0.5323; grade 4 uses magenta filtration 39.1 and compensated setting 1.334. These are the app's published grade packs, not a separate adjustment to exaggerate the result. Both were rendered at 4096 × 2731, with grain and halation enabled, and shown without frames over the image.
+
+The Mac image is an actual native editor snapshot at the developed-negative stage, with the film tray and control panel visible. The iPhone image is an actual iOS 26.1 simulator capture of the native stock picker on a project test fixture, from the current 1.3.1-source UI documentation test. Neither is a UI mockup.
