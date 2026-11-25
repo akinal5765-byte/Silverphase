@@ -5,13 +5,47 @@ import Foundation
 import Photos
 import SwiftUI
 
+enum MobileMovieProfile: Int, CaseIterable, Identifiable, Sendable {
+    case uhd30 = 30
+    case uhd60 = 60
+
+    static let width = 3840
+    static let height = 2160
+    var id: Int { rawValue }
+    var title: String { "4K \(rawValue) fps" }
+
+    static func rearCamera() -> AVCaptureDevice? {
+        AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+    }
+
+    func format(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
+        let rate = Double(rawValue)
+        func matches(_ format: AVCaptureDevice.Format) -> Bool {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            return Int(dimensions.width) == Self.width && Int(dimensions.height) == Self.height
+                && format.supportedColorSpaces.contains(.sRGB)
+                && !format.unsupportedCaptureOutputClasses.contains { $0 == AVCaptureMovieFileOutput.self }
+                && format.videoSupportedFrameRateRanges.contains {
+                    $0.minFrameRate <= rate && $0.maxFrameRate >= rate
+                }
+        }
+        if matches(device.activeFormat) { return device.activeFormat }
+        return device.formats.first(where: matches)
+    }
+
+    static func supports(_ profile: Self) -> Bool {
+        guard let camera = rearCamera() else { return false }
+        return profile.format(on: camera) != nil
+    }
+}
+
 // Photo/portrait and the locked camera keep their existing session. All
 // mutations of this separate session and movie output run on one serial queue.
 private final class MobileMovieCapture: NSObject, AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "com.silverphase.video.capture")
     private let movie = AVCaptureMovieFileOutput()
-    private var configured = false
+    private var configuredProfile: MobileMovieProfile?
     private var finishing: (@Sendable (Result<URL, Error>) -> Void)?
     private var pendingStop = false
 
@@ -19,75 +53,92 @@ private final class MobileMovieCapture: NSObject, AVCaptureFileOutputRecordingDe
         let device: AVCaptureDevice
     }
 
-    func start() async throws -> Configuration {
+    func start(profile: MobileMovieProfile) async throws -> Configuration {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 do {
-                    if !self.configured {
-                        try self.configure()
-                    }
+                    if self.session.isRunning { self.session.stopRunning() }
+                    if self.configuredProfile != profile { try self.configure(profile: profile) }
                     self.session.startRunning()
-                    guard self.session.isRunning, let input = self.session.inputs.first as? AVCaptureDeviceInput else {
-                        throw MobileFailure.message(TDetached("The video camera could not start.", "无法启动视频相机。", "無法啟動影片相機。"))
+                    guard self.session.isRunning, let input = self.session.inputs.first as? AVCaptureDeviceInput,
+                          let connection = self.movie.connection(with: .video),
+                          self.movie.availableVideoCodecTypes.contains(.hevc),
+                          self.movie.supportedOutputSettingsKeys(for: connection).contains(AVVideoCodecKey) else {
+                        throw self.setupError(profile)
                     }
+                    self.movie.setOutputSettings([AVVideoCodecKey: AVVideoCodecType.hevc], for: connection)
                     continuation.resume(returning: Configuration(device: input.device))
                 } catch {
+                    if self.session.isRunning { self.session.stopRunning() }
                     continuation.resume(throwing: error)
                 }
             }
         }
     }
 
-    private func configure() throws {
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+    private func configure(profile: MobileMovieProfile) throws {
+        guard let camera = MobileMovieProfile.rearCamera(),
               let microphone = AVCaptureDevice.default(for: .audio) else {
             throw MobileFailure.message(TDetached("A rear camera and microphone are required.", "需要后置相机和麦克风。", "需要後置相機和麥克風。"))
         }
+        guard let format = profile.format(on: camera) else { throw setupError(profile) }
         let video = try AVCaptureDeviceInput(device: camera)
         let audio = try AVCaptureDeviceInput(device: microphone)
         session.beginConfiguration()
+        configuredProfile = nil
+        session.outputs.forEach { session.removeOutput($0) }
+        session.inputs.forEach { session.removeInput($0) }
         defer {
-            if !configured {
-                session.inputs.forEach { session.removeInput($0) }
+            if configuredProfile == nil {
                 session.outputs.forEach { session.removeOutput($0) }
+                session.inputs.forEach { session.removeInput($0) }
             }
             session.commitConfiguration()
         }
-        guard session.canAddInput(video) else { throw setupError() }
+        guard session.canAddInput(video) else { throw setupError(profile) }
         session.addInput(video)
-        guard session.canSetSessionPreset(.hd1920x1080), session.canAddInput(audio) else { throw setupError() }
-        session.sessionPreset = .hd1920x1080
+        guard session.canAddInput(audio) else { throw setupError(profile) }
         session.automaticallyConfiguresCaptureDeviceForWideColor = false
         session.addInput(audio)
-        guard session.canAddOutput(movie) else { throw setupError() }
-        session.addOutput(movie)
-        guard let connection = movie.connection(with: .video), movie.connection(with: .audio) != nil else { throw setupError() }
         try camera.lockForConfiguration()
-        defer { camera.unlockForConfiguration() }
-        camera.automaticallyAdjustsVideoHDREnabled = false
-        if camera.isVideoHDREnabled { camera.isVideoHDREnabled = false }
-        if camera.activeFormat.supportedColorSpaces.contains(.sRGB) { camera.activeColorSpace = .sRGB }
-        if camera.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.minFrameRate <= 30 && $0.maxFrameRate >= 30 }) {
-            camera.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
-            camera.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 30)
+        do {
+            defer { camera.unlockForConfiguration() }
+            // Setting the device format selects the session’s input-priority mode.
+            camera.activeFormat = format
+            camera.activeColorSpace = .sRGB
+            camera.automaticallyAdjustsVideoHDREnabled = false
+            if camera.isVideoHDREnabled { camera.isVideoHDREnabled = false }
+            let duration = CMTime(value: 1, timescale: CMTimeScale(profile.rawValue))
+            camera.activeVideoMinFrameDuration = duration
+            camera.activeVideoMaxFrameDuration = duration
         }
+        guard session.canAddOutput(movie) else { throw setupError(profile) }
+        session.addOutput(movie)
+        guard let connection = movie.connection(with: .video), movie.connection(with: .audio) != nil else { throw setupError(profile) }
         if connection.isVideoStabilizationSupported { connection.preferredVideoStabilizationMode = .standard }
         // There is no product duration limit. AVFoundation ends recording if
         // the OS interrupts it or free disk space falls below this reserve.
         movie.minFreeDiskSpaceLimit = 200 * 1024 * 1024
-        configured = true
+        configuredProfile = profile
     }
 
-    private func setupError() -> MobileFailure {
-        .message(TDetached("1080p video or audio cannot be configured on this device.", "本设备无法配置 1080p 视频或音频。", "本裝置無法設定 1080p 影片或音訊。"))
+    private func setupError(_ profile: MobileMovieProfile) -> MobileFailure {
+        let title = profile.title
+        return .message(TDetached("This camera could not configure \(title) SDR HEVC with audio.",
+                                  "当前相机无法配置 \(title) SDR HEVC 有声录制。",
+                                  "目前相機無法設定 \(title) SDR HEVC 有聲錄製。"))
     }
 
     func record(to url: URL, angle: CGFloat,
                 completion: @escaping @Sendable (Result<URL, Error>) -> Void) {
         queue.async {
+            guard let profile = self.configuredProfile else {
+                completion(.failure(self.setupError(.uhd30))); return
+            }
             guard self.session.isRunning, !self.session.isInterrupted,
-                  self.finishing == nil, let connection = self.movie.connection(with: .video), connection.isActive else {
-                completion(.failure(self.setupError())); return
+                  self.finishing == nil, let connection = self.movie.connection(with: .video),
+                  connection.isActive, self.movie.connection(with: .audio)?.isActive == true else {
+                completion(.failure(self.setupError(profile))); return
             }
             self.finishing = completion
             self.pendingStop = false
@@ -175,6 +226,7 @@ private struct MobileMovieTake: Codable, Identifiable, Sendable {
     let id: UUID
     let date: Date
     let film: String
+    var profile: MobileMovieProfile.RawValue?
 
     static func directory() -> URL {
         URL.applicationSupportDirectory.appendingPathComponent("SilverphaseVideoTakes", isDirectory: true)
@@ -219,6 +271,8 @@ struct MobileVideoCaptureView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var player: AVPlayer?
     @State private var film = MobileCameraRecipe.defaultFilmID
+    @State private var profile: MobileMovieProfile = .uhd30
+    @State private var allows60 = false
     @State private var selected: MobileMovieTake?
     @State private var takes: [MobileMovieTake] = []
     @State private var message: String?
@@ -276,9 +330,13 @@ struct MobileVideoCaptureView: View {
                     Picker(T("Film", "胶片", "膠片"), selection: $film) {
                         ForEach(StockCatalog.shared.filmsForPicker) { Text($0.displayName).tag($0.id) }
                     }.disabled(runningSince != nil || stopping)
-                    Text(T("1080p SDR · Rear camera · Film applied after recording",
-                           "1080p SDR · 后置相机 · 录完后显影",
-                           "1080p SDR · 後置相機 · 錄完後顯影"))
+                    Picker(T("Frame rate", "帧率", "影格率"), selection: $profile) {
+                        Text(MobileMovieProfile.uhd30.title).tag(MobileMovieProfile.uhd30)
+                        if allows60 { Text(MobileMovieProfile.uhd60.title).tag(MobileMovieProfile.uhd60) }
+                    }.disabled(runningSince != nil || preparing || stopping)
+                    Text(T("UHD SDR · HEVC · Rear camera · Film applied after recording",
+                           "UHD SDR · HEVC · 后置相机 · 录完后显影",
+                           "UHD SDR · HEVC · 後置相機 · 錄完後顯影"))
                         .font(.caption).foregroundStyle(.secondary)
                     Button {
                         if runningSince != nil { stop() }
@@ -307,7 +365,15 @@ struct MobileVideoCaptureView: View {
             }
         }
         .interactiveDismissDisabled(preparing || runningSince != nil || stopping || saving)
-        .task { takes = MobileMovieTake.pending() }
+        .task {
+            takes = MobileMovieTake.pending()
+            allows60 = MobileMovieProfile.supports(.uhd60)
+        }
+        .onChange(of: profile) { _, _ in
+            camera.suspend()
+            device = nil
+            armed = false
+        }
         .onChange(of: selected?.id) { _, _ in
             player?.pause()
             player = selected.map { AVPlayer(url: $0.source) }
@@ -350,7 +416,7 @@ struct MobileVideoCaptureView: View {
         }
         guard scenePhase == .active else { return }
         do {
-            let activeDevice = try await camera.start().device
+            let activeDevice = try await camera.start(profile: profile).device
             guard scenePhase == .active else { camera.suspend(); return }
             device = activeDevice
             rotation = AVCaptureDevice.RotationCoordinator(device: activeDevice, previewLayer: nil)
@@ -360,7 +426,7 @@ struct MobileVideoCaptureView: View {
 
     private func begin() {
         guard armed, runningSince == nil, !stopping else { return }
-        let take = MobileMovieTake(id: UUID(), date: .now, film: film)
+        let take = MobileMovieTake(id: UUID(), date: .now, film: film, profile: profile.rawValue)
         do { try take.prepare() }
         catch { message = error.localizedDescription; return }
         notice = nil
@@ -373,7 +439,13 @@ struct MobileVideoCaptureView: View {
                 device = nil
                 takes = MobileMovieTake.pending()
                 switch result {
-                case .success: selected = take
+                case .success:
+                    selected = take
+                    do {
+                        try await MobileMovieDevelopment.checkCapture(source: take.source, frameRate: take.profile)
+                    } catch {
+                        notice = error.localizedDescription
+                    }
                 case .failure(let error): message = error.localizedDescription
                 }
             }
@@ -398,7 +470,8 @@ struct MobileVideoCaptureView: View {
                 try await PhotoLibraryWriter.authorize()
                 let file: URL
                 if developed {
-                    try await MobileMovieDevelopment.export(source: take.source, destination: take.developed, film: take.film) { value in
+                    try await MobileMovieDevelopment.export(source: take.source, destination: take.developed,
+                                                            film: take.film, frameRate: take.profile) { value in
                         Task { @MainActor in exportProgress = value }
                     }
                     file = take.developed

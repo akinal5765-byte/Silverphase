@@ -3,18 +3,70 @@
 import CoreImage
 import Foundation
 import Metal
+import Darwin
 
 enum MobileMovieDevelopment {
-    static func export(source: URL, destination: URL, film: String,
+    private struct VideoTrack {
+        let size: CGSize
+        let frameRate: Float
+        let hevc: Bool
+    }
+
+    private static func inspect(_ track: AVAssetTrack) async throws -> VideoTrack {
+        let size = try await track.load(.naturalSize)
+        let transform = try await track.load(.preferredTransform)
+        let bounds = CGRect(origin: .zero, size: size).applying(transform)
+        let descriptions = try await track.load(.formatDescriptions)
+        return VideoTrack(size: CGSize(width: abs(bounds.width).rounded(), height: abs(bounds.height).rounded()),
+                          frameRate: try await track.load(.nominalFrameRate),
+                          hevc: !descriptions.isEmpty &&
+                              descriptions.allSatisfy { CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_HEVC })
+    }
+
+    private static func validateCapture(_ track: VideoTrack, frameRate: Int?) throws {
+        // Older Debug builds may have one pending 1080p clip. Do not apply
+        // a newly saved UHD profile retroactively to that original file.
+        guard let frameRate else { return }
+        let long = max(track.size.width, track.size.height), short = min(track.size.width, track.size.height)
+        guard long == CGFloat(MobileMovieProfile.width), short == CGFloat(MobileMovieProfile.height),
+              track.frameRate.isFinite, abs(track.frameRate - Float(frameRate)) <= 0.5, track.hevc else {
+            let actual = "\(Int(track.size.width))×\(Int(track.size.height)) / \(track.frameRate.formatted()) fps"
+            throw MobileFailure.message(TDetached("Recording did not match the selected 4K HEVC profile (\(actual)). The original was kept.",
+                                                  "录像未达到所选 4K HEVC 规格（实测 \(actual)），已保留原片。",
+                                                  "錄影未達所選 4K HEVC 規格（實測 \(actual)），已保留原片。"))
+        }
+    }
+
+    static func checkCapture(source: URL, frameRate: Int?) async throws {
+        let asset = AVURLAsset(url: source)
+        let video = try await asset.loadTracks(withMediaType: .video)
+        let audio = try await asset.loadTracks(withMediaType: .audio)
+        guard let track = video.first, !audio.isEmpty else {
+            throw MobileFailure.message(TDetached("The recording has no playable video or audio track.", "录像没有可播放的视频或音频轨道。", "錄影沒有可播放的影片或音訊軌道。"))
+        }
+        try validateCapture(await inspect(track), frameRate: frameRate)
+    }
+
+    static func export(source: URL, destination: URL, film: String, frameRate: Int?,
                        progress: @escaping @Sendable (Double) -> Void) async throws {
         let asset = AVURLAsset(url: source)
         let duration = try await asset.load(.duration)
         let video = try await asset.loadTracks(withMediaType: .video)
         let audio = try await asset.loadTracks(withMediaType: .audio)
-        guard duration.seconds.isFinite, duration.seconds > 0, !video.isEmpty, !audio.isEmpty else {
+        guard duration.seconds.isFinite, duration.seconds > 0, let inputTrack = video.first, !audio.isEmpty else {
             throw MobileFailure.message(TDetached("The recording has no playable video or audio track.", "录像没有可播放的视频或音频轨道。", "錄影沒有可播放的影片或音訊軌道。"))
         }
+        let input = try await inspect(inputTrack)
+        try validateCapture(input, frameRate: frameRate)
         if FileManager.default.fileExists(atPath: destination.path) { return }
+        // Start with the still HEIF export's conservative working-set gate.
+        // This estimates free headroom, not peak or a measured device budget.
+        let allowance = Double(input.size.width * input.size.height) * 90 + 600_000_000
+        guard Double(os_proc_available_memory()) > allowance else {
+            throw MobileFailure.message(TDetached("There is not enough free memory to develop this video safely. The original was kept.",
+                                                  "当前可用内存不足以安全显影这段视频，已保留原片。",
+                                                  "目前可用記憶體不足以安全顯影這段影片，已保留原片。"))
+        }
         let renderer = try MobileMovieFrameRenderer(film: film)
         let composition = try await AVMutableVideoComposition.videoComposition(
             with: asset, applyingCIFiltersWithHandler: { request in
@@ -24,9 +76,9 @@ enum MobileMovieDevelopment {
         composition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
         composition.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
         composition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
-        // Highest-quality preserves the asset's portrait/landscape dimensions;
-        // a fixed landscape preset can add padding or scale vertical video.
-        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality),
+        // Don't prescribe a landscape size. Verify the actual resulting
+        // orientation, raster and rate after encoding, before saving.
+        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality),
               exporter.supportedFileTypes.contains(.mov) else {
             throw MobileFailure.message(TDetached("The video exporter could not be configured.", "无法配置视频导出器。", "無法設定影片輸出器。"))
         }
@@ -48,10 +100,17 @@ enum MobileMovieDevelopment {
         let outputVideo = try await output.loadTracks(withMediaType: .video)
         let outputAudio = try await output.loadTracks(withMediaType: .audio)
         guard outputDuration.seconds.isFinite, abs(outputDuration.seconds - duration.seconds) <= 0.15,
-              !outputVideo.isEmpty, !outputAudio.isEmpty else {
+              let outputTrack = outputVideo.first, !outputAudio.isEmpty else {
             throw MobileFailure.message(TDetached("The exported video lost duration or an audio/video track; the original was kept.",
                                                   "导出视频时长或音视频轨道不完整，已保留原片。",
                                                   "輸出影片時長或音視訊軌道不完整，已保留原片。"))
+        }
+        let result = try await inspect(outputTrack)
+        guard result.size == input.size, result.frameRate.isFinite, result.frameRate > 0,
+              abs(result.frameRate - input.frameRate) <= 0.5, result.hevc else {
+            throw MobileFailure.message(TDetached("The rendered movie did not preserve the source dimensions or frame rate. The original was kept.",
+                                                  "显影后的文件未保持原片画幅或帧率，已保留原片。",
+                                                  "顯影後的檔案未保留原始畫幅或影格率，已保留原片。"))
         }
         try FileManager.default.moveItem(at: partial, to: destination)
     }
@@ -106,6 +165,8 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
         values["scene_latitude_active"] = .bool(false)
         values["extended_dynamic_range"] = .bool(false)
         values["glare_active"] = .bool(false) // The still glare field is independently randomized.
+        values["striped"] = .bool(true)
+        values["strip_rows"] = .double(256)
         values["overscan_active"] = .bool(false)
         values["date_imprint_active"] = .bool(false)
         values["product_defaults"] = .bool(true)
@@ -117,7 +178,8 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
         defer { lock.unlock() }
         return try autoreleasepool {
             let extent = frame.extent
-            guard !extent.isInfinite, !extent.isEmpty, extent.width <= 1920, extent.height <= 1920,
+            guard !extent.isInfinite, !extent.isEmpty, max(extent.width, extent.height) <= CGFloat(MobileMovieProfile.width),
+                  min(extent.width, extent.height) <= CGFloat(MobileMovieProfile.height),
                   extent.width.rounded() == extent.width, extent.height.rounded() == extent.height else {
                 throw MobileFailure.message(TDetached("Unsupported video frame size.", "不支持的视频帧尺寸。", "不支援的影片畫面尺寸。"))
             }

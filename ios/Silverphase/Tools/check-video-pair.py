@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 import subprocess
+from fractions import Fraction
 
 
 def read(path):
@@ -26,6 +27,13 @@ def presented_size(track):
     return size[::-1] if abs(round(rotation / 90)) % 2 else size
 
 
+def rate(track):
+    value = float(Fraction(track["avg_frame_rate"]))
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"invalid average frame rate: {value}")
+    return value
+
+
 def seconds(track, key):
     return float(track[key])
 
@@ -40,6 +48,7 @@ def main():
     parser.add_argument("original")
     parser.add_argument("export")
     parser.add_argument("--min-seconds", type=float, default=0)
+    parser.add_argument("--require-uhd-fps", type=int, choices=(30, 60))
     args = parser.parse_args()
     before, after = read(args.original), read(args.export)
     bv, ba = one_stream(before, "video"), one_stream(before, "audio")
@@ -50,13 +59,23 @@ def main():
     require_close("container duration", b_duration, a_duration, 0.15)
     if presented_size(bv) != presented_size(av):
         raise ValueError(f"display size changed: {presented_size(bv)} vs {presented_size(av)}")
+    if abs(rate(bv) - rate(av)) > 0.5:
+        raise ValueError(f"average frame rate changed: {rate(bv):.3f} → {rate(av):.3f}")
+    if args.require_uhd_fps:
+        for label, track in (("original", bv), ("export", av)):
+            if sorted(presented_size(track)) != [2160, 3840] or track.get("codec_name") != "hevc":
+                raise ValueError(f"{label}: expected UHD HEVC, got {presented_size(track)} {track.get('codec_name')}")
+            if abs(rate(track) - args.require_uhd_fps) > 0.5:
+                raise ValueError(f"{label}: got {rate(track):.3f} fps, expected {args.require_uhd_fps}")
+            if track.get("color_transfer") in {"arib-std-b67", "smpte2084", "log100", "log316"}:
+                raise ValueError(f"{label}: unexpected HDR/Log transfer {track['color_transfer']}")
     require_close("relative track start", seconds(ba, "start_time") - seconds(bv, "start_time"),
                   seconds(aa, "start_time") - seconds(av, "start_time"), 0.08)
     require_close("video track duration", seconds(bv, "duration"), seconds(av, "duration"), 0.15)
     require_close("audio track duration", seconds(ba, "duration"), seconds(aa, "duration"), 0.15)
     if av.get("color_primaries") != "bt709" or av.get("color_transfer") != "bt709":
         raise ValueError(f"expected BT.709 SDR tags, got {av.get('color_primaries')} / {av.get('color_transfer')}")
-    print(f"PASS: {presented_size(av)}, {a_duration:.3f}s, one video and one audio track, SDR tags intact.")
+    print(f"PASS: {presented_size(av)}, {rate(av):.3f} fps, {a_duration:.3f}s, one video and one audio track, SDR tags intact.")
     print("Still inspect lip sync at both ends, repeated/dropped frames, grain, halation, and thermals on device.")
 
 
