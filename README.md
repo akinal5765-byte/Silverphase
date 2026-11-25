@@ -5,17 +5,23 @@
 <h1 align="center">Silverphase</h1>
 
 <p align="center">
-  <strong>从胶片曝光，到相纸成像。</strong><br>
+  <strong>把照片带进暗房。</strong><br>
   面向 macOS、iPhone 和 iPad 的原生胶片工艺模拟器
 </p>
 
 <p align="center">
   简体中文 · <a href="README.en.md">English</a> ·
-  <a href="docs/index.html">官网源码</a> · <a href="#下载">下载</a> · <a href="#效果案例">效果案例</a> · <a href="#编辑流程">编辑流程</a> ·
+  <a href="docs/index.html">官网源码</a> · <a href="#下载">下载</a> · <a href="#也试试-layerlight">Layerlight</a> · <a href="#效果案例">效果案例</a> · <a href="#编辑流程">编辑流程</a> ·
   <a href="#版本记录">版本记录</a> · <a href="docs/README.md">文档</a>
 </p>
 
-Silverphase 是面向 **macOS、iPhone 和 iPad** 的开源数字暗房。在设备上模拟 **相机输入 → 胶片曝光 → 显影 → 印相 → 扫描**。同一张底片可以换相纸再印；颗粒、光晕和片边都在工艺里形成。
+Silverphase 是一间在设备上运行的**开源数字暗房**，适用于 **macOS、iPhone 和 iPad**。
+
+### 同一张底片，两种相纸
+
+同一张荷花的 **Portra 400** 模拟底片，分别印到 **Portra Endura** 和 **Supra Endura**。相纸变了，底片和印相曝光设定不变。左边是 Apple 解码、未经过胶片模拟的 RAW 参考；下排是同位置的细节。
+
+[![荷花的 RAW 参考、两种模拟印相和同位置裁切](docs/showcase/01-paper-study.png)](docs/showcase/01-paper-study.png)
 
 ## 下载
 
@@ -35,8 +41,8 @@ iPhone 和 iPad 的正式版在中国大陆区以外的 App Store 提供。可�
     <td width="112" align="center"><a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight 应用图标"></a></td>
     <td>
       <strong>Layerlight · 手机照片调光</strong><br>
-      同一作者开发的独立闭源应用，适用于 iPhone 与 iPad。
-      <p>几步把日常照片的光调到顺眼，还能和原图对比。兼容设备与系统上也可以编辑摄影风格；部分功能需 Pro。</p>
+      同一作者开发的独立闭源应用，适用于 iPhone 与 iPad。可免费下载，部分功能由付费 Pro 解锁。
+      <p>几步把日常照片的光调到顺眼，还能和原图对比。兼容设备与系统上也可以编辑摄影风格。</p>
       <a href="https://apps.apple.com/cn/app/layerlight-hdr-photo-editor/id6756343255"><strong>在 App Store 查看与下载 →</strong></a> · <a href="https://www.youtube.com/shorts/F1xEDz2V0ms">观看 27 秒演示</a>
     </td>
   </tr>
@@ -46,37 +52,42 @@ Layerlight 的应用与图标保留其独立权利，不适用 Silverphase 的�
 
 ## 效果案例
 
-### 三个场景，三款胶片
+### 800T 夜景：招牌的光晕，路面的颗粒
 
-[![Silverphase 三胶片样片：Portra 400 荷花、Acros II 白鸟、CineStill 800T 便利店夜景](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
+[![CineStill 800T 便利店夜景和未经放大的 1:1 细节](docs/showcase/03-800t-night.png)](docs/showcase/03-800t-night.png)
 
-三张图是独立的成片示例，不是同一场景的胶片对照。三张都开启了颗粒和光晕。
+CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素**渲染，招牌边缘和路面的局部直接从渲染像素提取，未放大或额外锐化。颗粒与光晕是模拟工艺本身的一部分。
 
 <details>
-<summary>展开看两种相纸、夜景 1:1 细节和 135 片边</summary>
+<summary>展开看三款胶片样片、135 片边和材料库封面</summary>
 
-**同一张底片，两种相纸。** 对照同一张 RAW 的原图参考，以及同一 Portra 400 模拟底片在两款 Endura 相纸上的成片。下排是同位置的 1:1 裁切。
+**三个场景，三款胶片。** Portra 400 荷花、Acros II 白鸟、CineStill 800T 便利店。三个案例各有配方，不是同一场景换胶片的对比。
 
-[![荷花的 RAW 参考、两种相纸模拟与同位置细节](docs/showcase/01-paper-study.png)](docs/showcase/01-paper-study.png)
+[![三款模拟胶片的成片：Portra 400、Acros II 和 CineStill 800T](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
 
-**800T 夜景。** 便利店以 7008 × 4672 像素渲染。右侧原尺寸裁切展示招牌边缘的光晕和路面的颗粒，未放大。
+**画幅之外。** Silverphase 渲染 135 片边的齿孔、边码与帧号，不是在画面外贴一层边框。旁边是应用材料库的四张封面。
 
-[![CineStill 800T 便利店夜景和两块 1:1 局部](docs/showcase/03-800t-night.png)](docs/showcase/03-800t-night.png)
-
-**画幅之外。** 齿孔、边码和帧号由 Silverphase 渲染，旁边是应用材料库中的四张封面。
-
-[![真实渲染的 135 片边及四款应用内胶片封面](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
+[![Silverphase 渲染的 135 片边和应用材料库封面](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
 
 </details>
 
-四张成稿均为 2560 × 1600 像素（16:10）。[参数、照片来源与授权范围](docs/showcase/README.md) · [早期桌面界面案例](screenshots/current/README.md) · [iPhone 布局案例](screenshots/ios/2026-11-02/README.md)
+四张展示卡均为 **2560 × 1600（16:10）**；点击可看原尺寸。画面为软件模拟，不是实体相纸扫描；所用 RAW 不随仓库分发。[配方、照片来源与授权范围](docs/showcase/README.md) · [桌面界面存档](screenshots/current/README.md) · [iPhone 布局存档](screenshots/ios/2026-11-02/README.md)
 
 ## 编辑流程
 
-1. **打开照片。** 可使用普通图像或系统支持的 RAW 原片。RAW 兼容性取决于 Apple 的系统解码能力。
-2. **选择材料。** 公开目录包含 25 款常规胶片配置、9 款相纸和 29 款实验胶片。彩色负片可印相，正片或选择「不使用相纸」可直扫。Ilford Multigrade IV RC 支持 00–5 级纸号。[完整材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [实验配置来源与适用范围](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
-3. **按工艺调整。** 可以调整测光、白平衡、显影、颗粒、光晕、物理画幅与印相滤色，并加入片边和日期。
-4. **导出。** 成片可选 JPEG、8 位 PNG 或 16 位 TIFF，写入所选色彩配置。Cineon DI 包含 16 位对数 TIFF 与配套的 ProPhoto RGB／Rec.709 视图 LUT，适合后续调色。[导出与 DI 说明](modern_UI/Spektrafilm/README.md#图像与输出边界)
+照片可从文件导入；iPhone 与 iPad 也可从系统「照片」导入或在应用内拍摄。RAW 兼容性取决于 Apple 的系统解码能力。
+
+| 工艺 | 从哪里开始 |
+|---|---|
+| **预处理** | 在胶片曝光前调整入片影调、曝光、细节和色彩。受支持的 RAW 可选择匹配相机预览亮度；它是预处理选项，不是独立工艺。 |
+| **胶片** | 选择材料与物理画幅，再调整测光和手动胶片曝光。 |
+| **显影** | 调整底片的反差与显影表现。颗粒和光晕随材料与工艺形成。 |
+| **彩色放大（印相）** | 选择相纸并调整印相曝光与滤色。Ilford Multigrade IV RC 支持 00–5 级纸号。 |
+| **扫描** | 查看扫描与输出结果。正片或选择直扫的配方不经过相纸。 |
+
+构图（裁切）和片边是独立工具，不是扫描的一步。成片可导出为 JPEG、8 位 PNG 或 16 位 TIFF；Cineon DI 提供 16 位对数 TIFF 和配套的 ProPhoto RGB／Rec.709 视图 LUT，便于后续调色。具体控件与输出条件因平台而异。[输出与 DI 说明](modern_UI/Spektrafilm/README.md#图像与输出边界)
+
+公开目录含 25 款常规胶片、9 款相纸和 29 款实验胶片。[材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [实验配置的来源与范围](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
 
 ## 各平台功能
 

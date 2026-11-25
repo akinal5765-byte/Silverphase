@@ -5,6 +5,10 @@ Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
 
+The editor’s main stages are **Prep → Film → Development → Color Enlargement
+(Print) → Scan**. Crop and Film Edge are separate tools. See the platform guides
+for label and control differences.
+
 | Need | Current entry |
 |---|---|
 | Product, origins, licensing, basic builds | [中文](../README.md) / [English](../README.en.md) |

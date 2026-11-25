@@ -5,17 +5,23 @@
 <h1 align="center">Silverphase</h1>
 
 <p align="center">
-  <strong>From film exposure to the finished print.</strong><br>
+  <strong>Bring your photos into the darkroom.</strong><br>
   Native film and print simulation for macOS, iPhone, and iPad
 </p>
 
 <p align="center">
   <a href="README.md">简体中文</a> · English ·
-  <a href="docs/site/en.html">Website source</a> · <a href="#download">Download</a> · <a href="#examples">Examples</a> · <a href="#editing-workflow">Workflow</a> ·
+  <a href="docs/site/en.html">Website source</a> · <a href="#download">Download</a> · <a href="#also-by-the-author-layerlight">Layerlight</a> · <a href="#examples">Examples</a> · <a href="#editing-workflow">Workflow</a> ·
   <a href="#release-notes">Release notes</a> · <a href="docs/README.md">Documentation</a>
 </p>
 
-Silverphase is an open-source, on-device darkroom for **macOS, iPhone, and iPad**. Take a photo through **camera input → film exposure → development → printing → scanning**. Changing the paper can change the result without changing the negative. Grain, halation, and film edges are formed inside the process.
+Silverphase is an **open-source, on-device darkroom** for **macOS, iPhone and iPad**.
+
+### Same negative, two papers
+
+One Portra 400 negative, two simulated prints: **Portra Endura** and **Supra Endura**. The paper changes; the negative and print exposure setting stay fixed. The left column is Apple’s RAW preview with no film simulation; the bottom row shows the same detail in each version.
+
+[![A lotus RAW reference, two simulated paper prints and matching detail crops](docs/showcase/01-paper-study.png)](docs/showcase/01-paper-study.png)
 
 ## Download
 
@@ -35,8 +41,8 @@ The iPhone and iPad app is available on the App Store outside mainland China. Th
     <td width="112" align="center"><a href="https://apps.apple.com/app/id6756343255"><img src="screenshots/related-apps/layerlight-icon.png" width="96" height="96" alt="Layerlight app icon"></a></td>
     <td>
       <strong>Layerlight · Quick photo lighting for iPhone and iPad</strong><br>
-      A separate, proprietary app by the same author.
-      <p>Adjust the light in an everyday photo in a few taps, then compare with the original. Photographic Styles editing is a bonus on compatible devices and systems; some features require Pro.</p>
+      A separate, proprietary app by the same author. Free to download, with paid Pro features.
+      <p>Adjust the light in an everyday photo in a few taps, then compare with the original. On compatible devices and systems, Photographic Styles editing is also available.</p>
       <a href="https://apps.apple.com/app/id6756343255"><strong>View on the App Store →</strong></a> · <a href="https://www.youtube.com/shorts/F1xEDz2V0ms">Watch the 27-second demo</a>
     </td>
   </tr>
@@ -46,37 +52,42 @@ Layerlight and its icon retain their separate rights and are outside Silverphase
 
 ## Examples
 
-### Three scenes, three stocks
+### After dark with 800T: sign halation, pavement grain
 
-[![Silverphase film studies: Portra 400 lotus, Acros II white bird, and CineStill 800T storefront](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
+[![CineStill 800T storefront with native 1:1 crops of the glowing sign and grain on the pavement](docs/showcase/03-800t-night.png)](docs/showcase/03-800t-night.png)
 
-These are three independent Silverphase renders, not a controlled stock comparison. Grain and halation are enabled.
+CineStill 800T printed on Kodak Vision 2383, rendered at **7008 × 4672 px**. The sign and pavement details are direct 1:1 crops, with no enlargement or extra sharpening. Grain and halation are part of the simulation.
 
 <details>
-<summary>See the paper comparison, 1:1 night detail, and the 35 mm film edge</summary>
+<summary>See three film studies, a 135 film edge and stock-library artwork</summary>
 
-**Same negative, two papers.** Compare the RAW reference with Portra Endura and Supra Endura prints from the same Portra 400 negative. The lower row crops the same coordinates at 1:1 in each render.
+**Three scenes, three stocks.** A Portra 400 lotus, an Acros II white bird and a CineStill 800T storefront. Each has its own recipe; these are examples, not a controlled comparison.
 
-[![Lotus RAW reference, two paper simulations, and matching detail crops](docs/showcase/01-paper-study.png)](docs/showcase/01-paper-study.png)
+[![Three film studies rendered in Silverphase: Portra 400, Acros II and CineStill 800T](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
 
-**After dark with CineStill 800T.** The storefront is rendered at 7008 × 4672 px. The sign and pavement crops show the native detail without upscaling.
+**Beyond the frame.** Silverphase renders the perforations, edge markings and frame number in this 135 film edge. The four covers are from the in-app stock library.
 
-[![CineStill 800T storefront with separate 1:1 halation and grain details](docs/showcase/03-800t-night.png)](docs/showcase/03-800t-night.png)
-
-**Beyond the frame.** A Silverphase-rendered 135 film edge with perforations and frame markings, alongside four covers from the app.
-
-[![Silverphase-rendered 35 mm film edge and four stock-library covers](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
+[![Silverphase-rendered 135 film edge and four in-app stock covers](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
 
 </details>
 
-Each finished card is 2560 × 1600 px (16:10). [Recipes, source and artwork notes](docs/showcase/README.md) · [Earlier desktop UI captures](screenshots/current/README.md) · [iPhone layout captures](screenshots/ios/2026-11-02/README.md)
+Each showcase card is **2560 × 1600 (16:10)**; click to see it at full size. These are simulated prints, not scans of physical prints. The original RAW files are not distributed. [Recipes, photo sources and artwork rights](docs/showcase/README.md) · [Archived desktop UI captures](screenshots/current/README.md) · [Archived iPhone layouts](screenshots/ios/2026-11-02/README.md)
 
 ## Editing workflow
 
-1. **Open a photo.** Use a rendered image or a supported RAW original. RAW compatibility depends on the Apple system decoder.
-2. **Choose materials.** The public catalog contains 25 standard film profiles, 9 papers, and 29 experimental films. Print a negative or select a direct scan. Ilford Multigrade IV RC supports grades 00–5. [Full catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [Experimental profile provenance and scope](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
-3. **Adjust the process.** Control metering, white balance, development, grain, halation, physical frame size, and print filtration. Add film edges and date stamps.
-4. **Export.** Deliver a JPEG, 8-bit PNG, or 16-bit TIFF with your chosen color profile. The Cineon DI package provides a 16-bit log TIFF plus ProPhoto RGB and Rec.709 viewing LUTs for grading. [Export and DI guide](modern_UI/Spektrafilm/README.md#图像与输出边界)
+Open a rendered image or an original RAW file supported by the Apple system decoder. On iPhone and iPad you can also import from Photos or use the in-app camera.
+
+| Stage | Where to start |
+|---|---|
+| **Prep** | Adjust the input tone, exposure, detail and color before exposing the film. Supported RAW files can optionally match camera preview brightness here; preview matching is not a separate stage. |
+| **Film** | Choose a stock and physical format, then set metering and manual film exposure. |
+| **Development** | Shape the negative’s contrast and development. The simulation accounts for material effects such as grain and halation. |
+| **Color Enlargement (Print)** | Choose a paper and adjust print exposure and filtration. Ilford Multigrade IV RC supports grades 00–5. |
+| **Scan** | See the scanned output. Slide film and direct-scan recipes bypass paper. |
+
+Crop (Geometry on Mac) and Film Edge are separate tools, not part of Scan. Export a JPEG, 8-bit PNG or 16-bit TIFF, or save a Cineon DI package with a 16-bit log TIFF and ProPhoto RGB / Rec.709 viewing LUTs. Exact controls and output limits depend on platform. [Export and DI guide](modern_UI/Spektrafilm/README.md#图像与输出边界)
+
+The public catalog includes 25 standard film profiles, 9 papers and 29 experimental film profiles. [Material catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [Experimental profile provenance and scope](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
 
 ## Platform features
 

@@ -289,7 +289,11 @@ and a right inspector. Phones start with horizontal process navigation and use t
 
 ### 7.2 Process controls and compatibility
 
-Camera → film → development → print → scan/crop is the exposed process order.
+The exposed workflow is **Prep → Film → Development → Color Enlargement
+(Print) → Scan**. Crop (Geometry on macOS) and Film Edge are separate tools;
+macOS labels the last stage Scan / Output. Matching camera preview brightness
+for supported RAW files is an option within Prep, not a stage. Historical
+identifiers such as `camera` are not the current interface labels.
 There is no separate general grading rail. Legacy adjustment/sidecar structures
 may remain for compatibility. A source file's existence is not a promise of an
 exposed feature. Local-mask interaction is not currently a shipped editing flow.
