@@ -52,18 +52,25 @@ stocks = json.loads((resources / 'StockCatalog.json').read_text())['stocks']
 require(not list((ROOT / 'engine/resources/profiles').glob('*_experimental.json')), 'Retired experimental profile data is present')
 require(all(not stock['id'].endswith('_experimental') for stock in stocks), 'Retired experimental stock is in the catalog')
 aliases = {'kodak_portra_800_push1': 'kodak_portra_800',
-           'kodak_portra_800_push2': 'kodak_portra_800'}
+           'kodak_portra_800_push2': 'kodak_portra_800',
+           'cinestill_800t_fotufilm': 'cinestill_800t',
+           'fujifilm_acros_100_ii_fotufilm': 'fujifilm_neopan_acros_100_ii',
+           'ilford_hp5_plus_fotufilm': 'ilford_hp5_plus_400',
+           'kodak_tmax_100_fotufilm': 'kodak_tmax_100'}
 adopted = set(adoption['profiles'])
 adopted_ids = {Path(name).stem for name in adopted}
 require(len(adopted_ids) == 29 and adopted_ids == {s['id'] for s in stocks if s['id'].endswith(adoption['id_suffix'])},
         'Experimental imports and catalog differ')
+adopted_covers = set()
 for stock in stocks:
-    if stock['id'] in adopted_ids:
-        continue  # These stock cards use the built-in text fallback.
     sid = aliases.get(stock['id'], stock['id'])
     version = 'v2' if sid == 'kodak_portra_400' else 'v1'
     cover = resources / 'FilmCovers' / f'{sid}-packaging-{version}.png'
+    if stock['id'] in adopted_ids and not cover.is_file() and stock.get('cover'):
+        cover = resources / 'FilmCovers' / Path(stock['cover']).name
     require(cover.is_file(), f'Missing packaging cover: {stock["id"]}')
+    if stock['id'] in adopted_ids:
+        adopted_covers.add(str(cover.relative_to(ROOT)))
 for name in ('workflow_film_scan-v1.png', 'workflow_digital_intermediate-v1.png'):
     require((resources / 'FilmCovers' / name).is_file(), f'Missing workflow cover: {name}')
 for manifest in (ROOT / 'modern_UI/design/film-artwork').glob('generated-*-manifest.json'):
@@ -89,23 +96,37 @@ text_suffixes = {'.md', '.txt', '.json', '.py', '.swift', '.cpp', '.hpp', '.h', 
                  '.sh', '.pbxproj', '.plist', '.cff', '.yml', '.yaml', '.toml', '.xml'}
 # Allow the reviewed, hash-checked import while retaining the guard against
 # reintroducing historical research files or private source assets.
-approved_import = {f'engine/resources_product/{name}' for name in adopted} | {
+approved_import = {f'engine/resources_product/{name}' for name in adopted} | adopted_covers | {
     str((product / notice).relative_to(ROOT)),
     'engine/resources_product/UPSTREAM.json',
     'engine/resources_product/neutral_print_filters.json',
     'license/DATA-SOURCES.md',
+    'license/media-inventory.json',
+    'tools/check-open-source.py',
     'README.md', 'README.en.md', 'AGENTS.md', 'ARCHITECTURE.md', 'LICENSES.md',
     'docs/README.md', 'docs/LOCAL-MATERIALS.md',
     'modern_UI/Spektrafilm/releases/1.3.0.md',
+    'modern_UI/Spektrafilm/releases/1.3.1.md',
+    'modern_UI/Spektrafilm/README.md',
+    'modern_UI/Spektrafilm/VALIDATION.md',
     'ios/releases/1.3.0.md',
+    'ios/releases/1.3.1.md',
+    'ios/Silverphase/Sources/EditorDesign.swift',
+    'ios/Silverphase/Sources/MaterialChooser.swift',
+    'ios/Silverphase/Sources/MobileCamera.swift',
     'ios/Silverphase/Sources/SilverphaseApp.swift',
     'engine/src/core/curves.cpp', 'engine/src/core/curves.hpp', 'engine/src/core/params.cpp',
+    'engine/src/pipeline/pipeline.cpp',
+    'engine/tests/fotufilm_dir_edges.py',
+    'modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json',
     str(BUNDLE / notice),
     str(BUNDLE / 'Runtime-Data-SOURCES.md'),
     'modern_UI/Spektrafilm/Tools/bundle-licenses.sh',
     'modern_UI/Spektrafilm/Tools/check-bundle-resources.sh',
+    'modern_UI/Spektrafilm/Tools/gen-catalog.py',
     'modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json',
     'modern_UI/Spektrafilm/Spektrafilm/Model/StockCatalogCore.swift',
+    'modern_UI/Spektrafilm/Spektrafilm/Panels/Filmstrip.swift',
     'modern_UI/Spektrafilm/Spektrafilm/Windows/AboutWindow.swift',
     'modern_UI/Spektrafilm/SpektrafilmTests/StockListTests.swift',
     'modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/Profiles-and-LUTs-CHANGELOG.txt',

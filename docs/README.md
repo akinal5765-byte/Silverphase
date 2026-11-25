@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-11-20. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-25. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -13,6 +13,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | ABI, JSON, ownership, tiers, Cineon, film edge | [API reference](../API-SPEC-callable-render-service.md) |
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | App Store, TestFlight and macOS downloads | [Binary releases](BINARY-RELEASES.md) |
+| 1.3.1 source notes and verification | [macOS build 6](../modern_UI/Spektrafilm/releases/1.3.1.md) / [iOS and iPadOS build 11](../ios/releases/1.3.1.md) |
 | macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
 | iOS 1.3.0, public download and beta access | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) / [Source notes](../ios/releases/1.3.0.md) / [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) / [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) |
 | App Store distribution, privacy and user support | [Store record](../ios/APP-STORE.md) / [Privacy policy](PRIVACY.md) / [Support](SUPPORT.md) |
@@ -25,7 +26,7 @@ original scope. Documentation review is not a new performance or visual audit.
 | iOS lock-screen camera activation limitation (unresolved) | [iOS engineering](../ios/README.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
 | Ordinary iPhone layout screenshots | [2026-11-02 simulator captures](../screenshots/ios/2026-11-02/README.md) |
 | Mobile layout and controls | [DESIGN](../ios/DESIGN.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
-| Public experimental Fotufilm profiles and the private local overlay | [Data sources](../license/DATA-SOURCES.md#experimental-fotufilm-profiles) / [Local material overlay](LOCAL-MATERIALS.md) |
+| Public experimental Fotufilm profiles and the private local overlay | [Data sources](../license/DATA-SOURCES.md#experimental-fotufilm-profiles) / [DIR edge audit](../modern_UI/Spektrafilm/VALIDATION.md#fotufilm-dir-边缘增强复查) / [Local material overlay](LOCAL-MATERIALS.md) |
 | B&W profile origin and limitations | [B&W notes](../engine/tools/profile_sources/blackwhite.md) / [provenance](../engine/resources_product/UPSTREAM.json) |
 | Film edge/date-back model | [Film-edge notes](../engine/tools/profile_sources/film_edge.md) |
 | Production icon and design iterations | [Icon guide](../design/app-icon/README.md) |

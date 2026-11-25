@@ -106,7 +106,7 @@ python3 modern_UI/Spektrafilm/Tools/gen-project.py
 python3 ios/Silverphase/Tools/gen-project.py --check
 ```
 
-The source version is **1.3.0 (10)**. See the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) and [source notes](releases/1.3.0.md). The App Store and TestFlight show the builds available to install.
+The source version is **1.3.1 (11)** for the app, control widget, and locked camera extension. The App Store and TestFlight show the builds available to install. [1.3.1 source notes](releases/1.3.1.md) · [1.3.0 release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0)
 
 ## Current behavior
 
@@ -116,7 +116,7 @@ Crop now compiles the desktop `Geometry.swift` directly: free/aspect-locked fram
 
 System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. Imported originals, per-photo recipes, crop geometry, ratings and flags persist in the app-owned local library across cold starts. The library is the launch screen; tapping a photo opens the editor without a filmstrip, while multi-photo editing shows only the chosen batch. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, shows the saved original format in the library’s Photo Info, and prefers RAW. With Photos read access it checks the selected asset’s original and alternate resources for RAW. With limited or denied access it can still import the picker representation, and rejects a non-RAW file when the picker identifies the selection as RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
 
-Camera → Prep Tone adds scene adjustments before film exposure. Supported RAWs can match the embedded camera preview once per photo, with highlight protection and a starting exposure marker. Set the finished image size in Export. If a photo already has a custom simulation size, Film → Process actions → Restore Original Simulation Size returns to source sampling. JPEG, PNG and TIFF exports write the local library rating to `xmp:Rating`.
+Prep → Tone adjusts the scene before film exposure. Supported RAWs can match the embedded camera preview once per photo, with highlight protection and a starting exposure marker. Edit metering and the manual film exposure offset in Film. Set the finished image size in Export. If a photo already has a custom simulation size, Film → Process actions → Restore Original Simulation Size returns to source sampling. JPEG, PNG and TIFF exports write the local library rating to `xmp:Rating`.
 
 Preview quality is automatic: screen-sized fit, coalesced live adjustment, and progressive viewport detail up to native pixels. Double-tap or the menu switches fit/1:1. Settings retains low-power priority, crop effect rescaling, DI blue compensation and cache release; no fixed preview resolution picker. Output resolution is independent of preview. Export provides batch scopes, recipes, naming, JPEG/PNG/16-bit TIFF/Cineon DI, output spaces, metadata/location policies, TIFF previews, file-folder collision policies and add-only Photos saving. Per-process memory guards still apply.
 

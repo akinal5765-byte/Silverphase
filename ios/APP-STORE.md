@@ -2,6 +2,8 @@
 
 Silverphase is available on the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. The US, Japan and Hong Kong storefronts listed **1.2.5** on 2026-11-20. The mainland China lookup returned no listing.
 
+The repository source is **1.3.1 (11)**. See the [source notes](releases/1.3.1.md) for the scope of this build.
+
 ## 1.3.0 (10) · 2026-11-20
 
 See the [1.3.0 release notes](releases/1.3.0.md) for changes and device validation. App Store Connect record **6829987567** uses SKU `silverphase-ios` and bundle ID `com.silverphase.editor`. The deployment floor is iOS and iPadOS 18.

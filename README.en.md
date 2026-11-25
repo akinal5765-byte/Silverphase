@@ -69,6 +69,13 @@ The desktop image below is from the October 2026 examples. The [case gallery](sc
 
 ## Release notes
 
+The current source version is **1.3.1**. macOS, iOS, and iPadOS move metering and film exposure into Film, add cover art and source badges for all 29 public Fotufilm profiles, and reduce DIR edge overshoot in 17 of those profiles.
+
+| Platform | 1.3.1 source notes |
+|---|---|
+| macOS (build 6) | [Changes and verification](modern_UI/Spektrafilm/releases/1.3.1.md) |
+| iOS and iPadOS (build 11) | [Changes and verification](ios/releases/1.3.1.md) |
+
 | Platform | 1.3.0 release notes |
 |---|---|
 | macOS (build 5) | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · [Changes and Kodak 5219 validation](modern_UI/Spektrafilm/releases/1.3.0.md) |

@@ -53,12 +53,13 @@ adjustments. No silent exposure or material compensation is part of the contract
 The first retained input is reused for a repeated path, so newly baked LR edits
 must arrive under a new path. See [workflow and limits](docs/LIGHTROOM-CLASSIC.md).
 
-### 1.4 macOS 1.3.0 camera and export preparation
+### 1.4 Camera, film exposure and export preparation
 
 Camera-preview matching belongs to the host. The fit and manual fine-tuning
-belong to each photo. Pasting an enabled Camera match switch fits the target
-when it develops. The engine consumes the combined EV along with the other
-additive shoot fields. Zero preparation deltas bypass the new adjustments
+belong to each photo. Pasting an enabled match switch from the Prep group fits
+the target when it develops. The Film group carries metering and the manual
+film exposure offset on both platforms. The engine consumes the combined EV
+along with the other additive shoot fields. Zero preparation deltas bypass the new adjustments
 and the legacy fields retain their existing semantics.
 
 Simulation Size is resolved before the engine opens its input. Changing its
