@@ -32,7 +32,7 @@ One Portra 400 negative, two simulated prints: **Portra Endura** and **Supra End
 
 On macOS, check for updates in Settings → Software Update. The GitHub DMG uses an ad-hoc signature and has no Apple notarization. [Installation and checksum guide](docs/BINARY-RELEASES.md)
 
-The iPhone and iPad app is available on the App Store outside mainland China. The App Store and TestFlight each show the version available through that channel.
+The iPhone and iPad app is also available on the [China mainland App Store](https://apps.apple.com/cn/app/id6829987567). The App Store and TestFlight each show the version available through that channel.
 
 ## Also by the author: Layerlight
 

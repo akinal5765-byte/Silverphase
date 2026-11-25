@@ -1,7 +1,7 @@
 # Binary releases
 
 Find release notes and macOS packages on [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
-iPhone and iPad users can install Silverphase from the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. Beta builds are available through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
+iPhone and iPad users can install Silverphase from the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) including the [China mainland storefront](https://apps.apple.com/cn/app/id6829987567). Beta builds are available through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 The release notes name the exact source tag/commit, system requirements,
 signing state and validation scope. Release builds may have incomplete features.
 
@@ -32,7 +32,7 @@ external editor settings; no separate `.lrplugin` is needed. See the
 
 ## iPhone and iPad
 
-Install the public version through the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. The iOS 1.3.1 (build 11) source milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) and [source notes](../ios/releases/1.3.1.md).
+Install the public version through the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) including the [China mainland storefront](https://apps.apple.com/cn/app/id6829987567). The iOS 1.3.1 (build 11) source milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) and [source notes](../ios/releases/1.3.1.md).
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
