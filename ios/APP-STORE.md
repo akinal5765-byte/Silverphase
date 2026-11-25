@@ -2,7 +2,9 @@
 
 Silverphase is available on the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) outside mainland China. [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. The US, Japan and Hong Kong storefronts listed **1.2.5** on 2026-11-20. The mainland China lookup returned no listing.
 
-The repository source is **1.3.1 (11)**. See the [source notes](releases/1.3.1.md) for the scope of this build.
+## 1.3.1 (11) · 2026-11-25
+
+Xcode confirmed delivery to App Store Connect on 2026-11-25 and reported that the build was processing. The archive and dSYMs are retained locally. The signed app and both camera extensions passed version and signature checks, and the app retains the Increased Memory Limit entitlement. The public-material build uses source commit `c65902c`. [Source tag](https://github.com/akinal5765-byte/Silverphase/tree/v1.3.1) · [Release notes](releases/1.3.1.md)
 
 ## 1.3.0 (10) · 2026-11-20
 
