@@ -1154,6 +1154,10 @@ struct MobileCameraView: View {
 
     private func setPortraitMode(_ enabled: Bool) {
         guard ready, portraitMode != enabled else { return }
+#if DEBUG
+        Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+            .notice("PORTRAIT_CHECK toggle enabled=\(enabled) lens=\(lens.rawValue, privacy: .public)")
+#endif
         switchCamera(to: lens, portrait: enabled, changesInput: true)
     }
 
@@ -1288,6 +1292,12 @@ struct MobileCameraView: View {
                 let frozen = await camera.freezePreview()
 #endif
                 guard let frame = frozen else {
+#if DEBUG
+                    if portrait {
+                        Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                            .notice("PORTRAIT_CHECK transition missingFinderFrame")
+                    }
+#endif
                     switching = false
                     failure = T("The viewfinder is not ready yet. Try switching lenses again.", "取景画面尚未准备好，请重试切换镜头。", "取景畫面尚未準備好，請重試切換鏡頭。")
                     return
@@ -1476,6 +1486,11 @@ struct MobileCameraView: View {
             if !camera.session.isRunning, recoverLockedCameraOnce() { return }
 #endif
             if portraitMode {
+#if DEBUG
+                let error = error as NSError
+                Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                    .notice("PORTRAIT_CHECK startError domain=\(error.domain, privacy: .public) code=\(error.code)")
+#endif
                 portraitMode = false
                 failure = error.localizedDescription
                 retry += 1
@@ -1582,6 +1597,11 @@ struct MobileCameraView: View {
         let selectedFlash = flash
         let selectedLens = lens
         let usesDepth = portraitMode
+#if DEBUG && SILVERPHASE_APP
+        let preview = previewMode.rawValue
+        Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+            .notice("PORTRAIT_CHECK shutter portrait=\(usesDepth) preview=\(preview, privacy: .public) lens=\(selectedLens.rawValue, privacy: .public)")
+#endif
         let mirrored = lens == .front && mirrorsFrontCamera
         capturing = true
         Task {
@@ -1623,6 +1643,13 @@ struct MobileCameraView: View {
                     warnings.append(T("Portrait blur could not be applied this time; the camera's original was kept.", "本次未能应用人像虚化，已保留相机原片。", "本次未能應用人像虛化，已保留相機原片。"))
                 }
                 let imageData = portraitImage ?? data
+#if DEBUG
+                if usesDepth {
+                    let source = portraitImage == nil ? "camera-original" : "blurred-render"
+                    Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                        .notice("PORTRAIT_CHECK selected source=\(source, privacy: .public)")
+                }
+#endif
 #if SILVERPHASE_APP
                 let url = FileManager.default.temporaryDirectory
                     .appendingPathComponent("Silverphase-" + UUID().uuidString)
@@ -1671,6 +1698,13 @@ struct MobileCameraView: View {
                 if !warnings.isEmpty { failure = warnings.joined(separator: "\n") }
 #endif
             } catch {
+#if DEBUG
+                if usesDepth {
+                    let captureError = error as NSError
+                    Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                        .notice("PORTRAIT_CHECK shotError domain=\(captureError.domain, privacy: .public) code=\(captureError.code)")
+                }
+#endif
 #if !SILVERPHASE_APP
                 let cameraError = error as NSError
                 Logger(subsystem: "com.silverphase.editor", category: "LockedCamera")
@@ -1737,12 +1771,41 @@ private enum MobilePortraitCapture {
     static func render(_ data: Data, format: MobileCaptureFormat) -> Data? {
         autoreleasepool {
             let context = CIContext()
+#if DEBUG
+            let log = Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+#endif
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-                  let input = CIImage(data: data),
-                  let image = context.depthBlurEffectFilter(forImageData: data, options: nil)?.outputImage,
-                  let space = input.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
-                  let rendered = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: space)
-            else { return nil }
+                  let input = CIImage(data: data) else {
+#if DEBUG
+                log.notice("PORTRAIT_CHECK blur unreadableImage")
+#endif
+                return nil
+            }
+#if DEBUG
+            let depth = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeDepth) != nil
+            let disparity = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeDisparity) != nil
+            let matte = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypePortraitEffectsMatte) != nil
+            log.notice("PORTRAIT_CHECK container depth=\(depth) disparity=\(disparity) matte=\(matte)")
+#endif
+            guard let filter = context.depthBlurEffectFilter(forImageData: data, options: nil) else {
+#if DEBUG
+                log.notice("PORTRAIT_CHECK blur noFilter")
+#endif
+                return nil
+            }
+            guard let image = filter.outputImage else {
+#if DEBUG
+                log.notice("PORTRAIT_CHECK blur noOutput")
+#endif
+                return nil
+            }
+            guard let space = input.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
+                  let rendered = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: space) else {
+#if DEBUG
+                log.notice("PORTRAIT_CHECK blur pixelRenderFailed")
+#endif
+                return nil
+            }
             var properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] ?? [:]
             if let orientation = image.properties[kCGImagePropertyOrientation as String] {
                 properties[kCGImagePropertyOrientation as String] = orientation
@@ -1750,10 +1813,18 @@ private enum MobilePortraitCapture {
             properties[kCGImageDestinationLossyCompressionQuality as String] = 0.96
             let bytes = NSMutableData()
             let type = format == .heic ? UTType.heic : UTType.jpeg
-            guard let destination = CGImageDestinationCreateWithData(bytes, type.identifier as CFString, 1, nil)
-            else { return nil }
+            guard let destination = CGImageDestinationCreateWithData(bytes, type.identifier as CFString, 1, nil) else {
+#if DEBUG
+                log.notice("PORTRAIT_CHECK blur destinationFailed")
+#endif
+                return nil
+            }
             CGImageDestinationAddImage(destination, rendered, properties as CFDictionary)
-            return CGImageDestinationFinalize(destination) ? bytes as Data : nil
+            let written = CGImageDestinationFinalize(destination)
+#if DEBUG
+            log.notice("PORTRAIT_CHECK blur encoded=\(written) pixels=\(rendered.width)x\(rendered.height)")
+#endif
+            return written ? bytes as Data : nil
         }
     }
 }

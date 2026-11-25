@@ -236,6 +236,20 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     // from this configuration remain live throughout the ramp.
                     self.lookFrames.beginConfiguration()
 #endif
+#if DEBUG
+                    if portrait {
+                        let supported = self.output.isDepthDataDeliverySupported
+                        let enabled = self.output.isDepthDataDeliveryEnabled
+                        let matte = self.output.isPortraitEffectsMatteDeliveryEnabled
+#if SILVERPHASE_APP
+                        let videoOutput = self.usesOriginalPortraitVideoOutput(portrait: portrait) ? "original-settings" : "current-settings"
+#else
+                        let videoOutput = "lock-screen"
+#endif
+                        Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                            .notice("PORTRAIT_CHECK graph device=\(device.deviceType.rawValue, privacy: .public) videoOutput=\(videoOutput, privacy: .public) depthSupported=\(supported) depthEnabled=\(enabled) matteEnabled=\(matte)")
+                    }
+#endif
                     if portrait && !self.output.isDepthDataDeliveryEnabled {
                         throw MobileFailure.message(TDetached("The current lens or capture configuration does not support portrait depth.", "当前镜头或拍摄配置不支持人像深度。", "目前鏡頭或拍攝設定檔不支援人像深度。"))
                     }
@@ -329,6 +343,12 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         return nil
     }
 
+#if DEBUG && SILVERPHASE_APP
+    private func usesOriginalPortraitVideoOutput(portrait: Bool) -> Bool {
+        portrait && ProcessInfo.processInfo.arguments.contains("--portrait-check-original-video-output")
+    }
+#endif
+
     private func configure(lens: MobileCameraLens, portrait: Bool) throws -> AVCaptureDevice {
         guard let device = portrait ? portraitDevice(for: lens) : lens.physicalLens.findDevice() else {
             throw MobileFailure.message(TDetached("This device has no lens of that kind", "此设备没有所选镜头", "此設備沒有所選鏡頭"))
@@ -366,9 +386,16 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             let frames = AVCaptureVideoDataOutput()
             frames.alwaysDiscardsLateVideoFrames = true
 #if SILVERPHASE_APP
-            frames.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
-            frames.automaticallyConfiguresOutputBufferDimensions = false
-            frames.deliversPreviewSizedOutputBuffers = true
+#if DEBUG
+            let useOriginalVideoOutput = usesOriginalPortraitVideoOutput(portrait: portrait)
+#else
+            let useOriginalVideoOutput = false
+#endif
+            if !useOriginalVideoOutput {
+                frames.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+                frames.automaticallyConfiguresOutputBufferDimensions = false
+                frames.deliversPreviewSizedOutputBuffers = true
+            }
 #endif
             if session.canAddOutput(frames) {
                 session.addOutput(frames)
@@ -699,7 +726,14 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     settings.isPortraitEffectsMatteDeliveryEnabled = self.output.isPortraitEffectsMatteDeliveryEnabled
                 }
                 if self.output.supportedFlashModes.contains(flash) { settings.flashMode = flash }
-                let delegate = StillCaptureDelegate(format: format, lens: lens, requested: settings.maxPhotoDimensions) { result in
+#if DEBUG
+                if portrait {
+                    Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                        .notice("PORTRAIT_CHECK submitted lens=\(lens.rawValue, privacy: .public) format=\(format.rawValue, privacy: .public)")
+                }
+#endif
+                let delegate = StillCaptureDelegate(format: format, lens: lens, requested: settings.maxPhotoDimensions,
+                                                    expectsDepth: portrait) { result in
                     self.queue.async {
                         self.captureDelegate = nil
                         continuation.resume(with: result.map { (data: $0, format: format) })
@@ -729,16 +763,20 @@ private final class StillCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
     let requested: CMVideoDimensions
 #if DEBUG
     private let submittedAt = ProcessInfo.processInfo.systemUptime
+    private let expectsDepth: Bool
 #endif
     let finish: @Sendable (Result<Data, Error>) -> Void
     private var data: Data?
     private var processingError: Error?
 
-    init(format: MobileCaptureFormat, lens: MobileCameraLens, requested: CMVideoDimensions,
+    init(format: MobileCaptureFormat, lens: MobileCameraLens, requested: CMVideoDimensions, expectsDepth: Bool,
          finish: @escaping @Sendable (Result<Data, Error>) -> Void) {
         self.format = format
         self.lens = lens
         self.requested = requested
+#if DEBUG
+        self.expectsDepth = expectsDepth
+#endif
         self.finish = finish
     }
 
@@ -746,6 +784,17 @@ private final class StillCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
         if let error { processingError = error; return }
         guard photo.isRawPhoto == (format == .proRAW || format == .bayer) else { return }
         data = photo.fileDataRepresentation()
+#if DEBUG
+        if expectsDepth {
+            let depth = photo.depthData
+            let width = depth.map { CVPixelBufferGetWidth($0.depthDataMap) } ?? 0
+            let height = depth.map { CVPixelBufferGetHeight($0.depthDataMap) } ?? 0
+            let matte = photo.portraitEffectsMatte != nil
+            let bytes = data?.count ?? 0
+            Logger(subsystem: "com.silverphase.editor", category: "PortraitCheck")
+                .notice("PORTRAIT_CHECK photo nativeDepth=\(width)x\(height) nativeMatte=\(matte) bytes=\(bytes)")
+        }
+#endif
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
