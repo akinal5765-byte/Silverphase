@@ -40,11 +40,24 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
     var isPositive: Bool { type == "positive" }
     /// Stable catalog identity, independent of localized display names.
     var isLocalExperimental: Bool { isFilm && id.hasSuffix("_experimental") }
-    var isExperimental: Bool { isLocalExperimental || (isFilm && id.hasSuffix("_fotufilm")) }
+    var isFotufilm: Bool { isFilm && id.hasSuffix("_fotufilm") }
+    var isExperimental: Bool { isLocalExperimental || isFotufilm }
+    var displayName: String {
+        let suffix = " (Fotufilm)"
+        return isFotufilm && name.hasSuffix(suffix) ? String(name.dropLast(suffix.count)) : name
+    }
     var brand: String { name.split(separator: " ").first.map(String.init) ?? "" }
     /// Generated packaging artwork, separate from legacy catalog cover metadata.
     var packagingArtworkURL: URL? {
-        let baseID = id == "kodak_portra_800_push1" || id == "kodak_portra_800_push2" ? "kodak_portra_800" : id
+        let baseID: String
+        switch id {
+        case "kodak_portra_800_push1", "kodak_portra_800_push2": baseID = "kodak_portra_800"
+        case "cinestill_800t_fotufilm": baseID = "cinestill_800t"
+        case "fujifilm_acros_100_ii_fotufilm": baseID = "fujifilm_neopan_acros_100_ii"
+        case "ilford_hp5_plus_fotufilm": baseID = "ilford_hp5_plus_400"
+        case "kodak_tmax_100_fotufilm": baseID = "kodak_tmax_100"
+        default: baseID = id
+        }
         let version = baseID == "kodak_portra_400" ? "v2" : "v1"
         return StockCatalog.bundle.url(forResource: baseID + "-packaging-" + version,
                                        withExtension: "png", subdirectory: StockCatalog.resourceDirectory + (isLocalExperimental ? "/LocalMaterials/FilmCovers" : "/FilmCovers"))

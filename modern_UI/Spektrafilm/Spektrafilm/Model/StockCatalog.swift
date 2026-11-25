@@ -79,13 +79,13 @@ enum MaterialBrowserFilter: CaseIterable {
 
     var title: String {
         if let stock {
-            return stock.name.replacingOccurrences(of: "Professional ", with: "")
+            return stock.displayName.replacingOccurrences(of: "Professional ", with: "")
         }
         return id == Self.scanID ? L(.printNone) : L(.printDigitalIntermediate)
     }
     /// Entity packaging and virtual workflow labels share the same renderer.
     var artworkURL: URL? {
-        if let stock { return stock.packagingArtworkURL }
+        if let stock { return stock.packagingArtworkURL ?? stock.coverURL }
         let filename: String
         switch id {
         case Self.scanID: filename = "workflow_film_scan-v1"

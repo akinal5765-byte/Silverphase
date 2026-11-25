@@ -27,6 +27,7 @@ OUT = HERE / "Spektrafilm/Resources"
 
 # stock id -> substring of the cover filename
 COVERS = {
+    "cinestill_400d_fotufilm": "CineStill_400D",
     "kodak_portra_400": "Kodak_Portra_400",
     "kodak_portra_160": "Kodak_Portra_160",
     "kodak_portra_800": "Kodak_Portra_800",
@@ -37,6 +38,7 @@ COVERS = {
     "kodak_ultramax_400": "Kodak_UltraMax_400",
     "fujifilm_provia_100f": "Fujifilm_Provia_100F",
     "fujifilm_velvia_100": "Fujifilm_Velvia_100",
+    "fujifilm_velvia_50_fotufilm": "Fujifilm_Velvia_50",
     "fujifilm_xtra_400": "Fujifilm_Color_400",
 }
 
@@ -90,7 +92,7 @@ def main() -> None:
                 cover = f"{sid}.jpg"
                 dst = OUT / "FilmCovers" / cover
                 if not dst.exists():
-                    subprocess.run(["sips", "-Z", "160", str(src), "--out", str(dst)],
+                    subprocess.run(["sips", "-s", "format", "jpeg", "-Z", "160", str(src), "--out", str(dst)],
                                    check=True, capture_output=True)
         stocks.append({
             "id": sid,
