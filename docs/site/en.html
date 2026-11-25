@@ -14,7 +14,7 @@
 <link rel="alternate" hreflang="en" href="https://akinal5765-byte.github.io/Silverphase/site/en.html">
 <link rel="alternate" hreflang="zh-CN" href="https://akinal5765-byte.github.io/Silverphase/">
 <link rel="icon" href="../site/silverphase-icon.png">
-<link rel="stylesheet" href="../site/styles.css?v=4">
+<link rel="stylesheet" href="../site/styles.css?v=5">
 <script defer src="../site/site.js?v=3"></script>
 </head>
 <body>
@@ -22,7 +22,7 @@
 <header class="top">
 <div class="shell navwrap">
 <a class="brand" href="../index.html"><img src="../site/silverphase-icon.png" width="34" height="34" alt="">Silverphase</a>
-<nav aria-label="Navigation"><a href="#paper">Paper study</a><a href="#work">Gallery</a><a href="#process">Process</a><a href="#layerlight">Layerlight</a></nav>
+<nav aria-label="Navigation"><a href="#paper">Paper study</a><a href="#work">Gallery</a><a class="why-nav" href="#why">Why Silverphase</a><a href="#process">Process</a><a href="#layerlight">Layerlight</a></nav>
 <a class="language" href="../index.html" hreflang="zh-CN" lang="zh-CN">简中</a>
 <a class="nav-download" href="#download">Download</a>
 </div>
@@ -33,7 +33,7 @@
   <p class="kicker">OPEN SOURCE · AN APPLE DARKROOM</p>
   <h1 id="headline">Bring your <br>photos into <br><span>the darkroom.</span></h1>
   <p class="lede">See the same photo before film simulation and as a Portra 400 print. Then make your own in Silverphase, from Prep to the finished image.</p>
-  <div class="actions"><a class="button hot" href="#download">Get Silverphase</a><a class="under" href="#paper">See the full comparison</a></div>
+  <div class="actions"><a class="button hot" href="#download">Get Silverphase</a><a class="under" href="study-en.html">Open the comparison lab</a></div>
   <p class="devices">Mac · iPhone · iPad</p>
  </div>
  <figure class="hero-art contact-print">
@@ -62,9 +62,22 @@
  <figure><img src="../site/plates/portra-detail.webp" width="768" height="408" alt="Portra Endura matching detail" loading="lazy" decoding="async"><figcaption>Matching detail</figcaption></figure>
  <figure><img src="../site/plates/supra-detail.webp" width="768" height="408" alt="Matching detail for the right-hand image" id="swap-detail" decoding="async"><figcaption>Matching detail</figcaption></figure>
  </div>
- <div class="recipe-note"><p id="swap-note">Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p><a class="under" href="../showcase/01-paper-study.png">Open the full 2560 px comparison</a></div><template id="paper-raw"><span>RAW reference</span><p>Apple’s RAW decode, with no film simulation.</p></template><template id="paper-portra"><span>Portra Endura</span><p>The same Portra 400 negative, printed with Portra Endura’s built-in neutral calibration.</p></template><template id="paper-supra"><span>Supra Endura</span><p>Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p></template>
+ <div class="lab-lead"><a class="button outline" href="study-en.html">Choose both sides and switch to matching details</a></div><div class="recipe-note"><p id="swap-note">Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p><a class="under" href="../showcase/01-paper-study.png">Open the full 2560 px comparison</a></div><template id="paper-raw"><span>RAW reference</span><p>Apple’s RAW decode, with no film simulation.</p></template><template id="paper-portra"><span>Portra Endura</span><p>The same Portra 400 negative, printed with Portra Endura’s built-in neutral calibration.</p></template><template id="paper-supra"><span>Supra Endura</span><p>Same negative and print exposure, now with Supra Endura’s built-in neutral calibration.</p></template>
  <p class="method">Method: +0.67 EV from metered film exposure, with the print exposure value held at 0.88. Each paper uses its built-in neutral calibration. Detail crops use the same coordinates in the 4096 px renders.</p>
 </div>
+</section>
+<section class="section shell" id="why">
+ <div class="section-head"><p class="kicker">WHY SILVERPHASE</p><h2>A darkroom built around still photos.</h2><p class="intro">Film, paper, grain and halation are shared across this ecosystem. Silverphase focuses on the work around them: capturing, selecting, processing and delivering still photographs on Apple devices.</p></div>
+ <div class="stock-grid workflow-proof">
+ <article><p class="kicker">iPhone / iPad</p><h3>Shoot, select and work in batches</h3><p>Shoot in the app or import from Photos and Files. The local library keeps originals and per-photo edits; rate and flag frames, copy selected adjustments, and export a batch.</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/ios/README.md">Read the mobile guide</a></article>
+ <article><p class="kicker">macOS</p><h3>Print within your desktop workflow</h3><p>Work from folders, soft-proof a print and compose a two-photo half-frame. Lightroom Classic can send a rendered JPEG or TIFF copy and keep the returned result in its catalog.</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/docs/LIGHTROOM-CLASSIC.md">See the Lightroom Classic round trip</a></article>
+ <article><p class="kicker">OUTPUT</p><h3>Finish a print or hand it off for grading</h3><p>Export a finished JPEG, PNG or 16-bit TIFF. Cineon DI bypasses print paper and delivers a 16-bit log TIFF with viewing LUTs for further work elsewhere.</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/modern_UI/Spektrafilm/README.md#图像与输出边界">See output formats and limits</a></article>
+ </div>
+ <div class="ecosystem"><h3>Which workflow fits?</h3><dl>
+ <div><dt>Silverphase</dt><dd>A native still-photo darkroom: capture and organize on iPhone or iPad; use folders, printing and output tools on Mac. The apps share a rendering engine, not a synced library, and controls differ by platform.</dd></div>
+ <div><dt><a href="https://spektrafilm.114c.de/">spektrafilm OFX</a></dt><dd>Start there if your workflow begins on a Resolve or other OFX timeline. The project also offers a Mac standalone app and an iPhone beta.</dd></div>
+ <div><dt><a href="https://getnegs.com/spektrafilm">Negs</a></dt><dd>Start there for cross-platform work or if you want to try spektrafilm directly in a browser.</dd></div>
+ </dl><p class="method">A workflow guide based on public documentation, not a ranking of image quality or speed.</p></div>
 </section>
 <section class="shell section" id="work">
  <div class="section-head"><p class="kicker">FILM STUDIES</p><h2>Three scenes, three stocks.</h2><p class="intro">A daylight color negative, a black-and-white negative and a tungsten color negative. Each image has its own recipe; this is not a controlled stock comparison.</p></div>

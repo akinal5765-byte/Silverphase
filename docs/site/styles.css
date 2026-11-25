@@ -75,3 +75,29 @@ html[lang="zh-CN"] .hero .actions{grid-area:actions;margin-top:0;align-self:star
  html[lang="zh-CN"] .hero .hero-text{display:block}
  html[lang="zh-CN"] .hero h1{margin:.58rem 0 .68rem}
 }
+
+/* Darkroom comparison lab and platform workflows */
+.lab-lead{margin-top:1rem}.paper .lab-lead .outline{border-color:#896550}
+.workflow-proof article{padding:1.35rem 0;border-top:1px solid #725543}
+.workflow-proof h3{margin:.48rem 0 .65rem;font-size:1.36rem;line-height:1.32}
+.workflow-proof article p:not(.kicker){color:var(--muted);margin-bottom:.75rem}
+.ecosystem{border:1px solid var(--line);margin-top:2rem;padding:clamp(1rem,3vw,2.5rem);background:#1e1916}
+.ecosystem h3{font-size:1.4rem;font-weight:640}.ecosystem dl{margin:.75rem 0 0}.ecosystem dl div{display:grid;grid-template-columns:minmax(9rem,1fr) minmax(0,3fr);gap:1rem;padding:.8rem 0;border-top:1px solid var(--line)}
+.ecosystem dt{font-weight:680}.ecosystem dd{margin:0;color:var(--muted)}
+.lab-intro{padding-bottom:2.6rem}
+.lab-intro h1{font:400 clamp(3rem,7.3vw,7.3rem)/1.05 var(--serif);margin:.55rem 0 1rem;letter-spacing:-.028em}
+html[lang="zh-CN"] .lab-intro h1{font-family:var(--cn-display);font-weight:600;letter-spacing:.015em}
+.lab-block{margin-bottom:2rem}
+.lab-controls:not([hidden]){display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.75rem 1.35rem;align-items:end;margin:0 0 1.1rem}
+.lab-presets,.lab-views,.lab-selects{display:flex;flex-wrap:wrap;gap:.45rem}
+.lab-selects{flex-wrap:nowrap}
+.lab-selects label{flex:1;display:grid;min-width:0;gap:.25rem;color:var(--muted);font-size:.88rem}
+.lab-selects select,.lab-controls button{min-height:44px;border:1px solid #8e7060;color:var(--fg);background:#241b18;border-radius:3px;padding:.45rem .68rem;font:inherit}
+.lab-selects select{width:100%;font-size:.87rem}
+.lab-controls button{cursor:pointer}.lab-controls button[aria-pressed="true"]{background:var(--copper);color:#241712;border-color:var(--copper)}
+.lab-controls :focus-visible{outline:3px solid var(--copper);outline-offset:3px}
+.lab-proof{max-width:1040px}.lab-proof .detail-view{aspect-ratio:768/408}.lab-labels>strong:last-child{text-align:right}.lab-proof .proof-move span{letter-spacing:.08em;font-weight:750}
+.lab-method{margin-top:1rem}.lab-method p{color:var(--muted);padding:0 0 1rem;max-width:83ch}
+.lab-source{margin-top:.85rem}
+@media(max-width:900px){.lab-controls:not([hidden]){grid-template-columns:1fr 1fr}.lab-selects{grid-column:1/-1;grid-row:2}.lab-views{justify-content:end}}
+@media(max-width:680px){.why-nav{display:none!important}.ecosystem dl div{grid-template-columns:1fr;gap:.15rem}.lab-controls:not([hidden]){gap:.6rem}.lab-controls button{font-size:.82rem;padding:.35rem .5rem}.lab-labels>strong{font-size:.79rem}.lab-intro{padding-top:2.1rem}.lab-intro h1{font-size:clamp(2.65rem,12vw,4.3rem)}}

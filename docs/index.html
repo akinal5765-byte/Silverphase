@@ -14,7 +14,7 @@
 <link rel="alternate" hreflang="en" href="https://akinal5765-byte.github.io/Silverphase/site/en.html">
 <link rel="alternate" hreflang="zh-CN" href="https://akinal5765-byte.github.io/Silverphase/">
 <link rel="icon" href="site/silverphase-icon.png">
-<link rel="stylesheet" href="site/styles.css?v=4">
+<link rel="stylesheet" href="site/styles.css?v=5">
 <script defer src="site/site.js?v=3"></script>
 </head>
 <body>
@@ -22,7 +22,7 @@
 <header class="top">
 <div class="shell navwrap">
 <a class="brand" href="index.html"><img src="site/silverphase-icon.png" width="34" height="34" alt="">Silverphase</a>
-<nav aria-label="导航"><a href="#paper">相纸对照</a><a href="#work">作品</a><a href="#process">流程</a><a href="#layerlight">Layerlight</a></nav>
+<nav aria-label="导航"><a href="#paper">相纸对照</a><a href="#work">作品</a><a class="why-nav" href="#why">为什么选它</a><a href="#process">流程</a><a href="#layerlight">Layerlight</a></nav>
 <a class="language" href="site/en.html" hreflang="en" lang="en">EN</a>
 <a class="nav-download" href="#download">下载</a>
 </div>
@@ -49,7 +49,7 @@
  </figcaption>
  <noscript><p><a href="#paper">查看两种相纸对照</a></p></noscript>
  </figure>
- <div class="actions"><a class="button hot" href="#download">下载 Silverphase</a><a class="under" href="#paper">继续看相纸对照</a></div>
+ <div class="actions"><a class="button hot" href="#download">下载 Silverphase</a><a class="under" href="site/study.html">打开比较实验室</a></div>
 </section>
 <section class="paper light" id="paper">
 <div class="shell">
@@ -61,9 +61,22 @@
  <figure><img src="site/plates/portra-detail.webp" width="768" height="408" alt="Portra Endura 原像素局部" loading="lazy" decoding="async"><figcaption>同位置细节</figcaption></figure>
  <figure><img src="site/plates/supra-detail.webp" width="768" height="408" alt="右侧对照的同位置细节" id="swap-detail" decoding="async"><figcaption>同位置细节</figcaption></figure>
  </div>
- <div class="recipe-note"><p id="swap-note">仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p><a class="under" href="showcase/01-paper-study.png">查看 2560 px 完整对照图</a></div><template id="paper-raw"><span>原图参考</span><p>Apple 系统解码，未应用胶片模拟。</p></template><template id="paper-portra"><span>Portra Endura</span><p>同一张 Portra 400 模拟底片，使用 Portra Endura 的内置中性校准。</p></template><template id="paper-supra"><span>Supra Endura</span><p>仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p></template>
+ <div class="lab-lead"><a class="button outline" href="site/study.html">自选左右样片，并切换同位置细节</a></div><div class="recipe-note"><p id="swap-note">仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p><a class="under" href="showcase/01-paper-study.png">查看 2560 px 完整对照图</a></div><template id="paper-raw"><span>原图参考</span><p>Apple 系统解码，未应用胶片模拟。</p></template><template id="paper-portra"><span>Portra Endura</span><p>同一张 Portra 400 模拟底片，使用 Portra Endura 的内置中性校准。</p></template><template id="paper-supra"><span>Supra Endura</span><p>仍是同一张底片和相同印相曝光，改用 Supra Endura 的内置中性校准。</p></template>
  <p class="method">对照条件：胶片曝光较测光基准 +0.67 EV，两种相纸的印相曝光值均为 0.88。每张相纸使用自己的内置中性校准。局部取自 4096 px 成片的同一坐标。</p>
 </div>
+</section>
+<section class="section shell" id="why">
+ <div class="section-head"><p class="kicker">为什么选 Silverphase</p><h2>把暗房工艺放进日常拍照。</h2><p class="intro">胶片、相纸、颗粒和光晕并不是我们独有。Silverphase 的重点是把这些工艺连到 Apple 设备的实际照片工作流：拍摄、选片、批量处理和交付。</p></div>
+ <div class="stock-grid workflow-proof">
+ <article><p class="kicker">iPhone / iPad</p><h3>拍摄、选片和批量处理</h3><p>用应用内相机拍摄，或从「照片」和「文件」导入。原片与逐张编辑保存在本地图库，可评分、加旗标、将选定的调整应用到多张照片并批量导出。</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/ios/README.md">移动端指南</a></article>
+ <article><p class="kicker">macOS</p><h3>在你的桌面流程里印相</h3><p>用文件夹管理一组照片，可软打样、组合双照片半格，也能从 Lightroom Classic 送来渲染后的 JPEG 或 TIFF 副本，再把结果保存回 Lightroom 登记的文件。</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/docs/LIGHTROOM-CLASSIC.md">Lightroom Classic 往返说明</a></article>
+ <article><p class="kicker">输出</p><h3>交付成片，或留给下一步调色</h3><p>可导出 JPEG、PNG 或 16 位 TIFF。Cineon DI 是绕过相纸印相的 16 位对数 TIFF，附查看 LUT，适合把模拟底片带到其他工具继续处理。</p><a class="under" href="https://github.com/akinal5765-byte/Silverphase/blob/main/modern_UI/Spektrafilm/README.md#图像与输出边界">输出格式与边界</a></article>
+ </div>
+ <div class="ecosystem"><h3>怎么选工作流？</h3><dl>
+ <div><dt>Silverphase</dt><dd>原生静态照片暗房：iPhone／iPad 的拍摄与图库，Mac 的文件夹、印相与交付。各平台控件不完全相同；两端共享渲染引擎，不代表图库跨设备同步。</dd></div>
+ <div><dt><a href="https://spektrafilm.114c.de/">spektrafilm OFX</a></dt><dd>如果工作从 Resolve 等 OFX 宿主的时间线开始，先看它的插件；该项目也提供 Mac 独立版和 iPhone 公测，不是只做视频。</dd></div>
+ <div><dt><a href="https://getnegs.com/spektrafilm">Negs</a></dt><dd>如果重点是跨平台，或想直接在浏览器里试 spektrafilm，先看 Negs。</dd></div>
+ </dl><p class="method">按公开文档比较工作流，不是画质或速度排名。</p></div>
 </section>
 <section class="shell section" id="work">
  <div class="section-head"><p class="kicker">胶片作品</p><h2>三种光，三卷胶片。</h2><p class="intro">日光彩负、黑白负片和钨丝灯彩负。这里是三张各自调校的照片，不是固定场景的横评。</p></div>
