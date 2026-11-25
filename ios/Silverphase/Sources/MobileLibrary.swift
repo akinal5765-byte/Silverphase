@@ -20,6 +20,7 @@ struct MobileLibrary: View {
     @State private var pickingPhotos = false
     @State private var importing = false
     @State private var showingCamera = false
+    @State private var showingVideoCamera = false
     @State private var cameraReturnPhotoID: UUID?
     @State private var visiblePhotoID: UUID?
     @State private var legacyPhotoDates: [UUID: (date: Date?, day: Int?)] = [:]
@@ -52,7 +53,7 @@ struct MobileLibrary: View {
     private var canHandleCameraShortcut: Bool {
         MobileCameraLaunch.shared.pending && scenePhase == .active && !document.isInteractionLocked &&
             document.libraryReadError == nil && (editor != nil || !document.editorVisible) &&
-            !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
+            !showingVideoCamera && !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
             copyRequest == nil && photoInfo == nil && deleting.isEmpty
     }
     private var newestPhoto: MobilePhoto? {
@@ -140,6 +141,9 @@ struct MobileLibrary: View {
             }
         }
         .onChange(of: photos.map(\.id)) { _, ids in document.restrictPhotoSelection(to: ids) }
+#if DEBUG
+        .fullScreenCover(isPresented: $showingVideoCamera) { MobileVideoCaptureView() }
+#endif
         .fullScreenCover(isPresented: $showingCamera, onDismiss: {
             if let cameraReturnPhotoID {
                 visiblePhotoID = cameraReturnPhotoID
@@ -241,7 +245,7 @@ struct MobileLibrary: View {
         } message: { ids in
             Text(T("This deletes the in-app originals and edit records for \(ids.count) photos. It cannot be undone; Photos and the sources you imported from are not affected.", "将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。", "將刪除 \(ids.count) 張照片的應用內原檔案和編輯記錄。此操作無法還原，系統相簿和導入來源不受影響。"))
         }
-        .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
+        .overlay { notification(covered: showingCamera || showingVideoCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
     }
     @ViewBuilder private var libraryTopBar: some View {
         if !document.isSelectingPhotos {
@@ -517,6 +521,13 @@ struct MobileLibrary: View {
                             }
                         }
                     }
+#if DEBUG
+                    Section {
+                        Button(T("Record Video", "录制视频", "錄製影片"), systemImage: "video") {
+                            showingVideoCamera = true
+                        }.accessibilityIdentifier("library.video-camera")
+                    }
+#endif
                     Section {
                         Button(T("Settings", "设置", "設定"), systemImage: "gearshape") { settings = .init(folded: phoneHingeClosed == true) }
                         Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = .init(folded: phoneHingeClosed == true) }
