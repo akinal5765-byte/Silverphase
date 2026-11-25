@@ -1,0 +1,22 @@
+/* Silverphase web develop replay (self-contained, no animation on load). */
+.develop-section{border-block:1px solid #6d503c;background:#221a15}
+.develop-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);align-items:center;gap:clamp(1.55rem,5vw,5rem)}
+.develop-section .section-head{margin-bottom:0}
+.develop-section .develop-notes{margin-top:1.3rem;color:var(--muted);font-size:.81rem}
+.develop-section .develop-notes a{white-space:normal}
+.develop-board{border:1px solid #86674e;padding:clamp(.55rem,1.4vw,1.1rem);background:#191410;box-shadow:0 1rem 3rem #0003;min-width:0}
+.develop-frame{position:relative;background:#2f241a}
+.develop-frame img,.develop-frame canvas{display:block;width:100%;height:auto}
+.develop-frame canvas{position:absolute;inset:0}
+.develop-board [hidden]{display:none!important}
+.develop-meter{height:3px;background:#644a36;overflow:hidden}
+.develop-meter i{display:block;width:100%;height:100%;background:#eea86e;transform:scaleX(0);transform-origin:left center}
+.develop-controls{display:flex;align-items:center;gap:.45rem 1rem;flex-wrap:wrap;margin:.75rem 0 .38rem}
+.develop-controls .button{cursor:pointer}
+.develop-controls .button[aria-disabled=true]{opacity:.72;cursor:wait}
+.develop-controls .under{font-size:.9rem;display:inline-flex;align-items:center;min-height:44px}
+.develop-phase{font-size:.83rem;color:var(--muted);min-height:1.6rem}
+.develop-jump{display:inline-flex;align-items:center;min-height:44px}
+#develop{scroll-margin-top:.9rem}
+@media(max-width:680px){.develop-grid{grid-template-columns:1fr}.develop-section .develop-notes{margin-top:.7rem}}
+.develop-frame video{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
