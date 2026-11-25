@@ -4,7 +4,7 @@ import os.signpost
 /// The same category covers decode, interactive renders and export, so a
 /// single Points of Interest track shows where the user's wait went.
 enum PerformanceTrace {
-    private static let log = OSLog(subsystem: "com.hanze.filmify", category: .pointsOfInterest)
+    private static let log = OSLog(subsystem: DesktopIdentity.bundleIdentifier, category: .pointsOfInterest)
 
     static func begin(_ name: StaticString) -> OSSignpostID {
         let id = OSSignpostID(log: log)

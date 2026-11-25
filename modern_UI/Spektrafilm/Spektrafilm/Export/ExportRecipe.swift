@@ -706,7 +706,7 @@ struct ExportRecipe: Codable, Identifiable, Hashable, Sendable {
 
 /// The recipes, in a JSON file the user can open.
 ///
-/// `~/Library/Application Support/SpektraLab/export-recipes.json`. Written
+/// `~/Library/Application Support/Silverphase/export-recipes.json`. Written
 /// atomically, read once at startup, and **never fatal**: a file that has
 /// been hand-edited into something unparseable falls back to the defaults and
 /// reports it, because losing the ability to export over a typo in a settings
@@ -737,11 +737,7 @@ final class ExportRecipeStore {
         }
     }
 
-    static let url: URL = {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "SpektraLab")
-        return dir.appending(path: "export-recipes.json")
-    }()
+    static let url = DesktopIdentity.supportDirectory.appending(path: "export-recipes.json")
 
     /// The file this store reads and writes. Injectable so a test can point
     /// at a temporary directory — a test that exercised the real path would

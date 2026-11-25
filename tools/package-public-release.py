@@ -61,6 +61,7 @@ shutil.copytree(source_app, app, symlinks=True)
 resources = app / resdir
 info = plistlib.loads((app / ('Contents/Info.plist' if a.platform == 'macos' else 'Info.plist')).read_bytes())
 assert info['CFBundleShortVersionString'] == version, 'Tag and application versions disagree'
+assert info['CFBundleIdentifier'] == 'com.silverphase.editor', 'Unexpected Silverphase application identity'
 public = json.loads((DESKTOP / 'Spektrafilm/Resources/StockCatalog.json').read_text())['stocks']
 shipped = json.loads((resources / 'StockCatalog.json').read_text())['stocks']
 assert shipped == public and not any(s['id'].endswith('_experimental') for s in shipped)
@@ -108,9 +109,8 @@ manifest = {'tag': a.tag, 'source_commit': commit, 'source_repository': 'https:/
 (resources / 'PublicRelease.json').write_text(json.dumps(manifest, indent=2) + '\n')
 if a.platform == 'macos':
     main = app / 'Contents/MacOS/Silverphase'
-    for f in executables:
-        if f != main:
-            run(['codesign', '--force', '--sign', '-', '--timestamp=none', f])
+    assert executables == [main], 'Unexpected extra macOS binary in application bundle'
+    assert list(main.parent.iterdir()) == [main], 'Unexpected macOS executable or wrapper'
     run(['codesign', '--force', '--sign', '-', '--timestamp=none', '--options', 'runtime',
          '--entitlements', DESKTOP / 'Spektrafilm/Spektrafilm.entitlements', app])
     run(['codesign', '--verify', '--deep', '--strict', app])

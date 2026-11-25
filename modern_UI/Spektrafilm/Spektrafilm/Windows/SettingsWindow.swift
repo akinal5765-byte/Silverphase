@@ -1,4 +1,4 @@
-//  SettingsWindow.swift — SpektraLab ▸ Settings… (⌘,).
+//  SettingsWindow.swift — Silverphase ▸ Settings… (⌘,).
 //
 //  RFC-016 §6 specifies a diagnostics column and names the controls it needs
 //  to exist. This is that page, plus the two render settings that were
@@ -69,6 +69,7 @@ struct SettingsWindow: View {
                 appearanceSection
                 renderingSection
                 updatesSection
+                desktopDataSection
                 diagnosticsSection
                 memorySection
                 diskCacheSection
@@ -99,6 +100,20 @@ struct SettingsWindow: View {
             }
         }
         .onDisappear { ticker?.invalidate(); ticker = nil }
+    }
+
+    private var desktopDataSection: some View {
+        PanelSection(T("Desktop Data", "桌面数据", "桌面資料"), key: "desktopData") {
+            RailRows {
+                Text(T("Silverphase keeps its edits and export recipes separately from SpektraLab.",
+                       "Silverphase 独立保存照片编辑记录和导出配方，不与 SpektraLab 共用。",
+                       "Silverphase 獨立儲存照片編輯記錄和匯出配方，不與 SpektraLab 共用。"))
+                    .foregroundStyle(.secondary)
+                Link(T("Bring over edits from an older Silverphase build", "复制旧版 Silverphase 的编辑记录",
+                       "複製舊版 Silverphase 的編輯記錄"),
+                     destination: URL(string: "https://github.com/akinal5765-byte/Silverphase/blob/main/docs/MACOS-IDENTITY-UPGRADE.md")!)
+            }
+        }
     }
 
     // MARK: - language

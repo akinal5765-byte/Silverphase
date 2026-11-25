@@ -2286,7 +2286,7 @@ enum OpenWithCatalog {
         let ext = format.ext
         if let hit = cache[ext] { apps = hit; return }
         let probe = FileManager.default.temporaryDirectory
-            .appending(path: "spektralab-openwith-probe.\(ext)")
+            .appending(path: "silverphase-openwith-probe.\(ext)")
         FileManager.default.createFile(atPath: probe.path, contents: Data())
         defer { try? FileManager.default.removeItem(at: probe) }
         let list = NSWorkspace.shared.urlsForApplications(toOpen: probe)
