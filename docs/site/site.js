@@ -19,3 +19,24 @@
   }
   document.documentElement.classList.add('interactive');
 })();
+
+(() => {
+  const proof = document.querySelector('[data-proof]');
+  if (proof) {
+    const input = proof.querySelector('input');
+    const draw = () => proof.style.setProperty('--split', input.value + '%');
+    input.addEventListener('input', draw);
+    draw();
+    proof.classList.add('proof-ready');
+  }
+  if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const observed = document.querySelectorAll('.paper .section-head, .stock-grid, .night-grid, .workflow, .strip-grid');
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) if (entry.isIntersecting) {
+        entry.target.classList.add('arrived');
+        observer.unobserve(entry.target);
+      }
+    }, {threshold: 0.13});
+    observed.forEach(node => observer.observe(node));
+  }
+})();

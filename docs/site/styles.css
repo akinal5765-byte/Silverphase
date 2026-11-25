@@ -2,3 +2,38 @@
 @media(max-width:920px){.shell{width:min(100% - 3rem,1320px)}.hero{gap:1.4rem}.night-grid,.workflow{grid-template-columns:1fr 1.1fr;gap:1.5rem}.hero h1{font-size:clamp(2.8rem,7vw,5.2rem)}}
 @media(max-width:680px){.shell{width:calc(100% - 2rem)}.navwrap{min-height:58px;gap:.75rem;flex-wrap:wrap;padding:.55rem 0}.navwrap nav{order:2;flex:1 0 100%;margin:0;gap:clamp(.75rem,4vw,1.6rem);border-top:1px solid var(--line);padding:.48rem 0 .1rem}.navwrap nav a{font-size:.85rem}.language{margin-left:auto}.hero,.night-grid,.workflow,.strip-grid{grid-template-columns:1fr}.hero{padding:2.2rem 0 3.5rem;gap:1.45rem}.hero h1{font-size:clamp(3.35rem,10vw,4.6rem);margin:.55rem 0 .9rem}html[lang="zh-CN"] .hero h1{font-size:clamp(3.5rem,12vw,5.1rem)}.hero h1 br{display:none}.hero h1 br::after{content:" "}.hero h1 span{display:inline}.hero-art img{aspect-ratio:1.5}.comparison-grid{gap:.65rem .55rem}.comparison-grid figcaption,.recipe figcaption{font-size:.79rem}.section-head{margin-bottom:1.25rem}.stock-grid{grid-template-columns:1fr;gap:1.6rem}.stock{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1fr);align-items:start;gap:.8rem}.stock img{height:100%;min-height:92px;object-fit:cover}.stock figcaption{margin:0;padding-top:.45rem}.stock h3{font-size:1.17rem}.stock p{font-size:.9rem}.strip-grid img{max-width:360px}.downloads{grid-template-columns:1fr 1fr;gap:1.25rem .85rem}.downloads article:last-child{grid-column:1/-1}.related{grid-template-columns:44px 1fr;gap:.8rem}.related-links{grid-column:2;align-items:start}.detail-grid{gap:.6rem}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* A contact print pulled out of the darkroom. */
+body:has(.contact-print){background:radial-gradient(ellipse 75% 26rem at 88% 8rem,#392526 0,transparent 100%),var(--ink)}
+.contact-print.hero-art{background:#f0e1cd;color:#2f211d;border:0;padding:clamp(.65rem,1.35vw,1.2rem);border-radius:3px;box-shadow:0 22px 90px #0009,0 3px 10px #0004;isolation:isolate}
+.contact-head,.contact-stock{font-variant-numeric:tabular-nums;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.contact-head{font-size:.75rem;font-weight:780;letter-spacing:.15em;color:#754437;padding:.1rem 0 .65rem}
+.contact-stock{font-size:.84rem;font-weight:700;padding:.5rem 0 .65rem;border-bottom:1px solid #b6947b}
+.contact-print.hero-art figcaption{padding:.65rem 0 0;color:#654f42;font-size:.84rem}
+.contact-print.hero-art figcaption strong{color:#2f211d}
+.proof{position:relative;--split:50%;background:#693a42;overflow:hidden;aspect-ratio:768/504;touch-action:pan-y}
+.contact-print.hero-art .proof img{width:100%;height:100%;aspect-ratio:auto;object-fit:cover;object-position:center}
+.proof-front{position:absolute;inset:0;clip-path:inset(0 calc(100% - var(--split)) 0 0)}
+.proof-move{position:absolute;top:0;bottom:0;left:var(--split);width:2px;background:#fff2dc;box-shadow:0 0 0 1px #33232250;display:none;pointer-events:none}
+.proof-move span{display:grid;place-items:center;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:#f5e8d5;color:#3a2722;border:1px solid #52372c;box-shadow:0 3px 12px #20141965}
+.proof-input{display:none;position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;opacity:0;cursor:ew-resize;appearance:none;-webkit-appearance:none;touch-action:pan-y}
+.proof-input::-webkit-slider-runnable-track{height:100%}.proof-input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:1px;height:100%;background:transparent}
+.proof-input::-moz-range-track{height:100%;background:transparent}.proof-input::-moz-range-thumb{width:1px;height:100%;border:0;background:transparent}
+.proof-ready .proof-move,.proof-ready .proof-input{display:block}
+.proof:focus-within{outline:3px solid #843f26;outline-offset:3px}
+.proof:not(.proof-ready){box-shadow:inset 0 0 0 1px transparent}
+#proof-hint{display:none}.contact-print:has(.proof-ready) #proof-hint{display:inline}
+@media (max-width:680px){.contact-print.hero-art{width:100%;margin-top:.25rem}.contact-head{padding-bottom:.48rem}.contact-print.hero-art figcaption{gap:.2rem .65rem}.hero .devices{margin-top:1rem}}
+@media (prefers-reduced-motion:no-preference){
+ .hero-text{animation:lift-in .65s cubic-bezier(.22,.61,.36,1) both}
+ .contact-print{animation:paper-in .85s cubic-bezier(.22,.61,.36,1) both}
+ .proof>img{animation:develop-in 1.05s ease-out both}
+ .contact-print .proof-move span{transition:background-color .2s,box-shadow .2s}
+ .proof:hover .proof-move span,.proof:focus-within .proof-move span{background:#fff6e8;box-shadow:0 0 0 5px #fff6e840}
+ .arrived{animation:lift-in .62s cubic-bezier(.22,.61,.36,1) both}
+ .stages details[open] .stage{animation:stage-in .24s ease-out both}
+ @keyframes lift-in{from{opacity:.55;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+ @keyframes paper-in{from{opacity:.4;transform:translateY(15px) rotate(-1.1deg)}to{opacity:1;transform:translateY(0) rotate(0deg)}}
+ @keyframes develop-in{from{filter:brightness(1.3) saturate(.5)}to{filter:none}}
+ @keyframes stage-in{from{opacity:.5;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+}

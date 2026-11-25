@@ -9,13 +9,13 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Silverphase · 把照片带进暗房">
 <meta property="og:description" content="从预处理到胶片、显影、彩色放大与扫描。Silverphase 是 Mac、iPhone 和 iPad 上免费开源的虚拟暗房。">
-<meta property="og:image" content="https://akinal5765-byte.github.io/Silverphase/site/plates/night.webp">
+<meta property="og:image" content="https://akinal5765-byte.github.io/Silverphase/site/plates/portra.webp">
 <link rel="canonical" href="https://akinal5765-byte.github.io/Silverphase/">
 <link rel="alternate" hreflang="en" href="https://akinal5765-byte.github.io/Silverphase/site/en.html">
 <link rel="alternate" hreflang="zh-CN" href="https://akinal5765-byte.github.io/Silverphase/">
 <link rel="icon" href="site/silverphase-icon.png">
-<link rel="stylesheet" href="site/styles.css?v=2">
-<script defer src="site/site.js?v=2"></script>
+<link rel="stylesheet" href="site/styles.css?v=3">
+<script defer src="site/site.js?v=3"></script>
 </head>
 <body>
 <a class="skip" href="#main">跳到主要内容</a>
@@ -32,13 +32,24 @@
  <div class="hero-text">
   <p class="kicker">免费开源 · Apple 设备上的虚拟暗房</p>
   <h1 id="headline">把照片<br>带进<span>暗房</span>。</h1>
-  <p class="lede">一张照片可以有不止一种印法。先整理入片，再选胶片、显影和相纸，让照片沿着暗房工艺成像。</p>
-  <div class="actions"><a class="button hot" href="#download">获取 Silverphase</a><a class="under" href="#paper">亲手比较两张相纸</a></div>
+  <p class="lede">同一张荷花底片，只换相纸，花瓣的影调就变了。用 Silverphase 从预处理一路做到印相，看看变化发生在哪一步。</p>
+  <div class="actions"><a class="button hot" href="#download">获取 Silverphase</a><a class="under" href="#paper">看完整相纸对照</a></div>
   <p class="devices">Mac · iPhone · iPad</p>
  </div>
- <figure class="hero-art">
- <img src="site/plates/night.webp" width="1528" height="1012" alt="CineStill 800T 模拟成片：便利店亮起暖色招牌，前景落入暗处" fetchpriority="high">
- <figcaption><strong>入夜之后</strong><a class="under" href="#night">CineStill 800T / Kodak Vision 2383 · 看取样框细节</a></figcaption>
+ <figure class="hero-art contact-print">
+ <div class="contact-head"><span>相纸试片</span><span>PORTRA 400</span></div>
+ <div class="proof" data-proof>
+  <img src="site/plates/supra.webp" width="768" height="504" alt="Supra Endura 相纸模拟印相的荷花" fetchpriority="high">
+  <img class="proof-front" src="site/plates/portra.webp" width="768" height="504" alt="" decoding="async">
+  <div class="proof-move" aria-hidden="true"><span><svg viewBox="0 0 32 16" width="32" height="16" fill="none"><path d="m9 3-5 5 5 5m14-10 5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+  <input class="proof-input" type="range" min="0" max="100" value="50" aria-label="比较左侧 Portra Endura 与右侧 Supra Endura" aria-describedby="proof-hint">
+ </div>
+ <div class="contact-stock"><span>Portra Endura</span><span>Supra Endura</span></div>
+ <figcaption>
+  <strong>同一张底片，两种相纸</strong>
+  <span id="proof-hint">左右拖动看差别</span>
+ </figcaption>
+ <noscript><p><a href="#paper">查看两种相纸对照</a></p></noscript>
  </figure>
 </section>
 <section class="paper light" id="paper">
