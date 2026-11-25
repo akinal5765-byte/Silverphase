@@ -37,3 +37,41 @@ body:has(.contact-print){background:radial-gradient(ellipse 75% 26rem at 88% 8re
  @keyframes develop-in{from{filter:brightness(1.3) saturate(.5)}to{filter:none}}
  @keyframes stage-in{from{opacity:.5;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 }
+
+/* Simplified Chinese has its own type scale and measure. */
+html[lang="zh-CN"]{
+ --cn-sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+ --cn-display:"Songti SC","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;
+}
+html[lang="zh-CN"] body{font-family:var(--cn-sans);line-height:1.75}
+html[lang="zh-CN"] :is(h1,h2){font-family:var(--cn-display);font-weight:600;letter-spacing:.018em;line-height:1.22}
+html[lang="zh-CN"] .hero h1{font-size:clamp(3.1rem,6.35vw,6.65rem);line-height:1.09;letter-spacing:.025em;margin:.66rem 0 1.15rem}
+html[lang="zh-CN"] .hero h1 .headline-line{display:block;color:inherit}
+html[lang="zh-CN"] .hero h1 .headline-accent{color:var(--copper)}
+html[lang="zh-CN"] .kicker{font-weight:620;letter-spacing:.07em;font-size:.875rem}
+html[lang="zh-CN"] .hero .lede{max-width:27ic;font-size:clamp(1rem,1.35vw,1.17rem);line-height:1.8}
+html[lang="zh-CN"] .section-head h2{font-size:clamp(2.25rem,4.15vw,4.5rem);margin:.52rem 0 .8rem}
+html[lang="zh-CN"] .intro{line-height:1.8;max-width:40ic}
+html[lang="zh-CN"] .brand{font-family:var(--ui)}
+html[lang="zh-CN"] .contact-head{letter-spacing:.09em;font-weight:650}
+html[lang="zh-CN"] .contact-stock{font-size:.9rem;line-height:1.4}
+@media(max-width:680px){
+ html[lang="zh-CN"] .hero{padding:1.85rem 0 2.65rem;row-gap:1.1rem}
+ html[lang="zh-CN"] .hero .kicker{line-height:1.4}
+ html[lang="zh-CN"] .hero h1{font-size:clamp(2.65rem,12.2vw,4.4rem)}
+ html[lang="zh-CN"] .hero .hero-art{margin-top:.05rem}
+ html[lang="zh-CN"] .hero .actions{gap:.6rem 1rem}
+ html[lang="zh-CN"] .navwrap nav{gap:clamp(.65rem,4vw,1.55rem);padding:.25rem 0 0}
+ html[lang="zh-CN"] .navwrap nav a{display:inline-flex;align-items:center;min-height:32px;font-weight:520}
+ html[lang="zh-CN"] .section-head h2{font-size:clamp(1.94rem,7.8vw,2.85rem);text-wrap:balance}
+ html[lang="zh-CN"] .intro{font-size:1rem}
+}
+html[lang="zh-CN"] .hero{grid-template-areas:"copy art" "actions art";row-gap:1.5rem;align-items:center}
+html[lang="zh-CN"] .hero .hero-text{grid-area:copy;align-self:end}
+html[lang="zh-CN"] .hero .hero-art{grid-area:art}
+html[lang="zh-CN"] .hero .actions{grid-area:actions;margin-top:0;align-self:start}
+@media(max-width:680px){
+ html[lang="zh-CN"] .hero{grid-template-areas:"copy" "art" "actions";row-gap:1rem}
+ html[lang="zh-CN"] .hero .hero-text{display:block}
+ html[lang="zh-CN"] .hero h1{margin:.58rem 0 .68rem}
+}
