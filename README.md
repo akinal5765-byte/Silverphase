@@ -69,6 +69,13 @@ iPhone 和 iPad 的正式版在中国大陆区以外的 App Store 提供。可�
 
 ## 版本记录
 
+当前源码版本为 **1.3.1**。macOS 和 iOS／iPadOS 将测光与胶片曝光移到「胶片」，为 29 款公开 Fotufilm 配置补齐封面和来源标识，并降低其中 17 款的 DIR 边缘过冲。
+
+| 平台 | 1.3.1 源码记录 |
+|---|---|
+| macOS（构建 6） | [改动与验证](modern_UI/Spektrafilm/releases/1.3.1.md) |
+| iOS／iPadOS（构建 11） | [改动与验证](ios/releases/1.3.1.md) |
+
 | 平台 | 1.3.0 发布说明 |
 |---|---|
 | macOS（构建 5） | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · [改动与 5219 验证](modern_UI/Spektrafilm/releases/1.3.0.md) |

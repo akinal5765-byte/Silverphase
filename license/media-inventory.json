@@ -199,10 +199,52 @@
       "rights_scope": "Workflow documentation only. Adobe and Apple UI and trademarks retain their respective rights; no new third-party UI licence grant is asserted."
     },
     {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/agfa_agfachrome_100_fotufilm-packaging-v1.png",
+      "sha256": "0312cb48a3486ee9aadda2b0ec1240cec85349a8a4702b6cd30239602774ad81",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/agfa_agfachrome_200_fotufilm-packaging-v1.png",
+      "sha256": "c5b1608a64edcb508e3897edd4955bcc62f7824abccc3000301ce250d795d276",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/agfa_agfachrome_50_fotufilm-packaging-v1.png",
+      "sha256": "560c21257503670076bf495dbe9f3f39c345a94a5815c2f5d82b703f5becc5f3",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/cinestill_400d_fotufilm.jpg",
+      "sha256": "aa0827d44bfff69e216e7a1bcd4b515b817509156501805d0f33078e75d7accb",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/cinestill_800t-packaging-v1.png",
       "sha256": "29574d79b210d524fb806500b2e44a7028766c33bb88cb74c8ec6127e610a66c",
       "kind": "generated-cover",
       "evidence": "modern_UI/design/film-artwork/generated-cinestill-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fotufilm_infrared_color_fotufilm-packaging-v1.png",
+      "sha256": "a0c262fdc05bf214734da0dfd23e5ef07c4358ef64ac72c268b8ba78be2f780e",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_astia_100f_fotufilm-packaging-v1.png",
+      "sha256": "464b8429692a001dcb2903923ceec23b60e299dd0ddafb690a917ef78e20617b",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
@@ -220,10 +262,38 @@
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_eterna_500_fotufilm-packaging-v1.png",
+      "sha256": "6af2fe92961c4c7f9ff0368f42a85cfffedaa0124005987da9ce80e40fe4b9c1",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_eterna_vivid_500_fotufilm-packaging-v1.png",
+      "sha256": "8c18e475eec638d9ee27af00ebae45fbe7aed7e8bbe934e197ce7e6d24a58590",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_f64d_fotufilm-packaging-v1.png",
+      "sha256": "bb526699ecf35b75988eacec7691a31331eddaf8bdadd3511dd6b589380d90d2",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_neopan_acros_100_ii-packaging-v1.png",
       "sha256": "5d2f23f6d55b17dbbc941c80b567717954c5c80c937375f0ede0aee25dcc151b",
       "kind": "generated-cover",
       "evidence": "modern_UI/design/film-artwork/generated-product-blackwhite-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_pro_160ns_fotufilm-packaging-v1.png",
+      "sha256": "f0f33ba4081d4384b92728431c87a74fcb8bb3390bf98e74b1380924bdcf52f2",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
@@ -248,6 +318,27 @@
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_reala_100_fotufilm-packaging-v1.png",
+      "sha256": "52d34e3abcd33841d13298e88285b74b834540057c062f9d57dee3adcd5f5b55",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_reala_500d_fotufilm-packaging-v1.png",
+      "sha256": "b66de93475f14376badccd0094f82bf0961e0ad38a3439fe653fa76b1340a881",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_superia_200_fotufilm-packaging-v1.png",
+      "sha256": "2e5a8c2b29cdf8b91e2139887413cf369990f91e45c4d6446c1af7d7db390fc2",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_velvia_100-packaging-v1.png",
       "sha256": "d48f2fd79e6a55b818a96c6d985321f458d00212f1fb8040b8ad426c7559377a",
       "kind": "generated-cover",
@@ -257,6 +348,13 @@
     {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_velvia_100.jpg",
       "sha256": "f64db420fb4d9ef953711d3385592e4b067c8c91dd20ace540ab3c05d3b7c8e1",
+      "kind": "legacy-cover",
+      "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_velvia_50_fotufilm.jpg",
+      "sha256": "63bb6775438f32427c37cf10e3e0674c631654bf4a51cb918be2224132171bb3",
       "kind": "legacy-cover",
       "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
@@ -273,6 +371,27 @@
       "sha256": "fa62e716c9df700606197051f5ccd2bd116df68c962b9f1ef3924662161f86f2",
       "kind": "legacy-cover",
       "evidence": "Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/harman_phoenix_200_fotufilm-packaging-v1.png",
+      "sha256": "8ccf96756c07229281b5097396c59edb76a45b4a6619edcc926ca04aafc2f2aa",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/ilford_delta_3200_fotufilm-packaging-v1.png",
+      "sha256": "25008252d7ea73b241f7bd598d23059aa479ec8bbaf5bf35474df159f7156916",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/ilford_fp4_plus_fotufilm-packaging-v1.png",
+      "sha256": "f9325f6b51f05a2039f55b4d87feb23d7ff22a671f2a8b58bbd82dea3ef7021b",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
@@ -301,6 +420,20 @@
       "sha256": "db9f4c2adcd5fe96b13c9858f85ada8509b6fb940cf093da5370eb2b1762dfc4",
       "kind": "generated-cover",
       "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_aerochrome_1443_fotufilm-packaging-v1.png",
+      "sha256": "66a0d05af017a3dbaf3687a8d39bbcc4c8502e9187b913ad81dcfece12ecd099",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_aerocolor_2460_fotufilm-packaging-v1.png",
+      "sha256": "d1c098e004d0687f0b995425241ce34f4a8756da2e1362f03697d61517bea0c4",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
@@ -353,10 +486,31 @@
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_kodachrome_200_fotufilm-packaging-v1.png",
+      "sha256": "a7d66a9e6d53a8fcc8578228f338e08d8094eae0162c6994197d3b60c002764e",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_kodachrome_25_fotufilm-packaging-v1.png",
+      "sha256": "c91b51e71fb3c001c0c541ddd2dd1d3edb2b3eb07adf9295de9f3133a7afa936",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
       "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_kodachrome_64-packaging-v1.png",
       "sha256": "54e85a7cd93de32e7243f926d0f90431c0e92bd190779c778e0596189f16b586",
       "kind": "generated-cover",
       "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_kodacolor_100_fotufilm-packaging-v1.png",
+      "sha256": "8b21450d887be4e015994ff204250eb271ef1e02b3c66bc7fded1198bb98a7d2",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {
@@ -497,6 +651,27 @@
       "sha256": "402905973f7ff0b0d48a8edacafa879cbec16b155ef4a4475645db7cdc6e6f6a",
       "kind": "generated-cover",
       "evidence": "modern_UI/design/film-artwork/generated-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/lomography_color_100_fotufilm-packaging-v1.png",
+      "sha256": "31de5763461f3fef92861c8c1396b39f86e555bf22fc69c87a3d03be8f7653e8",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/lomography_lomochrome_metropolis_fotufilm-packaging-v1.png",
+      "sha256": "6752447a260f1838f8da3110f77af11f1c16caae8cb4761596447c4d756f4c44",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
+      "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
+    },
+    {
+      "path": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/lomography_lomochrome_turquoise_fotufilm-packaging-v1.png",
+      "sha256": "71de195e491c5949ae7aabb1fb9eb25c09f32e9916e1e54de9a6abd0d616550d",
+      "kind": "generated-cover",
+      "evidence": "modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json",
       "rights_scope": "Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded."
     },
     {

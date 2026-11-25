@@ -94,17 +94,18 @@ are separate effects with separate physical positions.
 
 ### Pre-film preparation
 
-macOS 1.3.0 exposes preparatory tone, detail, and color controls on the
+Both hosts expose preparatory tone, detail, and color controls on the
 scene-linear image. The engine meters first. The local controls use a shared
 whole-frame base before the tiled film work. Pointwise exposure and color
 preparation run before spectral upsampling. Legacy tone and scene placement
-remain decodable. The mobile controls still expose the four legacy tone fields.
+remain decodable.
 
-For supported RAW files, the desktop host fits a starting exposure against the
+For supported RAW files, each host fits a starting exposure against the
 embedded camera preview through the selected look, with highlight protection.
-The sidecar stores the fitted EV and the manual offset for the photograph.
-The clipboard transfers the match switch. The host combines the two values
-into the additive shoot-side exposure parameter.
+The edit record stores the fitted EV and the manual offset for the photograph.
+The Prep clipboard group transfers the match switch. The Film group transfers
+metering and manual film exposure. The host combines the fitted EV and manual
+offset into the additive shoot-side exposure parameter.
 
 ### Product material data
 

@@ -12,7 +12,7 @@ SpektraLab repository: never push there. Commit or push only when asked.
 - [ARCHITECTURE.md](ARCHITECTURE.md): desktop, iOS, shared engine and ownership.
 - [macOS guide](modern_UI/Spektrafilm/README.md),
   [validation](modern_UI/Spektrafilm/VALIDATION.md), and
-  [1.3.0 release preparation](modern_UI/Spektrafilm/releases/1.3.0.md).
+  [1.3.1 source notes](modern_UI/Spektrafilm/releases/1.3.1.md).
 - [iOS guide](ios/README.md), [design](ios/DESIGN.md),
   [control audit](ios/CONTROL-AUDIT.md): mobile behavior and missing features.
 - [API](API-SPEC-callable-render-service.md) and
@@ -77,10 +77,11 @@ identification, cold/warm launches, cancel/error recovery and preview/save
 consistency need their own validation; passing input-retention tests is partial
 coverage. No native ABI/schema version changed for this host integration.
 
-## macOS 1.3.0 camera preparation
+## Camera preparation and film exposure
 
-Camera-brightness matching uses a photo-local baseline. Only its
-switch transfers in the Camera clipboard group. Simulation Size is photo-local
+Camera-brightness matching uses a photo-local baseline. Its switch transfers
+in the Prep clipboard group. Film metering and the manual film exposure offset
+transfer in the Film group on both platforms. Simulation Size is photo-local
 geometry and reopens the native session with a resampled linear input. Keep both
 controls separate from material data. The desktop version and build number are
 set in `modern_UI/Spektrafilm/Tools/gen-project.py`.

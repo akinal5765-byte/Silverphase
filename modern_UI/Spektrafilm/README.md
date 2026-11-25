@@ -126,7 +126,9 @@ Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
 全局结构见 [ARCHITECTURE](../../ARCHITECTURE.md)，本轮门禁见
 [2026-10-28 验证记录](../../performance/VALIDATION-REPORT-2026-10-28.md)。
 
-## macOS 1.3.0
+## 版本记录
+
+当前源码版本为 **1.3.1（构建 6）**。测光与胶片曝光的面板调整、Fotufilm 封面和 DIR 边缘修正见 [1.3.1 源码记录](releases/1.3.1.md)。
 
 **1.3.0（构建 5）** 的 Apple Silicon DMG 见 [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0)。入片控制、实验胶片、共享引擎校准及验证范围见 [版本记录](releases/1.3.0.md)。
 
