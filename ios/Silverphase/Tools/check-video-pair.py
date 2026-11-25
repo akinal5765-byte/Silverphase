@@ -43,6 +43,36 @@ def require_close(label, a, b, tolerance):
         raise ValueError(f"{label}: {a:.3f}s vs {b:.3f}s exceeds {tolerance:.3f}s")
 
 
+def frame_times(path):
+    probe = json.loads(subprocess.check_output([
+        "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_frames",
+        "-show_entries", "frame=best_effort_timestamp_time", "-of", "json", path
+    ], text=True))
+    timestamps = []
+    for index, frame in enumerate(probe.get("frames", []), start=1):
+        value = float(frame.get("best_effort_timestamp_time", "nan"))
+        if not math.isfinite(value):
+            raise ValueError(f"video frame {index} has no usable presentation timestamp")
+        timestamps.append(value)
+    return timestamps
+
+
+def cadence_issues(timestamps, fps):
+    if len(timestamps) < 2:
+        raise ValueError("at least two video frames are needed to check cadence")
+    limit = 1.5 / fps
+    gaps = [(start, end - start) for start, end in zip(timestamps, timestamps[1:])]
+    late = [(start, gap) for start, gap in gaps if gap > limit + 1e-6]
+    nonincreasing = sum(gap <= 0 for _, gap in gaps)
+    if not (late or nonincreasing):
+        return None
+    summary = f"{len(late)} gap(s) above {limit * 1000:.1f} ms; {nonincreasing} non-increasing timestamp(s)"
+    if late:
+        start, gap = max(late, key=lambda item: item[1])
+        summary += f"; worst gap {gap * 1000:.1f} ms at {start - timestamps[0]:.3f}s from first frame"
+    return summary
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("original")
@@ -75,6 +105,23 @@ def main():
     require_close("audio track duration", seconds(ba, "duration"), seconds(aa, "duration"), 0.15)
     if av.get("color_primaries") != "bt709" or av.get("color_transfer") != "bt709":
         raise ValueError(f"expected BT.709 SDR tags, got {av.get('color_primaries')} / {av.get('color_transfer')}")
+    if args.require_uhd_fps:
+        # Inspect both files even if the first fails so the device report shows
+        # whether a gap was present at capture or appeared during development.
+        failures = []
+        for label, path in (("original", args.original), ("export", args.export)):
+            try:
+                timestamps = frame_times(path)
+                issue = cadence_issues(timestamps, args.require_uhd_fps)
+            except (ValueError, subprocess.CalledProcessError) as error:
+                failures.append(f"{label}: {error}")
+                continue
+            if issue:
+                failures.append(f"{label}: {issue}")
+            else:
+                print(f"{label}: {len(timestamps)} frames, no presentation timestamp gaps above 1.5 frames.")
+        if failures:
+            raise ValueError("; ".join(failures))
     print(f"PASS: {presented_size(av)}, {rate(av):.3f} fps, {a_duration:.3f}s, one video and one audio track, SDR tags intact.")
     print("Still inspect lip sync at both ends, repeated/dropped frames, grain, halation, and thermals on device.")
 

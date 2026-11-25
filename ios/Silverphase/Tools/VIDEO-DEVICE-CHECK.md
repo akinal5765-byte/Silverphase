@@ -57,6 +57,9 @@ for the rest, ideally an older supported device and a current one.
 5. Run the optional ffprobe comparison on source and developed files (e.g.
    launch Debug with `--video-check-keep-files` to retain both in the app container after saving to Photos; remove the argument after testing):
    `python3 ios/Silverphase/Tools/check-video-pair.py original.mov developed.mov --min-seconds 120 --require-uhd-fps 30`.
-   Repeat with `--require-uhd-fps 60` on the 60 fps take.
-   This checks displayed dimensions, track timing/duration, audio presence and
-   SDR tags; visual and audio inspection still matter.
+   For the five-minute warm run at 60 fps, use `--min-seconds 300 --require-uhd-fps 60`.
+   With `--require-uhd-fps`, this decodes the video frames from both files to check
+   presentation timestamps across the entire take; UHD may take a while.
+   It flags gaps above 25 ms at 60 fps or 50 ms at 30 fps and reports whether
+   they occur in the original, developed output, or both. A repeated image can
+   still have a regular timestamp, so keep the steady-motion and audio checks.
