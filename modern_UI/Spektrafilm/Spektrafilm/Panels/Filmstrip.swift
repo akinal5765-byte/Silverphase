@@ -890,10 +890,9 @@ private struct SettingsClipboardMenu: View {
 
     var body: some View {
         Button(L(.menuCopySettings)) {
-            prepareSingleFrame()
-            session.requestCopySettings()
+            session.requestCopySettings(from: frame)
         }
-        .disabled(!session.canRequestCopySettings)
+        .disabled(!(frame.map { session.canRequestContextCopy(from: $0) } ?? session.canRequestCopySettings))
         Button(L(.menuPasteSettings)) {
             prepareSingleFrame()
             session.pasteSettings()

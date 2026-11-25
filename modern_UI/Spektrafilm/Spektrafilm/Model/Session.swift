@@ -4187,9 +4187,25 @@ final class Session: CanvasHost {
     var canRequestCopySettings: Bool { selection != nil && selectedFrames.count <= 1 && !batchExporting && copySettingsRequest == nil }
     var canCopySettings: Bool { selection != nil && selectedFrames.count <= 1 && !clipboardGroups.isEmpty && !batchExporting }
 
-    func requestCopySettings() {
-        guard canRequestCopySettings, let url = selection else { return }
-        copySettingsRequest = SettingsCopyRequest(settings: sidecar, sourceName: url.lastPathComponent,
+    /// A filmstrip thumbnail names an explicit copy source, even if a
+    /// different frame (or a batch of frames) is currently selected.
+    func canRequestContextCopy(from frame: URL) -> Bool {
+        !batchExporting && copySettingsRequest == nil && frames.contains { $0.id == frame }
+    }
+
+    func requestCopySettings(from contextFrame: URL? = nil) {
+        let source: URL
+        if let contextFrame {
+            guard canRequestContextCopy(from: contextFrame) else { return }
+            source = contextFrame
+        } else {
+            guard canRequestCopySettings, let selection else { return }
+            source = selection
+        }
+        // Freeze the source without opening or picking it. The canvas
+        // version includes edits the delayed store write may not yet have.
+        let settings = source == selection ? sidecar : (Sidecar.load(for: source) ?? Sidecar())
+        copySettingsRequest = SettingsCopyRequest(settings: settings, sourceName: source.lastPathComponent,
             groups: clipboardGroups.intersection(ClipboardGroup.offered))
     }
 
