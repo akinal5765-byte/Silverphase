@@ -323,10 +323,18 @@ struct MobilePhoto: Codable, Identifiable {
         return image
     }
 
+    func renderLibraryDraft(_ photo: MobilePhoto, using renderer: MobileEngine) async throws -> CGImage {
+        let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
+        let estimated = MobilePreviewPolicy.megapixels(edge: 800, aspect: aspect)
+        return try await renderer.renderGalleryFrame(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                                    geometry: photo.geometry, megapixels: estimated, draft: true)
+    }
+
     func renderLibraryTile(_ photo: MobilePhoto, viewport: MobileViewport,
                            using renderer: MobileDetailRenderer) async throws -> MobileDetailTile {
         try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
-                                geometry: photo.geometry, viewport: viewport.rect, pixelLongEdge: viewport.pixelLongEdge)
+                                geometry: photo.geometry, viewport: viewport.rect, pixelLongEdge: viewport.pixelLongEdge,
+                                galleryFitEdge: viewport.previewLongEdge)
     }
 
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {

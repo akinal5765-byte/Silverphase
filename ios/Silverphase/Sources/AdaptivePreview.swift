@@ -60,36 +60,50 @@ actor MobileDetailRenderer {
         await clear()
     }
 
-    func tile(url: URL, recipe: [String: WireValue], geometry: MobileGeometry, viewport: CGRect, pixelLongEdge: Double) async throws -> MobileDetailTile {
+    func tile(url: URL, recipe: [String: WireValue], geometry: MobileGeometry, viewport: CGRect, pixelLongEdge: Double,
+              galleryFitEdge: Int? = nil) async throws -> MobileDetailTile {
         let metadata = sourceURL == url ? self.metadata ?? MobileImageMetadata.read(url) : MobileImageMetadata.read(url)
         let tier = [2560, 3840, 5120, 7168, 10240].first { Double($0) >= pixelLongEdge } ?? Int(ceil(pixelLongEdge))
-        var size = MobileExportRecipe(); size.sizeMode = "longEdge"; size.longEdge = tier
         let simulation = try MobileSimulationSize.workingSize(in: recipe, geometry: geometry, aspect: metadata.aspect)
         let nativeMP = simulation.map(MobileSimulationSize.megapixels) ?? metadata.megapixels
-        var mp = size.megapixels(sourceMP: nativeMP, aspect: metadata.aspect, geometry: geometry)
-        if let edge = MobileSimulationSize.edge(in: recipe) {
-            mp = nativeMP * min(1, pow(Double(tier) / Double(edge), 2))
+        let sameSource = sourceURL == url && self.recipe == recipe && self.geometry == geometry
+        func requiredMP(for tier: Int) -> Double {
+            var size = MobileExportRecipe(); size.sizeMode = "longEdge"; size.longEdge = tier
+            var mp = size.megapixels(sourceMP: nativeMP, aspect: metadata.aspect, geometry: geometry)
+            if let edge = MobileSimulationSize.edge(in: recipe) {
+                mp = nativeMP * min(1, pow(Double(tier) / Double(edge), 2))
+            }
+            if sameSource, let source, sourceMP > 0 {
+                let edge = Double(max(source.width, source.height))
+                mp = min(nativeMP, max(mp, sourceMP * pow(Double(tier) / max(1, edge), 2)))
+            }
+            return mp
         }
-        if sourceURL == url, self.recipe == recipe, self.geometry == geometry, let source, sourceMP > 0 {
-            // Film gates/edges change output dimensions. Use the observed
-            // output scale rather than retrying the same undersized tier.
-            let edge = Double(max(source.width, source.height))
-            mp = min(nativeMP, max(mp, sourceMP * pow(Double(tier) / max(1, edge), 2)))
+        let available = Double(os_proc_available_memory())
+#if DEBUG && targetEnvironment(simulator)
+        let budget = available == 0 && ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+            ? 1_500_000_000 : available
+#else
+        let budget = available
+#endif
+        var mp = requiredMP(for: tier)
+        if let galleryFitEdge, budget <= (mp * 70 + 600) * 1e6 {
+            // Keep the editor's memory reserve. Gallery can still show an
+            // intermediate tier that is measurably sharper than the fit image.
+            let alternatives = [7168, 5120, 3840, 3200, 2560, 1920, 1600].filter {
+                $0 < tier && Double($0) > Double(galleryFitEdge) * 1.15
+            }
+            if let safe = alternatives.map(requiredMP(for:)).first(where: { budget > ($0 * 70 + 600) * 1e6 }) {
+                mp = safe
+            } else if sameSource, let source, Double(max(source.width, source.height)) > Double(galleryFitEdge) * 1.08 {
+                mp = sourceMP
+            }
         }
-        if source == nil || sourceURL != url || self.recipe != recipe || self.geometry != geometry || sourceMP < mp * 0.9999 {
-            source = nil
-            let available = Double(os_proc_available_memory())
-            #if DEBUG && targetEnvironment(simulator)
-            // CoreSimulator reports zero when there is no per-process jetsam
-            // limit. Use a bounded synthetic-test budget, never on device.
-            let budget = available == 0 && ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
-                ? 1_500_000_000 : available
-            #else
-            let budget = available
-            #endif
+        if !sameSource || source == nil || sourceMP < mp * 0.9999 {
             guard budget > (mp * 70 + 600) * 1e6 else {
                 throw MobileFailure.message(TDetached("Not enough memory to load the original detail; keeping the current preview", "当前内存不足以载入原始细节，保留现有预览", "目前記憶體不足以載入原始細節，保留現有預覽"))
             }
+            source = nil
             var settings = recipe
             settings["_exporting"] = .bool(true) // bounded bands; no full-size before image
             settings["_exportTargetSpace"] = .string(MobileOutputSpace.p3.rawValue)

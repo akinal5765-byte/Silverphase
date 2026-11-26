@@ -29,6 +29,7 @@ struct MobilePhotoDetail: View {
     @State private var previewLoading = true
     @State private var previewID: UUID?
     @State private var developedPreview = false
+    @State private var displayedFilmKey: URL?
     @State private var showingFilm = false
     @State private var hinge: HingeReading = .pending
     @State private var windowSize: CGSize = .zero
@@ -80,6 +81,7 @@ struct MobilePhotoDetail: View {
         let source: URL?
         let scrubbing: Bool
         let edge: Int?
+        let zoomed: Bool
     }
 
     private struct TileRequest: Equatable {
@@ -88,9 +90,11 @@ struct MobilePhotoDetail: View {
         let memoryDrop: Int
     }
 
+    private var zoomedDemand: Bool { canvasDemand?.photoID == photoID && canvasDemand?.viewport != nil }
     private var fitEdge: Int? { canvasDemand?.photoID == photoID ? canvasDemand?.fitEdge : nil }
     private var tileRequest: TileRequest? {
-        guard !stripScrubbing, developedPreview, previewID == photoID,
+        guard !stripScrubbing, previewID == photoID,
+              displayedFilmKey == photo.map({ document.libraryPreviewURL($0) }),
               let photo, let demand = canvasDemand, demand.photoID == photo.id,
               let viewport = demand.viewport, viewport.needsDetail else { return nil }
         return TileRequest(key: document.libraryPreviewURL(photo), viewport: viewport, memoryDrop: memoryDrop)
@@ -126,7 +130,7 @@ struct MobilePhotoDetail: View {
             }
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
-        .task(id: PreviewRequest(source: photo.map { document.libraryPreviewURL($0) }, scrubbing: stripScrubbing, edge: fitEdge)) {
+        .task(id: PreviewRequest(source: photo.map { document.libraryPreviewURL($0) }, scrubbing: stripScrubbing, edge: fitEdge, zoomed: zoomedDemand)) {
             if previewID != photoID { preview = nil; previewID = nil }
             developedPreview = false
             previewLoading = true
@@ -138,30 +142,53 @@ struct MobilePhotoDetail: View {
             }
             guard let photo else { return }
             let cached = document.libraryPreviewURL(photo)
+            let started = ProcessInfo.processInfo.systemUptime
             let edge = fitEdge ?? 1600
             if let ready = recentRenditions.first(where: { $0.key == cached && $0.edge >= edge }) {
-                preview = ready.image; previewID = photo.id; developedPreview = true
+                preview = ready.image; previewID = photo.id; developedPreview = true; displayedFilmKey = cached
+#if DEBUG
+                GalleryTileAudit.record("fit memory-hit \(max(ready.image.width, ready.image.height)) px")
+#endif
                 return
             }
             let warm = await Self.loadPreview(cached, limit: 384)
             guard !Task.isCancelled else { return }
             if let warm {
-                if preview == nil || stripProxyID == photo.id {
-                    preview = warm; previewID = photo.id; stripProxyID = nil
+                if preview == nil || stripProxyID == photo.id || displayedFilmKey != cached {
+                    preview = warm; previewID = photo.id; stripProxyID = nil; displayedFilmKey = cached
+#if DEBUG
+                    GalleryTileAudit.record("film cached \(max(warm.width, warm.height)) px at \(ProcessInfo.processInfo.systemUptime - started)s")
+#endif
                 }
             } else if preview == nil || (stripProxyID == photo.id && !stripScrubbing) {
                 let original = await Self.loadPreview(document.url(for: photo), limit: 960)
                 guard !Task.isCancelled else { return }
-                if let original { preview = original; previewID = photo.id; stripProxyID = nil }
+                if let original {
+                    preview = original; previewID = photo.id; stripProxyID = nil
+                    displayedFilmKey = nil
+                }
             }
-            // Once a seed exists, wait for its real fit size instead of
-            // rendering a default tier and then immediately superseding it.
             guard !stripScrubbing, fitEdge != nil || preview == nil else { return }
-            // Rapid swipes get a first frame immediately, without queueing
-            // a full render for each photograph the user passes over.
+            // A cold RAW shows a small film render first, rather than waiting
+            // for the complete display tier before any film color appears.
             do {
                 if photo.id != entryPhotoID { try await Task.sleep(for: .milliseconds(110)) }
                 let renderEngine = renderer
+                if displayedFilmKey != cached {
+                    do {
+                        let draft = try await withTaskCancellationHandler {
+                            try await document.renderLibraryDraft(photo, using: renderEngine)
+                        } onCancel: { renderEngine.workGate.cancel() }
+                        try Task.checkCancellation()
+                        preview = draft; previewID = photo.id; displayedFilmKey = cached
+#if DEBUG
+                        GalleryTileAudit.record("film draft \(max(draft.width, draft.height)) px at \(ProcessInfo.processInfo.systemUptime - started)s")
+#endif
+                    } catch { try Task.checkCancellation() }
+                }
+                // A first zoom must not wait for a fitted tier that it no
+                // longer needs. A visible film draft can back the detail tile.
+                if zoomedDemand && displayedFilmKey == cached { return }
                 let result = try await withTaskCancellationHandler {
                     try await document.renderLibraryDetail(photo, fitEdge: edge, using: renderEngine)
                 } onCancel: {
@@ -171,7 +198,10 @@ struct MobilePhotoDetail: View {
                 recentRenditions.removeAll { $0.key == cached }
                 recentRenditions.insert((cached, edge, result), at: 0)
                 if recentRenditions.count > 2 { recentRenditions.removeLast() }
-                preview = result; previewID = photo.id; developedPreview = true
+                preview = result; previewID = photo.id; developedPreview = true; displayedFilmKey = cached
+#if DEBUG
+                GalleryTileAudit.record("fit rendered \(max(result.width, result.height)) px at \(ProcessInfo.processInfo.systemUptime - started)s")
+#endif
             } catch { /* Keep the best already available rendition. */ }
         }
         .task(id: tileRequest) { await reconcileTile(tileRequest) }
@@ -445,13 +475,25 @@ struct MobilePhotoDetail: View {
             }
             try Task.checkCancellation()
             guard tileRequest == request else { return }
+            let actual = max(Double(result.image.width) / result.rect.width, Double(result.image.height) / result.rect.height)
+            guard actual > Double(request.viewport.previewLongEdge) * 1.07 else {
+#if DEBUG
+                GalleryTileAudit.record("detail unchanged: current \(request.viewport.previewLongEdge) px, available \(Int(actual)) px")
+#endif
+                return
+            }
             galleryTile = (request.key, result)
 #if DEBUG
-            GalleryTileAudit.record("visible \(result.rect) \(result.image.width)x\(result.image.height)")
+            GalleryTileAudit.record("visible \(result.rect) \(result.image.width)x\(result.image.height), equivalent long edge \(Int(actual)) px")
 #endif
         } catch {
 #if DEBUG
-            GalleryTileAudit.record("error \(error)")
+            if error is CancellationError { GalleryTileAudit.record("detail canceled") }
+            else {
+                let memory = error.localizedDescription.contains("内存") || error.localizedDescription.contains("記憶體")
+                    || error.localizedDescription.localizedCaseInsensitiveContains("memory")
+                GalleryTileAudit.record(memory ? "detail skipped by memory protection" : "detail failed \(type(of: error))")
+            }
 #endif
             // Memory pressure or quick paging leaves the usable fit image in place.
         }
@@ -628,10 +670,15 @@ private struct DetailPageNeighbor {
 #if DEBUG
 @MainActor private enum GalleryTileAudit {
     static func record(_ line: String) {
-        guard ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit") else { return }
+        // Debug QA keeps a small timing-only trace; never write filenames,
+        // identifiers, recipes or image bytes.
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("--gallery-tile-audit") || Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
         let url = URL.documentsDirectory.appendingPathComponent("gallery-tile-audit.txt")
         let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-        try? (previous + line + "\n").write(to: url, atomically: true, encoding: .utf8)
+        let time = String(format: "%.3f", ProcessInfo.processInfo.systemUptime)
+        let output = String(previous.suffix(24_000)) + time + " " + line + "\n"
+        try? output.write(to: url, atomically: true, encoding: .utf8)
     }
 }
 #endif

@@ -295,7 +295,8 @@ actor MobileEngine {
             var latitudeReply: UnsafeMutablePointer<CChar>?
             let h = recipe["_placementHighlight"]?.doubleValue ?? 0
             let sh = recipe["_placementShadow"]?.doubleValue ?? 0
-            var needsLatitude = (!brightnessProbe && recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true) || h > 0 || sh > 0
+            var needsLatitude = (!brightnessProbe && recipe["_exporting"]?.boolValue != true
+                && recipe["_interactivePreview"]?.boolValue != true && recipe["_galleryPreview"]?.boolValue != true) || h > 0 || sh > 0
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--audit-export-legacy-work") { needsLatitude = true }
 #endif
@@ -413,9 +414,15 @@ actor MobileEngine {
     /// Gallery frames reuse engine and color-transform setup, but never
     /// retain a previous photo's decoded RAW or working session.
     func renderGalleryFrame(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
-                            megapixels: Double) throws -> CGImage {
+                            megapixels: Double, draft: Bool = false) throws -> CGImage {
         defer { releaseSession() }
-        let result = try render(url: url, recipe: recipe, megapixels: megapixels, geometry: geometry)
+        var settings = recipe
+        settings["_galleryPreview"] = .bool(true)
+        if draft {
+            settings["_interactivePreview"] = .bool(true)
+            settings["_interactiveEdge"] = .double(800)
+        }
+        let result = try render(url: url, recipe: settings, megapixels: megapixels, geometry: geometry)
         let working = try MobileFilmGate.presents(recipe) ? result.image : geometry.apply(to: result.image)
         return try canvasImage(working)
     }
@@ -718,7 +725,8 @@ actor MobileEngine {
             raw.isLensCorrectionEnabled = recipe["_lens"]?.boolValue ?? false
             if let temperature = recipe["_temperature"]?.doubleValue { raw.neutralTemperature = Float(temperature) }
             if let tint = recipe["_tint"]?.doubleValue { raw.neutralTint = Float(tint) }
-            if recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true {
+            if recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true
+                && recipe["_galleryPreview"]?.boolValue != true {
             guard let display = CIRAWFilter(imageURL: url) else { throw MobileFailure.message(TDetached("The RAW original preview could not be created", "无法创建 RAW 原图预览", "無法創建 RAW 原圖預覽")) }
             display.scaleFactor = raw.scaleFactor
             display.isDraftModeEnabled = false
@@ -766,7 +774,8 @@ actor MobileEngine {
         let placed = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
         let context = MobileInputColor.context(device: device)
         defer { context.clearCaches() }
-        let originalScale = recipe["_exporting"]?.boolValue == true || recipe["_interactivePreview"]?.boolValue == true ? min(1, 256 / Double(max(width, height))) : 1
+        let originalScale = recipe["_exporting"]?.boolValue == true || recipe["_interactivePreview"]?.boolValue == true
+            || recipe["_galleryPreview"]?.boolValue == true ? min(1, 256 / Double(max(width, height))) : 1
         guard let linear = MobileInputColor.linearProPhoto(),
               let working = CGColorSpace(name: CGColorSpace.rommrgb),
               let display = comparison,
