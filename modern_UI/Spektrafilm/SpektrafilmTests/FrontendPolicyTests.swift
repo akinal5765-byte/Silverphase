@@ -703,7 +703,7 @@ final class FrontendPolicyTests: XCTestCase {
         // asserting on `storeDirectory` here would only be asserting that the
         // redirect works.
         let real = Sidecar.defaultStoreDirectory.path
-        XCTAssertTrue(real.hasSuffix("/Library/Application Support/SpektraLab/Sidecars"), real)
+        XCTAssertTrue(real.hasSuffix("/Library/Application Support/Silverphase/Sidecars"), real)
         XCTAssertFalse(real.contains(".app/"), "a sidecar must never be written into the bundle")
         let url = Sidecar.url(for: URL(fileURLWithPath: "/tmp/photos/a.NEF"))
         XCTAssertFalse(url.path.hasPrefix("/tmp/photos"), "a sidecar must not be written beside the image")
@@ -712,6 +712,16 @@ final class FrontendPolicyTests: XCTestCase {
                        "a.NEF.spektra.json")
         XCTAssertEqual(Sidecar.legacyURL(for: URL(fileURLWithPath: "/tmp/photos/a.NEF")).lastPathComponent,
                        "a.spektra.json")
+    }
+
+    @MainActor
+    func testDesktopRuntimeUsesSilverphaseNamespaces() {
+        XCTAssertEqual(DesktopIdentity.bundleIdentifier, "com.silverphase.editor")
+        XCTAssertEqual(Sidecar.defaultStoreDirectory.deletingLastPathComponent(), DesktopIdentity.supportDirectory)
+        XCTAssertEqual(ExportRecipeStore.url.deletingLastPathComponent(), DesktopIdentity.supportDirectory)
+        XCTAssertEqual(Session.cacheRoot.lastPathComponent, DesktopIdentity.bundleIdentifier)
+        XCTAssertTrue(Diagnostics.defaultLogDirectory.path.hasSuffix("/Library/Logs/Silverphase"))
+        XCTAssertEqual(DesktopGitHubRelease.releasesURL.path, "/akinal5765-byte/Silverphase/releases")
     }
 
     /// The edge case a path-keyed store creates, and the one the old
@@ -807,11 +817,7 @@ final class FrontendPolicyTests: XCTestCase {
                        "one name, two photographs, two sets of settings")
     }
 
-    /// Migration moves rather than copies: the complaint was the clutter, and
-    /// a migration that leaves the file behind does not answer it. The
-    /// ambiguous stem name is the exception and stays put, because it may
-    /// belong to a sibling.
-    func testMigrationMovesTheNeighbourFileAndLeavesTheAmbiguousOne() throws {
+    func testPortableSidecarsAreNotDeletedAndResetCannotReimportThem() throws {
         let dir = FileManager.default.temporaryDirectory.appending(path: "spk-sidecar-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -822,14 +828,21 @@ final class FrontendPolicyTests: XCTestCase {
         let neighbour = Sidecar.neighbourURL(for: image)
         let enc = JSONEncoder()
         try enc.encode(written).write(to: neighbour)
-        defer { Sidecar.remove(for: image) }
+        let original = try Data(contentsOf: neighbour)
+        var stemSidecar = Sidecar()
+        stemSidecar.geometry.angle = 9.5
+        let legacy = Sidecar.legacyURL(for: image)
+        let stemOriginal = try enc.encode(stemSidecar)
+        try stemOriginal.write(to: legacy)
+        defer { try? FileManager.default.removeItem(at: Sidecar.url(for: image)) }
 
         let loaded = try XCTUnwrap(Sidecar.load(for: image))
-        XCTAssertEqual(loaded.geometry.angle, 7.5, "the settings must survive the move")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: Sidecar.url(for: image).path),
-                      "the store must have the frame after migration")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: neighbour.path),
-                       "the file beside the image must be gone — that was the whole complaint")
+        XCTAssertEqual(loaded.geometry.angle, 7.5, "the full-name fallback comes first")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: Sidecar.url(for: image).path))
+        Sidecar.remove(for: image)
+        XCTAssertEqual(Sidecar.load(for: image)?.geometry, Geometry.default)
+        XCTAssertEqual(try Data(contentsOf: neighbour), original)
+        XCTAssertEqual(try Data(contentsOf: legacy), stemOriginal)
     }
 
     // MARK: - helpers

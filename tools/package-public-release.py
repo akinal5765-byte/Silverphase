@@ -9,6 +9,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / 'modern_UI/Spektrafilm'
@@ -61,9 +62,11 @@ shutil.copytree(source_app, app, symlinks=True)
 resources = app / resdir
 info = plistlib.loads((app / ('Contents/Info.plist' if a.platform == 'macos' else 'Info.plist')).read_bytes())
 assert info['CFBundleShortVersionString'] == version, 'Tag and application versions disagree'
+assert info['CFBundleIdentifier'] == 'com.silverphase.editor', 'Unexpected Silverphase application identity'
 public = json.loads((DESKTOP / 'Spektrafilm/Resources/StockCatalog.json').read_text())['stocks']
 shipped = json.loads((resources / 'StockCatalog.json').read_text())['stocks']
 assert shipped == public and not any(s['id'].endswith('_experimental') for s in shipped)
+run([sys.executable, ROOT / 'tools/stock-artwork.py', '--resources', resources])
 assert not (resources / 'LocalMaterials').exists(), 'Private local catalog was packaged'
 assert not list((resources / 'engine/profiles').glob('*_experimental.json'))
 assert len(list((resources / 'engine/profiles').glob('*.json'))) == len(public)
@@ -108,15 +111,14 @@ manifest = {'tag': a.tag, 'source_commit': commit, 'source_repository': 'https:/
 (resources / 'PublicRelease.json').write_text(json.dumps(manifest, indent=2) + '\n')
 if a.platform == 'macos':
     main = app / 'Contents/MacOS/Silverphase'
-    for f in executables:
-        if f != main:
-            run(['codesign', '--force', '--sign', '-', '--timestamp=none', f])
+    assert executables == [main], 'Unexpected extra macOS binary in application bundle'
+    assert list(main.parent.iterdir()) == [main], 'Unexpected macOS executable or wrapper'
     run(['codesign', '--force', '--sign', '-', '--timestamp=none', '--options', 'runtime',
          '--entitlements', DESKTOP / 'Spektrafilm/Spektrafilm.entitlements', app])
     run(['codesign', '--verify', '--deep', '--strict', app])
     os.symlink('/Applications', app.parent / 'Applications')
     shutil.copytree(resources / 'Licenses', app.parent / 'Licenses')
-    (app.parent / 'INSTALL.txt').write_text('Silverphase ' + a.tag + '\nApple Silicon; macOS 15 or later.\nDrag Silverphase to Applications.\nThis build has no Developer ID signature and is not notarized.\nIf macOS blocks it, review System Settings > Privacy & Security and use Open Anyway only if you trust this download.\nDo not disable Gatekeeper globally.\nSource: https://github.com/akinal5765-byte/Silverphase/tree/' + a.tag + '\nCommit: ' + commit + '\n')
+    (app.parent / 'INSTALL.txt').write_text('Silverphase ' + a.tag + '\nApple Silicon; macOS 15 or later.\nDrag Silverphase to Applications.\n\nUpgrading from 1.3.1 or earlier? Keep the old app and back up your edits and presets before replacing it. The new app does not migrate them automatically. Copy only the files you recognize; keep the old copies until the new app opens your edits correctly.\n从 1.3.1 或更早版本升级：替换前保留旧应用并备份编辑与导出配方。新版不会自动迁移；请按指南选择性复制，确认编辑能正常打开后再处理旧文件。\nMigration / 迁移指南: https://github.com/akinal5765-byte/Silverphase/blob/' + a.tag + '/docs/MACOS-IDENTITY-UPGRADE.md\n\nThis build has no Developer ID signature and is not notarized.\nIf macOS blocks it, review System Settings > Privacy & Security and use Open Anyway only if you trust this download.\nDo not disable Gatekeeper globally.\nSource: https://github.com/akinal5765-byte/Silverphase/tree/' + a.tag + '\nCommit: ' + commit + '\n')
     asset = out / ('Silverphase-' + version_tag[1:] + '-macOS-arm64.dmg')
     run(['hdiutil', 'create', '-volname', 'Silverphase ' + version_tag[1:], '-srcfolder', app.parent,
          '-ov', '-format', 'UDZO', asset])

@@ -777,7 +777,7 @@ private struct MaterialBrowserCard: View {
                 if compact {
                     HStack(spacing: Theme.Metric.space8) {
                         coverPlaceholder
-                            .frame(width: Theme.Metric.browserListRowHeight - Theme.Metric.space8 * 2)
+                            .frame(width: Theme.Metric.browserListCoverWidth, height: Theme.Metric.browserListCoverHeight)
                         labels
                     }
                 } else {

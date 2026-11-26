@@ -273,6 +273,11 @@ without them is not licensed to be shipped.
       in the corresponding source repository. This data is distinct from
       Andrea Volpato's original profile collection.
 
+  Final output gamut mapping (source code)
+      The host-side CAM16 chroma knee follows Hanze Qiu's SpektraLab commit
+      d661b3b957adfd0fa90259d7c3b67cfe0d996165 (GPL-3.0-or-later), shared by
+      Silverphase's macOS and iOS output transforms. No material data changed.
+
 Silverphase is an independent derivative of Hanze Qiu's SpektraLab ($predecessor_url).
 The first link above is for Silverphase's corresponding source. The film
 simulation, measured profiles and print+scan model originate in Andrea

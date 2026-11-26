@@ -1,6 +1,6 @@
 # Silverphase 支持 / Support
 
-Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 正式版在中国大陆区以外的 App Store 提供。[App Store](https://apps.apple.com/hk/app/silverphase-%E8%83%B6%E7%89%87%E6%A8%A1%E6%8B%9F/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
+Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 [App Store](https://apps.apple.com/cn/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
 
 ## 联系维护者
 
@@ -30,7 +30,7 @@ Issues 是公开渠道。请勿上传私人原片、位置、证件、密码或�
 
 ## English
 
-Silverphase is a free film and print simulation editor for iPhone and iPad, requiring iOS / iPadOS 18 or later. RAW compatibility depends on Apple's system RAW decoder. The public version is available on the App Store outside mainland China. [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp)
+Silverphase is a free film and print simulation editor for iPhone and iPad, requiring iOS / iPadOS 18 or later. RAW compatibility depends on Apple's system RAW decoder. [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp)
 
 Contact the maintainer through [GitHub Issues](https://github.com/akinal5765-byte/Silverphase/issues). Include the device, OS and app versions, reproduction steps, expected behavior and actual behavior. Issues are public. Remove private information from screenshots and do not post private originals, location information, credentials, identity documents or complete diagnostic logs. A GitHub account is required to submit an issue, but not to read existing issues.
 
@@ -49,3 +49,18 @@ See the [privacy policy](PRIVACY.md) and [source and licences](https://github.co
 近似取景用于构图。测光、柔光和系统视频处理均可能影响它与 RAW 成片的差异。设置可选择近似、系统或实验性原生预览；应用内相机还提供胶片曝光补偿、RAW 偏好和分辨率选择。拍摄定位需授权，可在设置中关闭。导出是否保留位置由导出设置决定。[iOS 1.2.5 说明](../ios/releases/1.2.5.md)
 
 The approximate viewfinder aids composition. Metering, diffusion, and system video processing can affect how it differs from the developed RAW. Settings offer approximate, system, and experimental native previews. The in-app camera also offers film exposure compensation, RAW preference, and resolution choices. Capture location requires permission, can be disabled, and follows export metadata policy. [iOS 1.2.5 notes](../ios/releases/1.2.5.md)
+
+## macOS：升级与导出 / Upgrading and exporting
+
+- 从旧版升级到 1.4.0 前，先按[迁移指南](MACOS-IDENTITY-UPGRADE.md)备份旧编辑，不要把 SpektraLab 的整个数据目录复制过来。公开下载见[二进制发布](BINARY-RELEASES.md)。
+- 普通画布与 sRGB 成片有差别时，在「导出」里选定色域，再打开「输出软打样」。sRGB 无法完整呈现某些高饱和色；需要比较文件与软打样时，使用同一个配方和能识别 ICC 的查看器。反馈时附上输出色域及格式即可，不必上传原片。
+- Before upgrading to macOS Silverphase 1.4.0, follow the [upgrade guide](MACOS-IDENTITY-UPGRADE.md) to back up and selectively copy edits. See [Binary releases](BINARY-RELEASES.md) for the public download.
+- For color differences between the canvas and an sRGB export, use Output Soft Proof with the same export recipe and compare the file in a color-managed viewer. Some saturated colors cannot fit in sRGB. Include the output color space and format in a report, without attaching private originals.
+
+## 材料指纹 / Material fingerprint
+
+如果同一张照片和配方更新前后的颜色不同，可在支持此功能的 iOS 版本里从「关于 Silverphase → 复制当前材料指纹」复制一串 SHA-256。在 macOS 手动保存的诊断包中，只需从 `summary.json` 复制 `current_material_pack_sha256`，不用分享整个诊断包。请同时记录 App 版本和构建号。
+
+指纹是当前应用所带材料数据（胶片／相纸配置、合并后的印相滤色、相纸级别和预计算表）的校验值。不同值表示随包材料字节有差异，但不能断定这就是色差的原因；相同值也不能排除解码器或引擎代码变动。它不标记旧编辑，不会固定材料版本，也不会上传数据。
+
+For a color change after updating, copy the current material fingerprint from iOS About Silverphase, or copy only `current_material_pack_sha256` from the `summary.json` inside a macOS diagnostics bundle you saved. Include the app version and build. This SHA-256 identifies the material data staged with the running app, not the engine code or the data used by an older edit. Different hashes identify different material bytes, not necessarily the cause of a visual change. No edit migration, version pinning, or upload occurs.

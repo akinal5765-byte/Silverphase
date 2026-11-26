@@ -158,10 +158,8 @@ enum ColourManagement {
     /// would apply it a second time here. The canvas never shows that second
     /// pass; exports did, which compressed their highlights and dynamic range.
     ///
-    /// Keep the chroma knee, because this is the conversion into the recipe's
-    /// gamut. Drop only the lightness stage, because it already happened once.
-    static let gamutCompressionWithoutLightness =
-        #"{"lightness_compression_active": false}"#
+    /// Use the host's final-space chroma knee without another lightness pass.
+    static let gamutCompressionWithoutLightness = OutputGamutPolicy.finalTransform
 
     /// The setup for `source` → `target`, or `nil` when the engine cannot
     /// build one — with `problem` saying which space it did not know.

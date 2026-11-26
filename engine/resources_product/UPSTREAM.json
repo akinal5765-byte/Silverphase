@@ -80,6 +80,14 @@
       "adoption": "upstream scene-linear pair compositor adapted to native Silverphase input framing"
     }
   },
+  "final_output_gamut_knee": {
+    "repository": "https://github.com/JamesQiu2005/SpektraLab",
+    "commit": "d661b3b957adfd0fa90259d7c3b67cfe0d996165",
+    "author": "Hanze Qiu",
+    "license": "GPL-3.0-or-later",
+    "source": "modern_UI/Spektrafilm/Spektrafilm/Canvas/ColourManagement.swift",
+    "adoption": "Final-destination CAM16 chroma knee [0.7, 0.995, 6], shared by the macOS and iOS host transforms. The working-space engine default and measured material arrays are unchanged."
+  },
   "cinestill_800t": {
     "repository": "https://github.com/JamesQiu2005/SpektraLab",
     "commit": "02d82b56cf65f0f8e802a708612edc4e9a4790af",

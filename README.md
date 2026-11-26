@@ -11,7 +11,7 @@
 
 <p align="center">
   简体中文 · <a href="README.en.md">English</a> ·
-  <a href="https://akinal5765-byte.github.io/Silverphase/">官网</a> · <a href="#下载">下载</a> · <a href="#也试试-layerlight">Layerlight</a> · <a href="#效果案例">效果案例</a> · <a href="#编辑流程">编辑流程</a> ·
+  <a href="https://akinal5765-byte.github.io/Silverphase/">官网</a> · <a href="#下载">下载</a> · <a href="#也试试-layerlight">Layerlight</a> · <a href="#效果案例">效果案例</a> · <a href="#胶片封面">胶片封面</a> · <a href="#编辑流程">编辑流程</a> ·
   <a href="#版本记录">版本记录</a> · <a href="docs/README.md">文档</a>
 </p>
 
@@ -27,12 +27,12 @@ Silverphase 是一间在设备上运行的**开源数字暗房**，适用于 **m
 
 | 平台 | 下载入口 | 系统要求 |
 |---|---|---|
-| macOS | [1.3.1（构建 6）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) · Apple Silicon DMG | macOS 15 或更高 |
-| iPhone／iPad | [中国大陆 App Store](https://apps.apple.com/cn/app/id6829987567) · [其他地区](https://apps.apple.com/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
+| macOS | [1.4.0（构建 7）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.4.0) · Apple Silicon DMG | macOS 15 或更高 |
+| iPhone／iPad | [App Store](https://apps.apple.com/cn/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
 
 macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.md)
 
-iPhone 和 iPad 正式版已在中国大陆 App Store 上架。可安装版本以 App Store 和 TestFlight 各自显示为准。
+iPhone 和 iPad 的可安装版本以 App Store 和 TestFlight 各自显示为准。
 
 ## 也试试 Layerlight
 
@@ -65,13 +65,32 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 [![三款模拟胶片的成片：Portra 400、Acros II 和 CineStill 800T](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
 
-**画幅之外。** Silverphase 渲染 135 片边的齿孔、边码与帧号，不是在画面外贴一层边框。旁边是应用材料库的四张封面。
+**画幅之外。** Silverphase 渲染 135 片边的齿孔、边码与帧号，不是在画面外贴一层边框。旁边四张是历史存档；新版封面见下方展廊。
 
 [![Silverphase 渲染的 135 片边和应用材料库封面](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
 
 </details>
 
 四张展示卡均为 **2560 × 1600（16:10）**；点击可看原尺寸。画面为软件模拟，不是实体相纸扫描；所用 RAW 不随仓库分发。[配方、照片来源与授权范围](docs/showcase/README.md) · [桌面界面存档](screenshots/current/README.md) · [iPhone 布局存档](screenshots/ios/2026-11-02/README.md)
+
+## 胶片封面
+
+从新版材料库挑了八张封面，涵盖日光型、灯光型和彩色与黑白胶片。它们是 Silverphase 为选片界面制作的插画，不是零售包装扫描。点击可查看大图。
+
+<table>
+  <tr>
+    <td width="25%" align="center"><a href="docs/site/covers/portra-400.webp"><img src="docs/site/covers/portra-400.webp" width="220" alt="Kodak Portra 400"></a><br><sub>Kodak Portra 400</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/reala-100.webp"><img src="docs/site/covers/reala-100.webp" width="220" alt="Fujifilm Reala 100"></a><br><sub>Fujifilm Reala 100</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/cinestill-800t.webp"><img src="docs/site/covers/cinestill-800t.webp" width="220" alt="CineStill 800T"></a><br><sub>CineStill 800T</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/hp5-plus.webp"><img src="docs/site/covers/hp5-plus.webp" width="220" alt="Ilford HP5 Plus"></a><br><sub>Ilford HP5 Plus</sub></td>
+  </tr>
+  <tr>
+    <td width="25%" align="center"><a href="docs/site/covers/eterna-500.webp"><img src="docs/site/covers/eterna-500.webp" width="220" alt="Fujifilm Eterna 500"></a><br><sub>Fujifilm Eterna 500</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/pro-160ns.webp"><img src="docs/site/covers/pro-160ns.webp" width="220" alt="Fujifilm Pro 160NS"></a><br><sub>Fujifilm Pro 160NS</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/vision3-250d.webp"><img src="docs/site/covers/vision3-250d.webp" width="220" alt="Kodak Vision3 250D"></a><br><sub>Kodak Vision3 250D</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/acros-ii.webp"><img src="docs/site/covers/acros-ii.webp" width="220" alt="Fujifilm Acros II"></a><br><sub>Fujifilm Acros II</sub></td>
+  </tr>
+</table>
 
 ## 编辑流程
 
@@ -87,7 +106,7 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 构图（裁切）和片边是独立工具，不是扫描的一步。成片可导出为 JPEG、8 位 PNG 或 16 位 TIFF；Cineon DI 提供 16 位对数 TIFF 和配套的 ProPhoto RGB／Rec.709 视图 LUT，便于后续调色。具体控件与输出条件因平台而异。[输出与 DI 说明](modern_UI/Spektrafilm/README.md#图像与输出边界)
 
-公开目录含 25 款常规胶片、9 款相纸和 29 款实验胶片。[材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [实验配置的来源与范围](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
+公开目录含 25 款常规胶片、9 款相纸和 29 款实验胶片。[材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [实验配置的来源与范围](license/DATA-SOURCES.md#experimental-fotufilm-profiles) · [封面提示词和出处](modern_UI/design/film-artwork/README.md)
 
 ## 各平台功能
 
@@ -101,7 +120,9 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 ## 版本记录
 
-当前源码版本为 **1.3.1**。macOS 和 iOS／iPadOS 将测光与胶片曝光移到「胶片」，为 29 款公开 Fotufilm 配置补齐封面和来源标识，并降低其中 17 款的 DIR 边缘过冲。
+**macOS 1.4.0（构建 7）** 带来重新设计的封面、自定义片边文字和更温和的导出色域压缩。[发布说明](modern_UI/Spektrafilm/releases/1.4.0.md) · [升级时保留旧编辑](docs/MACOS-IDENTITY-UPGRADE.md)。
+
+1.3.1 在 macOS 和 iOS／iPadOS 上将测光与胶片曝光移到「胶片」，为 29 款公开 Fotufilm 配置补齐封面和来源标识，并降低其中 17 款的 DIR 边缘过冲。
 
 | 平台 | 1.3.1 源码记录 |
 |---|---|

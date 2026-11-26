@@ -41,43 +41,29 @@ for source, destination in [
 subprocess.run([sys.executable, str(ROOT / 'tools/inventory-release-data.py'), '--check'], check=True)
 subprocess.run([sys.executable, str(ROOT / 'tools/inventory-release-media.py'), '--check'], check=True)
 
+subprocess.run([sys.executable, str(ROOT / 'tools/stock-artwork.py'), '--web'], check=True)
+
 for name, expected in provenance['sha256'].items():
     path = product / name
     require(path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == expected,
             f'Product provenance mismatch: engine/resources_product/{name}')
 
-# Follow Stock.packagingArtworkURL, including existing aliases and v2 Portra.
+# Follow the shared runtime artwork lookup, including public profile aliases.
 resources = ROOT / 'modern_UI/Spektrafilm/Spektrafilm/Resources'
 stocks = json.loads((resources / 'StockCatalog.json').read_text())['stocks']
 require(not list((ROOT / 'engine/resources/profiles').glob('*_experimental.json')), 'Retired experimental profile data is present')
 require(all(not stock['id'].endswith('_experimental') for stock in stocks), 'Retired experimental stock is in the catalog')
-aliases = {'kodak_portra_800_push1': 'kodak_portra_800',
-           'kodak_portra_800_push2': 'kodak_portra_800',
-           'cinestill_800t_fotufilm': 'cinestill_800t',
-           'fujifilm_acros_100_ii_fotufilm': 'fujifilm_neopan_acros_100_ii',
-           'ilford_hp5_plus_fotufilm': 'ilford_hp5_plus_400',
-           'kodak_tmax_100_fotufilm': 'kodak_tmax_100'}
 adopted = set(adoption['profiles'])
 adopted_ids = {Path(name).stem for name in adopted}
 require(len(adopted_ids) == 29 and adopted_ids == {s['id'] for s in stocks if s['id'].endswith(adoption['id_suffix'])},
         'Experimental imports and catalog differ')
-adopted_covers = set()
-for stock in stocks:
-    sid = aliases.get(stock['id'], stock['id'])
-    version = 'v2' if sid == 'kodak_portra_400' else 'v1'
-    cover = resources / 'FilmCovers' / f'{sid}-packaging-{version}.png'
-    if stock['id'] in adopted_ids and not cover.is_file() and stock.get('cover'):
-        cover = resources / 'FilmCovers' / Path(stock['cover']).name
-    require(cover.is_file(), f'Missing packaging cover: {stock["id"]}')
-    if stock['id'] in adopted_ids:
-        adopted_covers.add(str(cover.relative_to(ROOT)))
-for name in ('workflow_film_scan-v1.png', 'workflow_digital_intermediate-v1.png'):
-    require((resources / 'FilmCovers' / name).is_file(), f'Missing workflow cover: {name}')
-for manifest in (ROOT / 'modern_UI/design/film-artwork').glob('generated-*-manifest.json'):
-    for item in json.loads(manifest.read_text()).get('items', []):
-        if 'file' in item:
-            require((resources / 'FilmCovers' / item['file']).is_file(),
-                    f'Missing generated artwork: {item["file"]}')
+cover_directory = resources / 'FilmCovers'
+artwork_files = json.loads((cover_directory / 'StockArtwork.json').read_text())['files']
+adopted_covers = {str((cover_directory / artwork_files[sid]).relative_to(ROOT)) for sid in adopted_ids}
+workflow_manifest = ROOT / 'modern_UI/design/film-artwork/generated-workflow-manifest.json'
+for item in json.loads(workflow_manifest.read_text()).get('items', []):
+    if 'file' in item:
+        require((cover_directory / item['file']).is_file(), f'Missing generated workflow artwork: {item["file"]}')
 
 readme = (ROOT / BUNDLE / 'README.txt').read_text()
 for phrase in ('Hanze Qiu', 'Andrea Volpato',
@@ -89,7 +75,9 @@ for phrase in ('Hanze Qiu', 'Andrea Volpato',
 # Include new candidate source files, but never ignored private/build files.
 result = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'],
                         cwd=ROOT, check=True, capture_output=True)
-paths = set(result.stdout.decode().rstrip('\0').split('\0'))
+# A checkout may contain intentional deletions not yet marked in the index.
+paths = {name for name in result.stdout.decode().rstrip('\0').split('\0')
+         if (ROOT / name).exists() or (ROOT / name).is_symlink()}
 retired = re.compile('fotu' + r'[-_ ]?film', re.IGNORECASE)
 private_suffixes = {'.p12', '.pfx', '.pem', '.key', '.mobileprovision', '.arw', '.nef', '.dng', '.spektrapair'}
 text_suffixes = {'.md', '.txt', '.json', '.py', '.swift', '.cpp', '.hpp', '.h', '.metal',
@@ -102,9 +90,13 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | ado
     'engine/resources_product/neutral_print_filters.json',
     'license/DATA-SOURCES.md',
     'license/media-inventory.json',
+    'docs/site/media-provenance.json',
     'tools/check-open-source.py',
+    'tools/stock-artwork.py',
+    'modern_UI/design/film-artwork/generated-stock-covers-v2-manifest.json',
+    'modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/StockArtwork.json',
     'README.md', 'README.en.md', 'AGENTS.md', 'ARCHITECTURE.md', 'LICENSES.md',
-    'docs/README.md', 'docs/LOCAL-MATERIALS.md',
+    'docs/README.md', 'docs/LOCAL-MATERIALS.md', 'docs/showcase/README.md',
     'modern_UI/Spektrafilm/releases/1.3.0.md',
     'modern_UI/Spektrafilm/releases/1.3.1.md',
     'modern_UI/Spektrafilm/README.md',
@@ -118,6 +110,7 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | ado
     'engine/src/core/curves.cpp', 'engine/src/core/curves.hpp', 'engine/src/core/params.cpp',
     'engine/src/pipeline/pipeline.cpp',
     'engine/tests/fotufilm_dir_edges.py',
+    'engine/tests/test_fotufilm_dir_edges.py',
     'modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json',
     str(BUNDLE / notice),
     str(BUNDLE / 'Runtime-Data-SOURCES.md'),

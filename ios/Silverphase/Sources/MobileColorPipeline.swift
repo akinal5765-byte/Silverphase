@@ -76,7 +76,7 @@ final class MobileColorPipeline {
             var reply: UnsafeMutablePointer<CChar>?
             var cmax: UnsafePointer<Float>?
             var count: UInt32 = 0
-            guard spk_output_transform(engine, "ProPhoto RGB", target.rawValue, #"{"lightness_compression_active":false}"#, &reply, &cmax, &count) == SPK_OK,
+            guard spk_output_transform(engine, "ProPhoto RGB", target.rawValue, OutputGamutPolicy.finalTransform, &reply, &cmax, &count) == SPK_OK,
                   let reply, let cmax else { throw MobileFailure.message(String(cString: spk_last_error(engine))) }
             defer { spk_string_free(reply) }
             let object = try JSONSerialization.jsonObject(with: Data(String(cString: reply).utf8)) as? [String: Any] ?? [:]

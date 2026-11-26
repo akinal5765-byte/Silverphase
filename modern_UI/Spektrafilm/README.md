@@ -16,7 +16,7 @@
 - `Spektrafilm/Canvas/`：Metal 画布、ProPhoto 显示、几何、直方图和分层显影。
 - `Spektrafilm/Panels/`：浮动工艺面板、胶片／相纸条和照片导航条。
 - `Spektrafilm/Export/`：导出配方、软打样、后台纹理读回和 ImageIO 文件写入。
-- `Spektrafilm/Resources/`：引擎资源、目录、包装插画、DI 视图 LUT 和许可。
+- `Spektrafilm/Resources/`：引擎资源、目录、胶片与相纸封面插画、DI 视图 LUT 和许可。
 - `SpektrafilmTests/`：独立 XCTest target，同时编译应用及引擎源码。
 - `Tools/`：工程生成、资源检查、验证及签名／公证／DMG 打包工具。
 
@@ -69,7 +69,9 @@ JPEG、带编码的 TIFF 等 RGB 文件在输入边界解码其传递函数。�
 
 工作空间与普通画布纹理为 ProPhoto RGB。预览与全分辨率使用同一工艺
 参数，颗粒及空间效应按物理画幅换算。缩放不会改变胶片配置。全尺寸
-导出经过同一几何和颜色路径，使用临时文件完成后替换目标。
+导出采用与画布相同的几何规则，但会按配方的目标色域重新转换，使用临时文件完成后替换目标。
+
+桌面「输出软打样」与导出共用完整成片管线，用于检查所选输出色域。1.4.0 减少对目标色域内中低饱和色的压缩；接近边界时仍平滑压缩。sRGB 容纳不了的颜色（例如高饱和蓝天）仍可比普通画布淡，具有色彩管理的 P3 工作流可用 Display P3 保留更多颜色。需要 sRGB 兼容性时，请以 sRGB 软打样为准，而不是期待普通画布与导出完全相同。
 
 在「胶片 → 画幅 ⋯ → 模拟尺寸」输入裁切后的目标长边，点「使用原始尺寸」可恢复原始采样。
 图像会在线性阶段重采样，再按所选的物理画幅生成颗粒和光晕。导出配方仍可
@@ -117,6 +119,10 @@ Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
 `FilmCanvasInput.swift` 负责片门输入。镜头滤镜改变胶片感光，片边与
 日期曝光不经过镜头滤镜。修改这些参数需要重显影，不复用旧负片。
 
+「片边文字」可以为当前照片或半格双联画替换片边印字中的胶片名称。
+支持最多 10 个字符（A–Z、数字、空格和 `+ - . /`），具体能印下多少取决于
+所选胶片的版式。清空后恢复默认胶片名称；帧号、齿孔和画框不变。
+
 `HalfFramePair.swift` 定义 `.spektrapair` 源照片引用文档；
 `PairComposer.swift` 在线性空间组片，组合自身 sidecar 保存共享印相与
 片边设置，保留源照片自己的拍摄状态。不要将用户配对文件或源照片加入 Git。
@@ -130,9 +136,9 @@ Cineon → Rec.709；它们是观看变换，不是当前相纸的印相表。
 
 ## 版本记录
 
-当前源码版本为 **1.3.1（构建 6）**。测光与胶片曝光的面板调整、Fotufilm 封面和 DIR 边缘修正见 [1.3.1 源码记录](releases/1.3.1.md)。
+当前桌面版为 **1.4.0（构建 7）**，见[发布说明](releases/1.4.0.md)和[旧数据迁移指南](../../docs/MACOS-IDENTITY-UPGRADE.md)。测光与胶片曝光的面板调整、Fotufilm 封面和 DIR 边缘修正见 [1.3.1 源码记录](releases/1.3.1.md)。
 
-当前公开 Apple Silicon DMG 为 [**1.3.1（构建 6）**](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1)。**1.3.0（构建 5）** 的安装包保留在 [历史 Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0)。入片控制、实验胶片、共享引擎校准及验证范围见 [版本记录](releases/1.3.0.md)。
+当前公开 Apple Silicon DMG 为 [**1.4.0（构建 7）**](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.4.0)。上一版 [1.3.1（构建 6）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) 仍可下载。**1.3.0（构建 5）** 的安装包保留在 [历史 Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0)。入片控制、实验胶片、共享引擎校准及验证范围见 [版本记录](releases/1.3.0.md)。
 
 ## Lightroom Classic 外部编辑
 

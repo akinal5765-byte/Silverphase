@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / "private-fixtures/local-experimental-materials"
@@ -66,4 +68,6 @@ if os.environ.get("SILVERPHASE_LOCAL_MATERIALS", "1") != "0" and ARCHIVE.is_dir(
     (overlay / "README.txt").write_text("Private local material experiments; excluded from public source and distribution.\n")
     count = len(stocks)
 (engine / "neutral_print_filters.json").write_text(json.dumps(base_filters, indent=2) + "\n")
+# Hash the final staged bytes, after both public and optional local overrides.
+subprocess.run([sys.executable, str(ROOT / "tools/material-pack-fingerprint.py"), str(engine)], check=True)
 print(f"Local materials: {count} staged (SILVERPHASE_LOCAL_MATERIALS=0 for public builds)")

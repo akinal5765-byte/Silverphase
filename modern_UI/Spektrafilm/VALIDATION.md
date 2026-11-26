@@ -129,6 +129,23 @@ python3 engine/tests/fotufilm_dir_edges.py
 原版 Fotufilm 同条件成片和实际底片边缘密度剖面。原厂资料可以支持 DIR
 边缘增强的机制，也可用于后续对照底片的 MTF。这里测量的是成片阶跃越界
 幅度，不能用原厂底片 MTF 的百分比直接验证。
+可另存一份诊断报告，先选双方都有的两款胶片。它保留相同的 40% 筛查门槛，
+另外记录 RGB 三通道各自的过冲、欠冲，以及同一条件下 DIR 开关对五组均匀
+中性曝光（相对 0.18 的 −2.5、−1、0、+1.5、+3 EV）中心像素的影响：
+
+```sh
+python3 engine/tests/fotufilm_dir_edges.py \
+  --profile fujifilm_pro_160ns_fotufilm --profile fujifilm_velvia_50_fotufilm \
+  --report /tmp/silverphase-dir-report.json
+```
+
+报告是成片 RGB 码值差，不是底片密度。某通道的两侧平场落差不足一个码值时，
+其越界百分比为 `null`。上游 [Fotufilm #352](https://github.com/DhaliwalX/fotufilm-engine/pull/352)
+的 schema v4 测试也使用这组均匀曝光，但检查其自己的合成配置和线性输出。
+不能用上游容差来判定本报告，也不能把同名胶片当成同一配置。跨引擎比较应
+先固定输入线性空间、实际画幅、胶片配置、停用的空间效果和同一个渲染阶段，
+再比较各引擎内 DIR 开关前后的变化。报告不导入上游配置，也不改变渲染。
+
 [富士 Pro 160NS 原厂资料，第 22 节](https://asset.fujifilm.com/www/jp/files/2024-04/6b75b1c1cb4253623fb2cd7a56ff7443/datasheet_pro160ns_01.pdf) · [富士研发报告，第 3.2.2 节](https://asset.fujifilm.com/www/jp/files/2019-10/a2b78141b856eedf5ba0bb0c403c69fc/rd_report_ff_rd051_all.pdf)
 
 ### 真实照片

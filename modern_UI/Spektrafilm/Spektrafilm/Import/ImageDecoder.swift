@@ -115,6 +115,22 @@ enum ImageDecoder {
     static let flatExtensions: Set<String> = ["tif", "tiff", "png", "jpg", "jpeg", "heic", "exr"]
     static var openable: Set<String> { rawExtensions.union(flatExtensions).union([HalfFramePair.fileExtension]) }
 
+    /// Seed a new Develop crop without cutting the decoded original.
+    /// Embedded thumbnails can already be cropped, so leave them alone.
+    static func initialHasselbladGeometry(_ url: URL) -> Geometry? {
+        guard url.pathExtension.lowercased() == "3fr",
+              let crop = HasselbladCrop.read(url),
+              let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue else { return nil }
+        let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+        guard let rect = HasselbladCrop.normalized(crop, storedWidth: width, storedHeight: height,
+                                                   orientation: orientation) else { return nil }
+        let size = (5...8).contains(orientation) ? CGSize(width: height, height: width) : CGSize(width: width, height: height)
+        return Geometry.default.redrawn(as: CropRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height), in: size)
+    }
+
     enum Failure: Error, LocalizedError {
         case unsupported(URL), rawFilterUnavailable(URL), noColorSpace, emptyFrame, noFrameBuffer(Int)
         var errorDescription: String? {

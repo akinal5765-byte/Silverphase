@@ -63,15 +63,13 @@ ENGINE = ROOT.parents[1] / "engine"
 # spektrafilm LUTs"). So: product renamed, engine and profiles keep their
 # name, and the About panel carries the credit (HANDOFF-DISTRIBUTION §2.3).
 #
-# `BUNDLE_ID` deliberately still reads "filmify": it is the identity macOS
-# Gatekeeper/notarisation already has on record for this app, and changing it
-# would orphan that history and any installed copy's app data. Renaming the
-# reverse-DNS id is a separate, larger decision than renaming what the user
-# sees.
+# Use Silverphase's own reverse-DNS identifier. macOS preferences for the
+# previous shared identity are not migrated automatically. See the upgrade
+# guide before releasing a build under this identifier.
 APP = "Spektrafilm"
 PRODUCT_NAME = "Silverphase"
 TESTS = "SpektrafilmTests"
-BUNDLE_ID = "com.hanze.filmify"
+BUNDLE_ID = "com.silverphase.editor"
 MACOS = "15.0"
 
 # The version, in one place.
@@ -80,8 +78,8 @@ MACOS = "15.0"
 # they were still `0.2` and `2` — nothing derived them and nothing noticed.
 # They are build settings now and the plist references them, so a release
 # bumps one line here (HANDOFF-DISTRIBUTION §2.6).
-MARKETING_VERSION = "1.3.1"
-BUILD_NUMBER = "6"
+MARKETING_VERSION = "1.4.0"
+BUILD_NUMBER = "7"
 
 # Signing, from the environment, because a Developer ID certificate is not in
 # this repository and must not be.
