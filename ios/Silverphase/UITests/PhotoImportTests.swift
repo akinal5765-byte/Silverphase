@@ -139,9 +139,11 @@ final class PhotoImportTests: XCTestCase {
         snapshot.lifetime = .keepAlways
         add(snapshot)
         print("Duo grip: finder=\(finder) bank=\(grip.frame) shutter=\(b) gallery=\(gallery.frame) film=\(film.frame) diffusion=\(diffusion.frame)")
-        // Physical right in the current scene (not merely right of a squeezed bottom row).
-        XCTAssertGreaterThanOrEqual(grip.frame.minX + 2, finder.maxX, file: file, line: line)
-        XCTAssertGreaterThan(b.minX, finder.maxX, file: file, line: line)
+        // The finder fills the scene width; the folded bank overlays its right
+        // edge without stealing width or shifting the optical center.
+        XCTAssertEqual(finder.width, app.frame.width, accuracy: 2, file: file, line: line)
+        XCTAssertTrue(finder.insetBy(dx: -2, dy: -2).contains(b), file: file, line: line)
+        XCTAssertGreaterThan(b.midX, finder.midX + finder.width * 0.25, file: file, line: line)
         XCTAssertEqual(b.midY, finder.midY, accuracy: 3, file: file, line: line)
         XCTAssertEqual(b.width, 68, accuracy: 2, file: file, line: line)
         XCTAssertEqual(b.height, 68, accuracy: 2, file: file, line: line)
@@ -190,7 +192,22 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(item.exists)
             XCTAssertGreaterThanOrEqual(item.frame.minY, lower.minY - 2)
         }
-        XCTAssertFalse(app.buttons["camera.waist-film.0"].exists)
+        let centerFilm = app.buttons["camera.waist-film.0"]
+        let leftFilm = app.buttons["camera.waist-film.-1"]
+        let rightFilm = app.buttons["camera.waist-film.1"]
+        for tile in [leftFilm, centerFilm, rightFilm] {
+            XCTAssertTrue(tile.waitForExistence(timeout: 5))
+            XCTAssertLessThan(tile.frame.maxY, lower.minY, "Film wheel stays above the hinge")
+        }
+        XCTAssertGreaterThan(centerFilm.frame.width, leftFilm.frame.width)
+        XCTAssertGreaterThan(centerFilm.frame.width, rightFilm.frame.width)
+        let nextStock = rightFilm.label
+        let oldStock = centerFilm.label
+        XCTAssertNotEqual(nextStock, oldStock)
+        rightFilm.tap()
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", nextStock), object: centerFilm)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 4), .completed)
+        XCTAssertTrue(app.buttons["camera.shutter"].exists)
         XCTAssertFalse(app.switches["camera.waist-outer-print"].exists)
     }
 

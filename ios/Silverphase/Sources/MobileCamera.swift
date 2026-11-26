@@ -141,6 +141,7 @@ struct MobileCameraView: View {
     @State private var filmLabelHeight: CGFloat = 60
 #if SILVERPHASE_APP
     @State private var showingFilms = false
+    @GestureState private var filmWheelDrag: CGFloat = 0
 #endif
     @State private var capturing = false
 #if SILVERPHASE_APP
@@ -288,54 +289,69 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
+    private func waistGeometry(_ geometry: GeometryProxy) -> MobileWaistCameraGeometry? {
+        guard usesInnerCameraLayout else { return nil }
+        return MobileWaistCameraGeometry(viewport: geometry.size, divisionFrames: duoDivisions(geometry))
+    }
+
     private func activeCameraPanel(_ geometry: GeometryProxy) -> CGRect {
-        if usesInnerCameraLayout,
-           let waist = MobileWaistCameraGeometry(viewport: geometry.size, divisionFrames: duoDivisions(geometry)) {
-            return waist.lower
-        }
-        return CGRect(origin: .zero, size: geometry.size)
+        waistGeometry(geometry)?.lower ?? CGRect(origin: .zero, size: geometry.size)
     }
 
     private var sceneCameraLayout: some View {
         GeometryReader { geometry in
-            let panel = activeCameraPanel(geometry)
-            // Constrain the long dimension to the *existing* folded dock, not
-            // a fraction of the screen. A wide inner display doesn't scatter
-            // controls; a short tabletop panel still has its own coordinate space.
-            let span = min(panel.height, Self.dockContentWidth + 2 * Self.dockHorizontalInset)
-            HStack(spacing: usesInnerCameraLayout ? 12 : 0) {
-                // Keep one capture view, in one slot, across hinge/display changes.
-                viewfinder(fillsPanel: !usesInnerCameraLayout && fillsPanel)
-                    .ignoresSafeArea(.container, edges: !usesInnerCameraLayout && fillsPanel ? .all : [])
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-#if DEBUG
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
-                        if isLayoutCheck { cameraFinderTestBounds = $0 }
-                    }
-#endif
-                    .overlay(alignment: .top) {
-                        if usesInnerCameraLayout { cameraHeader } else { standardCameraControls }
-                    }
+            let waist = waistGeometry(geometry)
+            let panel = waist?.lower ?? CGRect(origin: .zero, size: geometry.size)
+            ZStack {
+                cameraPanelContent(panel.size)
+                    .position(x: panel.midX, y: panel.midY)
 
-                if usesInnerCameraLayout {
-                    SidewaysCaptureBank(span: span) {
-                        captureControls
-                            .environment(\.captureBankQuarterTurn, 90)
-                            .rotationEffect(.degrees(-90))
-                    }
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("camera.side-grip")
-#if DEBUG
-                    .accessibilityValue(isLayoutCheck ? [cameraFinderTestBounds.minX, cameraFinderTestBounds.minY,
-                                                        cameraFinderTestBounds.width, cameraFinderTestBounds.height]
-                        .map { String(Double($0)) }.joined(separator: ",") : "")
-#endif
+                if let waist {
+                    // The upper panel is exclusively the quick film wheel. The
+                    // lower grip keeps the full catalogue button in its usual spot.
+                    waistFilmWheel
+                        .frame(width: waist.upper.width, height: waist.upper.height)
+                        .position(x: waist.upper.midX, y: waist.upper.midY)
                 }
             }
             .environment(\.layoutDirection, .leftToRight)
-            .frame(width: panel.width, height: panel.height)
-            .position(x: panel.midX, y: panel.midY)
         }
+    }
+
+    private func cameraPanelContent(_ size: CGSize) -> some View {
+        // Keep one live preview at a stable identity during display handoff.
+        // Like folded mode, the chrome floats above it without shifting its center.
+        viewfinder(fillsPanel: usesInnerCameraLayout || fillsPanel)
+            .ignoresSafeArea(.container, edges: !usesInnerCameraLayout && fillsPanel ? .all : [])
+            .frame(width: size.width, height: size.height)
+#if DEBUG
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                if isLayoutCheck { cameraFinderTestBounds = $0 }
+            }
+#endif
+            .overlay(alignment: .top) {
+                if usesInnerCameraLayout { cameraHeader } else { standardCameraControls }
+            }
+            .overlay(alignment: .trailing) {
+                if usesInnerCameraLayout {
+                    innerCameraGrip(span: min(size.height, Self.dockContentWidth + 2 * Self.dockHorizontalInset))
+                }
+            }
+    }
+
+    private func innerCameraGrip(span: CGFloat) -> some View {
+        SidewaysCaptureBank(span: span) {
+            captureControls
+                .environment(\.captureBankQuarterTurn, 90)
+                .rotationEffect(.degrees(-90))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("camera.side-grip")
+#if DEBUG
+        .accessibilityValue(isLayoutCheck ? [cameraFinderTestBounds.minX, cameraFinderTestBounds.minY,
+                                            cameraFinderTestBounds.width, cameraFinderTestBounds.height]
+            .map { String(Double($0)) }.joined(separator: ",") : "")
+#endif
     }
 
     private func duoDivisions(_ geometry: GeometryProxy) -> [CGRect] {
@@ -348,6 +364,94 @@ struct MobileCameraView: View {
         return []
     }
 
+    private var waistFilmWheel: some View {
+        GeometryReader { geometry in
+            let available = geometry.size
+            if let stock = film, let index = films.firstIndex(where: { $0.id == stock.id }) {
+                let width = min(available.width * 0.37, max(48, (available.height - 22) * 16 / 9), 230)
+                let step = width * 0.88
+                let fraction = max(-1, min(1, filmWheelDrag / max(1, step)))
+                VStack(spacing: 4) {
+                    ZStack {
+                        ForEach(-2...2, id: \.self) { offset in
+                            if offset == 0 || films.count > 1 {
+                                let item = films[wrappedFilm(index + offset)]
+                                let position = CGFloat(offset) + fraction
+                                let distance = min(abs(position), 2)
+                                Button {
+                                    advanceFilm(by: offset)
+                                } label: {
+                                    Group {
+                                        if let artwork = item.packagingArtworkURL {
+                                            FilmstripThumbnail(url: artwork, fillsFrame: true)
+                                        } else {
+                                            Image(systemName: "film")
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                                .background(.white.opacity(0.08))
+                                        }
+                                    }
+                                    .frame(width: width, height: width * 9 / 16)
+                                    .clipShape(.rect(cornerRadius: 8))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(offset == 0 ? MobileStyle.accent : .white.opacity(0.14), lineWidth: 1)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(item.displayName)
+                                .accessibilityAddTraits(offset == 0 ? .isSelected : [])
+                                .accessibilityIdentifier("camera.waist-film.\(offset)")
+                                .accessibilityHidden(abs(offset) > 1)
+                                .scaleEffect(1 - distance * 0.23)
+                                .rotation3DEffect(.degrees(Double(min(1, max(-1, position))) * -20), axis: (0, 1, 0))
+                                .opacity(distance <= 1 ? 1 - distance * 0.32 : max(0, 0.68 - (distance - 1) * 1.36))
+                                .offset(x: position * step)
+                                .zIndex(Double(2 - distance))
+                                .allowsHitTesting(abs(offset) == 1)
+                            }
+                        }
+                    }
+                    .frame(height: width * 9 / 16)
+                    Text(stock.displayName).font(.caption.weight(.semibold)).lineLimit(1).accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .clipped()
+                .gesture(DragGesture(minimumDistance: 8)
+                    .updating($filmWheelDrag) { value, translation, _ in translation = value.translation.width }
+                    .onEnded { value in
+                        let projected = value.predictedEndTranslation.width
+                        guard abs(projected) > step * 0.30 else { return }
+                        advanceFilm(by: projected < 0 ? 1 : -1)
+                    })
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(T("Film wheel", "胶片轮盘", "膠片輪盤"))
+                .accessibilityValue(stock.displayName)
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: advanceFilm(by: 1)
+                    case .decrement: advanceFilm(by: -1)
+                    @unknown default: break
+                    }
+                }
+                .accessibilityIdentifier("camera.waist-film-wheel")
+                .disabled(shotInProgress)
+                .sensoryFeedback(.selection, trigger: filmID)
+            }
+        }
+    }
+
+    private func wrappedFilm(_ index: Int) -> Int {
+        (index % films.count + films.count) % films.count
+    }
+
+    private func advanceFilm(by offset: Int) {
+        guard !shotInProgress, !films.isEmpty, offset != 0, let stock = film,
+              let index = films.firstIndex(where: { $0.id == stock.id }) else { return }
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) {
+            filmID = films[wrappedFilm(index + offset)].id
+        }
+    }
 #endif
 
     var body: some View {
@@ -1914,8 +2018,8 @@ private struct CameraDiffusionFilterGlyph: View {
 
 // A transformed View still advertises its unrotated bounds to its parent.
 // Measure the real folded bank with its ordinary horizontal proposal, then
-// advertise its transposed footprint. HStack can reserve exactly that space
-// for the grip instead of drawing the camera behind an overlapping button.
+// advertise its transposed footprint so its overlay stays aligned with the
+// physical edge of the finder without affecting the finder size.
 private struct SidewaysCaptureBank: Layout {
     let span: CGFloat
 
