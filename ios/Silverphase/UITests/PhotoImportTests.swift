@@ -499,6 +499,23 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Silverphase-GPL-3.0.txt"].waitForExistence(timeout: 5))
     }
 
+    @MainActor func testAboutCanCopyTheCurrentMaterialFingerprint() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--about-ui", "-mobile.language", "english"]
+        app.launch()
+        defer { app.terminate() }
+
+        let menu = app.buttons["library.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.tap()
+        app.buttons["About Silverphase"].tap()
+        let copy = app.buttons["about.copy-material-fingerprint"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        if !copy.isHittable { app.swipeUp() }
+        copy.tap()
+        XCTAssertTrue(app.staticTexts["about.material-fingerprint-copied"].waitForExistence(timeout: 5))
+    }
+
     @MainActor func testLibraryNativeToolbarLayout() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
