@@ -93,3 +93,43 @@ enum MobileCameraViewfinderGeometry {
         return aspectSize(in: canvas, aspect: aspect, cover: false)
     }
 }
+
+/// Physical repeat cells give a stable identity to each loaded view, including
+/// when passing through the last/first stock in the catalog.
+struct MobileWaistFilmTrack {
+    let count: Int
+    var slotCount: Int { count > 1 ? count * 9 : 1 }
+
+    func index(at slot: Int) -> Int { ((slot % count) + count) % count }
+    func interiorSlot(of index: Int) -> Int { count > 1 ? 4 * count + index : 0 }
+    func isNearPhysicalEnd(_ slot: Int) -> Bool {
+        count > 1 && (slot < count || slot >= slotCount - count)
+    }
+
+    func closestSlot(of index: Int, to slot: Int) -> Int {
+        let sameLap = (slot / count) * count + index
+        return [sameLap, sameLap - count, sameLap + count]
+            .filter { (0..<slotCount).contains($0) }
+            .min { abs($0 - slot) < abs($1 - slot) } ?? interiorSlot(of: index)
+    }
+
+    func slot(offset: CGFloat, inset: CGFloat, pitch: CGFloat) -> Int {
+        guard pitch > 0, offset.isFinite, inset.isFinite else { return interiorSlot(of: 0) }
+        let steps = ((offset + inset) / pitch).rounded()
+        return Int(min(CGFloat(slotCount - 1), max(0, steps)))
+    }
+
+    static func pose(at position: CGFloat, reduceMotion: Bool)
+        -> (scale: CGFloat, angle: Double, depth: CGFloat, opacity: Double)
+    {
+        let distance = min(2, abs(position))
+        let focus = 1 - min(1, distance)
+        let easedFocus = focus * focus * (3 - 2 * focus)
+        return (
+            scale: 0.77 + easedFocus * 0.23 - max(0, distance - 1) * 0.10,
+            angle: reduceMotion ? 0 : Double(max(-1.22, min(1.22, position))) * -17,
+            depth: reduceMotion ? 0 : min(8, distance * distance * 4),
+            opacity: max(0.42, 1 - Double(distance) * 0.23)
+        )
+    }
+}

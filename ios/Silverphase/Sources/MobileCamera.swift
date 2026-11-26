@@ -157,7 +157,6 @@ struct MobileCameraView: View {
 
 #if SILVERPHASE_APP
     @State private var showingFilms = false
-    @GestureState private var filmWheelDrag: CGFloat = 0
 #endif
     @State private var capturing = false
 #if SILVERPHASE_APP
@@ -422,92 +421,12 @@ struct MobileCameraView: View {
         return []
     }
 
-    private var waistFilmWheel: some View {
-        GeometryReader { geometry in
-            let available = geometry.size
-            if let stock = film, let index = films.firstIndex(where: { $0.id == stock.id }) {
-                let width = min(available.width * 0.37, max(48, (available.height - 22) * 16 / 9), 230)
-                let step = width * 0.88
-                let fraction = max(-1, min(1, filmWheelDrag / max(1, step)))
-                VStack(spacing: 4) {
-                    ZStack {
-                        ForEach(-2...2, id: \.self) { offset in
-                            if offset == 0 || films.count > 1 {
-                                let item = films[wrappedFilm(index + offset)]
-                                let position = CGFloat(offset) + fraction
-                                let distance = min(abs(position), 2)
-                                Button {
-                                    advanceFilm(by: offset)
-                                } label: {
-                                    Group {
-                                        if let artwork = item.packagingArtworkURL {
-                                            FilmstripThumbnail(url: artwork, fillsFrame: true)
-                                        } else {
-                                            Image(systemName: "film")
-                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                                .background(.white.opacity(0.08))
-                                        }
-                                    }
-                                    .frame(width: width, height: width * 9 / 16)
-                                    .clipShape(.rect(cornerRadius: 8))
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .strokeBorder(offset == 0 ? MobileStyle.accent : .white.opacity(0.14), lineWidth: 1)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(item.displayName)
-                                .accessibilityAddTraits(offset == 0 ? .isSelected : [])
-                                .accessibilityIdentifier("camera.waist-film.\(offset)")
-                                .accessibilityHidden(abs(offset) > 1)
-                                .scaleEffect(1 - distance * 0.23)
-                                .rotation3DEffect(.degrees(Double(min(1, max(-1, position))) * -20), axis: (0, 1, 0))
-                                .opacity(distance <= 1 ? 1 - distance * 0.32 : max(0, 0.68 - (distance - 1) * 1.36))
-                                .offset(x: position * step)
-                                .zIndex(Double(2 - distance))
-                                .allowsHitTesting(abs(offset) == 1)
-                            }
-                        }
-                    }
-                    .frame(height: width * 9 / 16)
-                    Text(stock.displayName).font(.caption.weight(.semibold)).lineLimit(1).accessibilityHidden(true)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .clipped()
-                .gesture(DragGesture(minimumDistance: 8)
-                    .updating($filmWheelDrag) { value, translation, _ in translation = value.translation.width }
-                    .onEnded { value in
-                        let projected = value.predictedEndTranslation.width
-                        guard abs(projected) > step * 0.30 else { return }
-                        advanceFilm(by: projected < 0 ? 1 : -1)
-                    })
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel(T("Film wheel", "胶片轮盘", "膠片輪盤"))
-                .accessibilityValue(stock.displayName)
-                .accessibilityAdjustableAction { direction in
-                    switch direction {
-                    case .increment: advanceFilm(by: 1)
-                    case .decrement: advanceFilm(by: -1)
-                    @unknown default: break
-                    }
-                }
-                .accessibilityIdentifier("camera.waist-film-wheel")
-                .disabled(shotInProgress)
-                .sensoryFeedback(.selection, trigger: filmID)
+    @ViewBuilder private var waistFilmWheel: some View {
+        if let film, !films.isEmpty {
+            MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress) { id in
+                guard !shotInProgress, id != self.film?.id else { return }
+                filmID = id
             }
-        }
-    }
-
-    private func wrappedFilm(_ index: Int) -> Int {
-        (index % films.count + films.count) % films.count
-    }
-
-    private func advanceFilm(by offset: Int) {
-        guard !shotInProgress, !films.isEmpty, offset != 0, let stock = film,
-              let index = films.firstIndex(where: { $0.id == stock.id }) else { return }
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) {
-            filmID = films[wrappedFilm(index + offset)].id
         }
     }
 #endif
@@ -1154,6 +1073,7 @@ struct MobileCameraView: View {
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(stock.name)
                                 .accessibilityAddTraits(stock.id == film?.id ? .isSelected : [])
+                                .accessibilityIdentifier("camera.film-choice.\(stock.id)")
                             }
                         }
                         .padding(12)
@@ -2089,6 +2009,200 @@ private struct CameraDiffusionFilterGlyph: View {
         .accessibilityHidden(true)
     }
 }
+
+#if SILVERPHASE_APP
+/// The tabletop wheel scrolls independent of the capture recipe. Only a settled
+/// selection reaches the camera, so looking through films never queues 25 previews.
+private struct MobileWaistFilmWheel: View {
+    let stocks: [Stock]
+    let selectedID: String
+    let enabled: Bool
+    let select: (String) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var position: ScrollPosition
+    @State private var focusedSlot: Int
+    @State private var phase: ScrollPhase = .idle
+
+    private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
+    private var centeredStock: Stock { stocks[track.index(at: focusedSlot)] }
+
+    init(stocks: [Stock], selectedID: String, enabled: Bool, select: @escaping (String) -> Void) {
+        self.stocks = stocks
+        self.selectedID = selectedID
+        self.enabled = enabled
+        self.select = select
+        let track = MobileWaistFilmTrack(count: stocks.count)
+        let initial = track.interiorSlot(of: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
+        _position = State(initialValue: ScrollPosition(id: initial, anchor: .center))
+        _focusedSlot = State(initialValue: initial)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = min(224, geometry.size.width * 0.38, max(1, geometry.size.height - 40) * 16 / 9)
+            let height = width * 9 / 16
+            let pitch = width * 0.90
+            let motionReduced = reduceMotion
+            VStack(spacing: 8) {
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: pitch - width) {
+                        ForEach(0..<track.slotCount, id: \.self) { slot in
+                            let stock = stocks[track.index(at: slot)]
+                            let relative = slot - focusedSlot
+                            Button { snap(to: slot) } label: {
+                                cover(stock, width: width, height: height)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(stock.displayName)
+                            .accessibilityAddTraits(relative == 0 && stock.id == selectedID ? .isSelected : [])
+                            .accessibilityIdentifier("camera.waist-film.\(relative)")
+                            .accessibilityHidden(abs(relative) > 2)
+                            .zIndex(-Double(abs(relative)))
+                            .visualEffect { content, proxy in
+                                let center = proxy.size.width / 2
+                                let middle = proxy.bounds(of: .scrollView(axis: .horizontal))?.midX ?? center
+                                let pose = MobileWaistFilmTrack.pose(
+                                    at: (center - middle) / max(1, pitch), reduceMotion: motionReduced)
+                                return content
+                                    .scaleEffect(pose.scale)
+                                    .rotation3DEffect(.degrees(pose.angle), axis: (0, 1, 0), perspective: 0.42)
+                                    .offset(y: pose.depth)
+                                    .opacity(pose.opacity)
+                            }
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .contentMargins(.horizontal, max(0, (geometry.size.width - width) / 2), for: .scrollContent)
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                .scrollTargetBehavior(MobileWaistFilmSnap())
+                .scrollPosition($position, anchor: .center)
+                .scrollDisabled(!enabled || stocks.count == 1)
+                .frame(height: height + 12)
+                .onScrollGeometryChange(for: Int.self) { scroll in
+                    track.slot(offset: scroll.contentOffset.x, inset: scroll.contentInsets.leading, pitch: pitch)
+                } action: { _, slot in
+                    if phase != .idle { focusedSlot = slot }
+                }
+                .onScrollPhaseChange { _, new, context in
+                    phase = new
+                    guard new == .idle else { return }
+                    let slot = track.slot(offset: context.geometry.contentOffset.x,
+                                          inset: context.geometry.contentInsets.leading, pitch: pitch)
+                    settle(at: slot)
+                }
+
+                Text(centeredStock.displayName)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 12)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(T("Film wheel", "胶片轮盘", "膠片輪盤"))
+        .accessibilityValue(stocks.first { $0.id == selectedID }?.displayName ?? centeredStock.displayName)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: snap(to: focusedSlot + 1)
+            case .decrement: snap(to: focusedSlot - 1)
+            @unknown default: break
+            }
+        }
+        .accessibilityIdentifier("camera.waist-film-wheel")
+        .disabled(!enabled)
+        // Tick only when the active detent changes during a finger drag, never
+        // on every pixel, on programmatic recenter or on lower-picker changes.
+        .sensoryFeedback(.selection, trigger: track.index(at: focusedSlot)) { _, _ in
+            phase == .interacting
+        }
+        .onChange(of: selectedID) { _, _ in synchronizeSelection() }
+        .onChange(of: enabled) { _, active in
+            if active { synchronizeSelection() }
+        }
+    }
+
+    private func cover(_ stock: Stock, width: CGFloat, height: CGFloat) -> some View {
+        Group {
+            if let artwork = stock.packagingArtworkURL {
+                FilmstripThumbnail(url: artwork, fillsFrame: true)
+            } else {
+                Image(systemName: "film")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.white.opacity(0.08))
+            }
+        }
+        .frame(width: width, height: height)
+        .clipShape(.rect(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(stock.id == selectedID ? MobileStyle.accent.opacity(0.82) : .white.opacity(0.15), lineWidth: 1)
+        }
+        .contentShape(.rect(cornerRadius: 8))
+    }
+
+    private func snap(to target: Int) {
+        guard enabled, stocks.count > 1 else { return }
+        let slot = min(track.slotCount - 1, max(0, target))
+        if reduceMotion || slot == focusedSlot {
+            jump(to: slot)
+            settle(at: slot)
+        } else {
+            withAnimation(.smooth(duration: 0.32)) { position.scrollTo(id: slot, anchor: .center) }
+        }
+    }
+
+    private func settle(at slot: Int) {
+        focusedSlot = slot
+        guard enabled else { return }
+        let id = stocks[track.index(at: slot)].id
+        if id != selectedID { select(id) }
+        if track.isNearPhysicalEnd(slot) {
+            // Normal last→first movement stays on adjacent physical cells.
+            // Only recenter if a user has traversed several laps.
+            jump(to: track.interiorSlot(of: track.index(at: slot)))
+        }
+    }
+
+    private func synchronizeSelection() {
+        guard centeredStock.id != selectedID, let index = stocks.firstIndex(where: { $0.id == selectedID }) else { return }
+        let slot = track.closestSlot(of: index, to: focusedSlot)
+        if reduceMotion {
+            jump(to: slot)
+        } else {
+            // A lower-panel picker choice still moves the same upper track.
+            // Take the shortest route, including across a catalog boundary.
+            withAnimation(.smooth(duration: 0.38)) { position.scrollTo(id: slot, anchor: .center) }
+        }
+    }
+
+    private func jump(to slot: Int) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            focusedSlot = slot
+            position.scrollTo(id: slot, anchor: .center)
+        }
+    }
+}
+
+/// Keep standard UIScrollView deceleration. The newest system supports an
+/// explicit center anchor; on older simulators, centered content margins map
+/// the default leading-anchor snap to the same point.
+private struct MobileWaistFilmSnap: ScrollTargetBehavior {
+    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
+        if #available(iOS 26.0, *) {
+            ViewAlignedScrollTargetBehavior(limitBehavior: .alwaysByFew, anchor: .center)
+                .updateTarget(&target, context: context)
+        } else {
+            ViewAlignedScrollTargetBehavior(limitBehavior: .alwaysByFew)
+                .updateTarget(&target, context: context)
+        }
+    }
+}
+#endif
 
 // A transformed View still advertises its unrotated bounds to its parent.
 // Measure the real folded bank with its ordinary horizontal proposal, then

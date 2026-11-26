@@ -209,14 +209,46 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(tile.waitForExistence(timeout: 5))
             XCTAssertLessThan(tile.frame.maxY, lower.minY, "Film wheel stays above the hinge")
         }
-        XCTAssertGreaterThan(centerFilm.frame.width, leftFilm.frame.width)
-        XCTAssertGreaterThan(centerFilm.frame.width, rightFilm.frame.width)
+        XCTAssertLessThan(leftFilm.frame.midX, centerFilm.frame.midX)
+        XCTAssertLessThan(centerFilm.frame.midX, rightFilm.frame.midX)
+        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 4)
         let nextStock = rightFilm.label
         let oldStock = centerFilm.label
         XCTAssertNotEqual(nextStock, oldStock)
         rightFilm.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", nextStock), object: centerFilm)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 4), .completed)
+        let wheel = app.descendants(matching: .any)["camera.waist-film-wheel"]
+        XCTAssertEqual(wheel.value as? String, nextStock, "Tapping a cover must commit the centered stock")
+        let drag = centerFilm.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5))
+        let release = drag.withOffset(CGVector(dx: -app.frame.width * 0.40, dy: 0))
+        drag.press(forDuration: 0.05, thenDragTo: release)
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            centerFilm.exists && (wheel.value as? String) == centerFilm.label && centerFilm.label != nextStock
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+
+        let previous = centerFilm.label
+        app.buttons["camera.film"].tap()
+        let choices = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
+            "camera.film-choice.", "camera.film-picker-stock."
+        ))
+        guard let choice = choices.allElementsBoundByIndex.first(where: { $0.isHittable && $0.label != previous }) else {
+            XCTFail("The lower film picker did not reveal another stock")
+            return
+        }
+        let requested = choice.label.replacingOccurrences(of: " (Fotufilm)", with: "")
+        choice.tap()
+        let synchronized = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            centerFilm.exists && centerFilm.label == requested && (wheel.value as? String) == requested
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [synchronized], timeout: 5), .completed)
+        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 4)
+        let photo = XCTAttachment(screenshot: app.screenshot())
+        photo.name = "Tabletop film wheel after scrolling and lower-picker selection"
+        photo.lifetime = .keepAlways
+        add(photo)
         XCTAssertTrue(app.buttons["camera.shutter"].exists)
         XCTAssertFalse(app.switches["camera.waist-outer-print"].exists)
     }

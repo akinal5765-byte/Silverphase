@@ -77,6 +77,25 @@ enum MobileLockedCameraChecks {
                         "Flat posture must not enter tabletop camera")
             checks.append("unfolded Duo orientation selection and system division geometry for tabletop vs book/flat")
 
+            let wheel = MobileWaistFilmTrack(count: 27)
+            let last = wheel.interiorSlot(of: 26)
+            try require(wheel.index(at: last + 1) == 0 && wheel.index(at: last + 2) == 1 &&
+                        wheel.index(at: wheel.interiorSlot(of: 0) - 1) == 26,
+                        "The film track must wrap through adjoining physical slots in both directions")
+            try require(wheel.closestSlot(of: 0, to: last) == last + 1 &&
+                        wheel.closestSlot(of: 26, to: last + 1) == last,
+                        "Film choices from the lower picker should travel the shortest path around the track")
+            try require(wheel.slot(offset: 130 * CGFloat(last) - 80 + 14, inset: 80, pitch: 130) == last &&
+                        wheel.slot(offset: 130 * CGFloat(last) - 80 + 75, inset: 80, pitch: 130) == last + 1,
+                        "Scroll offsets must choose the centered cell after accounting for the margins")
+            let centeredCover = MobileWaistFilmTrack.pose(at: 0, reduceMotion: false)
+            let nextCover = MobileWaistFilmTrack.pose(at: 1, reduceMotion: false)
+            let flatCover = MobileWaistFilmTrack.pose(at: 1, reduceMotion: true)
+            try require(centeredCover.scale > nextCover.scale && nextCover.angle < 0 &&
+                        flatCover.angle == 0 && flatCover.depth == 0,
+                        "Keep center emphasis without perspective motion when Reduce Motion is on")
+            checks.append("tabletop film wheel wraps continuously and chooses the nearest centered stock")
+
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
                            CGSize(width: 402, height: 778)] {
