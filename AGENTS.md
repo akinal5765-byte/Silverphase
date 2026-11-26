@@ -11,8 +11,9 @@ SpektraLab repository: never push there. Commit or push only when asked.
 - [docs/README.md](docs/README.md): global documentation index and authority.
 - [ARCHITECTURE.md](ARCHITECTURE.md): desktop, iOS, shared engine and ownership.
 - [macOS guide](modern_UI/Spektrafilm/README.md),
-  [validation](modern_UI/Spektrafilm/VALIDATION.md), and
-  [1.3.1 source notes](modern_UI/Spektrafilm/releases/1.3.1.md).
+  [validation](modern_UI/Spektrafilm/VALIDATION.md),
+  [1.4.0 release notes](modern_UI/Spektrafilm/releases/1.4.0.md), and
+  [macOS upgrade guide](docs/MACOS-IDENTITY-UPGRADE.md).
 - [iOS guide](ios/README.md), [design](ios/DESIGN.md),
   [control audit](ios/CONTROL-AUDIT.md): mobile behavior and missing features.
 - [API](API-SPEC-callable-render-service.md) and

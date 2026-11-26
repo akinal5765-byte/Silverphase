@@ -327,6 +327,8 @@ painted into a working-space texture must be converted as well. Shared desktop
 output shaders also serve mobile. Ordinary exports write destination ICC tags;
 Cineon masters intentionally omit a display ICC profile.
 
+In macOS 1.4.0, export and output soft proof share the same full-tier file-pixel path, including resizing and the destination transform. The ProPhoto working canvas is not an sRGB proof. The final CAM16 transform starts chroma compression near the destination gamut boundary rather than compressing all chroma; colors outside sRGB still cannot be reproduced unchanged. See the [macOS export guide](modern_UI/Spektrafilm/README.md#图像与输出边界).
+
 ## 8. The native engine
 
 ### 8.1 Layout

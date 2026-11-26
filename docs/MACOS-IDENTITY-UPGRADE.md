@@ -2,7 +2,7 @@
 
 [简体中文](#macos-新版如何保留旧编辑)
 
-New source builds use the macOS identifier `com.silverphase.editor`. Published
+The macOS 1.4.0 release uses the identifier `com.silverphase.editor`. Published
 1.3.1 (build 6) and earlier builds using `com.hanze.filmify` are unchanged.
 iPhone and iPad already use `com.silverphase.editor`, as do their camera
 extensions under separate suffixes. Their Store identity and data are unchanged.
@@ -42,7 +42,7 @@ Silverphase.app in **Open With** or Lightroom's external editor settings.
 
 ## macOS 新版如何保留旧编辑
 
-新源码构建使用独立的 macOS 标识符 `com.silverphase.editor`。已发布的
+macOS 1.4.0 使用独立的标识符 `com.silverphase.editor`。已发布的
 1.3.1（构建 6）及仍用旧标识符 `com.hanze.filmify` 的版本不会因此改变。
 iPhone 和 iPad 的商店版已经使用 `com.silverphase.editor`，相机扩展使用同一前缀。
 这次不会变更移动端标识或迁移数据，见 [iOS 发布检查](../ios/APP-STORE.md#distribution-maintenance)。Silverphase

@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> · English ·
-  <a href="https://akinal5765-byte.github.io/Silverphase/site/en.html">Website</a> · <a href="#download">Download</a> · <a href="#also-by-the-author-layerlight">Layerlight</a> · <a href="#examples">Examples</a> · <a href="#editing-workflow">Workflow</a> ·
+  <a href="https://akinal5765-byte.github.io/Silverphase/site/en.html">Website</a> · <a href="#download">Download</a> · <a href="#also-by-the-author-layerlight">Layerlight</a> · <a href="#examples">Examples</a> · <a href="#film-cover-gallery">Film covers</a> · <a href="#editing-workflow">Workflow</a> ·
   <a href="#release-notes">Release notes</a> · <a href="docs/README.md">Documentation</a>
 </p>
 
@@ -27,12 +27,12 @@ One Portra 400 negative, two simulated prints: **Portra Endura** and **Supra End
 
 | Platform | Download | Requirements |
 |---|---|---|
-| macOS | [1.3.1 (build 6)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) · Apple silicon DMG | macOS 15 or later |
-| iPhone and iPad | [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp) | iOS or iPadOS 18 or later |
+| macOS | [1.4.0 (build 7)](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.4.0) · Apple silicon DMG | macOS 15 or later |
+| iPhone and iPad | [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight beta](https://testflight.apple.com/join/uwY3ZYJp) | iOS or iPadOS 18 or later |
 
 On macOS, check for updates in Settings → Software Update. The GitHub DMG uses an ad-hoc signature and has no Apple notarization. [Installation and checksum guide](docs/BINARY-RELEASES.md)
 
-The iPhone and iPad app is also available on the [China mainland App Store](https://apps.apple.com/cn/app/id6829987567). The App Store and TestFlight each show the version available through that channel.
+For iPhone and iPad, the App Store and TestFlight each show the version available through that channel.
 
 ## Also by the author: Layerlight
 
@@ -65,13 +65,32 @@ CineStill 800T printed on Kodak Vision 2383, rendered at **7008 × 4672 px**. Th
 
 [![Three film studies rendered in Silverphase: Portra 400, Acros II and CineStill 800T](docs/showcase/02-film-studies.png)](docs/showcase/02-film-studies.png)
 
-**Beyond the frame.** Silverphase renders the perforations, edge markings and frame number in this 135 film edge. The four covers are from the in-app stock library.
+**Beyond the frame.** Silverphase renders the perforations, edge markings and frame number in this 135 film edge. The four covers beside the strip are archived designs; the gallery below shows the redesign.
 
 [![Silverphase-rendered 135 film edge and four in-app stock covers](docs/showcase/04-film-edge-covers.png)](docs/showcase/04-film-edge-covers.png)
 
 </details>
 
 Each showcase card is **2560 × 1600 (16:10)**; click to see it at full size. These are simulated prints, not scans of physical prints. The original RAW files are not distributed. [Recipes, photo sources and artwork rights](docs/showcase/README.md) · [Archived desktop UI captures](screenshots/current/README.md) · [Archived iPhone layouts](screenshots/ios/2026-11-02/README.md)
+
+## Film cover gallery
+
+Eight covers from the redesigned Silverphase stock library, from daylight and tungsten color stocks to black-and-white. These are Silverphase illustrations, not scans of retail packaging. Click a card to see it at full size.
+
+<table>
+  <tr>
+    <td width="25%" align="center"><a href="docs/site/covers/portra-400.webp"><img src="docs/site/covers/portra-400.webp" width="220" alt="Kodak Portra 400"></a><br><sub>Kodak Portra 400</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/reala-100.webp"><img src="docs/site/covers/reala-100.webp" width="220" alt="Fujifilm Reala 100"></a><br><sub>Fujifilm Reala 100</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/cinestill-800t.webp"><img src="docs/site/covers/cinestill-800t.webp" width="220" alt="CineStill 800T"></a><br><sub>CineStill 800T</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/hp5-plus.webp"><img src="docs/site/covers/hp5-plus.webp" width="220" alt="Ilford HP5 Plus"></a><br><sub>Ilford HP5 Plus</sub></td>
+  </tr>
+  <tr>
+    <td width="25%" align="center"><a href="docs/site/covers/eterna-500.webp"><img src="docs/site/covers/eterna-500.webp" width="220" alt="Fujifilm Eterna 500"></a><br><sub>Fujifilm Eterna 500</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/pro-160ns.webp"><img src="docs/site/covers/pro-160ns.webp" width="220" alt="Fujifilm Pro 160NS"></a><br><sub>Fujifilm Pro 160NS</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/vision3-250d.webp"><img src="docs/site/covers/vision3-250d.webp" width="220" alt="Kodak Vision3 250D"></a><br><sub>Kodak Vision3 250D</sub></td>
+    <td width="25%" align="center"><a href="docs/site/covers/acros-ii.webp"><img src="docs/site/covers/acros-ii.webp" width="220" alt="Fujifilm Acros II"></a><br><sub>Fujifilm Acros II</sub></td>
+  </tr>
+</table>
 
 ## Editing workflow
 
@@ -101,7 +120,9 @@ Import from Photos or Files, or use the in-app camera. The editor has a local li
 
 ## Release notes
 
-The current source version is **1.3.1**. macOS, iOS, and iPadOS move metering and film exposure into Film, add cover art and source badges for all 29 public Fotufilm profiles, and reduce DIR edge overshoot in 17 of those profiles.
+**macOS 1.4.0 (build 7)** brings redesigned covers, custom film-edge text and less aggressive output gamut compression. [Release notes](modern_UI/Spektrafilm/releases/1.4.0.md) · [Keep your edits when upgrading](docs/MACOS-IDENTITY-UPGRADE.md).
+
+In 1.3.1, macOS, iOS, and iPadOS moved metering and film exposure into Film, added cover art and source badges for all 29 public Fotufilm profiles, and reduced DIR edge overshoot in 17 of those profiles.
 
 | Platform | 1.3.1 source notes |
 |---|---|
