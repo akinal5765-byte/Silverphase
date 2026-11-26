@@ -300,14 +300,14 @@ struct MobilePhoto: Codable, Identifiable {
         let tier = MobilePreviewPolicy.megapixels(edge: edge, aspect: max(0.01, photo.sourceAspect))
         let target = max(0.01, min(3.3, tier, photo.sourceMegapixels > 0 ? photo.sourceMegapixels : tier))
         try Task.checkCancellation()
-        let result = try await renderer.cameraDevelopment(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
-                                                          geometry: resolvedPhoto.geometry, animate: false, megapixels: target)
+        let image = try await renderer.renderGalleryFrame(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
+                                                          geometry: resolvedPhoto.geometry, megapixels: target)
         try Task.checkCancellation()
         // Do not rewrite a matching cache just by looking at it again.
         if !FileManager.default.fileExists(atPath: libraryPreviewURL(resolvedPhoto).path) {
-            cacheLibraryPreview(result.image, photo: resolvedPhoto)
+            cacheLibraryPreview(image, photo: resolvedPhoto)
         }
-        return result.image
+        return image
     }
 
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {

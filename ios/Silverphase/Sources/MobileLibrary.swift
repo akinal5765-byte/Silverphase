@@ -320,7 +320,7 @@ struct MobileLibrary: View {
         MobilePhotoDetail(document: document, photoIDs: request.ids, initialHingeClosed: phoneHingeClosed,
                           initialWindowSize: phoneWindowSize, photoID: $detailID,
                           gridBackdrop: detailGridBackdrop, gridTarget: capturedGridTiles[detailID],
-                          entryTarget: capturedGridTiles[request.id], onPullDismiss: finishPhotoPull,
+                          entryTarget: capturedGridTiles[request.id], entryPhotoID: request.id, onPullDismiss: finishPhotoPull,
                           onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
                           onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },
                           onInfo: { detailInfo = $0 },

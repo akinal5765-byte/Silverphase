@@ -100,6 +100,29 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 5))
     }
 
+    @MainActor func testPhotoDetailFilmstripDragUpdatesCanvas() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let photo = app.images["photo-detail.image"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 8))
+        XCTAssertEqual(photo.label, "来源")
+        let strip = app.descendants(matching: .any).matching(identifier: "photo-detail.filmstrip").firstMatch
+        XCTAssertTrue(strip.waitForExistence(timeout: 6))
+        let right = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.66, dy: 0.50))
+        let left = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.33, dy: 0.50))
+        right.press(forDuration: 0.08, thenDragTo: left, withVelocity: .slow, thenHoldForDuration: 0.18)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", "来源"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        left.press(forDuration: 0.08, thenDragTo: right, withVelocity: .slow, thenHoldForDuration: 0.18)
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "来源"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 5), .completed)
+    }
+
     @MainActor func testPhotoDetailDiagonalPagingAndPullDown() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",
@@ -124,6 +147,7 @@ final class PhotoImportTests: XCTestCase {
             let viewport = pose[2].split(separator: ",").compactMap { Double($0) }
             if image.count == 4 && viewport.count == 4 {
                 XCTAssertEqual(image[0] + image[2] / 2, viewport[0] + viewport[2] / 2, accuracy: 30)
+                XCTAssertEqual(image[1] + image[3] / 2, viewport[1] + viewport[3] / 2, accuracy: 3)
             } else { XCTFail("Expected image and viewport bounds") }
         } else { XCTFail("Expected a fitted image pose") }
         let pullBase = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.52, dy: 0.30))

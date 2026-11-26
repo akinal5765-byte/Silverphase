@@ -12,6 +12,7 @@ struct MobilePhotoDetail: View {
     let gridBackdrop: UIImage?
     let gridTarget: CGRect?
     let entryTarget: CGRect?
+    let entryPhotoID: UUID
     let onPullDismiss: () -> Void
     let onEdit: (MobilePhoto) -> Void
     let onExport: (MobilePhoto) -> Void
@@ -32,6 +33,8 @@ struct MobilePhotoDetail: View {
     @State private var entryCurtain = true
     @State private var backCommand = 0
     @State private var neighbors: [Int: DetailPageNeighbor] = [:]
+    @State private var stripScrubbing = false
+    @State private var stripProxyID: UUID?
     @State private var filmstripItems: [DetailFilmstrip.Item] = []
     @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, image: CGImage)] = []
@@ -69,6 +72,11 @@ struct MobilePhotoDetail: View {
         return .bottom
     }
 
+    private struct PreviewRequest: Equatable {
+        let source: URL?
+        let scrubbing: Bool
+    }
+
     private var photo: MobilePhoto? { document.photos.first { $0.id == photoID } }
     var body: some View {
         NavigationStack {
@@ -79,6 +87,7 @@ struct MobilePhotoDetail: View {
                     .toolbar(showsControls ? .visible : .hidden, for: .navigationBar)
                     .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
+                    .modifier(DetailNoScrollMask())
                     .modifier(DetailToolbarAxis(usesTop: placement == .top))
             } else {
                 Button(T("Back to Library", "返回图库", "返回圖庫"), action: onPullDismiss)
@@ -98,7 +107,7 @@ struct MobilePhotoDetail: View {
             }
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
-        .task(id: photo.map { document.libraryPreviewURL($0) }) {
+        .task(id: PreviewRequest(source: photo.map { document.libraryPreviewURL($0) }, scrubbing: stripScrubbing)) {
             if previewID != photoID { preview = nil; previewID = nil }
             developedPreview = false
             previewLoading = true
@@ -116,16 +125,20 @@ struct MobilePhotoDetail: View {
             }
             let warm = await Self.loadPreview(cached, limit: 384)
             guard !Task.isCancelled else { return }
-            if let warm, preview == nil { preview = warm; previewID = photo.id }
-            else if preview == nil {
+            if let warm {
+                if preview == nil || stripProxyID == photo.id {
+                    preview = warm; previewID = photo.id; stripProxyID = nil
+                }
+            } else if preview == nil || (stripProxyID == photo.id && !stripScrubbing) {
                 let original = await Self.loadPreview(document.url(for: photo), limit: 960)
                 guard !Task.isCancelled else { return }
-                preview = original; previewID = photo.id
+                if let original { preview = original; previewID = photo.id; stripProxyID = nil }
             }
+            guard !stripScrubbing else { return }
             // Rapid swipes get a first frame immediately, without queueing
             // a full render for each photograph the user passes over.
             do {
-                try await Task.sleep(for: .milliseconds(170))
+                if photo.id != entryPhotoID { try await Task.sleep(for: .milliseconds(110)) }
                 let renderEngine = renderer
                 let result = try await withTaskCancellationHandler {
                     try await document.renderLibraryDetail(photo, using: renderEngine)
@@ -150,6 +163,9 @@ struct MobilePhotoDetail: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             recentRenditions.removeAll()
+            DetailQuickPreviewCache.images.removeAllObjects()
+            let renderEngine = renderer
+            Task { await renderEngine.close() }
         }
         .sheet(isPresented: $showingFilm) {
             NavigationStack {
@@ -181,7 +197,7 @@ struct MobilePhotoDetail: View {
             let sample = FitSample(mode: fitMode, frame: CGRect(
                 x: safeFrame.minX + EditorDesign.gutter, y: safeFrame.minY + EditorDesign.gutter,
                 width: max(1, safeFrame.width - 2 * EditorDesign.gutter),
-                height: max(1, safeFrame.height - EditorDesign.gutter - Self.stripBand)))
+                height: max(1, safeFrame.height - EditorDesign.gutter)))
             ZStack {
                 // Like the editor, the canvas bleeds to the window edges.
                 // Its framed-to-fit pose is a separate, stable safe rectangle.
@@ -211,19 +227,18 @@ struct MobilePhotoDetail: View {
     }
 
     private func metadata(_ photo: MobilePhoto) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 8) {
             rating(photo)
             flag(photo)
             Button { showingFilm = true } label: {
                 let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
-                chip(fitMode.window.width >= 620
-                     ? id.flatMap { StockCatalog.shared.stock($0)?.displayName } : nil, symbol: "film")
+                let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
+                chip(fitMode.window.width >= 620 ? name : nil, symbol: "film")
             }
             .buttonStyle(.plain)
             .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
             .accessibilityIdentifier("photo-detail.film")
         }
-        .modifier(WorkspaceGlassGroup())
     }
 
     @ToolbarContentBuilder
@@ -285,11 +300,15 @@ struct MobilePhotoDetail: View {
     private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
         ToolbarItem(id: "photo-detail.native-date", placement: .topBarLeading) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(photo.libraryDate?.formatted(date: .abbreviated, time: .omitted) ?? photo.name)
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
                 if let date = photo.libraryDate {
+                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.subheadline.weight(.semibold)).lineLimit(1)
+                        .fixedSize(horizontal: fitMode.window.width >= 620, vertical: false)
+
                     Text(date.formatted(date: .omitted, time: .shortened))
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                } else {
+                    Text(photo.name).font(.subheadline.weight(.semibold)).lineLimit(1)
                 }
             }
             .frame(maxWidth: fitMode.window.width >= 620 ? 148 : 108, alignment: .leading)
@@ -305,13 +324,23 @@ struct MobilePhotoDetail: View {
     }
 
     private static nonisolated func loadPreview(_ url: URL, limit: Int) async -> CGImage? {
-        await Task.detached(priority: .userInitiated) {
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-            let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
+        let key = "\(url.absoluteString)#\(limit)" as NSString
+        if let image = DetailQuickPreviewCache.images.object(forKey: key) { return image }
+        let task = Task.detached(priority: .userInitiated) {
+            guard !Task.isCancelled,
+                  let source = CGImageSourceCreateWithURL(url as CFURL,
+                    [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil as CGImage? }
+            let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                                          kCGImageSourceShouldCacheImmediately: true,
                                           kCGImageSourceCreateThumbnailWithTransform: true,
                                           kCGImageSourceThumbnailMaxPixelSize: limit]
-            return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
-        }.value
+            let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+            if let image, !Task.isCancelled {
+                DetailQuickPreviewCache.images.setObject(image, forKey: key, cost: image.bytesPerRow * image.height)
+            }
+            return image
+        }
+        return await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
     }
 
     private func more(_ photo: MobilePhoto) -> some View {
@@ -336,6 +365,7 @@ struct MobilePhotoDetail: View {
             chip(photo.rating > 0 ? "\(photo.rating)" : nil, symbol: photo.rating > 0 ? "star.fill" : "star")
                 .foregroundStyle(photo.rating > 0 ? MobileStyle.accent : Color.primary)
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(T("Rating", "星标", "星標"))
         .accessibilityValue(photo.rating > 0 ? "\(photo.rating) / 5" : T("Unrated", "尚未评分", "尚未評分"))
         .accessibilityIdentifier("photo-detail.rating")
@@ -350,6 +380,7 @@ struct MobilePhotoDetail: View {
             chip(nil, symbol: photo.flag == "pick" ? "flag.fill" : photo.flag == "reject" ? "flag.slash" : "flag")
                 .foregroundStyle(["pick", "reject"].contains(photo.flag) ? MobileStyle.accent : Color.primary)
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
     }
 
@@ -417,13 +448,17 @@ struct MobilePhotoDetail: View {
     }
 
     private var filmstrip: some View {
-        DetailFilmstrip(items: filmstripItems, selection: photoID, reduceMotion: reduceMotion) { id in
+        DetailFilmstrip(items: filmstripItems, selection: photoID, reduceMotion: reduceMotion,
+                        onScrubbing: { stripScrubbing = $0 }) { id, image in
             guard photoID != id else { return }
-            if let adjacent = neighbors.first(where: { $0.value.id == id }) {
-                page(adjacent.key)
+            if let adjacent = neighbors.values.first(where: { $0.id == id })?.image {
+                preview = adjacent; previewID = id; stripProxyID = nil
+            } else if let image {
+                preview = image; previewID = id; stripProxyID = id
             } else {
-                photoID = id
+                preview = nil; previewID = nil; stripProxyID = nil
             }
+            photoID = id
         }
         .frame(height: 56)
         .frame(maxWidth: 560)
@@ -451,7 +486,8 @@ struct MobilePhotoDetail: View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
             if let title {
-                Text(title).lineLimit(1).frame(maxWidth: 100)
+                Text(title).lineLimit(1)
+                    .frame(maxWidth: fitMode.window.width >= 800 ? 240 : 166)
                 Image(systemName: "chevron.down").font(.system(size: 8))
             }
         }
@@ -460,6 +496,23 @@ struct MobilePhotoDetail: View {
         .contentShape(Rectangle())
         .modifier(ChromeSurface(radius: 22, interactive: true))
     }
+}
+
+private struct DetailNoScrollMask: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) { content.scrollEdgeEffectHidden(true, for: .top) }
+        else { content }
+    }
+}
+
+private enum DetailQuickPreviewCache {
+    // NSCache serializes its own access. The singleton never changes identity.
+    nonisolated(unsafe) static let images: NSCache<NSString, CGImage> = {
+        let cache = NSCache<NSString, CGImage>()
+        cache.totalCostLimit = 32 * 1024 * 1024
+        cache.countLimit = 42
+        return cache
+    }()
 }
 
 private struct DetailToolbarAxis: ViewModifier {
@@ -559,6 +612,12 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             showsVerticalScrollIndicator = false
             showsHorizontalScrollIndicator = false
             contentInsetAdjustmentBehavior = .never
+            if #available(iOS 26.0, *) {
+                topEdgeEffect.isHidden = true
+                bottomEdgeEffect.isHidden = true
+                leftEdgeEffect.isHidden = true
+                rightEdgeEffect.isHidden = true
+            }
             backgroundColor = .clear
             clipsToBounds = true
             // Its frame is already aspect-correct. A second aspect fit in
@@ -770,6 +829,11 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private func fitRectForCurrentWindow() -> CGRect {
             let viewport = CGRect(origin: .zero, size: bounds.size)
             guard let window else { return viewport }
+            let insets = window.safeAreaInsets
+            // Chrome overlays the image. Use a symmetric vertical fit based
+            // on hardware insets only, never the visible filmstrip or toolbar.
+            let insetY = max(insets.top, insets.bottom, 6)
+            let fitHeight = max(1, viewport.height - 2 * insetY)
             if let fitFrame {
                 let origin = convert(bounds, to: window).origin
                 let local = fitFrame.offsetBy(dx: -origin.x, dy: -origin.y)
@@ -777,12 +841,12 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 // apply an old landscape fit rect to a portrait window.
                 if viewport.insetBy(dx: -1, dy: -1).contains(local),
                    local.width > viewport.width * 0.60,
-                   (viewport.width * 0.33...viewport.width * 0.67).contains(local.midX) { return local }
+                   (viewport.width * 0.33...viewport.width * 0.67).contains(local.midX) {
+                    return CGRect(x: local.minX, y: insetY, width: local.width, height: fitHeight)
+                }
             }
-            let insets = window.safeAreaInsets
-            return CGRect(x: insets.left + 8, y: insets.top + 8,
-                          width: max(1, viewport.width - insets.left - insets.right - 16),
-                          height: max(1, viewport.height - insets.top - insets.bottom - 66))
+            return CGRect(x: insets.left + 8, y: insetY,
+                          width: max(1, viewport.width - insets.left - insets.right - 16), height: fitHeight)
         }
 
         private func updateCentering() {

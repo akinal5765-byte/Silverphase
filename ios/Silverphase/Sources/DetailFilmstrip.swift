@@ -16,7 +16,8 @@ struct DetailFilmstrip: UIViewRepresentable {
     let items: [Item]
     let selection: UUID
     let reduceMotion: Bool
-    let onSelect: (UUID) -> Void
+    let onScrubbing: (Bool) -> Void
+    let onSelect: (UUID, CGImage?) -> Void
 
     private static let side: CGFloat = 44
     private static let spacing: CGFloat = 4
@@ -37,6 +38,11 @@ struct DetailFilmstrip: UIViewRepresentable {
         view.contentInsetAdjustmentBehavior = .never
         view.decelerationRate = .normal
         view.scrollsToTop = false
+        view.alwaysBounceHorizontal = items.count > 1
+        if #available(iOS 26.0, *) {
+            view.topEdgeEffect.isHidden = true
+            view.bottomEdgeEffect.isHidden = true
+        }
         view.register(ThumbnailCell.self, forCellWithReuseIdentifier: Self.cellIdentifier)
         view.dataSource = context.coordinator
         view.delegate = context.coordinator
@@ -50,7 +56,8 @@ struct DetailFilmstrip: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UICollectionView, context: Context) {
-        context.coordinator.update(items: items, selection: selection, reduceMotion: reduceMotion, onSelect: onSelect)
+        context.coordinator.update(items: items, selection: selection, reduceMotion: reduceMotion,
+                                   onScrubbing: onScrubbing, onSelect: onSelect)
     }
 
     final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegate {
@@ -58,15 +65,20 @@ struct DetailFilmstrip: UIViewRepresentable {
         private var items: [Item] = []
         private var itemIndexes: [UUID: Int] = [:]
         private var selected: UUID?
-        private var onSelect: ((UUID) -> Void)?
+        private var onSelect: ((UUID, CGImage?) -> Void)?
+        private var onScrubbing: ((Bool) -> Void)?
+        private var isScrubbing = false
+        private var lastBinding: UUID?
         private var reduceMotion = false
         private var programmatic = false
         private var layoutUpdate = false
-        private var pendingSelection: UUID?
 
-        func update(items newItems: [Item], selection: UUID, reduceMotion: Bool, onSelect: @escaping (UUID) -> Void) {
+        func update(items newItems: [Item], selection: UUID, reduceMotion: Bool,
+                    onScrubbing: @escaping (Bool) -> Void, onSelect: @escaping (UUID, CGImage?) -> Void) {
             guard let view else { return }
             self.onSelect = onSelect
+            self.onScrubbing = onScrubbing
+            view.alwaysBounceHorizontal = newItems.count > 1
             self.reduceMotion = reduceMotion
             if items != newItems {
                 if items.map(\.id) == newItems.map(\.id) {
@@ -82,17 +94,18 @@ struct DetailFilmstrip: UIViewRepresentable {
                     items = newItems
                     itemIndexes = Dictionary(uniqueKeysWithValues: newItems.enumerated().map { ($0.element.id, $0.offset) })
                     selected = selection
-                    pendingSelection = nil
                     programmatic = false
                     view.reloadData()
                     viewportChanged()
                     layoutUpdate = old
                 }
             }
-            if selection != selected {
-                if view.isTracking || view.isDragging || view.isDecelerating {
-                    pendingSelection = selection
-                } else {
+            // User-driven scrubbing is the source of truth until UIKit
+            // settles. A representable update can contain an older binding
+            // while the pan delegate is still in the same run-loop turn.
+            if selection != lastBinding {
+                lastBinding = selection
+                if !isScrubbing, selection != selected {
                     selected = selection
                     align(selection, animated: true)
                 }
@@ -147,11 +160,13 @@ struct DetailFilmstrip: UIViewRepresentable {
         private func select(_ id: UUID) {
             guard selected != id else { return }
             selected = id
-            onSelect?(id)
+            lastBinding = id
+            let index = itemIndexes[id].map { IndexPath(item: $0, section: 0) }
+            let cell = index.flatMap { view?.cellForItem(at: $0) as? ThumbnailCell }
+            onSelect?(id, cell?.preview)
         }
 
         private func choose(_ id: UUID) {
-            pendingSelection = nil
             select(id)
             align(id, animated: true)
             updateVisibleEffects()
@@ -180,19 +195,17 @@ struct DetailFilmstrip: UIViewRepresentable {
 
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
             programmatic = false
-            pendingSelection = nil
+            if !isScrubbing {
+                isScrubbing = true
+                onScrubbing?(true)
+            }
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             guard !layoutUpdate else { return }
-            if !programmatic, pendingSelection == nil, scrollView.isDragging || scrollView.isDecelerating {
+            if isScrubbing, !programmatic {
                 let center = scrollView.contentOffset.x + scrollView.bounds.width / 2
-                if let index = indexNearest(to: center), items.indices.contains(index),
-                   let view, let target = view.collectionViewLayout
-                    .layoutAttributesForItem(at: IndexPath(item: index, section: 0))?.center.x,
-                   abs(target - center) <= DetailFilmstrip.side * 0.46 {
-                    select(items[index].id)
-                }
+                if let index = indexNearest(to: center), items.indices.contains(index) { select(items[index].id) }
             }
             updateVisibleEffects()
         }
@@ -217,15 +230,15 @@ struct DetailFilmstrip: UIViewRepresentable {
         }
 
         private func settle(_ scrollView: UIScrollView) {
-            if let pending = pendingSelection {
-                pendingSelection = nil
-                selected = pending
-                align(pending, animated: true)
-            } else if let index = indexNearest(to: scrollView.contentOffset.x + scrollView.bounds.width / 2),
-                      items.indices.contains(index) {
+            if let index = indexNearest(to: scrollView.contentOffset.x + scrollView.bounds.width / 2),
+               items.indices.contains(index) {
                 let id = items[index].id
                 select(id)
                 align(id, animated: true)
+            }
+            if isScrubbing {
+                isScrubbing = false
+                onScrubbing?(false)
             }
         }
 
@@ -265,6 +278,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         private var item: Item?
         private var load: Task<Void, Never>?
         var activate: (() -> Void)?
+        var preview: CGImage? { imageView.image?.cgImage }
 
         override init(frame: CGRect) {
             super.init(frame: frame)

@@ -410,6 +410,16 @@ actor MobileEngine {
     func canvasImage(_ working: CGImage) throws -> CGImage {
         try colorPipeline().convert(working, engine: engine, target: .p3)
     }
+    /// Gallery frames reuse engine and color-transform setup, but never
+    /// retain a previous photo's decoded RAW or working session.
+    func renderGalleryFrame(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
+                            megapixels: Double) throws -> CGImage {
+        defer { releaseSession() }
+        let result = try render(url: url, recipe: recipe, megapixels: megapixels, geometry: geometry)
+        let working = try MobileFilmGate.presents(recipe) ? result.image : geometry.apply(to: result.image)
+        return try canvasImage(working)
+    }
+
     func cameraDevelopment(url: URL, recipe: [String: WireValue], geometry: MobileGeometry = MobileGeometry(),
                            animate: Bool, megapixels: Double = 1) throws -> MobileCameraDevelopment {
         defer { close() }
