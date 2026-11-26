@@ -195,6 +195,27 @@ final class PhotoImportTests: XCTestCase {
         }
     }
 
+    @MainActor func testPhotoDetailHoldOriginalRestoresZoom() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",
+                               "--gallery-compare-audit"]
+        app.launch()
+        defer { app.terminate() }
+        let cell = app.buttons["library.photo.来源"]
+        XCTAssertTrue(cell.waitForExistence(timeout: 18))
+        cell.tap()
+        let photo = app.images["photo-detail.image"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 8))
+        photo.doubleTap()
+        let zoomed = NSPredicate(format: "value == %@", "250%")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: photo)], timeout: 6), .completed)
+        photo.press(forDuration: 1.6)
+        XCTAssertTrue(photo.exists)
+        XCTAssertEqual(photo.value as? String, "250%")
+        XCTAssertEqual(photo.label, "来源")
+        XCTAssertFalse(app.staticTexts["photo-detail.original-hold"].exists)
+    }
+
     @MainActor func testPhotoDetailPromotesZoomViewportWithoutMoving() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-tile-audit"]

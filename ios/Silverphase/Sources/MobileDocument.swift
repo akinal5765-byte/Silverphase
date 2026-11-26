@@ -182,14 +182,10 @@ struct MobilePhoto: Codable, Identifiable {
     }
 
     private func previewMegapixels(_ photo: MobilePhoto, edge: Int) -> Double {
-        if let size = simulationWorkingSize(photo), let simulationEdge = MobileSimulationSize.edge(in: photo.recipe) {
-            let scale = min(1, Double(edge) / Double(simulationEdge), 3840 / max(size.width, size.height))
-            return MobileSimulationSize.megapixels(size) * scale * scale
-        }
         let native = nativeOutputSize
-        let long = max(1, max(native.width, native.height))
-        let sourceCap = MobilePreviewPolicy.megapixels(edge: 3840, aspect: photo.sourceAspect)
-        return max(0.01, min(sourceCap, min(photo.sourceMegapixels, photo.sourceMegapixels * pow(Double(edge) / long, 2))))
+        return MobilePreviewPolicy.fitInputMegapixels(edge: edge, sourceAspect: photo.sourceAspect,
+            sourceMP: photo.sourceMegapixels, outputLongEdge: max(native.width, native.height),
+            simulationSize: simulationWorkingSize(photo), simulationEdge: MobileSimulationSize.edge(in: photo.recipe))
     }
     private var viewport: MobileViewport?
     private var detailTask: Task<Void, Never>?
@@ -276,6 +272,15 @@ struct MobilePhoto: Codable, Identifiable {
     func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
         MobileLibraryPreview.url(photo: photo, cropRemapsEffects: preferences.values.cropRemapsEffects, diBlueCompensation: preferences.values.diBlueCompensation)
     }
+    func libraryRenderRequestKey(_ photo: MobilePhoto) -> URL {
+        var input = photo
+        // Camera matching writes result metadata during the same fit job.
+        // That is not a new user edit. Cache files still use the full recipe.
+        for field in [MobileCameraPrep.baseline, MobileCameraPrep.limited, MobileCameraPrep.failure] {
+            input.recipe[field] = nil
+        }
+        return libraryPreviewURL(input)
+    }
     private func cameraRenderRecipe(_ photo: MobilePhoto) -> [String: WireValue] {
         var recipe = photo.recipe
         recipe["_diBlue"] = .bool(preferences.values.diBlueCompensation)
@@ -294,47 +299,48 @@ struct MobilePhoto: Codable, Identifiable {
     /// Render the current edit independently of the editor's Metal session.
     /// The library's 384px thumbnail remains a fast first frame, never the
     /// final rendition. Use a fit-tier size, bounded for older iPhones.
-    func renderLibraryDetail(_ photo: MobilePhoto, fitEdge: Int, using renderer: MobileEngine) async throws -> CGImage {
+    func renderLibraryDetail(_ photo: MobilePhoto, fitEdge: Int, using renderer: MobileEngine) async throws -> (image: CGImage, cacheKey: URL) {
+        let trace = GalleryRenderTrace("fit")
+        trace.mark("brightness calibration start; baseline=\(photo.recipe[MobileCameraPrep.baseline] != nil)")
         let resolvedPhoto = try await resolveCameraBrightness(photo, using: renderer)
+        trace.mark("brightness calibration end; recipe updated=\(resolvedPhoto.recipe != photo.recipe)")
         let edge = preferences.values.lowerPreviewInLowPower && ProcessInfo.processInfo.isLowPowerModeEnabled
             ? min(1600, fitEdge) : fitEdge
         let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
-        let tier = MobilePreviewPolicy.megapixels(edge: edge, aspect: aspect)
-        let requested: Double
-        if let size = try? MobileSimulationSize.workingSize(in: resolvedPhoto.recipe, geometry: resolvedPhoto.geometry, aspect: aspect),
-           let simulationEdge = MobileSimulationSize.edge(in: resolvedPhoto.recipe) {
-            let scale = min(1, Double(edge) / Double(simulationEdge))
-            requested = MobileSimulationSize.megapixels(size) * scale * scale
-        } else {
-            var fit = MobileExportRecipe()
-            fit.sizeMode = "longEdge"; fit.longEdge = edge
-            requested = fit.megapixels(sourceMP: photo.sourceMegapixels > 0 ? photo.sourceMegapixels : tier,
-                                       aspect: aspect, geometry: resolvedPhoto.geometry)
-        }
-        let target = max(0.01, min(3.3, requested))
+        let sourceMP = photo.sourceMegapixels > 0 ? photo.sourceMegapixels : MobilePreviewPolicy.megapixels(edge: edge, aspect: aspect)
+        let height = sqrt(sourceMP * 1_000_000 / aspect)
+        let output = resolvedPhoto.geometry.outputSize(for: CGSize(width: height * aspect, height: height))
+        let simulation = try? MobileSimulationSize.workingSize(in: resolvedPhoto.recipe, geometry: resolvedPhoto.geometry, aspect: aspect)
+        let requested = MobilePreviewPolicy.fitInputMegapixels(edge: edge, sourceAspect: aspect,
+            sourceMP: sourceMP, outputLongEdge: max(output.width, output.height), simulationSize: simulation,
+            simulationEdge: MobileSimulationSize.edge(in: resolvedPhoto.recipe))
+        // Gallery may have adjacent previews and a zoom tile in flight.
+        let target = min(3.3, requested)
         try Task.checkCancellation()
         let image = try await renderer.renderGalleryFrame(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
-                                                          geometry: resolvedPhoto.geometry, megapixels: target)
+                                                          geometry: resolvedPhoto.geometry, megapixels: target, trace: trace)
         try Task.checkCancellation()
         // Do not rewrite a matching cache just by looking at it again.
-        if !FileManager.default.fileExists(atPath: libraryPreviewURL(resolvedPhoto).path) {
+        let key = libraryPreviewURL(resolvedPhoto)
+        if !FileManager.default.fileExists(atPath: key.path) {
             cacheLibraryPreview(image, photo: resolvedPhoto)
         }
-        return image
+        return (image, key)
     }
 
     func renderLibraryDraft(_ photo: MobilePhoto, using renderer: MobileEngine) async throws -> CGImage {
         let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
         let estimated = MobilePreviewPolicy.megapixels(edge: 800, aspect: aspect)
         return try await renderer.renderGalleryFrame(url: url(for: photo), recipe: cameraRenderRecipe(photo),
-                                                    geometry: photo.geometry, megapixels: estimated, draft: true)
+                                                    geometry: photo.geometry, megapixels: estimated, draft: true,
+                                                    trace: GalleryRenderTrace("draft"))
     }
 
     func renderLibraryTile(_ photo: MobilePhoto, viewport: MobileViewport,
                            using renderer: MobileDetailRenderer) async throws -> MobileDetailTile {
         try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
                                 geometry: photo.geometry, viewport: viewport.rect, pixelLongEdge: viewport.pixelLongEdge,
-                                galleryFitEdge: viewport.previewLongEdge)
+                                galleryFitEdge: viewport.previewLongEdge, trace: GalleryRenderTrace("detail"))
     }
 
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {

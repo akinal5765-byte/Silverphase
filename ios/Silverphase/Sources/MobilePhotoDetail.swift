@@ -24,6 +24,10 @@ struct MobilePhotoDetail: View {
     @State private var galleryDetailRenderer = MobileDetailRenderer()
     @State private var canvasDemand: GalleryCanvasDemand?
     @State private var galleryTile: (key: URL, tile: MobileDetailTile)?
+    @State private var tileWork: Task<Void, Never>?
+    @State private var tileGeneration = 0
+    @State private var originalHoldID: UUID?
+    @State private var originalProxy: (id: UUID, image: CGImage)?
     @State private var memoryDrop = 0
     @State private var preview: CGImage?
     @State private var previewLoading = true
@@ -93,7 +97,7 @@ struct MobilePhotoDetail: View {
     private var zoomedDemand: Bool { canvasDemand?.photoID == photoID && canvasDemand?.viewport != nil }
     private var fitEdge: Int? { canvasDemand?.photoID == photoID ? canvasDemand?.fitEdge : nil }
     private var tileRequest: TileRequest? {
-        guard !stripScrubbing, previewID == photoID,
+        guard !stripScrubbing, originalHoldID == nil, previewID == photoID,
               displayedFilmKey == photo.map({ document.libraryPreviewURL($0) }),
               let photo, let demand = canvasDemand, demand.photoID == photo.id,
               let viewport = demand.viewport, viewport.needsDetail else { return nil }
@@ -130,7 +134,7 @@ struct MobilePhotoDetail: View {
             }
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
-        .task(id: PreviewRequest(source: photo.map { document.libraryPreviewURL($0) }, scrubbing: stripScrubbing, edge: fitEdge, zoomed: zoomedDemand)) {
+        .task(id: PreviewRequest(source: photo.map { document.libraryRenderRequestKey($0) }, scrubbing: stripScrubbing, edge: fitEdge, zoomed: zoomedDemand)) {
             if previewID != photoID { preview = nil; previewID = nil }
             developedPreview = false
             previewLoading = true
@@ -195,17 +199,43 @@ struct MobilePhotoDetail: View {
                     renderEngine.workGate.cancel()
                 }
                 try Task.checkCancellation()
-                recentRenditions.removeAll { $0.key == cached }
-                recentRenditions.insert((cached, edge, result), at: 0)
+                guard self.photo?.id == photo.id, self.photo.map({ document.libraryPreviewURL($0) }) == result.cacheKey else { return }
+                recentRenditions.removeAll { $0.key == cached || $0.key == result.cacheKey }
+                recentRenditions.insert((result.cacheKey, edge, result.image), at: 0)
                 if recentRenditions.count > 2 { recentRenditions.removeLast() }
-                preview = result; previewID = photo.id; developedPreview = true; displayedFilmKey = cached
+                preview = result.image; previewID = photo.id; developedPreview = true; displayedFilmKey = result.cacheKey
 #if DEBUG
-                GalleryTileAudit.record("fit rendered \(max(result.width, result.height)) px at \(ProcessInfo.processInfo.systemUptime - started)s")
+                GalleryTileAudit.record("fit rendered \(max(result.image.width, result.image.height)) px at \(ProcessInfo.processInfo.systemUptime - started)s")
 #endif
             } catch { /* Keep the best already available rendition. */ }
         }
-        .task(id: tileRequest) { await reconcileTile(tileRequest) }
+        .task(id: originalHoldID) {
+            guard let id = originalHoldID, let photo, photo.id == id,
+                  originalProxy?.id != id else { return }
+            let url = document.url(for: photo)
+            guard let seed = await Self.loadPreview(url, limit: 960), !Task.isCancelled else { return }
+            let geometry = photo.geometry
+            let proxy = await Task.detached(priority: .userInitiated) {
+                (try? geometry.apply(to: seed)) ?? seed
+            }.value
+            guard !Task.isCancelled, originalHoldID == id, photoID == id else { return }
+            originalProxy = (id, proxy)
+        }
+        .onChange(of: tileRequest, initial: true) { old, new in
+            if new == nil || (old != nil && (old?.key != new?.key || old?.memoryDrop != new?.memoryDrop)) {
+                cancelTileWork()
+            }
+            if new == nil, canvasDemand?.viewport == nil, galleryTile != nil {
+                galleryTile = nil
+                let detail = galleryDetailRenderer
+                Task { await detail.clear() }
+            } else {
+                startTileWorkIfNeeded()
+            }
+        }
         .task(id: photoID) {
+            if originalHoldID != photoID { originalHoldID = nil }
+            if originalProxy?.id != photoID { originalProxy = nil }
             let url = photo.map { document.url(for: $0) }
             await galleryDetailRenderer.discardGallerySource(except: url)
         }
@@ -221,7 +251,9 @@ struct MobilePhotoDetail: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             recentRenditions.removeAll()
             DetailQuickPreviewCache.images.removeAllObjects()
+            cancelTileWork()
             galleryTile = nil
+            originalProxy = nil
             canvasDemand = nil
             memoryDrop += 1
             galleryDetailRenderer.engine.workGate.cancel()
@@ -231,9 +263,12 @@ struct MobilePhotoDetail: View {
             Task { await renderEngine.close() }
         }
         .onDisappear {
+            cancelTileWork()
             galleryDetailRenderer.engine.workGate.cancel()
+            renderer.workGate.cancel()
             let detailEngine = galleryDetailRenderer
-            Task { await detailEngine.clear() }
+            let fitEngine = renderer
+            Task { await detailEngine.clear(); await fitEngine.close() }
         }
         .sheet(isPresented: $showingFilm) {
             NavigationStack {
@@ -452,16 +487,35 @@ struct MobilePhotoDetail: View {
         .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
     }
 
-    private func reconcileTile(_ request: TileRequest?) async {
-        guard let request, let photo else {
-            if canvasDemand?.viewport == nil, galleryTile != nil {
-                galleryTile = nil
-                await galleryDetailRenderer.clear()
-            }
-            return
+    private func cancelTileWork() {
+        if let tileWork {
+#if DEBUG
+            GalleryTileAudit.record("detail cancel requested")
+#endif
+            tileWork.cancel()
+            tileGeneration += 1
+            self.tileWork = nil
         }
+    }
+
+    private func startTileWorkIfNeeded() {
+        guard tileWork == nil, let request = tileRequest, let photo else { return }
         if let galleryTile, galleryTile.key == request.key,
            Self.tile(galleryTile.tile, satisfies: request.viewport) { return }
+        let generation = tileGeneration
+        tileWork = Task {
+            await renderTile(request, photo: photo)
+            guard generation == tileGeneration else { return }
+            tileWork = nil
+            // New viewport within the same photo: finish the high-res whole
+            // frame once, then use that cache to crop the latest viewport.
+            if let latest = tileRequest, latest != request, latest.key == request.key {
+                startTileWorkIfNeeded()
+            }
+        }
+    }
+
+    private func renderTile(_ request: TileRequest, photo: MobilePhoto) async {
         let detail = galleryDetailRenderer
 #if DEBUG
         GalleryTileAudit.record("request \(request.viewport)")
@@ -474,7 +528,7 @@ struct MobilePhotoDetail: View {
                 detail.engine.workGate.cancel()
             }
             try Task.checkCancellation()
-            guard tileRequest == request else { return }
+            guard let latest = tileRequest, latest.key == request.key else { return }
             let actual = max(Double(result.image.width) / result.rect.width, Double(result.image.height) / result.rect.height)
             guard actual > Double(request.viewport.previewLongEdge) * 1.07 else {
 #if DEBUG
@@ -482,7 +536,9 @@ struct MobilePhotoDetail: View {
 #endif
                 return
             }
-            galleryTile = (request.key, result)
+            // A tile is pinned to normalized image coordinates. Only show
+            // it if it covers at least part of the still-visible area.
+            if result.rect.intersects(latest.viewport.rect) { galleryTile = (request.key, result) }
 #if DEBUG
             GalleryTileAudit.record("visible \(result.rect) \(result.image.width)x\(result.image.height), equivalent long edge \(Int(actual)) px")
 #endif
@@ -509,6 +565,8 @@ struct MobilePhotoDetail: View {
             DetailZoomCanvas(photoID: photo.id, name: photo.name, image: previewID == photo.id ? preview : nil,
                              reduceMotion: reduceMotion, developed: developedPreview,
                              tile: galleryTile?.key == document.libraryPreviewURL(photo) ? galleryTile?.tile : nil,
+                             comparisonImage: originalHoldID == photo.id && originalProxy?.id == photo.id ? originalProxy?.image : nil,
+                             onCompare: { hold in originalHoldID = hold ? photo.id : nil },
                              onDemand: { demand in
                 if demand.photoID == photoID, canvasDemand != demand {
                     canvasDemand = demand
@@ -534,6 +592,18 @@ struct MobilePhotoDetail: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+        .overlay(alignment: .top) {
+            if originalHoldID == photo.id && originalProxy?.id == photo.id {
+                Text(T("Original", "原片", "原片"))
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(.black.opacity(0.68), in: Capsule())
+                    .foregroundStyle(.white)
+                    .accessibilityIdentifier("photo-detail.original-hold")
+                    .padding(.top, 6)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private func neighbor(_ step: Int) -> MobilePhoto? {
@@ -667,18 +737,42 @@ private struct DetailPageNeighbor {
     let image: CGImage?
 }
 
+/// A render-local timing token. Events are written asynchronously and contain
+/// no asset identifiers, URLs, settings, or pixels.
+struct GalleryRenderTrace: Sendable {
+    private let prefix: String
+    private let started: TimeInterval
+
+    init(_ stage: String) {
+        started = ProcessInfo.processInfo.systemUptime
+        prefix = stage + " #" + String(UUID().uuidString.prefix(6))
+    }
+
+    func mark(_ phase: String) {
 #if DEBUG
-@MainActor private enum GalleryTileAudit {
+        guard GalleryTileAudit.enabled else { return }
+        let ms = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+        GalleryTileAudit.record("\(prefix) +\(ms)ms \(phase)")
+#endif
+    }
+}
+
+#if DEBUG
+enum GalleryTileAudit {
+    static let enabled = ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+        || ProcessInfo.processInfo.arguments.contains("--gallery-compare-audit")
+        || Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true
+    private static let writer = DispatchQueue(label: "silverphase.gallery-timing", qos: .utility)
+
     static func record(_ line: String) {
-        // Debug QA keeps a small timing-only trace; never write filenames,
-        // identifiers, recipes or image bytes.
-        let args = ProcessInfo.processInfo.arguments
-        guard args.contains("--gallery-tile-audit") || Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
-        let url = URL.documentsDirectory.appendingPathComponent("gallery-tile-audit.txt")
-        let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        guard enabled else { return }
         let time = String(format: "%.3f", ProcessInfo.processInfo.systemUptime)
-        let output = String(previous.suffix(24_000)) + time + " " + line + "\n"
-        try? output.write(to: url, atomically: true, encoding: .utf8)
+        writer.async {
+            let url = URL.documentsDirectory.appendingPathComponent("gallery-tile-audit.txt")
+            let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+            let output = String(previous.suffix(33_000)) + time + " " + line + "\n"
+            try? output.write(to: url, atomically: true, encoding: .utf8)
+        }
     }
 }
 #endif
@@ -696,6 +790,8 @@ private struct DetailZoomCanvas: UIViewRepresentable {
     let reduceMotion: Bool
     let developed: Bool
     let tile: MobileDetailTile?
+    let comparisonImage: CGImage?
+    let onCompare: (Bool) -> Void
     let onDemand: (GalleryCanvasDemand) -> Void
     let fitFrame: CGRect?
     let neighbors: [Int: DetailPageNeighbor]
@@ -722,14 +818,19 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         view.onPull = onPull; view.onDismiss = onDismiss
         view.entryTarget = entryTarget; view.onEntryStarted = onEntryStarted
         view.onDemand = onDemand
+        view.onCompare = onCompare
         view.update(photoID: photoID, name: name, image: image, developed: developed, fitFrame: fitFrame)
         view.updateTile(tile)
+        view.updateComparison(comparisonImage)
         view.requestBack(backCommand)
     }
 
     final class ZoomView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         private let photoView = UIImageView()
         private let tileView = UIImageView()
+        private let compareView = UIImageView()
+        private var displayedOriginal: CGImage?
+        var onCompare: ((Bool) -> Void)?
         private var tile: MobileDetailTile?
         private var demandTask: Task<Void, Never>?
         private var lastScheduledDemand: GalleryCanvasDemand?
@@ -798,11 +899,22 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             tileView.contentMode = .scaleToFill
             tileView.isHidden = true
             photoView.addSubview(tileView)
+            compareView.isUserInteractionEnabled = false
+            compareView.contentMode = .scaleAspectFit
+            compareView.backgroundColor = .black
+            compareView.isHidden = true
+            photoView.addSubview(compareView)
 
+            let hold = UILongPressGestureRecognizer(target: self, action: #selector(holdOriginal(_:)))
+            hold.minimumPressDuration = 0.32
+            hold.allowableMovement = 10
+            hold.delegate = self
+            addGestureRecognizer(hold)
             let single = UITapGestureRecognizer(target: self, action: #selector(singleTap))
             let double = UITapGestureRecognizer(target: self, action: #selector(doubleTap(_:)))
             double.numberOfTapsRequired = 2
             single.require(toFail: double)
+            single.require(toFail: hold)
             addGestureRecognizer(single)
             addGestureRecognizer(double)
             let browse = UIPanGestureRecognizer(target: self, action: #selector(browsePan(_:)))
@@ -830,6 +942,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 self.photoID = photoID
                 stopDemand()
                 updateTile(nil)
+                updateComparison(nil)
                 setZoomScale(1, animated: false)
                 source = nil
                 photoView.image = nil
@@ -918,6 +1031,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             }
             if let host = transitionHost, host.superview === self, host.frame != bounds { host.frame = bounds }
             layoutTile()
+            compareView.frame = photoView.bounds
             scheduleEntryIfReady()
             scheduleDemand()
 #if DEBUG
@@ -956,6 +1070,26 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         func stopDemand() {
             demandTask?.cancel()
             lastScheduledDemand = nil
+        }
+
+        func updateComparison(_ image: CGImage?) {
+            guard displayedOriginal !== image else { return }
+            displayedOriginal = image
+            compareView.frame = photoView.bounds
+            compareView.image = image.map { UIImage(cgImage: $0) }
+            compareView.isHidden = image == nil
+#if DEBUG
+            if image != nil { GalleryTileAudit.record("hold original displayed \(max(image?.width ?? 0, image?.height ?? 0)) px") }
+            else { GalleryTileAudit.record("hold original released") }
+#endif
+        }
+
+        @objc private func holdOriginal(_ gesture: UILongPressGestureRecognizer) {
+            switch gesture.state {
+            case .began: if source != nil, transitionHost == nil { onCompare?(true) }
+            case .ended, .cancelled, .failed: onCompare?(false)
+            default: break
+            }
         }
 
         func updateTile(_ replacement: MobileDetailTile?) {
@@ -1123,6 +1257,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         }
 
         override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            if gestureRecognizer is UILongPressGestureRecognizer {
+                return source != nil && transitionHost == nil && !isZooming && !isZoomAnimating
+            }
             if gestureRecognizer is UIPanGestureRecognizer && gestureRecognizer !== panGestureRecognizer {
                 return isFitted && !isZooming && !isZoomAnimating && !settling && source != nil
             }

@@ -182,7 +182,8 @@ actor MobileEngine {
         }
     }
 
-    func render(url: URL, recipe: [String: WireValue], megapixels: Double = 2, geometry: MobileGeometry = MobileGeometry(), inputMetadata: MobileImageMetadata? = nil, brightnessProbe: Bool = false) throws -> MobileRender {
+    func render(url: URL, recipe: [String: WireValue], megapixels: Double = 2, geometry: MobileGeometry = MobileGeometry(), inputMetadata: MobileImageMetadata? = nil, brightnessProbe: Bool = false,
+                galleryTrace: GalleryRenderTrace? = nil) throws -> MobileRender {
         try autoreleasepool {
             try Task.checkCancellation()
             try workGate.check()
@@ -201,6 +202,7 @@ actor MobileEngine {
             metadata = suppliedMetadata ?? (metadataURL == url ? metadataCache : nil) ?? MobileImageMetadata.read(url)
 #endif
             metadataURL = url; metadataCache = metadata
+            galleryTrace?.mark("metadata ready; RAW=\(metadata.isRaw)")
             let aspect = sourceURL == url ? decodeInfo["_sourceAspect"]?.doubleValue ?? metadata.aspect : metadata.aspect
             var delta = try processWire(recipe, aspect: aspect, orientedAspect: metadata.aspect, geometry: geometry)
             if recipe["_interactivePreview"]?.boolValue == true { delta["preview_long_edge"] = .double(max(800, recipe["_interactiveEdge"]?.doubleValue ?? 1600)) }
@@ -251,17 +253,30 @@ actor MobileEngine {
             let filmChanged = appliedRecipe["film_stock"] != recipe["film_stock"]
             let decodeChanged = ["_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active", MobileSimulationSize.key].contains { appliedRecipe[$0] != recipe[$0] } || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
             if sourceURL != url || openedMP != megapixels || session == nil || removedOverride || filmChanged || decodeChanged || ((presentation || recipe[MobileSimulationSize.key] != nil) && appliedGeometry != geometry) {
-                let keepKernels = recipe["_interactivePreview"]?.boolValue == true && sourceURL == url && openedMP == megapixels && megapixels <= 3
+                // Gallery discards each decoded photo/session, not the
+                // independent engine's Metal pipelines and material cache.
+                let keepKernels = (recipe["_galleryPreview"]?.boolValue == true && engine != nil)
+                    || (recipe["_interactivePreview"]?.boolValue == true && sourceURL == url
+                        && openedMP == megapixels && megapixels <= 3)
                 if keepKernels { releaseSession() } else { close() }
                 guard let device,
                       let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory) else {
                     throw MobileFailure.message(TDetached("No Metal device, or the bundled engine resources are missing", "缺少 Metal 设备或随包引擎资源", "缺少 Metal 設備或隨包引擎資源"))
                 }
-                if engine == nil { engine = spk_engine_create(resources.path, Unmanaged.passUnretained(device as AnyObject).toOpaque()) }
+                if engine == nil {
+                    galleryTrace?.mark("create engine start")
+                    engine = spk_engine_create(resources.path, Unmanaged.passUnretained(device as AnyObject).toOpaque())
+                    galleryTrace?.mark("create engine end")
+                } else { galleryTrace?.mark("reuse engine") }
                 guard let engine else { throw failure() }
+                try Task.checkCancellation()
                 traceExport("before-decode")
-                let decoded = try decode(url: url, megapixels: megapixels, device: device, recipe: recipe, geometry: geometry, metadata: metadata)
+                galleryTrace?.mark("decode start")
+                let decoded = try decode(url: url, megapixels: megapixels, device: device, recipe: recipe,
+                                         geometry: geometry, metadata: metadata, galleryTrace: galleryTrace)
+                galleryTrace?.mark("decode end \(decoded.width)x\(decoded.height)")
                 traceExport("decoded")
+                try Task.checkCancellation()
                 if recipe["overscan_active"]?.boolValue != true, recipe["film_format_mm"] == nil || recipe["_filmFrame"] != nil || recipe["_filmSide"] != nil {
                     delta["film_format_mm"] = try processWire(recipe, aspect: decodeInfo["_sourceAspect"]?.doubleValue ?? aspect, orientedAspect: metadata.aspect, geometry: geometry)["film_format_mm"]
                 }
@@ -271,7 +286,9 @@ actor MobileEngine {
                 var openingDelta = delta
                 openingDelta["product_defaults"] = .bool(true)
                 let openingJSON = String(decoding: try JSONEncoder().encode(openingDelta), as: UTF8.self)
+                galleryTrace?.mark("open session start")
                 session = spk_open_device(engine, &input, openingJSON, &reply)
+                galleryTrace?.mark("open session end")
                 if let reply { spk_string_free(reply) }
                 guard session != nil else { close(); throw MobileFailure.message(TDetached("The image engine session could not be opened", "无法打开图像引擎会话", "無法開啟影像引擎會話")) }
                 workGate.register(session)
@@ -301,6 +318,8 @@ actor MobileEngine {
             if ProcessInfo.processInfo.arguments.contains("--audit-export-legacy-work") { needsLatitude = true }
 #endif
             if needsLatitude {
+            galleryTrace?.mark("scene latitude start")
+            defer { galleryTrace?.mark("scene latitude end") }
             let request = String(decoding: try JSONEncoder().encode(["highlight_pull_back": h, "shadow_pull_back": sh]), as: UTF8.self)
             if spk_scene_latitude(session, request, &latitudeReply) == SPK_OK, let latitudeReply {
                 defer { spk_string_free(latitudeReply) }
@@ -344,9 +363,13 @@ actor MobileEngine {
             // reuses it for paper/output edits, preserving grain and avoiding
             // a forced film render on every slider commit.
             traceExport("before-render")
+            galleryTrace?.mark("film render start")
+            try Task.checkCancellation()
             let status = spk_reprint(session, recipe["_interactivePreview"]?.boolValue == true ? "live" : "full", &result)
+            galleryTrace?.mark("film render end; status=\(status)")
             traceExport("rendered")
             defer { spk_result_free(&result) }
+            try Task.checkCancellation()
             if status == SPK_ERR_CANCELLED { throw CancellationError() }
             guard status == SPK_OK, let pixels = result.rgba16 else { throw failure() }
             var reply: UnsafeMutablePointer<CChar>?
@@ -414,7 +437,7 @@ actor MobileEngine {
     /// Gallery frames reuse engine and color-transform setup, but never
     /// retain a previous photo's decoded RAW or working session.
     func renderGalleryFrame(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
-                            megapixels: Double, draft: Bool = false) throws -> CGImage {
+                            megapixels: Double, draft: Bool = false, trace: GalleryRenderTrace? = nil) throws -> CGImage {
         defer { releaseSession() }
         var settings = recipe
         settings["_galleryPreview"] = .bool(true)
@@ -422,9 +445,14 @@ actor MobileEngine {
             settings["_interactivePreview"] = .bool(true)
             settings["_interactiveEdge"] = .double(800)
         }
-        let result = try render(url: url, recipe: settings, megapixels: megapixels, geometry: geometry)
+        let result = try render(url: url, recipe: settings, megapixels: megapixels, geometry: geometry, galleryTrace: trace)
+        try Task.checkCancellation()
+        trace?.mark("crop and display color start")
         let working = try MobileFilmGate.presents(recipe) ? result.image : geometry.apply(to: result.image)
-        return try canvasImage(working)
+        let display = try canvasImage(working)
+        trace?.mark("crop and display color end \(display.width)x\(display.height)")
+        try Task.checkCancellation()
+        return display
     }
 
     func cameraDevelopment(url: URL, recipe: [String: WireValue], geometry: MobileGeometry = MobileGeometry(),
@@ -701,7 +729,7 @@ actor MobileEngine {
         return "'" + date[0].suffix(2) + " " + date[1] + " " + date[2]
     }
 
-    private func decode(url: URL, megapixels: Double, device: MTLDevice, recipe: [String: WireValue], geometry: MobileGeometry, metadata: MobileImageMetadata? = nil) throws -> (buffer: MTLBuffer, width: Int, height: Int, original: CGImage) {
+    private func decode(url: URL, megapixels: Double, device: MTLDevice, recipe: [String: WireValue], geometry: MobileGeometry, metadata: MobileImageMetadata? = nil, galleryTrace: GalleryRenderTrace? = nil) throws -> (buffer: MTLBuffer, width: Int, height: Int, original: CGImage) {
         try autoreleasepool {
         var image: CIImage
         var comparison: CIImage?
@@ -772,6 +800,7 @@ actor MobileEngine {
             throw MobileFailure.message(TDetached("This image is larger than the memory budget on this phone allows", "图像尺寸超出当前移动端内存预算", "影像尺寸超出目前移動端記憶體預算"))
         }
         let placed = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
+        try Task.checkCancellation()
         let context = MobileInputColor.context(device: device)
         defer { context.clearCaches() }
         let originalScale = recipe["_exporting"]?.boolValue == true || recipe["_interactivePreview"]?.boolValue == true
@@ -782,8 +811,12 @@ actor MobileEngine {
               let original = context.createCGImage(display.transformed(by: .init(translationX: -display.extent.minX, y: -display.extent.minY)).transformed(by: .init(scaleX: originalScale, y: originalScale)), from: CGRect(x: 0, y: 0, width: Double(width) * originalScale, height: Double(height) * originalScale).integral, format: .RGBA16, colorSpace: working) else {
             throw MobileFailure.message(TDetached("The input colour space could not be created", "无法创建输入颜色空间", "無法創建輸入顏色空間"))
         }
+        galleryTrace?.mark("RAW/CI working pixel render start \(width)x\(height)")
+        try Task.checkCancellation()
         context.render(placed, toBitmap: buffer.contents(), rowBytes: width * 16,
                        bounds: CGRect(x: 0, y: 0, width: width, height: height), format: .RGBAf, colorSpace: linear)
+        galleryTrace?.mark("RAW/CI working pixel render end")
+        try Task.checkCancellation()
         return (buffer, width, height, original)
         }
     }
