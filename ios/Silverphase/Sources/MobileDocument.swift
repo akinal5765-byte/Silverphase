@@ -609,6 +609,21 @@ struct MobilePhoto: Codable, Identifiable {
         let wasPositive = value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
         edit { Self.applyFilm(film, to: &$0.recipe, wasPositive: wasPositive) }
     }
+    func setLibraryFilm(_ film: Stock, for id: UUID) {
+        guard film.isFilm, !isInteractionLocked, !editorVisible,
+              let index = photos.firstIndex(where: { $0.id == id }) else { return }
+        let before = photos[index]
+        var after = before
+        let oldID = before.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
+        guard oldID != film.id else { return }
+        let wasPositive = oldID.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
+        Self.applyFilm(film, to: &after.recipe, wasPositive: wasPositive)
+        photos[index] = after
+        if !save() { photos[index] = before; return }
+        undoStack.append([id: MobileEditSnapshot(before)])
+        if undoStack.count > 100 { undoStack.removeFirst() }
+        redoStack = []
+    }
     nonisolated static func applyCapturedRecipe(_ captured: MobileCameraRecipe, to recipe: inout [String: WireValue]) throws {
         if let id = captured.filmID {
             guard let stock = StockCatalog.shared.stock(id), stock.isFilm else {

@@ -1,6 +1,40 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testPhotoDetailToolsAndDynamicFormatFilter() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        let png = app.buttons["library.photo.目标 A"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        XCTAssertTrue(png.exists)
+        source.tap()
+        for id in ["rating", "flag", "film", "menu", "export", "info", "edit"] {
+            XCTAssertTrue(app.buttons["photo-detail." + id].waitForExistence(timeout: 5), id)
+        }
+        XCTAssertFalse(app.buttons["editor.menu"].exists)
+        app.buttons["photo-detail.info"].tap()
+        XCTAssertTrue(app.navigationBars["Photo Info"].waitForExistence(timeout: 6))
+        app.buttons["Done"].tap()
+        app.buttons["photo-detail.back"].tap()
+        XCTAssertTrue(source.waitForExistence(timeout: 8))
+        app.buttons["library.menu"].tap()
+        app.buttons["library.format-filter"].tap()
+        XCTAssertTrue(app.buttons["JPG"].exists)
+        XCTAssertTrue(app.buttons["TIFF"].exists)
+        XCTAssertFalse(app.buttons["ARW"].exists)
+        app.buttons["PNG"].tap()
+        XCTAssertTrue(png.waitForExistence(timeout: 5))
+        XCTAssertFalse(source.exists)
+        png.tap()
+        app.buttons["photo-detail.edit"].tap()
+        XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 12) ||
+                      app.images["editor.canvas"].waitForExistence(timeout: 6))
+    }
+
     @MainActor func testParameterLabelsAcrossChineseLocales() throws {
         for language in ["yue-Hant-HK", "zh-Hant-TW", "zh-Hans-CN"] {
             let app = XCUIApplication()
@@ -186,6 +220,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(photo.waitForExistence(timeout: 15))
         XCTAssertGreaterThan(app.frame.height, app.frame.width, "Ordinary phone launches in portrait even while held sideways")
         photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
         app.processStage("film").tap()
         app.buttons["editor.change-film"].tap()
@@ -230,6 +265,7 @@ final class PhotoImportTests: XCTestCase {
         }
         let photo = app.buttons["library.photo.来源"]
         XCTAssertTrue(photo.waitForExistence(timeout: 15)); photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         let canvas = app.images["editor.canvas"]
         XCTAssertTrue(canvas.waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["editor.library"].exists)
@@ -380,6 +416,7 @@ final class PhotoImportTests: XCTestCase {
         let photo = app.buttons["library.photo.来源"]
         XCTAssertTrue(photo.waitForExistence(timeout: 15))
         photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         let back = app.buttons["editor.library"]
         XCTAssertTrue(back.waitForExistence(timeout: 10))
         XCTAssertLessThan(back.frame.midX, app.frame.midX)
@@ -416,6 +453,7 @@ final class PhotoImportTests: XCTestCase {
         let photo = app.buttons["library.photo.来源"]
         XCTAssertTrue(photo.waitForExistence(timeout: 15))
         photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
         let film = app.processStage("film")
         XCTAssertTrue(film.waitForExistence(timeout: 15))
@@ -458,6 +496,7 @@ final class PhotoImportTests: XCTestCase {
         let photo = app.buttons["library.photo.目标 A"]
         XCTAssertTrue(photo.waitForExistence(timeout: 15))
         photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         XCTAssertTrue(app.images["editor.canvas"].waitForExistence(timeout: 15))
         app.processStage("film").tap()
         XCTAssertFalse(app.buttons["editor.simulation-size"].exists)
@@ -642,6 +681,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertEqual(first.value as? String, "已选择")
         app.buttons["library.select"].tap()
         first.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["filmstrip.photo.目标 A"].exists, "Single-photo editing hides filmstrip")
         let ruler = app.openFilmExposure()
@@ -655,6 +695,7 @@ final class PhotoImportTests: XCTestCase {
         app.buttons["星级"].tap(); app.buttons["至少 4 星"].tap()
         XCTAssertTrue(first.waitForExistence(timeout: 3)); XCTAssertTrue(second.exists); XCTAssertFalse(source.exists)
         first.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 5))
         let reopenedRuler = app.openFilmExposure()
         for _ in 0..<5 { if reopenedRuler.isHittable { break }; app.otherElements["editor.parameters"].swipeUp() }
@@ -671,6 +712,7 @@ final class PhotoImportTests: XCTestCase {
         let photo = app.buttons["library.photo.来源"]
         XCTAssertTrue(photo.waitForExistence(timeout: 15))
         photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 6)); app.buttons["photo-detail.edit"].tap()
         let picker = app.descendants(matching: .any).matching(identifier: "editor.horizontal-process-picker").firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 15))
         XCTAssertFalse(app.otherElements["editor.primary-navigation"].exists)

@@ -160,14 +160,17 @@ import UniformTypeIdentifiers
             input = CIImage(color: CIColor(red: 0.75, green: 0.3, blue: 0.1)).cropped(to: CGRect(origin: .zero, size: size))
         }
         guard let image = CIContext().createCGImage(input, from: input.extent) else { return }
+        let mixFormats = ProcessInfo.processInfo.arguments.contains("--library-format-fixture")
         document.photos = ["来源", "目标 A", "目标 B"].enumerated().map { index, name in
-            var photo = MobilePhoto(name: name, filename: "fixture-\(index).jpg")
+            let format: UTType = mixFormats ? [.jpeg, .png, .tiff][index] : .jpeg
+            let ext = format.preferredFilenameExtension ?? "jpg"
+            var photo = MobilePhoto(name: name, filename: "fixture-\(index).\(ext)")
             photo.sourceMegapixels = size.width * size.height / 1_000_000; photo.sourceAspect = size.width / size.height
             photo.recipe["exposure_compensation_ev"] = .double(documentation ? 0 : index == 0 ? 1 : -Double(index))
             if index == 1, ProcessInfo.processInfo.arguments.contains("--legacy-simulation-fixture") {
                 photo.recipe[MobileSimulationSize.key] = .double(600)
             }
-            if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, UTType.jpeg.identifier as CFString, 1, nil) {
+            if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, format.identifier as CFString, 1, nil) {
                 CGImageDestinationAddImage(writer, image, nil); CGImageDestinationFinalize(writer)
             }
             return photo

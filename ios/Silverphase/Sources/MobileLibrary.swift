@@ -13,6 +13,14 @@ struct MobileLibrary: View {
     @State private var phoneHingeClosed: Bool?
     @State private var showingSearch = false
     @State private var rawOnly = false
+    @State private var formatFilter: String?
+    @State private var detail: LibraryPhotoDetailRequest?
+    @State private var detailID = UUID()
+    @State private var detailEditor: LibraryEditorRequest?
+    @State private var detailCopy: MobileSettingsCopyRequest?
+    @State private var detailExport: LibraryExportRequest?
+    @State private var detailInfo: MobilePhoto?
+    @State private var detailDelete: MobilePhoto?
     @State private var photoInfo: MobilePhoto?
     @State private var minimumRating = 0
     @State private var flagFilter = "all"
@@ -34,7 +42,8 @@ struct MobileLibrary: View {
     private var filtered: [MobilePhoto] {
         document.photos.filter {
             $0.rating >= minimumRating && (flagFilter == "all" || $0.flag == flagFilter) &&
-            (!rawOnly || isRAW($0)) && (search.isEmpty || $0.name.localizedStandardContains(search))
+            (!rawOnly || isRAW($0)) && (formatFilter == nil || Self.format(of: $0) == formatFilter) &&
+            (search.isEmpty || $0.name.localizedStandardContains(search))
         }.sorted {
             let lhs = $0.libraryDate ?? legacyPhotoDates[$0.id]?.date ?? .distantPast
             let rhs = $1.libraryDate ?? legacyPhotoDates[$1.id]?.date ?? .distantPast
@@ -53,7 +62,7 @@ struct MobileLibrary: View {
         MobileCameraLaunch.shared.pending && scenePhase == .active && !document.isInteractionLocked &&
             document.libraryReadError == nil && (editor != nil || !document.editorVisible) &&
             !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
-            copyRequest == nil && photoInfo == nil && deleting.isEmpty
+            copyRequest == nil && photoInfo == nil && detail == nil && deleting.isEmpty
     }
     private var newestPhoto: MobilePhoto? {
         document.photos.reversed().max {
@@ -168,6 +177,7 @@ struct MobileLibrary: View {
             }, returnToLibrary: { id in
                 if !filtered.contains(where: { $0.id == id }) {
                     rawOnly = false
+                    formatFilter = nil
                     minimumRating = 0
                     flagFilter = "all"
                     search = ""
@@ -185,18 +195,20 @@ struct MobileLibrary: View {
         }
         .sheet(item: $copyRequest) { MobileCopySettingsSheet(document: document, request: $0) }
         .sheet(item: $exportRequest) { request in
-            NavigationStack {
-                ScrollView { MobileExportPanel(document: document, filteredIDs: request.ids, fixedIDs: request.ids) }
-                    .mobilePageBackground()
-                    .navigationTitle(T("Export Photos", "导出成片", "匯出成片")).navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成")) { exportRequest = nil }.disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
-                    .disabled(document.isInteractionLocked)
-                    .overlay { notification(covered: document.exported != nil) }
-                    .sheet(isPresented: shareBinding) { shareSheet }
-            }
-            .presentationBackground(MobileStyle.canvas)
-            .interactiveDismissDisabled(document.isInteractionLocked)
+            exportPage(request) { exportRequest = nil }
         }
+        .fullScreenCover(item: $detail) { request in
+            detailPage(request)
+        }
+        .onChange(of: availableFormats) { _, formats in
+            if let formatFilter, !formats.contains(formatFilter) { self.formatFilter = nil }
+        }
+#if DEBUG
+        .task(id: document.photos.isEmpty) {
+            if ProcessInfo.processInfo.arguments.contains("--photo-detail-ui-regression"),
+               detail == nil, let first = filtered.first { showDetail(first) }
+        }
+#endif
         .sheet(isPresented: $pickingPhotos) {
             LibraryPhotoPicker(isPresented: $pickingPhotos,
                 onStart: { document.beginPhotoImport(total: $0) },
@@ -218,22 +230,7 @@ struct MobileLibrary: View {
             }
         }
         .mobileInformationPages(document: document, settings: $settings, about: $about)
-        .sheet(item: $photoInfo) { photo in
-            NavigationStack {
-                Form {
-                    LabeledContent(T("File name", "文件名", "檔案名"), value: photo.name)
-                    LibraryFormatBadge(identifier: photo.sourceTypeIdentifier, original: document.url(for: photo))
-                    if !photo.exifSummary.isEmpty { Text(photo.exifSummary).foregroundStyle(.secondary) }
-                }
-                .mobilePageBackground()
-                .navigationTitle(T("Photo Info", "照片信息", "照片資訊"))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成")) { photoInfo = nil } }
-                }
-            }
-            .presentationBackground(MobileStyle.canvas)
-        }
+        .sheet(item: $photoInfo) { photo in infoPage(photo) { photoInfo = nil } }
         .alert(T("Remove from Library?", "从图库删除照片？", "從圖庫刪除照片？"), isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } }),
                presenting: deleting.isEmpty ? nil : deleting) { ids in
             Button(T("Cancel", "取消", "取消"), role: .cancel) { deleting = [] }
@@ -241,8 +238,95 @@ struct MobileLibrary: View {
         } message: { ids in
             Text(T("This deletes the in-app originals and edit records for \(ids.count) photos. It cannot be undone; Photos and the sources you imported from are not affected.", "将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。", "將刪除 \(ids.count) 張照片的應用內原檔案和編輯記錄。此操作無法還原，系統相簿和導入來源不受影響。"))
         }
-        .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
+        .overlay { notification(covered: showingCamera || detail != nil || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
     }
+    private static func format(of photo: MobilePhoto) -> String? {
+        let stored = URL(fileURLWithPath: photo.filename).pathExtension.lowercased()
+        let named = URL(fileURLWithPath: photo.name).pathExtension.lowercased()
+        let preferred = photo.sourceTypeIdentifier.flatMap(UTType.init)?.preferredFilenameExtension
+        let suffix = !stored.isEmpty ? stored : preferred ?? named
+        guard !suffix.isEmpty else { return nil }
+        switch suffix { case "jpeg", "jpe": return "JPG"; case "tif": return "TIFF"; default: return suffix.uppercased() }
+    }
+
+    private var availableFormats: [String] {
+        Set(document.photos.compactMap(Self.format(of:))).sorted()
+    }
+
+    private func showDetail(_ photo: MobilePhoto) {
+        guard !document.isInteractionLocked else { return }
+        searchFocused = false
+        detailID = photo.id
+        let ids = filtered.map(\.id)
+        detail = LibraryPhotoDetailRequest(id: photo.id, ids: ids.contains(photo.id) ? ids : [photo.id])
+    }
+
+    private func closeDetail() {
+        visiblePhotoID = detailID
+        detail = nil
+    }
+
+    private func detailPage(_ request: LibraryPhotoDetailRequest) -> some View {
+        MobilePhotoDetail(document: document, photoIDs: request.ids, photoID: $detailID,
+                          onBack: closeDetail,
+                          onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
+                          onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },
+                          onInfo: { detailInfo = $0 },
+                          onCopy: { detailCopy = MobileSettingsCopyRequest(source: $0, groups: document.copyGroups) },
+                          onDelete: { detailDelete = $0 })
+        .fullScreenCover(item: $detailEditor, onDismiss: { document.closeEditor() }) { editor in
+            MobileEditor(document: document, batchIDs: nil, returnToLibrary: { detailEditor = nil })
+                .task { document.openEditor(editor.firstID, ids: [editor.firstID]) }
+        }
+        .sheet(item: $detailInfo) { photo in infoPage(photo) { detailInfo = nil } }
+        .sheet(item: $detailExport) { export in exportPage(export) { detailExport = nil } }
+        .sheet(item: $detailCopy) { MobileCopySettingsSheet(document: document, request: $0) }
+        .alert(T("Remove from Library?", "从图库删除照片？", "從圖庫刪除照片？"),
+               isPresented: Binding(get: { detailDelete != nil }, set: { if !$0 { detailDelete = nil } }),
+               presenting: detailDelete) { photo in
+            Button(T("Cancel", "取消", "取消"), role: .cancel) { detailDelete = nil }
+            Button(T("Delete", "删除", "刪除"), role: .destructive) {
+                detailDelete = nil
+                document.removePhotos([photo.id])
+                closeDetail()
+            }
+        } message: { _ in
+            Text(T("This deletes the in-app original and edits, not the source you imported from.",
+                   "只删除图库里的原片副本和编辑，不影响导入来源。", "只刪除圖庫裡的原檔副本和編輯，不影響匯入來源。"))
+        }
+        .overlay { notification(covered: detailEditor != nil || detailInfo != nil || detailExport != nil || detailCopy != nil || detailDelete != nil) }
+    }
+
+    private func exportPage(_ request: LibraryExportRequest, onDone: @escaping () -> Void) -> some View {
+        NavigationStack {
+            ScrollView { MobileExportPanel(document: document, filteredIDs: request.ids, fixedIDs: request.ids) }
+                .mobilePageBackground()
+                .navigationTitle(T("Export Photos", "导出成片", "匯出成片")).navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成"), action: onDone).disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
+                .disabled(document.isInteractionLocked)
+                .overlay { notification(covered: document.exported != nil) }
+                .sheet(isPresented: shareBinding) { shareSheet }
+        }
+        .presentationBackground(MobileStyle.canvas)
+        .interactiveDismissDisabled(document.isInteractionLocked)
+    }
+
+    private func infoPage(_ photo: MobilePhoto, onDone: @escaping () -> Void) -> some View {
+        NavigationStack {
+            Form {
+                LabeledContent(T("File name", "文件名", "檔案名"), value: photo.name)
+                LibraryFormatBadge(identifier: photo.sourceTypeIdentifier, original: document.url(for: photo))
+                if !photo.exifSummary.isEmpty { Text(photo.exifSummary).foregroundStyle(.secondary) }
+            }
+            .mobilePageBackground()
+            .navigationTitle(T("Photo Info", "照片信息", "照片資訊"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成"), action: onDone) }
+            }
+        }.presentationBackground(MobileStyle.canvas)
+    }
+
     @ViewBuilder private var libraryTopBar: some View {
         if !document.isSelectingPhotos {
             VStack(alignment: .leading, spacing: EditorDesign.unit) {
@@ -342,7 +426,7 @@ struct MobileLibrary: View {
         let aspect = squareThumbnails ? 1 : displayedSize.width / max(1, displayedSize.height)
         return Button {
             if document.isSelectingPhotos { document.togglePhotoSelection(photo.id) }
-            else { open([photo]) }
+            else { showDetail(photo) }
         } label: {
             Color.clear.aspectRatio(1, contentMode: .fit)
                 .overlay {
@@ -433,7 +517,7 @@ struct MobileLibrary: View {
         return type?.conforms(to: .rawImage) == true
     }
 
-    private var hasFilters: Bool { rawOnly || minimumRating > 0 || flagFilter != "all" }
+    private var hasFilters: Bool { formatFilter != nil || rawOnly || minimumRating > 0 || flagFilter != "all" }
 
     @ToolbarContentBuilder private var libraryToolbar: some ToolbarContent {
         if !document.isSelectingPhotos {
@@ -497,7 +581,14 @@ struct MobileLibrary: View {
                             if showingSearch { searchFocused = true }
                             else { showingSearch = true }
                         }
-                        Toggle(T("RAW only", "仅显示 RAW", "僅顯示 RAW"), isOn: $rawOnly)
+                        Toggle(T("RAW only", "仅显示 RAW", "僅顯示 RAW"), isOn: Binding(
+                            get: { rawOnly }, set: { rawOnly = $0; if $0 { formatFilter = nil } }))
+                        Menu(T("Format", "格式", "格式"), systemImage: "doc") {
+                            filterOption(T("All formats", "所有格式", "所有格式"), selected: formatFilter == nil && !rawOnly) { formatFilter = nil; rawOnly = false }
+                            ForEach(availableFormats, id: \.self) { format in
+                                filterOption(format, selected: formatFilter == format) { formatFilter = format; rawOnly = false }
+                            }
+                        }.accessibilityIdentifier("library.format-filter").disabled(availableFormats.isEmpty)
                         Menu(T("Rating", "星级", "星級"), systemImage: "star") {
                             ForEach(0...5, id: \.self) { rating in
                                 filterOption(rating == 0 ? T("All ratings", "全部星级", "全部星級") : T("At least \(rating) stars", "至少 \(rating) 星", "至少 \(rating) 星"), selected: minimumRating == rating) {
@@ -513,7 +604,7 @@ struct MobileLibrary: View {
                         }.accessibilityIdentifier("library.flag-filter")
                         if hasFilters {
                             Button(T("Clear filters", "清除筛选", "清除篩選"), systemImage: "arrow.counterclockwise") {
-                                rawOnly = false; minimumRating = 0; flagFilter = "all"
+                                rawOnly = false; formatFilter = nil; minimumRating = 0; flagFilter = "all"
                             }
                         }
                     }
@@ -581,6 +672,10 @@ struct MobileLibrary: View {
             Button(T("Clear flag", "清除旗标", "清除旗標")) { document.markPhotos(ids, flag: "none") }
         }
     }
+}
+private struct LibraryPhotoDetailRequest: Identifiable {
+    let id: UUID
+    let ids: [UUID]
 }
 private enum LibraryThumbnailSize: String, CaseIterable {
     case small = "小", medium = "中", large = "大"

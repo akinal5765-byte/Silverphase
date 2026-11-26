@@ -14,6 +14,17 @@ licences, catalogue and JSON scalar type. The earlier iOS PoC's build approach
 and simulator texture compatibility fix have been brought forward; its older
 engine and receiver have not been copied into this product.
 
+## Library photo viewer
+
+Tap a photo in the grid to review it before editing. The viewer supports
+horizontal swipes and a filmstrip, rating and flagging, quick film selection,
+photo information, and export. Tap **Edit** to open the existing editor.
+The library menu's **Format** filter uses only original file formats present
+in the library; camera RAW extensions such as DNG and ARW remain distinct
+when both are present. The existing batch-edit and RAW-only actions remain
+available.
+
+
 ## Device usability
 
 Conventional iPhones run in portrait only, with vertically scrolling film/paper
