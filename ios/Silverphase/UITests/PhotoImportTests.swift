@@ -234,7 +234,7 @@ final class PhotoImportTests: XCTestCase {
         actualPixels.tap()
         let badge = app.staticTexts["photo-detail.native-status"]
         XCTAssertTrue(badge.waitForExistence(timeout: 8))
-        let native = NSPredicate(format: "label IN %@", ["Native detail", "原生细节", "原生細節"])
+        let native = NSPredicate(format: "label IN %@", ["Full resolution", "原始分辨率", "原始解析度"])
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: native, object: badge)], timeout: 35), .completed)
         let zoom = photo.value as? String
         XCTAssertNotEqual(zoom, "100%")

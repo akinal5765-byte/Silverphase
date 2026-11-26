@@ -55,6 +55,7 @@ struct MobilePhotoDetail: View {
     @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
@@ -673,41 +674,42 @@ struct MobilePhotoDetail: View {
         .clipped()
         .overlay(alignment: .top) {
             if originalHoldID == photo.id {
-                let loading = originalFitWork != nil || originalDetailWork != nil
-                HStack(spacing: 5) {
-                    Text(originalLabel(photo))
-                        .font(.caption.weight(.semibold))
-                        .accessibilityIdentifier("photo-detail.original-hold")
-                        .accessibilityValue(loading ? T("Loading", "正在加载", "正在載入") : "")
-                    if loading {
-                        ProgressView()
-                            .controlSize(.mini)
-                            .tint(.white)
-                            .accessibilityHidden(true)
-                    }
-                }
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(.black.opacity(0.68), in: Capsule())
-                .foregroundStyle(.white)
-                .padding(.top, 6)
-                .allowsHitTesting(false)
+                previewBadge(originalLabel(photo), id: "photo-detail.original-hold",
+                             loading: originalFitWork != nil || originalDetailWork != nil)
             } else if canvasDemand?.nativeZoom == true, showsControls {
                 let result = visibleTile(galleryTile, photo: photo, viewport: canvasDemand?.viewport)
                 let output = document.galleryNativeOutput(photo, original: false)
                 let nativeEdge = max(output.width, output.height)
                 let baseIsNative = nativeEdge > 0 && !MobileFilmGate.presents(photo.recipe) && developedPreview
                     && preview.map { Double(max($0.width, $0.height)) >= Double(nativeEdge) * 0.999 } == true
-                let label = result?.nativeSize != nil || baseIsNative ? T("Native detail", "原生细节", "原生細節")
-                    : result != nil ? T("Reduced detail", "较低档细节", "較低檔細節")
-                    : filmUnavailable || tileRequest == nil ? T("Keeping fit preview", "保留适屏预览", "保留適屏預覽")
-                    : T("Loading detail", "正在加载细节", "正在載入細節")
-                Text(label).font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(.black.opacity(0.68), in: Capsule()).foregroundStyle(.white)
-                    .padding(.top, 6).allowsHitTesting(false)
-                    .accessibilityIdentifier("photo-detail.native-status")
+                let fullResolution = result?.nativeSize != nil || baseIsNative
+                let loading = !fullResolution && result == nil && !filmUnavailable && tileRequest != nil
+                let label = fullResolution ? T("Full resolution", "原始分辨率", "原始解析度")
+                    : result != nil ? T("High-resolution preview", "高清预览", "高解析度預覽")
+                    : T("Fit preview", "适屏预览", "適屏預覽")
+                previewBadge(label, id: "photo-detail.native-status", loading: loading)
             }
         }
+    }
+
+    private func previewBadge(_ title: String, id: String, loading: Bool) -> some View {
+        HStack(spacing: 5) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .accessibilityIdentifier(id)
+                .accessibilityValue(loading ? T("Loading", "正在加载", "正在載入") : "")
+            if loading {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(reduceTransparency ? .white : .primary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .foregroundStyle(reduceTransparency ? Color.white : Color.primary)
+        .modifier(ChromeSurface())
+        .padding(.top, 6)
+        .allowsHitTesting(false)
     }
 
     private func visibleTile(_ cached: (key: URL, tile: MobileDetailTile)?, photo: MobilePhoto,
@@ -719,11 +721,12 @@ struct MobilePhotoDetail: View {
 
     private func originalLabel(_ photo: MobilePhoto) -> String {
         if let visible = visibleTile(originalTile, photo: photo, viewport: canvasDemand?.originalViewport) {
-            return visible.nativeSize != nil ? T("Original · Native detail", "原片 · 原生细节", "原片 · 原生細節")
-                : T("Original · Reduced detail", "原片 · 较低档细节", "原片 · 較低檔細節")
+            return visible.nativeSize != nil ? T("Original · Full resolution", "原图 · 原始分辨率", "原圖 · 原始解析度")
+                : T("Original · High-resolution preview", "原图 · 高清预览", "原圖 · 高解析度預覽")
         }
-        return originalUnavailable && canvasDemand?.nativeZoom == true ? T("Original · Fit preview", "原片 · 适屏预览", "原片 · 適屏預覽")
-            : T("Original", "原片", "原片")
+        return originalProxy?.id == photo.id || originalUnavailable
+            ? T("Original · Fit preview", "原图 · 适屏预览", "原圖 · 適屏預覽")
+            : T("Original", "原图", "原圖")
     }
 
     private func neighbor(_ step: Int) -> MobilePhoto? {
