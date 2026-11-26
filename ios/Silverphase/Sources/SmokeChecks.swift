@@ -375,8 +375,9 @@ enum MobileSmokeChecks {
             let pickerSize = CGSize(width: 350, height: 56)
             let processPicker = ProcessSegmentsHost(size: pickerSize, vertical: false)
             var previousLabelPixels: Data?
-            for (language, expectedTitle) in [(MobileLanguage.simplifiedChinese, "拍摄"),
-                                               (.english, "Capture"), (.traditionalChinese, "拍攝")] {
+            // Assert the current Prep-stage copy explicitly, independently of the localized implementation.
+            for (language, expectedTitle) in [(MobileLanguage.simplifiedChinese, "预处理"),
+                                               (.english, "Prep"), (.traditionalChinese, "預處理")] {
                 processPicker.configure(size: pickerSize, vertical: false, stage: .camera, enabled: true, language: language)
                 let label = processPicker.control.imageForSegment(at: 0)
                 try require(label?.accessibilityLabel == expectedTitle, "Process picker retained an old accessibility label")
