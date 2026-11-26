@@ -95,6 +95,15 @@ enum MobileCameraViewfinderGeometry {
         return abs(sin(radians)) > abs(cos(radians)) ? 1 / aspect : aspect
     }
 
+    /// Permit a small center crop on the lower panel, not a large crop when a
+    /// portrait photograph and the tabletop panel have opposing axes.
+    static func tabletopCanFill(canvas: CGSize, aspect: CGFloat) -> Bool {
+        guard canvas.width > 0, canvas.height > 0, aspect.isFinite, aspect > 0 else { return false }
+        let fit = aspectSize(in: canvas, aspect: aspect, cover: false)
+        let cover = aspectSize(in: canvas, aspect: aspect, cover: true)
+        return cover.width <= fit.width * 1.12
+    }
+
     static func imageSize(in canvas: CGSize, aspect: CGFloat, fillsPanel: Bool) -> CGSize {
         guard canvas.width > 0, canvas.height > 0 else { return .zero }
         if fillsPanel { return canvas }
@@ -144,6 +153,13 @@ struct MobileWaistFilmTrack {
             let distance = CGFloat(slot) - coordinate
             return size.width / 2 + distance * pitch
                 + MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
+        }
+
+        func coverPose(of slot: Int, at coordinate: CGFloat, reduceMotion: Bool) -> CoverPose {
+            let center = centerX(of: slot, at: coordinate) - size.width / 2
+            return MobileWaistFilmTrack.pose(at: CGFloat(slot) - coordinate, screenX: center,
+                                            focalLength: max(1, width * 3.2, size.width * 1.08),
+                                            reduceMotion: reduceMotion)
         }
 
         func slots(around center: Int) -> ClosedRange<Int> {
@@ -197,7 +213,7 @@ struct MobileWaistFilmTrack {
         }
     }
 
-    private static let neighborScale: CGFloat = 0.64
+    private static let neighborScale: CGFloat = 1 / (1 + 0.59 / 1.42)
 
     static func coverSeparation(at position: CGFloat, width: CGFloat, pitch: CGFloat) -> CGFloat {
         let distance = min(2, abs(position))
@@ -208,17 +224,38 @@ struct MobileWaistFilmTrack {
         return separation * weight * (position < 0 ? -1 : 1)
     }
 
-    static func pose(at position: CGFloat, reduceMotion: Bool)
-        -> (scale: CGFloat, angle: Double, depth: CGFloat, opacity: Double)
-    {
-        let distance = min(2, abs(position))
-        let focus = 1 - min(1, distance)
-        let easedFocus = focus * focus * (3 - 2 * focus)
-        return (
-            scale: neighborScale + easedFocus * (1 - neighborScale) - max(0, distance - 1) * 0.10,
-            angle: reduceMotion ? 0 : Double(max(-1.22, min(1.22, position))) * -17,
-            depth: reduceMotion ? 0 : min(8, distance * distance * 4),
-            opacity: max(0.42, 1 - Double(distance) * 0.23)
-        )
+    struct CoverPose: Equatable {
+        let horizontalScale: CGFloat
+        let verticalScale: CGFloat
+        let perspective: CGFloat
+        let opacity: Double
+
+        func project(_ point: CGPoint) -> CGPoint {
+            let depth = 1 + perspective * point.x
+            return CGPoint(x: horizontalScale * point.x / depth, y: verticalScale * point.y / depth)
+        }
+
+        func contains(_ point: CGPoint, width: CGFloat, height: CGFloat) -> Bool {
+            // Invert the same common-camera projection used by the renderer;
+            // hit testing must not use the pre-tilt, rectangular artwork bounds.
+            let divisor = horizontalScale - perspective * point.x
+            guard divisor > 0 else { return false }
+            let x = point.x / divisor
+            let y = point.y * (1 + perspective * x) / verticalScale
+            return abs(x) <= width / 2 && abs(y) <= height / 2
+        }
+    }
+
+    static func pose(at position: CGFloat, screenX: CGFloat, focalLength: CGFloat, reduceMotion: Bool) -> CoverPose {
+        let distance = abs(position)
+        let squared = distance * distance
+        // Recede along a shallow track, not individual up/down translations.
+        // A centered observer and focal length are shared by every card.
+        let depth = 1 + 0.59 * squared / (1 + 0.42 * squared)
+        let yaw = reduceMotion ? 0 : -atan(screenX / focalLength) * 0.66
+        let slope = sin(yaw) / focalLength
+        return CoverPose(horizontalScale: (cos(yaw) - screenX * slope) / depth,
+                         verticalScale: 1 / depth, perspective: slope / depth,
+                         opacity: max(0.44, 1 - Double(distance) * 0.21))
     }
 }

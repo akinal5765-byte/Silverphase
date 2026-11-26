@@ -120,12 +120,21 @@ enum MobileLockedCameraChecks {
                 try require(center == width / 2 && abs((left + right) / 2 - center) < 0.00001,
                             "Resizing the aperture must preserve the center of the settled group")
             }
-            let centeredCover = MobileWaistFilmTrack.pose(at: 0, reduceMotion: false)
-            let nextCover = MobileWaistFilmTrack.pose(at: 1, reduceMotion: false)
-            let flatCover = MobileWaistFilmTrack.pose(at: 1, reduceMotion: true)
-            try require(centeredCover.scale > nextCover.scale && nextCover.angle < 0 &&
-                        flatCover.angle == 0 && flatCover.depth == 0,
-                        "Keep center emphasis without perspective motion when Reduce Motion is on")
+            let wheelAperture = MobileWaistFilmTrack.Aperture(size: CGSize(width: 669, height: 410))
+            let centeredCover = wheelAperture.coverPose(of: 0, at: 0, reduceMotion: false)
+            let leftCover = wheelAperture.coverPose(of: -1, at: 0, reduceMotion: false)
+            let rightCover = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: false)
+            let farCover = wheelAperture.coverPose(of: 2, at: 0, reduceMotion: false)
+            let flatCover = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: true)
+            let corner = CGPoint(x: 83, y: 45)
+            let leftCorner = leftCover.project(CGPoint(x: -corner.x, y: corner.y))
+            let rightCorner = rightCover.project(corner)
+            try require(centeredCover.project(corner) == corner && centeredCover.perspective == 0 &&
+                        abs(leftCorner.x + rightCorner.x) < 0.00001 &&
+                        abs(leftCorner.y - rightCorner.y) < 0.00001 &&
+                        rightCover.verticalScale > farCover.verticalScale && flatCover.perspective == 0 &&
+                        rightCover.contains(rightCorner, width: wheelAperture.width, height: wheelAperture.height),
+                        "Keep the center cover flat, mirror peers about a common horizon, and hit-test the actual projection")
             checks.append("tabletop film wheel wraps continuously and chooses the nearest centered stock")
 
             let captureAspect: CGFloat = 4.0 / 3.0

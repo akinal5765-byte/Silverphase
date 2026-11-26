@@ -14,7 +14,7 @@ struct MobileCameraDevelopment: Sendable {
 }
 
 private struct CameraPhotoBounds: PreferenceKey {
-    enum Role: Hashable { case preview, thumbnail }
+    enum Role: Hashable { case preview, fullPreview, thumbnail }
     static let defaultValue: [Role: Anchor<CGRect>] = [:]
 
     static func reduce(value: inout [Role: Anchor<CGRect>], nextValue: () -> [Role: Anchor<CGRect>]) {
@@ -354,7 +354,7 @@ struct MobileCameraView: View {
     private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool) -> some View {
         // Keep one live preview at a stable identity during display handoff.
         // Like folded mode, the chrome floats above it without shifting its center.
-        viewfinder(fillsPanel: outer != nil || (fillsPanel && !followsInterface))
+        viewfinder(fillsPanel: outer != nil || (fillsPanel && !followsInterface), tabletop: tabletop)
             .ignoresSafeArea(.container, edges: outer == nil && !usesInnerCameraLayout && fillsPanel ? .all : [])
             .frame(width: outer?.width ?? previewSize.width, height: outer?.height ?? previewSize.height)
             .offset(x: outer.map { $0.midX - size.width / 2 } ?? 0,
@@ -462,13 +462,14 @@ struct MobileCameraView: View {
         }
         .overlayPreferenceValue(CameraPhotoBounds.self) { anchors in
             GeometryReader { geometry in
-                if let reveal, landingPhoto, let from = anchors[.preview], let to = anchors[.thumbnail] {
+                if let reveal, landingPhoto,
+                   let from = anchors[.fullPreview] ?? anchors[.preview], let to = anchors[.thumbnail] {
                     let rect = geometry[photoAtThumbnail ? to : from]
                     let swapsAxes = !photoAtThumbnail && revealSwapsAxes
                     Image(decorative: reveal.image, scale: 1).resizable().scaledToFill()
                         .frame(width: swapsAxes ? rect.height : rect.width,
                                height: swapsAxes ? rect.width : rect.height)
-                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : usesFullOuterAperture ? 0 : 20))
+                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : (anchors[.fullPreview] != nil || usesFullOuterAperture) ? 0 : 20))
                         .rotationEffect(.degrees(revealRotation))
                         .position(x: rect.midX, y: rect.midY)
                         .accessibilityHidden(true)
@@ -1143,16 +1144,20 @@ struct MobileCameraView: View {
 #endif
     }
 
-    private func viewfinderImageSize(in canvas: CGSize, fillsPanel: Bool) -> CGSize {
-        let framing = configuration?.frontFraming
+    private var viewfinderImageAspect: CGFloat {
         let captureAspect = (followsInterface ? configuration?.photoAspect : configuration?.aspect) ?? 4.0 / 3.0
-        let ratio = framing?.aspect ?? MobileCameraViewfinderGeometry.orientedAspect(captureAspect, angle: previewAngle)
-        return MobileCameraViewfinderGeometry.imageSize(in: canvas, aspect: ratio,
-                                                        fillsPanel: fillsPanel && framing == nil)
+        return configuration?.frontFraming?.aspect
+            ?? MobileCameraViewfinderGeometry.orientedAspect(captureAspect, angle: previewAngle)
     }
 
-    private func viewfinder(fillsPanel: Bool) -> some View {
+    private func viewfinder(fillsPanel: Bool, tabletop: Bool = false) -> some View {
         GeometryReader { proxy in
+            let tableauFill = tabletop && MobileCameraViewfinderGeometry.tabletopCanFill(
+                canvas: proxy.size, aspect: viewfinderImageAspect
+            )
+            let fill = (fillsPanel || tableauFill) && configuration?.frontFraming == nil
+            let imageSize = MobileCameraViewfinderGeometry.imageSize(in: proxy.size, aspect: viewfinderImageAspect,
+                                                                     fillsPanel: fill)
             ZStack {
 #if SILVERPHASE_APP
                 let previewDevice = configuration?.device
@@ -1161,7 +1166,6 @@ struct MobileCameraView: View {
                 let previewDevice = configuration?.device ?? lens.physicalLens.findDevice()
 #endif
                 if let previewDevice {
-                    let imageSize = viewfinderImageSize(in: proxy.size, fillsPanel: fillsPanel)
                     let width = imageSize.width, height = imageSize.height
                     ZStack {
                         MobileStyle.canvas
@@ -1293,13 +1297,13 @@ struct MobileCameraView: View {
                     // Both outer-screen modes share the finder bounds. Even
                     // when the still and preview have different axes, the print
                     // covers that viewport without stretching the source.
-                    let envelope = usesFullOuterAperture
-                        ? viewfinderImageSize(in: proxy.size, fillsPanel: fillsPanel) : proxy.size
+                    let sharedAperture = usesFullOuterAperture || tabletop
+                    let envelope = sharedAperture ? imageSize : proxy.size
                     let unrotated = revealSwapsAxes
                         ? CGSize(width: envelope.height, height: envelope.width) : envelope
-                    let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: fillsPanel)
+                    let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: tabletop ? fill : fillsPanel)
                     let width = print.width, height = print.height
-                    let visible = usesFullOuterAperture ? envelope
+                    let visible = sharedAperture ? envelope
                         : CGSize(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
                     Group {
                         if landingPhoto {
@@ -1319,11 +1323,13 @@ struct MobileCameraView: View {
                         }
                     }
                     .frame(width: width, height: height)
-                    .clipShape(.rect(cornerRadius: fillsPanel || usesFullOuterAperture ? 0 : 20))
+                    .clipShape(.rect(cornerRadius: fillsPanel || usesFullOuterAperture || (tabletop && fill) ? 0 : 20))
                     .rotationEffect(.degrees(revealRotation))
                     .frame(width: visible.width, height: visible.height)
                     .clipped()
-                    .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.preview: $0] }
+                    .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) {
+                        [tabletop && fill ? .fullPreview : .preview: $0]
+                    }
                     .accessibilityLabel(T("Development preview", "显影预览", "顯影預覽"))
                 }
 #endif
@@ -2102,9 +2108,9 @@ private struct MobileWaistFilmWheel: View {
                     let stock = stocks[track.index(at: slot)]
                     let relative = slot - focused
                     let distance = CGFloat(slot) - coordinate
-                    let pose = MobileWaistFilmTrack.pose(at: distance, reduceMotion: reduceMotion)
-                    // Absolute placement is deliberately outside the transforms.
-                    // Scale, turn and depth can never alter the shared x axis.
+                    let pose = aperture.coverPose(of: slot, at: coordinate, reduceMotion: reduceMotion)
+                    // One viewing plane and a shared horizon for all covers.
+                    // Projection preserves each physical center.
                     Button { snap(to: slot) } label: {
                         cover(stock, width: aperture.width, height: aperture.height)
                     }
@@ -2113,11 +2119,10 @@ private struct MobileWaistFilmWheel: View {
                     .accessibilityAddTraits(relative == 0 && slot == restingSlot && motion == nil ? .isSelected : [])
                     .accessibilityIdentifier("camera.waist-film.\(relative)")
                     .accessibilityHidden(abs(relative) > 2)
-                    .scaleEffect(pose.scale)
-                    .rotation3DEffect(.degrees(pose.angle), axis: (0, 1, 0), perspective: 0.42)
+                    .projectionEffect(pose.transform(width: aperture.width, height: aperture.height))
                     .opacity(pose.opacity)
                     .position(x: aperture.centerX(of: slot, at: coordinate),
-                              y: aperture.laneHeight / 2 + pose.depth)
+                              y: aperture.laneHeight / 2)
                     .zIndex(4 - Double(abs(distance)))
                 }
             }
@@ -2221,11 +2226,11 @@ private struct MobileWaistFilmWheel: View {
         let slots = stocks.count == 1 ? [focused] : Array(aperture.slots(around: focused))
         // Check front-to-back, the same order used to render the cards.
         for slot in slots.sorted(by: { abs(CGFloat($0) - coordinate) < abs(CGFloat($1) - coordinate) }) {
-            let pose = MobileWaistFilmTrack.pose(at: CGFloat(slot) - coordinate, reduceMotion: reduceMotion)
+            let pose = aperture.coverPose(of: slot, at: coordinate, reduceMotion: reduceMotion)
             let x = aperture.centerX(of: slot, at: coordinate)
-            let y = aperture.laneHeight / 2 + pose.depth
-            if abs(point.x - x) <= aperture.width * pose.scale / 2,
-               abs(point.y - y) <= aperture.height * pose.scale / 2 {
+            let y = aperture.laneHeight / 2
+            if pose.contains(CGPoint(x: point.x - x, y: point.y - y),
+                             width: aperture.width, height: aperture.height) {
                 snap(to: slot, from: coordinate)
                 return
             }
@@ -2268,6 +2273,24 @@ private struct MobileWaistFilmWheel: View {
         let current = currentPosition(at: now)
         let nearest = track.closestSlot(of: index, to: track.nearestSlot(to: current))
         snap(to: nearest, from: current)
+    }
+}
+
+private extension MobileWaistFilmTrack.CoverPose {
+    func transform(width: CGFloat, height: CGFloat) -> ProjectionTransform {
+        // The model projects in card-centered coordinates. SwiftUI takes
+        // a homogeneous transform in the card's top-leading coordinates.
+        let x = width / 2, y = height / 2
+        let w = 1 - perspective * x
+        var result = ProjectionTransform()
+        result.m11 = horizontalScale + x * perspective
+        result.m12 = y * perspective
+        result.m13 = perspective
+        result.m22 = verticalScale
+        result.m31 = x * (w - horizontalScale)
+        result.m32 = y * (w - verticalScale)
+        result.m33 = w
+        return result
     }
 }
 #endif
