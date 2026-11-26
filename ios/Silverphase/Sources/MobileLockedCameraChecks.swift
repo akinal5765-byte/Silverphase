@@ -113,6 +113,23 @@ enum MobileLockedCameraChecks {
                         "Portrait capture in a landscape Duo scene should reach the lower edge without cropping")
             checks.append("Duo landscape and tabletop camera backdrop extends under the bottom system area without cropping")
 
+            let outer = MobileCameraViewfinderGeometry.outerViewport(
+                safeSize: CGSize(width: 390, height: 760), top: 46, leading: 2, bottom: 34, trailing: 6)
+            try require(outer == CGRect(x: -2, y: -46, width: 398, height: 840),
+                        "Outer camera and its animation should extend behind all safe insets, not move the controls")
+            let outerFinder = MobileCameraViewfinderGeometry.imageSize(in: outer.size, aspect: 0.75, fillsPanel: true)
+            for stillAspect in [0.75, 4.0 / 3.0] {
+                for swapsAxes in [false, true] {
+                    let unrotated = swapsAxes ? CGSize(width: outer.height, height: outer.width) : outer.size
+                    let printSize = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: stillAspect, cover: true)
+                    try require(printSize.width >= unrotated.width - 0.001 && printSize.height >= unrotated.height - 0.001
+                                 && abs(printSize.width / printSize.height - stillAspect) < 0.001,
+                                "The animation should cover the same aperture without stretching the source")
+                }
+            }
+            try require(outerFinder == outer.size, "The viewfinder must cover the full outer frame")
+            checks.append("outer rear selfie uses one full-screen viewport for preview and development")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")

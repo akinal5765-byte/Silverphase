@@ -146,15 +146,16 @@ its native scene instead. Leaving the camera restores the library/editor policy.
 
 On the Duo inner display, the camera reuses the folded capture controls,
 including the lens row, as one measured group on the viewer's right. It preserves
-their relative order and spacing in portrait and landscape. On Duo, the
-viewfinder fits the still-photo aspect ratio and stays centered; it may leave
+their relative order and spacing in portrait and landscape. On the inner
+display, the viewfinder fits the still-photo aspect ratio and stays centered; it may leave
 margins rather than crop the framing to the shape of the screen. The controls
 float above it. In inner landscape and tabletop, only the photographic canvas
 extends behind the bottom system area; camera controls still respect it.
 AVFoundation supplies separate, display-aware preview and capture angles;
 a processed preview frame from the previous angle is discarded. The rear
-selfie development preview uses the finder bounds without changing the file's
-orientation. AVKit's
+selfie viewfinder and development preview both fill the outer display with a
+center crop, including behind the system insets. The controls stay in the safe
+area. This is presentation only: it doesn't crop or rotate the saved file. AVKit's
 direction coordinator identifies the physical rear camera facing an open
 Duo's outer display; the app uses that display's native layout without forcing
 a 180-degree turn or changing how saved photos are mirrored.

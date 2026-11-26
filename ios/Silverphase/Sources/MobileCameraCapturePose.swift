@@ -43,6 +43,21 @@ enum MobileCameraViewfinderGeometry {
         return CGSize(width: panel.width, height: panel.height + bottomSafeArea)
     }
 
+    /// Coordinates relative to the chrome's safe layout. The preview and
+    /// development animation extend behind the chrome together.
+    static func outerViewport(safeSize: CGSize, top: CGFloat, leading: CGFloat,
+                              bottom: CGFloat, trailing: CGFloat) -> CGRect {
+        CGRect(x: -leading, y: -top,
+               width: safeSize.width + leading + trailing,
+               height: safeSize.height + top + bottom)
+    }
+
+    static func aspectSize(in bounds: CGSize, aspect: CGFloat, cover: Bool) -> CGSize {
+        guard bounds.width > 0, bounds.height > 0, aspect.isFinite, aspect > 0 else { return .zero }
+        let width = cover ? max(bounds.width, bounds.height * aspect) : min(bounds.width, bounds.height * aspect)
+        return CGSize(width: width, height: width / aspect)
+    }
+
     static func orientedAspect(_ landscapeAspect: CGFloat, angle: CGFloat) -> CGFloat {
         let aspect = landscapeAspect.isFinite && landscapeAspect > 0 ? landscapeAspect : 4.0 / 3.0
         guard angle.isFinite else { return aspect }
@@ -53,7 +68,6 @@ enum MobileCameraViewfinderGeometry {
     static func imageSize(in canvas: CGSize, aspect: CGFloat, fillsPanel: Bool) -> CGSize {
         guard canvas.width > 0, canvas.height > 0 else { return .zero }
         if fillsPanel { return canvas }
-        let width = min(canvas.width, canvas.height * aspect)
-        return CGSize(width: width, height: width / aspect)
+        return aspectSize(in: canvas, aspect: aspect, cover: false)
     }
 }

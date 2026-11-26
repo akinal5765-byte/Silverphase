@@ -241,11 +241,11 @@ struct MobileCameraView: View {
     private var waitingForCamera: Bool { (sessionInterrupted || !previewing || configuration == nil) && issue == nil }
 #endif
 
-    @ViewBuilder private func cameraLayout(bottomSafeArea: CGFloat) -> some View {
+    @ViewBuilder private func cameraLayout(safeInsets: EdgeInsets) -> some View {
 #if SILVERPHASE_APP
         // The live preview stays at the same SwiftUI identity even when
         // UIKit temporarily takes the scene off one display and onto another.
-        sceneCameraLayout(bottomSafeArea: bottomSafeArea)
+        sceneCameraLayout(safeInsets: safeInsets)
 #else
         standardCameraLayout
 #endif
@@ -298,15 +298,19 @@ struct MobileCameraView: View {
         waistGeometry(geometry)?.lower ?? CGRect(origin: .zero, size: geometry.size)
     }
 
-    private func sceneCameraLayout(bottomSafeArea: CGFloat) -> some View {
+    private func sceneCameraLayout(safeInsets: EdgeInsets) -> some View {
         GeometryReader { geometry in
             let waist = waistGeometry(geometry)
             let panel = waist?.lower ?? CGRect(origin: .zero, size: geometry.size)
             let previewSize = MobileCameraViewfinderGeometry.previewCanvas(
-                panel: panel.size, bottomSafeArea: bottomSafeArea, isInner: usesInnerCameraLayout, isTabletop: waist != nil
+                panel: panel.size, bottomSafeArea: safeInsets.bottom, isInner: usesInnerCameraLayout, isTabletop: waist != nil
             )
+            let outer = rearSelfieOnHostDisplay ? MobileCameraViewfinderGeometry.outerViewport(
+                safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
+                bottom: safeInsets.bottom, trailing: safeInsets.trailing
+            ) : nil
             ZStack {
-                cameraPanelContent(panel.size, previewSize: previewSize, tabletop: waist != nil)
+                cameraPanelContent(panel.size, previewSize: previewSize, outer: outer, tabletop: waist != nil)
                     .position(x: panel.midX, y: panel.midY)
 
                 if let waist {
@@ -321,15 +325,17 @@ struct MobileCameraView: View {
         }
     }
 
-    private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, tabletop: Bool) -> some View {
+    private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool) -> some View {
         // Keep one live preview at a stable identity during display handoff.
         // Like folded mode, the chrome floats above it without shifting its center.
-        viewfinder(fillsPanel: fillsPanel && !followsInterface)
-            .ignoresSafeArea(.container, edges: !usesInnerCameraLayout && fillsPanel ? .all : [])
-            .frame(width: previewSize.width, height: previewSize.height)
+        viewfinder(fillsPanel: outer != nil || (fillsPanel && !followsInterface))
+            .ignoresSafeArea(.container, edges: outer == nil && !usesInnerCameraLayout && fillsPanel ? .all : [])
+            .frame(width: outer?.width ?? previewSize.width, height: outer?.height ?? previewSize.height)
+            .offset(x: outer.map { $0.midX - size.width / 2 } ?? 0,
+                    y: outer.map { $0.midY - size.height / 2 } ?? 0)
             // Pin the photographic canvas to the same top edge so it can
             // extend behind the bottom system area without moving the chrome.
-            .frame(width: size.width, height: size.height, alignment: .top)
+            .frame(width: size.width, height: size.height, alignment: outer == nil ? .top : .center)
 #if DEBUG
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                 if isLayoutCheck { cameraFinderTestBounds = $0 }
@@ -483,15 +489,15 @@ struct MobileCameraView: View {
     var body: some View {
 #if SILVERPHASE_APP
         MobileCameraCanvas(followsInterface: followsInterface, interfaceChanged: { sceneQuarterTurn = $0 }) { insets in
-            cameraBody(bottomSafeArea: insets.bottom)
+            cameraBody(safeInsets: insets)
         }
 #else
-        MobileCameraCanvas { _ in cameraBody(bottomSafeArea: 0) }
+        MobileCameraCanvas { _ in cameraBody(safeInsets: EdgeInsets()) }
 #endif
     }
 
-    private func cameraBody(bottomSafeArea: CGFloat) -> some View {
-        cameraLayout(bottomSafeArea: bottomSafeArea)
+    private func cameraBody(safeInsets: EdgeInsets) -> some View {
+        cameraLayout(safeInsets: safeInsets)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #if SILVERPHASE_APP
         .background {
@@ -516,7 +522,7 @@ struct MobileCameraView: View {
                     Image(decorative: reveal.image, scale: 1).resizable().scaledToFill()
                         .frame(width: swapsAxes ? rect.height : rect.width,
                                height: swapsAxes ? rect.width : rect.height)
-                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : 20))
+                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : rearSelfieOnHostDisplay ? 0 : 20))
                         .rotationEffect(.degrees(revealRotation))
                         .position(x: rect.midX, y: rect.midY)
                         .accessibilityHidden(true)
@@ -1350,12 +1356,12 @@ struct MobileCameraView: View {
                     // bounds; never stretch the print to the preview's aspect.
                     let envelope = rearSelfieOnHostDisplay
                         ? viewfinderImageSize(in: proxy.size, fillsPanel: fillsPanel) : proxy.size
-                    let availableWidth = revealSwapsAxes ? envelope.height : envelope.width
-                    let availableHeight = revealSwapsAxes ? envelope.width : envelope.height
-                    let edgeToEdge = fillsPanel && !rearSelfieOnHostDisplay
-                    let width = edgeToEdge ? max(availableWidth, availableHeight * ratio)
-                                           : min(availableWidth, availableHeight * ratio)
-                    let height = width / ratio
+                    let unrotated = revealSwapsAxes
+                        ? CGSize(width: envelope.height, height: envelope.width) : envelope
+                    let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: fillsPanel)
+                    let width = print.width, height = print.height
+                    let visible = rearSelfieOnHostDisplay ? envelope
+                        : CGSize(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
                     Group {
                         if landingPhoto {
                             Color.clear
@@ -1374,9 +1380,10 @@ struct MobileCameraView: View {
                         }
                     }
                     .frame(width: width, height: height)
-                    .clipShape(.rect(cornerRadius: edgeToEdge || rearSelfieOnHostDisplay ? 0 : 20))
+                    .clipShape(.rect(cornerRadius: fillsPanel || rearSelfieOnHostDisplay ? 0 : 20))
                     .rotationEffect(.degrees(revealRotation))
-                    .frame(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
+                    .frame(width: visible.width, height: visible.height)
+                    .clipped()
                     .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.preview: $0] }
                     .accessibilityLabel(T("Development preview", "显影预览", "顯影預覽"))
                 }
