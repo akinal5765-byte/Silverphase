@@ -179,9 +179,7 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
                 for (index, result) in results.enumerated() {
                     parent.onProgress(index + 1, results.count, result.itemProvider.suggestedName ?? "")
                     do {
-                        if let file = try await Self.loadOriginalRAW(result) {
-                            files.append(file)
-                        } else if let file = try await Self.load(result.itemProvider) {
+                        if let file = try await Self.load(result) {
                             files.append(file)
                         } else if Self.rawHint(for: result.itemProvider) != nil {
                             let name = result.itemProvider.suggestedName ?? T("Untitled photo", "未命名照片", "未命名照片")
@@ -221,48 +219,189 @@ struct LibraryPhotoPicker: UIViewControllerRepresentable {
             options.isNetworkAccessAllowed = true
             do {
                 try await PHAssetResourceManager.default().writeData(for: resource, toFile: destination, options: options)
+                try Task.checkCancellation()
                 let info = await Task.detached(priority: .userInitiated) {
                     MobileImageMetadata.read(destination, hint: hint)
                 }.value
+                try Task.checkCancellation()
                 guard info.isRaw, info.megapixels > 0 else {
                     throw MobileFailure.message(T("The file Photos returned is not a readable RAW original.", "照片图库返回的文件无法识别为 RAW 原片。", "照片圖庫返回的檔案無法識別為 RAW 原片。"))
                 }
                 return LibraryPhotoImport(url: destination, name: info.displayName(suggested: name, fallback: destination.lastPathComponent))
             } catch {
                 try? FileManager.default.removeItem(at: destination)
+                if error is CancellationError { throw CancellationError() }
                 throw MobileFailure.message(TDetached("Could not read the RAW original \(name): \(error.localizedDescription)", "无法读取 RAW 原片 \(name)：\(error.localizedDescription)", "無法讀取 RAW 原片 \(name)：\(error.localizedDescription)"))
             }
         }
 
-        static func load(_ provider: NSItemProvider) async throws -> LibraryPhotoImport? {
+        private static func load(_ result: PHPickerResult) async throws -> LibraryPhotoImport? {
+            // A failed Photos resource request does not invalidate the picker
+            // grant. The picker may already have a readable RAW file locally.
+            try await loadPreservingRAW(result.itemProvider) { try await loadOriginalRAW(result) }
+        }
+
+        private static func loadPreservingRAW(_ provider: NSItemProvider,
+                                              original: () async throws -> LibraryPhotoImport?) async throws -> LibraryPhotoImport? {
+            do {
+                if let file = try await original() { return file }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                let originalError = error
+                do {
+                    if let file = try await load(provider, requiringRAW: true) { return file }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    // Keep the original, more specific Photos resource error.
+                }
+                throw originalError
+            }
+            return try await load(provider)
+        }
+
+        static func load(_ provider: NSItemProvider, requiringRAW: Bool = false) async throws -> LibraryPhotoImport? {
             let types = provider.registeredTypeIdentifiers.compactMap(UTType.init)
-            let type = types.first { $0.conforms(to: .rawImage) }
-                ?? types.first { type in LibraryPhotoPicker.flatTypes.contains { type.conforms(to: $0) } }
-                ?? types.first { $0.conforms(to: .image) } ?? .image
+            let raw = types.filter { $0.conforms(to: .rawImage) }
+            let rendered = types.filter { type in LibraryPhotoPicker.flatTypes.contains { type.conforms(to: $0) } }
+            let otherImages = types.filter { $0.conforms(to: .image) }
             let suggested = provider.suggestedName
-            let hint = rawHint(for: provider)
+            let rawHint = rawHint(for: provider)
+            let requireRAW = requiringRAW || rawHint != nil
+            // Never ask for a separate rendered preview if the picker exposes
+            // RAW. Some providers expose only a generic/image identifier for
+            // RAW; in that case we still check the actual file's contents.
+            let candidates = raw.isEmpty ? rendered + otherImages : raw
+            var attempted = Set<String>()
+            var firstError: Error?
+            var delivered = false
+            for type in candidates.isEmpty ? [.image] : candidates {
+                guard attempted.insert(type.identifier).inserted else { continue }
+                try Task.checkCancellation()
+                do {
+                    if let file = try await loadRepresentation(provider, type: type, suggested: suggested,
+                                                               rawHint: rawHint, requiringRAW: requireRAW) {
+                        if Task.isCancelled {
+                            try? FileManager.default.removeItem(at: file.url)
+                            throw CancellationError()
+                        }
+                        return file
+                    }
+                    delivered = true
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    if firstError == nil { firstError = error }
+                }
+            }
+            try Task.checkCancellation()
+            // A readable delivery in an unsupported/invalid format remains a
+            // skip (or a RAW warning), not a Photos transfer error.
+            if !delivered, let firstError { throw firstError }
+            return nil
+        }
+
+        private static func loadRepresentation(_ provider: NSItemProvider, type: UTType, suggested: String?,
+                                               rawHint: UTType?, requiringRAW: Bool) async throws -> LibraryPhotoImport? {
+            let unreadable = MobileFailure.message(T("Photos did not provide a readable file.", "系统照片未提供可读取的文件。", "系統照片未提供可讀取的檔案。"))
+            let unnamed = T("untitled.", "未提供原始文件名.", "未提供原始檔案名.")
+            let flatTypes = LibraryPhotoPicker.flatTypes
             return try await withCheckedThrowingContinuation { continuation in
                 provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
                     do {
                         if let error { throw error }
-                        guard let url else { throw MobileFailure.message(T("Photos did not provide a readable file.", "系统照片未提供可读取的文件。", "系統照片未提供可讀取的檔案。")) }
+                        guard let url else { throw unreadable }
+                        let hint = type.conforms(to: .rawImage) ? type : rawHint
                         let info = MobileImageMetadata.read(url, hint: hint)
                         let flat = info.typeIdentifier.flatMap(UTType.init).map { type in
-                            LibraryPhotoPicker.flatTypes.contains { type.conforms(to: $0) }
-                        } == true && info.megapixels > 0
-                        // A RAW request must never silently become its JPEG preview.
-                        guard info.isRaw || (hint == nil && flat) else { continuation.resume(returning: nil); return }
+                            flatTypes.contains { type.conforms(to: $0) }
+                        } == true
+                        guard info.megapixels > 0, info.isRaw || (!requiringRAW && flat) else {
+                            continuation.resume(returning: nil); return
+                        }
                         let ext = info.fileExtension ?? (info.isRaw ? "raw" : "jpg")
                         let destination = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
-                        try FileManager.default.copyItem(at: url, to: destination)
-                        let name = info.displayName(suggested: suggested, fallback: T("untitled.", "未提供原始文件名.", "未提供原始檔案名.") + ext)
+                        // Foundation owns the representation only until this
+                        // callback returns. Make an independent byte copy here.
+                        do {
+                            try FileManager.default.copyItem(at: url, to: destination)
+                        } catch {
+                            try? FileManager.default.removeItem(at: destination)
+                            throw error
+                        }
+                        let name = representationName(info, suggested: suggested, fallback: unnamed + ext, extension: ext)
                         continuation.resume(returning: LibraryPhotoImport(url: destination, name: name))
                     } catch { continuation.resume(throwing: error) }
                 }
             }
         }
+
+        private nonisolated static func representationName(_ info: MobileImageMetadata, suggested: String?,
+                                                           fallback: String, extension ext: String) -> String {
+            let name = info.displayName(suggested: suggested, fallback: fallback)
+            // If a compatible representation differs from the suggested image
+            // suffix, retain the name stem but describe the actual file.
+            let url = URL(fileURLWithPath: name)
+            guard let declared = UTType(filenameExtension: url.pathExtension), declared.conforms(to: .image),
+                  let actual = info.typeIdentifier.flatMap(UTType.init),
+                  !actual.conforms(to: declared), !declared.conforms(to: actual) else { return name }
+            return url.deletingPathExtension().lastPathComponent + "." + ext
+        }
     }
 }
+
+#if DEBUG
+extension LibraryPhotoPicker.Coordinator {
+    /// Exercised by the picker-format smoke launch with synthetic files.
+    static func auditRepresentationFallback(jpeg: URL, invalid: URL) async throws -> [String] {
+        let unavailable = MobileFailure.message("Synthetic Photos provider: no file available")
+        let originalError = MobileFailure.message("Synthetic Photos original RAW is unavailable")
+        let ext = UTType.jpeg.preferredFilenameExtension!
+        let originalBytes = try Data(contentsOf: jpeg)
+        for first in [nil, invalid] as [URL?] {
+            let provider = NSItemProvider()
+            provider.suggestedName = "Fallback.PNG"
+            provider.registerFileRepresentation(forTypeIdentifier: UTType.png.identifier, fileOptions: [], visibility: .all) { done in
+                done(first, false, first == nil ? unavailable : nil); return nil
+            }
+            provider.registerFileRepresentation(forTypeIdentifier: UTType.jpeg.identifier, fileOptions: [], visibility: .all) { done in
+                done(jpeg, false, nil); return nil
+            }
+            guard let file = try await load(provider) else {
+                throw MobileFailure.message("A later compatible Photos representation was skipped")
+            }
+            defer { try? FileManager.default.removeItem(at: file.url) }
+            guard file.name == "Fallback." + ext, file.url.pathExtension == ext,
+                  try Data(contentsOf: file.url) == originalBytes else {
+                throw MobileFailure.message("Fallback did not preserve the selected file bytes and accurate image extension")
+            }
+        }
+        let rawNamed = NSItemProvider()
+        rawNamed.suggestedName = "Unavailable.DNG"
+        rawNamed.registerFileRepresentation(forTypeIdentifier: UTType.jpeg.identifier, fileOptions: [], visibility: .all) { done in
+            done(jpeg, false, nil); return nil
+        }
+        guard try await load(rawNamed) == nil else {
+            throw MobileFailure.message("A named RAW original was silently substituted by its rendered preview")
+        }
+        // Even if the picker metadata does not say RAW, a failed Photos
+        // resource lookup knows the selected original is RAW.
+        rawNamed.suggestedName = "Unavailable"
+        do {
+            if let file = try await loadPreservingRAW(rawNamed, original: { throw originalError }) {
+                try? FileManager.default.removeItem(at: file.url)
+            }
+        } catch {
+            guard error.localizedDescription == originalError.localizedDescription else { throw error }
+            return ["unavailable or corrupt preferred Photos representation retries compatible original bytes",
+                    "fallback display extension matches actual file",
+                    "RAW does not silently become a JPEG; underlying Photos resource error retained"]
+        }
+        throw MobileFailure.message("A failed RAW resource request was silently replaced or skipped")
+    }
+}
+#endif
 
 /// Capture-side text follows the desktop date back: no fabricated date, real
 /// focal/aperture/exposure data, no leading zeros, and a bounded data line.
