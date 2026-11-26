@@ -135,7 +135,15 @@ struct MobileCameraView: View {
         followsInterface ? nil : measuredCapturePose
     }
     private var controlRotationTarget: Double {
-        followsInterface ? 0 : -Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn))
+#if SILVERPHASE_APP
+        if rearSelfieOnHostDisplay {
+            // iOS may keep the outer window portrait while the user rolls
+            // the device. Rotate the existing glyphs, not the control frames.
+            let device = Double(measuredCapturePose?.rawValue ?? Int(deviceQuarterTurn))
+            return MobileCameraViewfinderGeometry.outerControlRotation(scene: sceneQuarterTurn, device: device)
+        }
+#endif
+        return followsInterface ? 0 : -Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn))
     }
     @State private var controlRotation = 0.0
     @State private var filmLabelHeight: CGFloat = 60

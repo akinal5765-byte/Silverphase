@@ -47,6 +47,10 @@ enum MobileCameraViewfinderGeometry {
         return angle < 0 ? angle + 360 : angle
     }
 
+    static func outerControlRotation(scene: Double, device: Double) -> Double {
+        (scene - device).remainder(dividingBy: 360)
+    }
+
     static func developmentRotation(capture: CGFloat, preview: CGFloat) -> CGFloat {
         (preview - capture).remainder(dividingBy: 360)
     }

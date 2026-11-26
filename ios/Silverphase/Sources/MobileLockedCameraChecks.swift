@@ -155,6 +155,14 @@ enum MobileLockedCameraChecks {
                         "Development must follow the finder, and invalid capture angles must fall back")
             checks.append("Duo rear-selfie preview and print share the inverse display offset")
 
+            for (pose, expected) in [(0.0, 0.0), (90, -90), (180, -180), (270, 90)] {
+                try require(MobileCameraViewfinderGeometry.outerControlRotation(scene: 0, device: pose) == expected,
+                            "Outer glyphs must follow gravity when the host stays fixed in portrait")
+                try require(MobileCameraViewfinderGeometry.outerControlRotation(scene: pose, device: pose) == 0,
+                            "If the scene follows the roll, outer glyphs must not rotate twice")
+            }
+            checks.append("outer rear-selfie icons follow device orientation relative to the scene")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")
