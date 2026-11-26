@@ -138,6 +138,27 @@ extension MobileMovieDevelopment {
     }
 #endif
 
+    /// Compare different selected stocks on the exact same saturated footage.
+    @MainActor static func runLookRegression() async {
+        let directory = URL.documentsDirectory
+        let fixture = directory.appending(path: "video-check-legacy-small.mov")
+        let checks = ["kodak_tri_x_400", "kodak_portra_400", "kodak_vision3_500t"]
+        var result: [String: String] = [:]
+        for film in checks {
+            let destination = directory.appending(path: "video-look-\(film).mov")
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try await export(source: fixture, destination: destination, film: film, expected: nil) { _ in }
+                result[film] = "rendered"
+            } catch { result[film] = error.localizedDescription }
+        }
+        if let data = try? JSONEncoder().encode(result) {
+            try? data.write(to: directory.appending(path: "video-look-report.json"), options: .atomic)
+        }
+    }
+
     static func runFormatRegression() {
         typealias Mode = MobileMovieProfile
         func spec(_ w: Int, _ h: Int, _ rate: Int32) -> Mode {

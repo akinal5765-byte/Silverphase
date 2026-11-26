@@ -15,7 +15,9 @@ raster, based on the lens's AVFoundation movie-compatible SDR formats.
 Turn Automatic off to pick resolution and then one of its supported rates.
 Changing lenses preserves the existing manual pair only if the new lens
 offers it. Otherwise the app asks for a new pair. The configured dimensions
-and frame rate are shown before recording. No silent fallback on setup,
+and frame rate are shown before recording. The post-recording player previews the ungraded original and names the film
+for the explicit Apply Film and Save action. Saving the original does not
+apply a film. No silent fallback on setup,
 capture, or export failure. The live viewfinder is ungraded. Glare and per-frame film
 auto-metering are intentionally off in this first version. The still, Portrait,
 camera shortcut and lock-screen routes keep their own camera configuration. Live
@@ -55,6 +57,13 @@ Photos permission in a dedicated simulator, inject `video-check-legacy-small.mov
 then launch with `--video-photos-regression`. Verify `video-photo-save-report.json`
 reports `saved` and the source remains. This test writes one synthetic video
 to the simulator's library; it is not active on physical devices.
+
+For a content check, inject a saturated, short 640×360 BT.709 fixture with
+audio under the same legacy fixture name and launch with
+`--video-look-regression`. It exports the same input with Tri-X, Portra and
+Vision3 500T without writing to Photos. Run `python3
+ios/Silverphase/Tools/check-video-look.py <Documents directory>` to compare RGB
+pixels against the source and across film stocks, not just the track metadata.
 
 The production export memory guard remains active. This check does not test
 camera recording, hardware thermals, sustained AV cadence, or playback sync.

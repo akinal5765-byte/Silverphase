@@ -371,11 +371,16 @@ struct MobileVideoCaptureView: View {
                 }
                 if let notice { Text(notice).font(.footnote) }
                 if let selected {
+                    let stock = StockCatalog.shared.stock(selected.film)?.displayName ?? selected.film
+                    Text(T("Original preview · no film applied", "当前预览是原片，未套用胶片", "目前預覽是原片，未套用膠片"))
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text(T("Film for development: \(stock)", "显影胶片：\(stock)", "顯影膠片：\(stock)"))
+                        .font(.subheadline.weight(.medium))
                     Text(selected.date.formatted(date: .abbreviated, time: .shortened)).font(.subheadline.monospacedDigit())
-                    Button(T("Develop and save video", "显影并保存视频", "顯影並儲存影片"), systemImage: "film") {
+                    Button(T("Apply film and save", "套用胶片并保存", "套用膠片並儲存"), systemImage: "film") {
                         save(selected, developed: true)
                     }.buttonStyle(.borderedProminent).disabled(saving)
-                    Button(T("Save original video", "保存视频原片", "儲存原始影片"), systemImage: "square.and.arrow.down") {
+                    Button(T("Save original without film", "不套胶片，保存原片", "不套膠片，儲存原片"), systemImage: "square.and.arrow.down") {
                         save(selected, developed: false)
                     }.buttonStyle(.bordered).disabled(saving)
                     Button(T("Back to camera", "返回相机", "返回相機")) { self.selected = nil }
@@ -611,7 +616,10 @@ struct MobileVideoCaptureView: View {
 #endif
                 takes = MobileMovieTake.pending()
                 selected = nil
-                notice = T("Saved to Photos", "已保存到照片", "已儲存到照片")
+                let stock = StockCatalog.shared.stock(take.film)?.displayName ?? take.film
+                notice = developed
+                    ? T("Saved to Photos with \(stock).", "已套用 \(stock) 并保存到相册。", "已套用 \(stock) 並儲存到相簿。")
+                    : T("Original saved to Photos without film.", "原片已保存到相册，未套用胶片。", "原片已儲存到相簿，未套用膠片。")
             } catch is CancellationError {
                 notice = T("Development canceled. Your original was kept.", "已取消显影，原片仍保留。", "已取消顯影，原片仍保留。")
             } catch {
