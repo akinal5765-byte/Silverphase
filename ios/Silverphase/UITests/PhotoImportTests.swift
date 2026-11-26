@@ -13,9 +13,18 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(png.exists)
         source.tap()
         for id in ["rating", "flag", "film", "menu", "export", "info", "edit"] {
-            XCTAssertTrue(app.buttons["photo-detail." + id].waitForExistence(timeout: 5), id)
+            let control = app.descendants(matching: .any).matching(identifier: "photo-detail." + id).firstMatch
+            XCTAssertTrue(control.waitForExistence(timeout: 5), id + "\n" + app.debugDescription)
         }
         XCTAssertFalse(app.buttons["editor.menu"].exists)
+        let layout = app.buttons["photo-detail.edit"].frame.midY
+        let film = app.descendants(matching: .any).matching(identifier: "photo-detail.film").firstMatch
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCTAssertLessThan(layout, app.frame.height * 0.38)
+        } else {
+            XCTAssertGreaterThan(layout, app.frame.height * 0.62)
+        }
+        XCTAssertTrue(film.exists)
         app.buttons["photo-detail.info"].tap()
         XCTAssertTrue(app.navigationBars["Photo Info"].waitForExistence(timeout: 6))
         app.buttons["Done"].tap()

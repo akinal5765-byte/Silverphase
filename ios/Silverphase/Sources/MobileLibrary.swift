@@ -267,7 +267,7 @@ struct MobileLibrary: View {
     }
 
     private func detailPage(_ request: LibraryPhotoDetailRequest) -> some View {
-        MobilePhotoDetail(document: document, photoIDs: request.ids, photoID: $detailID,
+        MobilePhotoDetail(document: document, photoIDs: request.ids, initialDuo: phoneHingeClosed != nil, photoID: $detailID,
                           onBack: closeDetail,
                           onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
                           onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },

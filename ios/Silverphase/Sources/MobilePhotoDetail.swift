@@ -1,10 +1,12 @@
 import SwiftUI
 import ImageIO
+import UIKit
 
 /// The viewer owns browsing state, not the editor's selected image or render session.
 struct MobilePhotoDetail: View {
     let document: MobileDocument
     let photoIDs: [UUID]
+    let initialDuo: Bool
     @Binding var photoID: UUID
     let onBack: () -> Void
     let onEdit: (MobilePhoto) -> Void
@@ -17,6 +19,7 @@ struct MobilePhotoDetail: View {
     @State private var previewLoading = true
     @State private var previewID: UUID?
     @State private var showingFilm = false
+    @State private var hingeDetected = false
 
     private var photo: MobilePhoto? { document.photos.first { $0.id == photoID } }
     private var strip: [MobilePhoto] {
@@ -27,10 +30,11 @@ struct MobilePhotoDetail: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let wide = proxy.size.width > proxy.size.height * 1.16
+        GeometryReader { _ in
+            let ipad = UIDevice.current.userInterfaceIdiom == .pad
+            let duo = UIDevice.current.userInterfaceIdiom == .phone && (initialDuo || hingeDetected)
             if let photo {
-                if wide {
+                if duo {
                     HStack(spacing: 10) {
                         VStack(spacing: 8) {
                             header(photo)
@@ -48,16 +52,10 @@ struct MobilePhotoDetail: View {
                 } else {
                     VStack(spacing: 10) {
                         header(photo)
+                        if ipad { horizontalTools(photo, top: true) }
                         picture(photo)
                         filmstrip
-                        HStack(spacing: 12) {
-                            tool(T("Export", "导出", "匯出"), "square.and.arrow.up", id: "photo-detail.export") { onExport(photo) }
-                            Spacer(minLength: 0)
-                            HStack(spacing: 7) {
-                                tool(T("Information", "信息", "資訊"), "info.circle", id: "photo-detail.info") { onInfo(photo) }
-                                tool(T("Edit", "编辑", "編輯"), "slider.horizontal.3", id: "photo-detail.edit") { onEdit(photo) }
-                            }.padding(.horizontal, 5).background(.regularMaterial, in: Capsule())
-                        }.padding(.horizontal, 14)
+                        if !ipad { horizontalTools(photo, top: false) }
                     }.padding(.vertical, 8)
                 }
             } else {
@@ -99,7 +97,11 @@ struct MobilePhotoDetail: View {
                 }
             }
         }
-        .accessibilityIdentifier("photo-detail")
+        .background {
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                ProcessBarGeometryProbe(hingeChanged: { hingeDetected = $0 != nil }).allowsHitTesting(false)
+            }
+        }
     }
 
     private static nonisolated func loadPreview(_ url: URL) async -> CGImage? {
@@ -205,6 +207,19 @@ struct MobilePhotoDetail: View {
                     reader.scrollTo(id, anchor: .center)
                 }
         }.frame(height: 46)
+    }
+
+    private func horizontalTools(_ photo: MobilePhoto, top: Bool) -> some View {
+        HStack(spacing: 12) {
+            if top { Spacer(minLength: 0) }
+            tool(T("Export", "导出", "匯出"), "square.and.arrow.up", id: "photo-detail.export") { onExport(photo) }
+            if !top { Spacer(minLength: 0) }
+            HStack(spacing: 7) {
+                tool(T("Information", "信息", "資訊"), "info.circle", id: "photo-detail.info") { onInfo(photo) }
+                tool(T("Edit", "编辑", "編輯"), "slider.horizontal.3", id: "photo-detail.edit") { onEdit(photo) }
+            }.padding(.horizontal, 5).background(.regularMaterial, in: Capsule())
+        }
+        .padding(.horizontal, 14)
     }
 
     private func tool(_ label: String, _ symbol: String, id: String, action: @escaping () -> Void) -> some View {
