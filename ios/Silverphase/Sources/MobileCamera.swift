@@ -345,6 +345,11 @@ struct MobileCameraView: View {
                     waistFilmWheel
                         .frame(width: aperture.width, height: aperture.height)
                         .position(x: aperture.midX, y: aperture.midY)
+                } else if usesInnerCameraLayout,
+                          let frame = MobileDuoFilmFanGeometry.frame(in: panel) {
+                    quickFilmWheel(.landscapeFan)
+                        .frame(width: frame.width, height: frame.height)
+                        .position(x: frame.midX, y: frame.midY)
                 }
             }
             .environment(\.layoutDirection, .leftToRight)
@@ -422,9 +427,11 @@ struct MobileCameraView: View {
         return []
     }
 
-    @ViewBuilder private var waistFilmWheel: some View {
+    private var waistFilmWheel: some View { quickFilmWheel(.tabletop) }
+
+    @ViewBuilder private func quickFilmWheel(_ layout: MobileWaistFilmWheel.Layout) -> some View {
         if let film, !films.isEmpty {
-            MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress) { id in
+            MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress, layout: layout) { id in
                 guard !shotInProgress, id != self.film?.id else { return }
                 filmID = id
             }
@@ -2020,10 +2027,57 @@ private struct CameraDiffusionFilterGlyph: View {
 #if SILVERPHASE_APP
 /// All covers share one floating-point slot coordinate. The selected integer
 /// slot is on the aperture's midpoint, not on a scroll proxy's center.
+/// The rail is an overlay. It never participates in the live or captured aperture.
+private struct MobileDuoFilmFanGeometry {
+    let size: CGSize
+
+    static func frame(in panel: CGRect) -> CGRect? {
+        // Use actual interface space, not UIDevice orientation, so rotation
+        // lock, mirroring and scene changes cannot expose the wrong layout.
+        guard panel.width > panel.height, panel.width >= 540, panel.height >= 255 else { return nil }
+        let width = min(248, panel.width * 0.36)
+        // Leave the header and status indicators unobstructed.
+        return CGRect(x: panel.minX + 8, y: panel.minY + 78,
+                      width: width, height: panel.height - 90)
+    }
+
+    var width: CGFloat { min(164, size.width * 0.74, size.height * 0.62) }
+    var height: CGFloat { width * 9 / 16 }
+    var pitch: CGFloat { max(1, size.height * 0.30) }
+
+    struct Card {
+        let center: CGPoint
+        let scale: CGFloat
+        let angle: CGFloat
+
+        func contains(_ point: CGPoint, size: CGSize) -> Bool {
+            let x = (point.x - center.x) / scale
+            let y = (point.y - center.y) / scale
+            return abs(cos(angle) * x + sin(angle) * y) <= size.width / 2
+                && abs(-sin(angle) * x + cos(angle) * y) <= size.height / 2
+        }
+    }
+
+    func card(at distance: CGFloat, reduceMotion: Bool) -> Card {
+        let bend = min(2.3, abs(distance))
+        return Card(center: CGPoint(x: size.width * 0.47 - bend * bend * size.width * 0.053,
+                                    y: size.height / 2 + distance * pitch),
+                    scale: max(0.57, 1 / (1 + 0.23 * bend * bend)),
+                    angle: reduceMotion ? 0 : min(2.3, max(-2.3, distance)) * 0.24)
+    }
+}
+
 private struct MobileWaistFilmWheel: View {
+    enum Layout: Equatable {
+        case tabletop, landscapeFan
+        var isVertical: Bool { self == .landscapeFan }
+        var accessibilityID: String { self == .tabletop ? "camera.waist-film" : "camera.fan-film" }
+    }
+
     let stocks: [Stock]
     let selectedID: String
     let enabled: Bool
+    let layout: Layout
     let select: (String) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -2041,19 +2095,24 @@ private struct MobileWaistFilmWheel: View {
     private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
     private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
 
-    init(stocks: [Stock], selectedID: String, enabled: Bool, select: @escaping (String) -> Void) {
+    init(stocks: [Stock], selectedID: String, enabled: Bool, layout: Layout, select: @escaping (String) -> Void) {
         self.stocks = stocks
         self.selectedID = selectedID
         self.enabled = enabled
+        self.layout = layout
         self.select = select
         _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let aperture = MobileWaistFilmTrack.Aperture(size: geometry.size)
             TimelineView(.animation(paused: motion == nil)) { _ in
-                strip(aperture, coordinate: currentPosition(at: ProcessInfo.processInfo.systemUptime))
+                let coordinate = currentPosition(at: ProcessInfo.processInfo.systemUptime)
+                if layout.isVertical {
+                    fan(MobileDuoFilmFanGeometry(size: geometry.size), coordinate: coordinate)
+                } else {
+                    strip(MobileWaistFilmTrack.Aperture(size: geometry.size), coordinate: coordinate)
+                }
             }
         }
         .accessibilityElement(children: .contain)
@@ -2067,7 +2126,7 @@ private struct MobileWaistFilmWheel: View {
             @unknown default: break
             }
         }
-        .accessibilityIdentifier("camera.waist-film-wheel")
+        .accessibilityIdentifier("\(layout.accessibilityID)-wheel")
         .disabled(!enabled)
         .task(id: motion) { @MainActor in
             guard let sample = motion else { return }
@@ -2134,7 +2193,7 @@ private struct MobileWaistFilmWheel: View {
                 Rectangle()
                     .fill(.clear)
                     .contentShape(Rectangle())
-                    .gesture(wheelTouch(in: aperture))
+                    .gesture(wheelTouch(pitch: aperture.pitch) { tapCover(at: $0, in: aperture) })
                     .accessibilityHidden(true)
             }
             Text(stocks[track.index(at: focused)].displayName)
@@ -2145,6 +2204,56 @@ private struct MobileWaistFilmWheel: View {
         }
         .frame(width: aperture.size.width, height: aperture.size.height)
         .transaction { $0.animation = nil }
+    }
+
+    private func fan(_ geometry: MobileDuoFilmFanGeometry, coordinate: CGFloat) -> some View {
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = stocks.count == 1 ? focused...focused : (focused - 3)...(focused + 3)
+        return ZStack {
+            ForEach(slots, id: \.self) { slot in
+                let stock = stocks[track.index(at: slot)]
+                let relative = slot - focused
+                let distance = CGFloat(slot) - coordinate
+                let card = geometry.card(at: distance, reduceMotion: reduceMotion)
+                Button { snap(to: slot) } label: {
+                    cover(stock, width: geometry.width, height: geometry.height)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(stock.displayName)
+                .accessibilityAddTraits(relative == 0 && slot == restingSlot && motion == nil ? .isSelected : [])
+                .accessibilityIdentifier("\(layout.accessibilityID).\(relative)")
+                .accessibilityHidden(abs(relative) > 1)
+                .scaleEffect(card.scale)
+                .rotationEffect(.radians(Double(card.angle)))
+                .opacity(max(0, min(1, 1.28 - Double(abs(distance)) * 0.30)))
+                .position(card.center)
+                .zIndex(4 - Double(abs(distance)))
+            }
+        }
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .clipped()
+        .overlay {
+            Rectangle()
+                .fill(.clear)
+                .contentShape(Rectangle())
+                .gesture(wheelTouch(pitch: geometry.pitch) { tapFan(at: $0, geometry: geometry) })
+                .accessibilityHidden(true)
+        }
+        .transaction { $0.animation = nil }
+    }
+
+    private func tapFan(at point: CGPoint, geometry: MobileDuoFilmFanGeometry) {
+        let coordinate = currentPosition(at: ProcessInfo.processInfo.systemUptime)
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = stocks.count == 1 ? [focused] : Array((focused - 3)...(focused + 3))
+        for slot in slots.sorted(by: { abs(CGFloat($0) - coordinate) < abs(CGFloat($1) - coordinate) }) {
+            let distance = CGFloat(slot) - coordinate
+            let card = geometry.card(at: distance, reduceMotion: reduceMotion)
+            if card.contains(point, size: CGSize(width: geometry.width, height: geometry.height)) {
+                snap(to: slot, from: coordinate)
+                return
+            }
+        }
     }
 
     private func cover(_ stock: Stock, width: CGFloat, height: CGFloat) -> some View {
@@ -2170,15 +2279,16 @@ private struct MobileWaistFilmWheel: View {
         fingerPosition ?? motion?.position(at: now) ?? CGFloat(restingSlot)
     }
 
-    private func wheelTouch(in aperture: MobileWaistFilmTrack.Aperture) -> some Gesture {
+    private func wheelTouch(pitch: CGFloat, tap: @escaping (CGPoint) -> Void) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .updating($tracking) { _, active, _ in active = true }
             .onChanged { event in
                 guard enabled, stocks.count > 1 else { return }
                 let now = ProcessInfo.processInfo.systemUptime
+                let primary = layout.isVertical ? event.translation.height : event.translation.width
+                let cross = layout.isVertical ? event.translation.width : event.translation.height
                 if grabOrigin == nil {
-                    guard abs(event.translation.width) >= 6,
-                          abs(event.translation.width) > abs(event.translation.height) else { return }
+                    guard abs(primary) >= 6, abs(primary) > abs(cross) else { return }
                     let current = currentPosition(at: now)
                     grabOrigin = current
                     grabBegan = now
@@ -2189,7 +2299,7 @@ private struct MobileWaistFilmWheel: View {
                     settleHaptic.prepare()
                 }
                 guard let start = grabOrigin else { return }
-                let coordinate = start - event.translation.width / aperture.pitch
+                let coordinate = start - primary / pitch
                 fingerPosition = coordinate
                 let detent = track.nearestSlot(to: coordinate)
                 if detent != lastDetent {
@@ -2205,15 +2315,17 @@ private struct MobileWaistFilmWheel: View {
                 guard enabled else { return }
                 guard let start = grabOrigin else {
                     if hypot(event.translation.width, event.translation.height) < 6 {
-                        tapCover(at: event.location, in: aperture)
+                        tap(event.location)
                     }
                     return
                 }
-                let position = start - event.translation.width / aperture.pitch
+                let primary = layout.isVertical ? event.translation.height : event.translation.width
+                let speed = layout.isVertical ? event.velocity.height : event.velocity.width
+                let position = start - primary / pitch
                 if reduceMotion {
                     snap(to: track.nearestSlot(to: position), from: position)
                 } else {
-                    let release = track.release(from: position, velocity: -event.velocity.width / aperture.pitch,
+                    let release = track.release(from: position, velocity: -speed / pitch,
                                                 startedAt: ProcessInfo.processInfo.systemUptime)
                     snap(to: release.destination, from: position, release: release)
                 }
