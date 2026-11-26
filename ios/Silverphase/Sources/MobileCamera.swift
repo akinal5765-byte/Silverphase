@@ -26,14 +26,17 @@ private struct CameraPhotoBounds: PreferenceKey {
 struct MobileCameraView: View {
 #if SILVERPHASE_APP
     let initialHingeClosed: Bool?
-    let libraryThumbnail: URL?
+    let thumbnailForPhoto: (UUID) -> URL?
+    let libraryPhotoID: UUID?
+    let isReviewingPhoto: Bool
+    let containsPhoto: (UUID) -> Bool
     let mirrorsFrontCamera: Bool
     @Binding var prefersRAW: Bool
     @Binding var prefers12MP: Bool
     let importPhoto: (URL, Stock?, MobileCameraRecipe) async throws -> MobilePhoto
     let developPhoto: (MobilePhoto, Bool) async throws -> MobileCameraDevelopment
     let savePhoto: (MobilePhoto) async throws -> Void
-    let returnToLibrary: (UUID) -> Void
+    let reviewPhoto: (UUID) -> Void
 #else
     let storeCapture: (Data, MobileCaptureFormat, MobileCameraRecipe) async throws -> Void
     let openLibrary: () -> Void
@@ -168,7 +171,7 @@ struct MobileCameraView: View {
 
     private var canRunCamera: Bool {
 #if SILVERPHASE_APP
-        scenePhase == .active
+        scenePhase == .active && !isReviewingPhoto
 #else
         true
 #endif
@@ -437,6 +440,10 @@ struct MobileCameraView: View {
             guard !saving, holdLanding else { return }
             holdLanding = false
             landReveal()
+        }
+        .onChange(of: isReviewingPhoto) { _, reviewing in
+            if reviewing { stopCamera() }
+            else { retry += 1 }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { measuredCapturePose = nil }
@@ -713,13 +720,19 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
+    private var reviewPhotoID: UUID? {
+        if let latestPhotoID, containsPhoto(latestPhotoID) { return latestPhotoID }
+        return libraryPhotoID
+    }
+
     private var galleryButton: some View {
         Button {
-            if let latestPhotoID { returnToLibrary(latestPhotoID) }
+            if let id = reviewPhotoID { reviewPhoto(id) }
             else { dismiss() }
         } label: { latestThumbnail }
         .buttonStyle(.plain)
-        .accessibilityLabel(T("Back to Library", "返回图库", "返回圖庫"))
+        .accessibilityLabel(reviewPhotoID == nil ? T("Back to Library", "返回图库", "返回圖庫")
+                           : T("Review Photo", "查看照片", "檢視照片"))
         .accessibilityIdentifier("camera.latest")
         .disabled(shotInProgress)
         .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.thumbnail: $0] }
@@ -851,11 +864,11 @@ struct MobileCameraView: View {
 
     private var latestThumbnail: some View {
         Group {
-            if let latestPreview {
+            if let latestPhotoID, containsPhoto(latestPhotoID), let latestPreview {
                 Image(decorative: latestPreview, scale: 1)
                     .resizable().scaledToFill()
-            } else if let libraryThumbnail {
-                FilmstripThumbnail(url: libraryThumbnail, fillsFrame: true)
+            } else if let id = reviewPhotoID, let thumbnail = thumbnailForPhoto(id) {
+                FilmstripThumbnail(url: thumbnail, fillsFrame: true)
             } else {
                 Image(systemName: "photo.on.rectangle").frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.white.opacity(0.12))

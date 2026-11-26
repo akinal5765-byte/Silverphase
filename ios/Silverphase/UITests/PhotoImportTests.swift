@@ -408,6 +408,30 @@ final class PhotoImportTests: XCTestCase {
         }
     }
 
+    @MainActor func testCameraThumbnailOpensPhotoDetailAndReturnsToCamera() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--camera-layout-check",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let tile = app.buttons["library.photo.目标 B"]
+        XCTAssertTrue(tile.waitForExistence(timeout: 15))
+        app.buttons["library.camera"].tap()
+        let latest = app.buttons["camera.latest"]
+        XCTAssertTrue(latest.waitForExistence(timeout: 10))
+        XCTAssertEqual(latest.label, "Review Photo")
+        latest.tap()
+        let photo = app.images["photo-detail.image"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 8))
+        XCTAssertTrue(["来源", "目标 A", "目标 B"].contains(photo.label))
+        XCTAssertTrue(app.buttons["photo-detail.edit"].exists)
+        let back = app.buttons["photo-detail.back"]
+        XCTAssertEqual(back.label, "Back to Camera")
+        back.tap()
+        XCTAssertTrue(latest.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["camera.back"].exists)
+    }
+
     @MainActor func testCameraPreviewStatusAvoidsNavigation() throws {
         XCUIDevice.shared.orientation = .portrait
         defer { XCUIDevice.shared.orientation = .portrait }

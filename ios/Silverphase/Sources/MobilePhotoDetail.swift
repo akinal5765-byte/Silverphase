@@ -13,6 +13,7 @@ struct MobilePhotoDetail: View {
     let gridTarget: CGRect?
     let entryTarget: CGRect?
     let entryPhotoID: UUID
+    let backLabel: String
     let onPullDismiss: () -> Void
     let onEdit: (MobilePhoto) -> Void
     let onExport: (MobilePhoto) -> Void
@@ -128,7 +129,7 @@ struct MobilePhotoDetail: View {
                     .modifier(DetailNoScrollMask())
                     .modifier(DetailToolbarAxis(usesTop: placement == .top))
             } else {
-                Button(T("Back to Library", "返回图库", "返回圖庫"), action: onPullDismiss)
+                Button(backLabel, action: onPullDismiss)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -492,7 +493,7 @@ struct MobilePhotoDetail: View {
 
     private var backItem: ToolbarItem<String, some View> {
         ToolbarItem(id: "photo-detail.native-back", placement: .topBarLeading) {
-            tool(T("Back to Library", "返回图库", "返回圖庫"), "chevron.left", id: "photo-detail.back") { backCommand += 1 }
+            tool(backLabel, "chevron.left", id: "photo-detail.back") { backCommand += 1 }
         }
     }
 

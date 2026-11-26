@@ -33,7 +33,7 @@ struct MobileLibrary: View {
     @State private var pickingPhotos = false
     @State private var importing = false
     @State private var showingCamera = false
-    @State private var cameraReturnPhotoID: UUID?
+    @State private var cameraDetail: LibraryPhotoDetailRequest?
     @State private var visiblePhotoID: UUID?
     @State private var legacyPhotoDates: [UUID: (date: Date?, day: Int?)] = [:]
     @State private var settings: MobilePagePresentation?
@@ -159,13 +159,11 @@ struct MobileLibrary: View {
 
     var body: some View {
         let presentations = libraryGrid
-        .fullScreenCover(isPresented: $showingCamera, onDismiss: {
-            if let cameraReturnPhotoID {
-                visiblePhotoID = cameraReturnPhotoID
-                self.cameraReturnPhotoID = nil
-            }
-        }) {
-            MobileCameraView(initialHingeClosed: phoneHingeClosed, libraryThumbnail: newestPhoto.map(cameraThumbnail(for:)),
+        .fullScreenCover(isPresented: $showingCamera) {
+            MobileCameraView(initialHingeClosed: phoneHingeClosed, thumbnailForPhoto: { id in
+                                 document.photos.first { $0.id == id }.map(cameraThumbnail(for:))
+                             }, libraryPhotoID: newestPhoto?.id, isReviewingPhoto: cameraDetail != nil,
+                             containsPhoto: { id in document.photos.contains { $0.id == id } },
                              mirrorsFrontCamera: document.preferences.values.mirrorsFrontCamera,
                              prefersRAW: Binding(get: { document.preferences.values.prefersRAW },
                                                  set: { document.preferences.values.prefersRAW = $0 }),
@@ -184,18 +182,18 @@ struct MobileLibrary: View {
                 try await document.developCameraPhoto(photo, animate: animate)
             }, savePhoto: { photo in
                 try await document.saveCameraPhotoToPhotos(photo)
-            }, returnToLibrary: { id in
-                if !filtered.contains(where: { $0.id == id }) {
-                    rawOnly = false
-                    formatFilter = nil
-                    minimumRating = 0
-                    flagFilter = "all"
-                    search = ""
-                    showingSearch = false
-                }
-                cameraReturnPhotoID = id
-                showingCamera = false
+            }, reviewPhoto: { id in
+                let ids = document.photos.reversed().sorted {
+                    ($0.libraryDate ?? legacyPhotoDates[$0.id]?.date ?? .distantPast) >
+                    ($1.libraryDate ?? legacyPhotoDates[$1.id]?.date ?? .distantPast)
+                }.map(\.id)
+                guard ids.contains(id) else { return }
+                detailID = id
+                cameraDetail = LibraryPhotoDetailRequest(id: id, ids: ids)
             })
+            .fullScreenCover(item: $cameraDetail) { request in
+                detailPage(request, fromCamera: true).interactiveDismissDisabled()
+            }
         }
         .fullScreenCover(item: $editor, onDismiss: { document.closeEditor() }) { request in
             MobileEditor(document: document, batchIDs: request.ids, returnToLibrary: { editor = nil })
@@ -316,11 +314,19 @@ struct MobileLibrary: View {
         detailPage(request).interactiveDismissDisabled()
     }
 
-    private func detailPage(_ request: LibraryPhotoDetailRequest) -> some View {
-        MobilePhotoDetail(document: document, photoIDs: request.ids, initialHingeClosed: phoneHingeClosed,
+    private func detailPage(_ request: LibraryPhotoDetailRequest, fromCamera: Bool = false) -> some View {
+        let dismissDetail: () -> Void = {
+            if fromCamera { cameraDetail = nil }
+            else { finishPhotoPull() }
+        }
+        return MobilePhotoDetail(document: document, photoIDs: request.ids, initialHingeClosed: phoneHingeClosed,
                           initialWindowSize: phoneWindowSize, photoID: $detailID,
-                          gridBackdrop: detailGridBackdrop, gridTarget: capturedGridTiles[detailID],
-                          entryTarget: capturedGridTiles[request.id], entryPhotoID: request.id, onPullDismiss: finishPhotoPull,
+                          gridBackdrop: fromCamera ? nil : detailGridBackdrop,
+                          gridTarget: fromCamera ? nil : capturedGridTiles[detailID],
+                          entryTarget: fromCamera ? nil : capturedGridTiles[request.id], entryPhotoID: request.id,
+                          backLabel: fromCamera ? T("Back to Camera", "返回相机", "返回相機")
+                                               : T("Back to Library", "返回图库", "返回圖庫"),
+                          onPullDismiss: dismissDetail,
                           onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
                           onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },
                           onInfo: { detailInfo = $0 },
@@ -340,7 +346,7 @@ struct MobileLibrary: View {
             Button(T("Delete", "删除", "刪除"), role: .destructive) {
                 detailDelete = nil
                 document.removePhotos([photo.id])
-                closeDetail()
+                dismissDetail()
             }
         } message: { _ in
             Text(T("This deletes the in-app original and edits, not the source you imported from.",
