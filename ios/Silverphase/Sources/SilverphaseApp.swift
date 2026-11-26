@@ -229,6 +229,20 @@ import OSLog
             await MobileCameraLookChecks.run()
         } else if ProcessInfo.processInfo.arguments.contains("--flat-import-regression") {
             await MobileSmokeChecks.flatImportRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-library-regression") {
+            await MobileVideoCaptureView.runVideoLibraryRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-renderer-benchmark") {
+            await MobileMovieDevelopment.runRendererBenchmark()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-look-regression") {
+            await MobileMovieDevelopment.runLookRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-format-regression") {
+            MobileMovieDevelopment.runFormatRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-photos-regression") {
+#if targetEnvironment(simulator)
+            await MobileMovieDevelopment.runPhotoSaveRegression()
+#endif
+        } else if ProcessInfo.processInfo.arguments.contains("--video-export-regression") {
+            await MobileMovieDevelopment.runExportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {
             await MobileSmokeChecks.rawImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--cinestill-regression") || ProcessInfo.processInfo.arguments.contains("--camera-prep-regression") {

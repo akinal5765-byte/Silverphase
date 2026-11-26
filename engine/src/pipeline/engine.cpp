@@ -193,6 +193,7 @@ struct spk_session {
     // frontend to do, would have silently restored the reference's
     // compensation and changed every print's brightness with nothing failing.
     bool product_defaults = false;
+    bool transient_stream = false;
 
     // Per tier: the downscaled source, the cached negative, and the result.
     struct TierState {
@@ -715,7 +716,7 @@ struct FrameIn {
 // params and pipeline setup that could drift apart, which is the shape of
 // the `spk_render`/`spk_reprint` bug the session harness now pins.
 spk_session* open_frame(spk_engine* engine, const FrameIn& frame, const char* params_delta_json,
-                        char** out_json) {
+                        char** out_json, bool transient_stream = false) {
     g_error.clear();
     if (frame.channels != 3 && frame.channels != 4) {
         g_error = "input image must have 3 or 4 channels";
@@ -807,6 +808,7 @@ spk_session* open_frame(spk_engine* engine, const FrameIn& frame, const char* pa
 
     auto session = std::make_unique<spk_session>();
     session->engine = engine;
+    session->transient_stream = transient_stream;
     session->session_id = "s" + std::to_string(next_id());
 
     std::string film = "kodak_portra_400", print = "kodak_portra_endura";
@@ -875,7 +877,9 @@ spk_session* open_frame(spk_engine* engine, const FrameIn& frame, const char* pa
             // Written by `spk_take_rgb` below rather than by the host, and
             // file-backed for the same reason as the branch above: it is
             // `session->source`.
-            if (uploaded.buf) rgb.buf = engine->gpu->alloc_file_backed(rgb.bytes(), upload_error);
+            if (uploaded.buf) rgb.buf = transient_stream
+                ? engine->gpu->alloc(rgb.bytes(), upload_error)
+                : engine->gpu->alloc_file_backed(rgb.bytes(), upload_error);
             const uint32_t meta[2] = {uint32_t(uploaded.pixels()), uploaded.c};
             if (!uploaded.buf || !rgb.buf ||
                 !engine->gpu->dispatch("spk_take_rgb",
@@ -941,15 +945,26 @@ spk_session* spk_open(spk_engine* engine, const spk_image* input, const char* pa
     return open_frame(engine, frame, params_delta_json, out_json);
 }
 
-spk_session* spk_open_device(spk_engine* engine, const spk_device_image* input,
-                             const char* params_delta_json, char** out_json) {
+static spk_session* open_device_frame(spk_engine* engine, const spk_device_image* input,
+                                      const char* params_delta_json, char** out_json,
+                                      bool transient_stream) {
     if (!engine || !input || !input->buffer) { g_error = "engine or buffer is null"; return nullptr; }
     FrameIn frame;
     frame.device = input->buffer;
     frame.width = input->width;
     frame.height = input->height;
     frame.channels = input->channels;
-    return open_frame(engine, frame, params_delta_json, out_json);
+    return open_frame(engine, frame, params_delta_json, out_json, transient_stream);
+}
+
+spk_session* spk_open_device(spk_engine* engine, const spk_device_image* input,
+                             const char* params_delta_json, char** out_json) {
+    return open_device_frame(engine, input, params_delta_json, out_json, false);
+}
+
+spk_session* spk_open_device_stream(spk_engine* engine, const spk_device_image* input,
+                                    const char* params_delta_json, char** out_json) {
+    return open_device_frame(engine, input, params_delta_json, out_json, true);
 }
 
 namespace {
@@ -1077,8 +1092,8 @@ bool negative_for(spk_session* session, const Tier& tier, Progress* progress, Im
     // never redrawn.
     gpu::Gpu* gpu = session->engine->gpu;
     if (!gpu->flush(error)) return false;
-    if (std::strcmp(tier.name, "viewfinder") == 0) {
-        // Short-lived video negatives may retain their pooled device handle.
+    if (session->transient_stream || std::strcmp(tier.name, "viewfinder") == 0) {
+        // Short-lived stream negatives may retain their pooled device handle.
         // The next frame invalidates it; unlike a still editor, there is no
         // long-lived file-backed holding to copy. Flush/lifetime rules remain.
         state.negative = negative;

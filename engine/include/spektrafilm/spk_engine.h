@@ -196,6 +196,14 @@ spk_session* spk_open(spk_engine* engine, const spk_image* input,
 spk_session* spk_open_device(spk_engine* engine, const spk_device_image* input,
                              const char* params_delta_json, char** out_json);
 
+/* Open a transient device-frame stream. The source and ordinary full-tier
+ * negative use reusable GPU buffers rather than the still editor's mapped
+ * files. Callers must enforce their own memory budget. Rendering and the
+ * ownership of results are unchanged; use spk_replace_device_frame between
+ * frames. Still-image entry points retain their existing storage policy. */
+spk_session* spk_open_device_stream(spk_engine* engine, const spk_device_image* input,
+                                    const char* params_delta_json, char** out_json);
+
 /* Replace a continuous stream's source, retaining parameters and pipeline.
  * Input must have the session's current width/height and 3 or 4 float32
  * channels in the session's input colour space. The buffer is borrowed only
