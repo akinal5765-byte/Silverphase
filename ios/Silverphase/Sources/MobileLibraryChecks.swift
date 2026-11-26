@@ -149,6 +149,7 @@ import UniformTypeIdentifiers
         guard document.photos.isEmpty else { return }
         let documentation = ProcessInfo.processInfo.arguments.contains("--documentation-captures")
         let tileFixture = ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+            || ProcessInfo.processInfo.arguments.contains("--gallery-compare-audit")
         let size = tileFixture ? CGSize(width: 2080, height: 3120)
             : documentation ? CGSize(width: 384, height: 576) : CGSize(width: 96, height: 64)
         let input: CIImage

@@ -122,6 +122,7 @@ actor MobileDetailRenderer {
             source = nil
             var settings = recipe
             settings["_exporting"] = .bool(true) // bounded bands; no full-size before image
+            if galleryFitEdge != nil { settings["_galleryPreview"] = .bool(true) }
             settings["_exportTargetSpace"] = .string(MobileOutputSpace.p3.rawValue)
 #if DEBUG
             inFlight += 1

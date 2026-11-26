@@ -729,6 +729,17 @@ actor MobileEngine {
         return "'" + date[0].suffix(2) + " " + date[1] + " " + date[2]
     }
 
+    /// Internal placeholder for the non-optional MobileRender payload.
+    /// The gallery has its own on-demand, unfilmed comparison rendition.
+    private static let unusedGalleryComparison: CGImage? = {
+        guard let space = CGColorSpace(name: CGColorSpace.rommrgb),
+              let provider = CGDataProvider(data: Data([0, 0, 0, 0, 0, 0, 255, 255]) as CFData) else { return nil }
+        return CGImage(width: 1, height: 1, bitsPerComponent: 16, bitsPerPixel: 64,
+                       bytesPerRow: 8, space: space,
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
+                       provider: provider, decode: nil, shouldInterpolate: false, intent: .relativeColorimetric)
+    }()
+
     private func decode(url: URL, megapixels: Double, device: MTLDevice, recipe: [String: WireValue], geometry: MobileGeometry, metadata: MobileImageMetadata? = nil, galleryTrace: GalleryRenderTrace? = nil) throws -> (buffer: MTLBuffer, width: Int, height: Int, original: CGImage) {
         try autoreleasepool {
         var image: CIImage
@@ -741,8 +752,11 @@ actor MobileEngine {
         let simulationSize = try MobileSimulationSize.workingSize(in: recipe, geometry: geometry, aspect: inputMetadata.aspect)
         let inputMP = min(megapixels, simulationSize.map(MobileSimulationSize.megapixels) ?? megapixels)
         let isRaw = inputMetadata.isRaw
+        let gallery = recipe["_galleryPreview"]?.boolValue == true
         if isRaw {
+            galleryTrace?.mark("RAW filter open start")
             guard let raw = CIRAWFilter(imageURL: url), raw.nativeSize.width > 0, raw.nativeSize.height > 0 else { throw MobileFailure.message(TDetached("The system cannot decode this RAW", "系统无法解码这款 RAW", "系統無法解碼這款 RAW")) }
+            galleryTrace?.mark("RAW filter open end")
             raw.scaleFactor = Float(min(1, sqrt(inputMP * 1_000_000 / (raw.nativeSize.width * raw.nativeSize.height))))
             raw.isDraftModeEnabled = recipe["_interactivePreview"]?.boolValue == true
             decodeInfo = ["_temperature": .double(Double(raw.neutralTemperature)), "_tint": .double(Double(raw.neutralTint)),
@@ -768,9 +782,12 @@ actor MobileEngine {
             image = output
         } else {
             decodeInfo = ["_raw": .bool(false), "_lensSupported": .bool(false)]
+            let badge = MobileImageMetadata.formatBadge(for: inputMetadata.typeIdentifier) ?? "unknown"
+            galleryTrace?.mark("encoded input open start; format=\(badge)")
             guard let input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
                 throw MobileFailure.message(TDetached("The image could not be read", "无法读取图像", "無法讀取影像"))
             }
+            galleryTrace?.mark("encoded input open end")
             let scale = min(1, sqrt(inputMP * 1_000_000 / (input.extent.width * input.extent.height)))
             image = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
@@ -790,8 +807,9 @@ actor MobileEngine {
             }
             return output
         }
-        comparison = prepared(comparison ?? image)
+        if !gallery { comparison = prepared(comparison ?? image) }
         image = prepared(image)
+        galleryTrace?.mark("input geometry ready")
         let extent = image.extent.integral
         let width = Int(extent.width), height = Int(extent.height)
         guard width > 0, height > 0, width <= 16384, height <= 16384,
@@ -801,15 +819,31 @@ actor MobileEngine {
         }
         let placed = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
         try Task.checkCancellation()
+        galleryTrace?.mark("CI context start")
         let context = MobileInputColor.context(device: device)
+        galleryTrace?.mark("CI context end")
         defer { context.clearCaches() }
         let originalScale = recipe["_exporting"]?.boolValue == true || recipe["_interactivePreview"]?.boolValue == true
             || recipe["_galleryPreview"]?.boolValue == true ? min(1, 256 / Double(max(width, height))) : 1
-        guard let linear = MobileInputColor.linearProPhoto(),
-              let working = CGColorSpace(name: CGColorSpace.rommrgb),
-              let display = comparison,
-              let original = context.createCGImage(display.transformed(by: .init(translationX: -display.extent.minX, y: -display.extent.minY)).transformed(by: .init(scaleX: originalScale, y: originalScale)), from: CGRect(x: 0, y: 0, width: Double(width) * originalScale, height: Double(height) * originalScale).integral, format: .RGBA16, colorSpace: working) else {
-            throw MobileFailure.message(TDetached("The input colour space could not be created", "无法创建输入颜色空间", "無法創建輸入顏色空間"))
+        guard let linear = MobileInputColor.linearProPhoto() else {
+            throw MobileFailure.message(TDetached("The input colour space could not be created", "无法创建输入颜色空间", "無法建立輸入色彩空間"))
+        }
+        let original: CGImage?
+        if gallery {
+            original = Self.unusedGalleryComparison
+            galleryTrace?.mark("skipped unused comparison decode")
+        } else {
+            galleryTrace?.mark("comparison decode start")
+            if let working = CGColorSpace(name: CGColorSpace.rommrgb), let display = comparison {
+                original = context.createCGImage(display.transformed(by: .init(translationX: -display.extent.minX, y: -display.extent.minY))
+                    .transformed(by: .init(scaleX: originalScale, y: originalScale)),
+                    from: CGRect(x: 0, y: 0, width: Double(width) * originalScale, height: Double(height) * originalScale).integral,
+                    format: .RGBA16, colorSpace: working)
+            } else { original = nil }
+            galleryTrace?.mark("comparison decode end")
+        }
+        guard let original else {
+            throw MobileFailure.message(TDetached("The input colour space could not be created", "无法创建输入颜色空间", "無法建立輸入色彩空間"))
         }
         galleryTrace?.mark("RAW/CI working pixel render start \(width)x\(height)")
         try Task.checkCancellation()

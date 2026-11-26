@@ -27,7 +27,7 @@ struct MobilePhotoDetail: View {
     @State private var tileWork: Task<Void, Never>?
     @State private var tileGeneration = 0
     @State private var originalHoldID: UUID?
-    @State private var originalProxy: (id: UUID, image: CGImage)?
+    @State private var originalProxy: (id: UUID, image: CGImage, requestedEdge: Int)?
     @State private var memoryDrop = 0
     @State private var preview: CGImage?
     @State private var previewLoading = true
@@ -97,7 +97,7 @@ struct MobilePhotoDetail: View {
     private var zoomedDemand: Bool { canvasDemand?.photoID == photoID && canvasDemand?.viewport != nil }
     private var fitEdge: Int? { canvasDemand?.photoID == photoID ? canvasDemand?.fitEdge : nil }
     private var tileRequest: TileRequest? {
-        guard !stripScrubbing, originalHoldID == nil, previewID == photoID,
+        guard !stripScrubbing, previewID == photoID,
               displayedFilmKey == photo.map({ document.libraryPreviewURL($0) }),
               let photo, let demand = canvasDemand, demand.photoID == photo.id,
               let viewport = demand.viewport, viewport.needsDetail else { return nil }
@@ -210,16 +210,30 @@ struct MobilePhotoDetail: View {
             } catch { /* Keep the best already available rendition. */ }
         }
         .task(id: originalHoldID) {
-            guard let id = originalHoldID, let photo, photo.id == id,
-                  originalProxy?.id != id else { return }
+            guard let id = originalHoldID, let photo, photo.id == id else { return }
             let url = document.url(for: photo)
-            guard let seed = await Self.loadPreview(url, limit: 960), !Task.isCancelled else { return }
             let geometry = photo.geometry
-            let proxy = await Task.detached(priority: .userInitiated) {
-                (try? geometry.apply(to: seed)) ?? seed
-            }.value
+            let screenEdge = min(2560, fitEdge ?? 1920)
+            let trace = GalleryRenderTrace("original-hold")
+            if originalProxy?.id != id {
+                trace.mark("embedded preview start")
+                if let seed = await Self.loadPreview(url, limit: 960), !Task.isCancelled {
+                    let proxy = await Self.cropComparison(seed, geometry: geometry)
+                    guard !Task.isCancelled, originalHoldID == id, photoID == id else { return }
+                    originalProxy = (id, proxy, 960)
+                    trace.mark("embedded preview displayed \(max(proxy.width, proxy.height)) px")
+                }
+            }
+            guard (originalProxy?.requestedEdge ?? 0) < screenEdge, !Task.isCancelled else { return }
+            trace.mark("fit original start; target \(screenEdge) px")
+            guard let fitted = await Self.loadPreview(url, limit: screenEdge, forceThumbnail: true),
+                  !Task.isCancelled else { return }
+            let rendered = await Self.cropComparison(fitted, geometry: geometry)
             guard !Task.isCancelled, originalHoldID == id, photoID == id else { return }
-            originalProxy = (id, proxy)
+            let actual = max(rendered.width, rendered.height)
+            let current = originalProxy.map { max($0.image.width, $0.image.height) } ?? 0
+            if actual >= current { originalProxy = (id, rendered, screenEdge) }
+            trace.mark("fit original completed \(actual) px")
         }
         .onChange(of: tileRequest, initial: true) { old, new in
             if new == nil || (old != nil && (old?.key != new?.key || old?.memoryDrop != new?.memoryDrop)) {
@@ -426,15 +440,19 @@ struct MobilePhotoDetail: View {
         }
     }
 
-    private static nonisolated func loadPreview(_ url: URL, limit: Int) async -> CGImage? {
-        let key = "\(url.absoluteString)#\(limit)" as NSString
+    private static nonisolated func cropComparison(_ image: CGImage, geometry: MobileGeometry) async -> CGImage {
+        await Task.detached(priority: .userInitiated) { (try? geometry.apply(to: image)) ?? image }.value
+    }
+
+    private static nonisolated func loadPreview(_ url: URL, limit: Int, forceThumbnail: Bool = false) async -> CGImage? {
+        let key = "\(url.absoluteString)#\(limit)#\(forceThumbnail)" as NSString
         if let image = DetailQuickPreviewCache.images.object(forKey: key) { return image }
         let task = Task.detached(priority: .userInitiated) {
             guard !Task.isCancelled,
                   let source = CGImageSourceCreateWithURL(url as CFURL,
                     [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil as CGImage? }
-            let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                                          kCGImageSourceShouldCacheImmediately: true,
+            let sourcePolicy = forceThumbnail ? kCGImageSourceCreateThumbnailFromImageAlways : kCGImageSourceCreateThumbnailFromImageIfAbsent
+            let options: [CFString: Any] = [sourcePolicy: true, kCGImageSourceShouldCacheImmediately: true,
                                           kCGImageSourceCreateThumbnailWithTransform: true,
                                           kCGImageSourceThumbnailMaxPixelSize: limit]
             let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
