@@ -139,7 +139,7 @@ final class ColourManagementTests: XCTestCase {
     /// The simulated engine pass is explicit rather than assumed: it calls the
     /// same transform with `nil`, which is the engine's default. The app-facing
     /// setup must then match the same transform with lightness compression
-    /// explicitly off, while still doing CAM16's chroma mapping.
+    /// explicitly off, with the same host chroma knee in both cases.
     func testTheExportTransformDoesNotRepeatTheEnginesLightnessCompression() async throws {
         let gpu = try device()
         let client = EngineClient(device: gpu)
@@ -173,7 +173,7 @@ final class ColourManagementTests: XCTestCase {
         let export = try XCTUnwrap(exportSetup, "\(exportProblem ?? "-")")
         let (controlSetup, controlProblem) = await ColourManagement.setup(
             client: client, source: "ProPhoto RGB", target: p3, device: gpu,
-            gamutCompress: #"{"lightness_compression_active": false}"#)
+            gamutCompress: #"{"lightness_compression_active": false, "knee": [0.7, 0.995, 6]}"#)
         let control = try XCTUnwrap(controlSetup, "\(controlProblem ?? "-")")
 
         XCTAssertEqual(export.uniforms.cam16Lightness, 0,
@@ -192,6 +192,40 @@ final class ColourManagementTests: XCTestCase {
         controlled.getBytes(&b, bytesPerRow: encoded.count * 8,
                             from: MTLRegionMake2D(0, 0, encoded.count, 1), mipmapLevel: 0)
         XCTAssertEqual(a, b, "the export compressed highlights after the engine already did")
+    }
+
+    /// A low-chroma, in-gamut color must not take the final mapping's
+    /// chroma branch; the old always-on knee reported every such pixel moved.
+    func testTheExportKneeLeavesLowChromaAlone() async throws {
+        let gpu = try device()
+        let client = EngineClient(device: gpu)
+        defer { Task { await client.stop() } }
+        let renderer = try XCTUnwrap(Renderer(device: gpu))
+        let p3 = try XCTUnwrap(CGColorSpace(name: CGColorSpace.displayP3))
+        let (setup, problem) = await ColourManagement.setup(
+            client: client, source: "ProPhoto RGB", target: p3, device: gpu)
+        let transform = try XCTUnwrap(setup, problem ?? "no final transform")
+        XCTAssertEqual(transform.uniforms.cam16K.12, 0.7, accuracy: 1e-6)
+        XCTAssertEqual(transform.uniforms.cam16K.13, 0.995, accuracy: 1e-6)
+        XCTAssertEqual(transform.uniforms.cam16K.14, 6, accuracy: 1e-6)
+        XCTAssertEqual(transform.uniforms.cam16Lightness, 0)
+        let (oldSetup, oldProblem) = await ColourManagement.setup(
+            client: client, source: "ProPhoto RGB", target: p3, device: gpu,
+            gamutCompress: #"{"lightness_compression_active": false}"#)
+        let oldTransform = try XCTUnwrap(oldSetup, oldProblem ?? "no original transform")
+
+        let input = try XCTUnwrap(renderer.store.makeWritable(width: 1, height: 1))
+        let pixel: [UInt16] = [35_000, 31_000, 30_000, 65_535]
+        pixel.withUnsafeBytes {
+            input.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                          withBytes: $0.baseAddress!, bytesPerRow: 8)
+        }
+        let old = try XCTUnwrap(renderer.applyOutputTransform(to: input, setup: oldTransform))
+        let out = try XCTUnwrap(renderer.applyOutputTransform(to: input, setup: transform))
+        XCTAssertEqual(old.stats.movedFraction, 1, accuracy: 1e-6)
+        XCTAssertEqual(out.stats.movedFraction, 0, accuracy: 1e-6)
+        XCTAssertEqual(out.stats.outsideFraction, 0, accuracy: 1e-6)
+        XCTAssertEqual(out.stats.clippedFraction, 0, accuracy: 1e-6)
     }
 
     /// A colour ProPhoto can hold and sRGB cannot comes out of sRGB

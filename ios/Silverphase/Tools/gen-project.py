@@ -8,7 +8,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 repo = root.parents[1]
 shared = repo / 'modern_UI/Spektrafilm/Spektrafilm/Model'
-sources = sorted((root / 'Sources').glob('*.swift')) + [shared / 'StockCatalogCore.swift', shared / 'ParamValue.swift', shared / 'Geometry.swift', shared / 'CameraBrightnessFit.swift']
+sources = sorted((root / 'Sources').glob('*.swift')) + [shared / 'StockCatalogCore.swift', shared / 'ParamValue.swift', shared / 'Geometry.swift', shared / 'CameraBrightnessFit.swift', shared / 'OutputGamutPolicy.swift']
 def uid(value): return hashlib.sha1(value.encode()).hexdigest()[:24].upper()
 def quote(value): return '"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
 objects = []

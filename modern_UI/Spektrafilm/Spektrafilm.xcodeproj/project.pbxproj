@@ -149,6 +149,7 @@
 		283E17892DB9D0520A803A34 /* HalfFramePair.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HalfFramePair.swift"; sourceTree = "<group>"; };
 		D9A5D4FB130D7DA5C1364A10 /* Latitude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Latitude.swift"; sourceTree = "<group>"; };
 		BD3FA299D7EB9C019C5EB676 /* Mask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mask.swift"; sourceTree = "<group>"; };
+		812CDEB70E9803F5E06EFE33 /* OutputGamutPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OutputGamutPolicy.swift"; sourceTree = "<group>"; };
 		4C07B1119F36C944BB4E90CA /* PaperGrade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaperGrade.swift"; sourceTree = "<group>"; };
 		2AFE54D96D2505F69D272CBC /* Params.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Params.swift"; sourceTree = "<group>"; };
 		8B64ED87BED9C4B6A1F5E1CE /* ParamValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ParamValue.swift"; sourceTree = "<group>"; };
@@ -179,6 +180,7 @@
 				283E17892DB9D0520A803A34 /* HalfFramePair.swift */,
 				D9A5D4FB130D7DA5C1364A10 /* Latitude.swift */,
 				BD3FA299D7EB9C019C5EB676 /* Mask.swift */,
+				812CDEB70E9803F5E06EFE33 /* OutputGamutPolicy.swift */,
 				4C07B1119F36C944BB4E90CA /* PaperGrade.swift */,
 				2AFE54D96D2505F69D272CBC /* Params.swift */,
 				8B64ED87BED9C4B6A1F5E1CE /* ParamValue.swift */,
@@ -619,6 +621,7 @@
 		D6601F758BA4C4FA9AA33532 /* HalfFramePair.swift */ = {isa = PBXBuildFile; fileRef = 283E17892DB9D0520A803A34; };
 		BAAAC48691BBE6D8BA752FD5 /* Latitude.swift */ = {isa = PBXBuildFile; fileRef = D9A5D4FB130D7DA5C1364A10; };
 		A19ACBE78BD64D5DB3012243 /* Mask.swift */ = {isa = PBXBuildFile; fileRef = BD3FA299D7EB9C019C5EB676; };
+		BE86A7FC1F3286C2DC53AF07 /* OutputGamutPolicy.swift */ = {isa = PBXBuildFile; fileRef = 812CDEB70E9803F5E06EFE33; };
 		F7443A30FA437845FA45077F /* PaperGrade.swift */ = {isa = PBXBuildFile; fileRef = 4C07B1119F36C944BB4E90CA; };
 		6822B6E3426D49DCE0044D28 /* Params.swift */ = {isa = PBXBuildFile; fileRef = 2AFE54D96D2505F69D272CBC; };
 		29510B692EB0CE6DCF1F214D /* ParamValue.swift */ = {isa = PBXBuildFile; fileRef = 8B64ED87BED9C4B6A1F5E1CE; };
@@ -745,6 +748,7 @@
 				D6601F758BA4C4FA9AA33532 /* HalfFramePair.swift */,
 				BAAAC48691BBE6D8BA752FD5 /* Latitude.swift */,
 				A19ACBE78BD64D5DB3012243 /* Mask.swift */,
+				BE86A7FC1F3286C2DC53AF07 /* OutputGamutPolicy.swift */,
 				F7443A30FA437845FA45077F /* PaperGrade.swift */,
 				6822B6E3426D49DCE0044D28 /* Params.swift */,
 				29510B692EB0CE6DCF1F214D /* ParamValue.swift */,
@@ -949,6 +953,7 @@
 		716C5FBA2FB4669533310CF0 /* HalfFramePair.swift */ = {isa = PBXBuildFile; fileRef = 283E17892DB9D0520A803A34; };
 		0A290D67F9F65D4D1C54E33A /* Latitude.swift */ = {isa = PBXBuildFile; fileRef = D9A5D4FB130D7DA5C1364A10; };
 		6B8029673A50DF9EFFE45066 /* Mask.swift */ = {isa = PBXBuildFile; fileRef = BD3FA299D7EB9C019C5EB676; };
+		223DC267E5B45254DC00A3B4 /* OutputGamutPolicy.swift */ = {isa = PBXBuildFile; fileRef = 812CDEB70E9803F5E06EFE33; };
 		76BF39819A0997C2A0BB565F /* PaperGrade.swift */ = {isa = PBXBuildFile; fileRef = 4C07B1119F36C944BB4E90CA; };
 		E90F7C134FA143167A66ED5F /* Params.swift */ = {isa = PBXBuildFile; fileRef = 2AFE54D96D2505F69D272CBC; };
 		A122F819793E1E479C69F642 /* ParamValue.swift */ = {isa = PBXBuildFile; fileRef = 8B64ED87BED9C4B6A1F5E1CE; };
@@ -1132,6 +1137,7 @@
 				716C5FBA2FB4669533310CF0 /* HalfFramePair.swift */,
 				0A290D67F9F65D4D1C54E33A /* Latitude.swift */,
 				6B8029673A50DF9EFFE45066 /* Mask.swift */,
+				223DC267E5B45254DC00A3B4 /* OutputGamutPolicy.swift */,
 				76BF39819A0997C2A0BB565F /* PaperGrade.swift */,
 				E90F7C134FA143167A66ED5F /* Params.swift */,
 				A122F819793E1E479C69F642 /* ParamValue.swift */,
