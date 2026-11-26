@@ -50,6 +50,12 @@ Launch with `--video-export-regression` for capture-format and export checks. Th
 `video-check-…-developed.mov` beside its source without saving to Photos.
 Run the pair checker on the files to check real presentation timestamps and
 SDR tags. Use portrait display metadata as well as a landscape fixture.
+For a Photos-write regression separate from film rendering, grant add-only
+Photos permission in a dedicated simulator, inject `video-check-legacy-small.mov`,
+then launch with `--video-photos-regression`. Verify `video-photo-save-report.json`
+reports `saved` and the source remains. This test writes one synthetic video
+to the simulator's library; it is not active on physical devices.
+
 The production export memory guard remains active. This check does not test
 camera recording, hardware thermals, sustained AV cadence, or playback sync.
 

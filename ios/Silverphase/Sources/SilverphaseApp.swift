@@ -231,6 +231,10 @@ import OSLog
             await MobileSmokeChecks.flatImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--video-format-regression") {
             MobileMovieDevelopment.runFormatRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-photos-regression") {
+#if targetEnvironment(simulator)
+            await MobileMovieDevelopment.runPhotoSaveRegression()
+#endif
         } else if ProcessInfo.processInfo.arguments.contains("--video-export-regression") {
             await MobileMovieDevelopment.runExportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {

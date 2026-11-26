@@ -29,6 +29,19 @@ enum PhotoLibraryWriter {
             }
         }
     }
+    nonisolated static func saveVideo(_ file: URL, creationDate: Date) async throws {
+        try await authorize()
+        try Task.checkCancellation()
+        // Photos runs the block on its own serial queue, not on the UI actor.
+        // An explicit Sendable block cannot inherit the caller's isolation.
+        let changes: @Sendable () -> Void = {
+            let request = PHAssetCreationRequest.forAsset()
+            request.creationDate = creationDate
+            request.addResource(with: .video, fileURL: file, options: nil)
+        }
+        try await PHPhotoLibrary.shared().performChanges(changes)
+    }
+
     static func location(in file: URL) -> CLLocation? {
         guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
               let metadata = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],

@@ -121,6 +121,23 @@ enum MobileMovieDevelopment {
 
 #if DEBUG
 extension MobileMovieDevelopment {
+#if targetEnvironment(simulator)
+    @MainActor static func runPhotoSaveRegression() async {
+        let directory = URL.documentsDirectory
+        let report = directory.appending(path: "video-photo-save-report.json")
+        let fixture = directory.appending(path: "video-check-legacy-small.mov")
+        let result: [String: String]
+        do {
+            try await PhotoLibraryWriter.saveVideo(fixture, creationDate: .now)
+            result = ["status": "saved",
+                      "sourceStillExists": String(FileManager.default.fileExists(atPath: fixture.path))]
+        } catch {
+            result = ["status": "failed", "error": error.localizedDescription]
+        }
+        if let data = try? JSONEncoder().encode(result) { try? data.write(to: report, options: .atomic) }
+    }
+#endif
+
     static func runFormatRegression() {
         typealias Mode = MobileMovieProfile
         func spec(_ w: Int, _ h: Int, _ rate: Int32) -> Mode {

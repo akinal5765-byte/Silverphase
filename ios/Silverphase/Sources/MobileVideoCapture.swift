@@ -2,7 +2,6 @@
 @preconcurrency import AVFoundation
 import AVKit
 import Foundation
-import Photos
 import SwiftUI
 
 struct MobileMovieProfile: Codable, Hashable, Sendable {
@@ -604,11 +603,7 @@ struct MobileVideoCaptureView: View {
                 } else { file = take.source }
                 try Task.checkCancellation()
                 developing = false
-                try await PHPhotoLibrary.shared().performChanges {
-                    let request = PHAssetCreationRequest.forAsset()
-                    request.creationDate = take.date
-                    request.addResource(with: .video, fileURL: file, options: nil)
-                }
+                try await PhotoLibraryWriter.saveVideo(file, creationDate: take.date)
 #if DEBUG
                 if !ProcessInfo.processInfo.arguments.contains("--video-check-keep-files") { take.removeAfterSave() }
 #else
