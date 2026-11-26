@@ -124,6 +124,21 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | ado
     'modern_UI/Spektrafilm/SpektrafilmTests/StockListTests.swift',
     'modern_UI/Spektrafilm/Spektrafilm/Resources/Licenses/Profiles-and-LUTs-CHANGELOG.txt',
 }
+# These references name the already-vetted public profiles in the gallery.
+# Exempt only the reviewed prose/Swift statements, not their entire files.
+approved_public_references = {
+    'ios/DESIGN.md': (
+        'Fotufilm 复用封面角标，封面下方仍显示 ISO 或 EI。',
+    ),
+    'ios/Silverphase/Sources/MobilePhotoDetail.swift': (
+        '.accessibilityHint(stock.isFotufilm ? "Fotufilm" : "")',
+    ),
+    'ios/Silverphase/UITests/PhotoImportTests.swift': (
+        'let fotufilm = app.buttons["photo-detail.film-stock.agfa_agfachrome_100_fotufilm"]',
+        'XCTAssertTrue(fotufilm.waitForExistence(timeout: 6))',
+        'XCTAssertNotEqual(fotufilm.value as? String, "Fotufilm", "Origin is a cover badge, not the speed label")',
+    ),
+}
 for name in sorted(paths):
     path = ROOT / name
     if name not in approved_import:
@@ -132,6 +147,8 @@ for name in sorted(paths):
             f'Private input/signing file needs review: {name}')
     if name not in approved_import and path.is_file() and not path.is_symlink() and path.suffix.lower() in text_suffixes:
         body = path.read_text(errors='replace')
+        for reference in approved_public_references.get(name, ()):
+            body = body.replace(reference, '', 1)
         require(not retired.search(body), f'Retired research reference: {name}')
 
 if errors:
