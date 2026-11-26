@@ -46,6 +46,19 @@ struct FilmEdgeSection: View {
                 PillMenu(label: T("Carrier", "片夹", "片夾"), options: ["none", "black", "open"],
                          title: { $0 == "none" ? T("None", "无", "無") : $0 == "black" ? T("Black", "黑色", "黑色") : T("Open", "透光", "透光") }, selection: edge(\.carrier))
                 ScrubSlider(label: T("Frame", "帧号", "幀號"), value: Binding(get: { Double(session.params.filmEdge.frameNumber) }, set: { var p = session.params; p.filmEdge.frameNumber = Int($0); session.params = p }), range: 0...99, snap: 1, format: { $0 == 0 ? T("Auto", "自动", "自動") : String(Int($0)) }, resolution: 1)
+                TextField(T("Edge Label", "片边文字", "片邊文字"), text: Binding(
+                    get: { session.params.filmEdge.customLabel ?? "" },
+                    set: { value in
+                        let label = FilmEdgeSettings.editableLabel(value)
+                        var p = session.params
+                        p.filmEdge.customLabel = label.isEmpty ? nil : label
+                        session.params = p
+                    }),
+                    prompt: Text(T("Automatic", "自动", "自動")))
+                    .disabled(!session.params.filmEdge.effective)
+                    .help(T("Up to 10 characters: A–Z, digits, spaces, + - . /. Clear to restore the stock name.",
+                            "最多 10 个字符：A–Z、数字、空格和 + - . /。清空后恢复胶片名称。",
+                            "最多 10 個字元：A–Z、數字、空格和 + - . /。清空後恢復底片名稱。"))
                 ScrubSlider(label: T("Edge Fog", "边缘灰雾", "邊緣灰霧"), value: edge(\.fog), range: 0...4, zero: 1)
                 ScrubSlider(label: T("Light Leaks", "漏光", "漏光"), value: edge(\.leaks), range: 0...4)
                 HStack {

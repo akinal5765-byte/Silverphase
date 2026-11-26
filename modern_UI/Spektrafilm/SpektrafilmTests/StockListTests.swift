@@ -294,18 +294,25 @@ final class StockListTests: XCTestCase {
 
     func testAllMaterialPackagingArtworkDecodesFromBundle() throws {
         let catalog = StockCatalog.shared
-        XCTAssertEqual(catalog.stocks.filter { !$0.isExperimental }.count, 34)
-        // Every selectable material now has generated artwork; HP5/Tri-X reuse
-        // their existing covers and Portra push variants share the base stock.
-        for stock in catalog.stocks where !stock.id.hasSuffix("_fotufilm") {
+        let publicStocks = catalog.stocks.filter { !$0.isLocalExperimental }
+        XCTAssertEqual(publicStocks.count, 63)
+        var artworkURLs = Set<URL>()
+        for stock in publicStocks {
             let url = try XCTUnwrap(stock.packagingArtworkURL, stock.id)
+            artworkURLs.insert(url)
             let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil), stock.id)
-            let image = try XCTUnwrap(CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            let dimensions = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any], stock.id)
+            let width = try XCTUnwrap(dimensions[kCGImagePropertyPixelWidth] as? Int, stock.id)
+            let height = try XCTUnwrap(dimensions[kCGImagePropertyPixelHeight] as? Int, stock.id)
+            XCTAssertEqual(width, 1440, stock.id)
+            XCTAssertEqual(height, 810, stock.id)
+            XCTAssertEqual(width * 9, height * 16, stock.id)
+            XCTAssertNotNil(CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceThumbnailMaxPixelSize: 224,
             ] as CFDictionary), stock.id)
-            XCTAssertEqual(Double(image.width) / Double(image.height), 16.0 / 9.0, accuracy: 0.02, stock.id)
         }
+        XCTAssertEqual(artworkURLs.count, 57)
         for id in [MaterialBrowserChoice.scanID, MaterialBrowserChoice.diID] {
             let choice = MaterialBrowserChoice(id: id, stock: nil)
             let url = try XCTUnwrap(choice.artworkURL, id)
@@ -315,9 +322,17 @@ final class StockListTests: XCTestCase {
                 kCGImageSourceThumbnailMaxPixelSize: 224,
             ] as CFDictionary), id)
         }
-        let portra = try XCTUnwrap(catalog.stock("kodak_portra_800"))
-        XCTAssertEqual(catalog.stock("kodak_portra_800_push1")?.packagingArtworkURL, portra.packagingArtworkURL)
-        XCTAssertEqual(catalog.stock("kodak_portra_800_push2")?.packagingArtworkURL, portra.packagingArtworkURL)
+        let aliases = [
+            "kodak_portra_800_push1": "kodak_portra_800",
+            "kodak_portra_800_push2": "kodak_portra_800",
+            "cinestill_800t_fotufilm": "cinestill_800t",
+            "fujifilm_acros_100_ii_fotufilm": "fujifilm_neopan_acros_100_ii",
+            "ilford_hp5_plus_fotufilm": "ilford_hp5_plus_400",
+            "kodak_tmax_100_fotufilm": "kodak_tmax_100",
+        ]
+        for (alias, owner) in aliases {
+            XCTAssertEqual(catalog.stock(alias)?.packagingArtworkURL, catalog.stock(owner)?.packagingArtworkURL, alias)
+        }
     }
 
     func testAdoptedBlackAndWhiteCatalog() throws {

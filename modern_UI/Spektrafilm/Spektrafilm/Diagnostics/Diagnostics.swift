@@ -240,7 +240,7 @@ final class Diagnostics {
     /// quietly reach 16 GB on a 256 GB laptop is the complaint this answers.
     nonisolated static let defaultDiskCacheCapMB = 8_000
 
-    /// Where sessions are written (§11.4). Default `~/Library/Logs/SpektraLab/`.
+    /// Where sessions are written (§11.4). Default `~/Library/Logs/Silverphase/`.
     var logDirectory: URL {
         didSet {
             guard logDirectory != oldValue else { return }
@@ -349,12 +349,9 @@ final class Diagnostics {
         applyMemoryLimits()
     }
 
-    /// `~/Library/Logs/SpektraLab/` (§11.4). Created by `start()`, not here: a
+    /// `~/Library/Logs/Silverphase/` (§11.4). Created by `start()`, not here: a
     /// model built in a test must not make a directory in the user's home.
-    nonisolated static var defaultLogDirectory: URL {
-        FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appending(path: "Logs/SpektraLab")
-    }
+    nonisolated static var defaultLogDirectory: URL { DesktopIdentity.logsDirectory }
 
     private enum Keys {
         static let level = "diag.level"
@@ -621,7 +618,8 @@ final class Diagnostics {
             lastError: lastError,
             machine: Diagnostics.machineBlock(),
             settings: settingsSnapshot(),
-            previousSession: previousSession)
+            previousSession: previousSession,
+            materialPackFingerprint: StockCatalog.materialPackFingerprint)
         let includeNames = includeFileNamesInBundle
         log.info(.app, "saving a diagnostic bundle", [
             .init("destination", destination.path), .init("file_names", includeNames),

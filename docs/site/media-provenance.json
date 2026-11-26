@@ -1,62 +1,6 @@
 {
-  "scope": "Previously published website derivatives only. No source RAWs, redistribution grant, or third-party rights clearance is implied.",
+  "scope": "Previously published website photo and interface derivatives only. Generated covers have a separate artwork manifest. No source RAWs, redistribution grant, or third-party rights clearance is implied.",
   "assets": {
-    "docs/site/covers/acros-ii.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_neopan_acros_100_ii-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "1d669b87782f5b0f7b4dd532c6d4e73f6a8f6bac67eea45fdfb16c5733d1a93b"
-    },
-    "docs/site/covers/cinestill-800t.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/cinestill_800t-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "cbc79e170eabd49b83458e08e28adeef5db2ff537a4cb682d05315ba00350b78"
-    },
-    "docs/site/covers/eterna-500.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_eterna_500_fotufilm-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "45ada9f8b3b8a8c5087675b06ddd7af107d82ef03c9422e40a861336e6815f7d"
-    },
-    "docs/site/covers/hp5-plus.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/ilford_hp5_plus_400-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "35399be330906b1bca488a623e9b305b6a5e94f8c5226fa60ace6a74880e2c48"
-    },
-    "docs/site/covers/portra-400.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_portra_400-packaging-v2.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "819eb7ac493d3a11148324c5c18b4402ac727ac912d46f9fd1d1df3d9f711cf9"
-    },
-    "docs/site/covers/pro-160ns.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_pro_160ns_fotufilm-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "422594f4d0364b038fe40fe5433fa5f3d8cfa969ce20a62489c4a2186189d603"
-    },
-    "docs/site/covers/reala-100.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/fujifilm_reala_100_fotufilm-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "e718e15551c43a9e6689bcd30cb60076983d7bc93802049fd9e0f7ed904a974d"
-    },
-    "docs/site/covers/vision3-250d.webp": {
-      "kind": "web-cover",
-      "case": "Reduced app cover (WebP).",
-      "evidence": "modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/kodak_vision3_250d-packaging-v1.png",
-      "published_commit": "b62ed5d72a5d75a1f580d07ff858a5181b14ac63",
-      "sha256": "0249d62802c30ade7f29199ecfbc95073877ee5993d362449c11156a294aa4ea"
-    },
     "docs/site/gallery/01-raw.webp": {
       "kind": "web-photo",
       "case": "Steam locomotive — display-decoded WebP reference, not a RAW file.",

@@ -40,6 +40,7 @@ struct DiagnosticBundle {
         var settings: [String: String] = [:]
         /// The previous session's outcome, when one was found (§1.7).
         var previousSession: PreviousSessionReport?
+        var materialPackFingerprint: String?
     }
 
     /// Assemble the bundle at `destination` (a `.zip` the caller has chosen the
@@ -73,6 +74,7 @@ struct DiagnosticBundle {
             "settings": inputs.settings,
             "file_names_included": includeFileNames,
         ]
+        if let digest = inputs.materialPackFingerprint { summary["current_material_pack_sha256"] = digest }
         if let error = inputs.lastError { summary["last_error"] = error }
         if let previous = inputs.previousSession {
             summary["previous_session"] = [
@@ -95,7 +97,8 @@ struct DiagnosticBundle {
           logs/            the most recent session logs, newest first
           capabilities.json what the render engine reported about itself
           summary.json     app and engine versions, this machine, current settings,
-                           the last error, and whether the previous session exited cleanly
+                           the current material data fingerprint (when available), the
+                           last error, and whether the previous session exited cleanly
 
         The logs are newline-delimited JSON: one record per line, first five fields
         are t (when), lvl (error/warn/info/debug/trace), cat (app/engine/open/render/

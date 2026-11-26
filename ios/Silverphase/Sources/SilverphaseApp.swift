@@ -1019,6 +1019,7 @@ struct ActivitySheet: UIViewControllerRepresentable {
 struct MobileAbout: View {
     let folded: Bool
     @Environment(\.dismiss) private var dismiss
+    @State private var copiedMaterialFingerprint = false
 
     var body: some View {
         NavigationStack {
@@ -1047,11 +1048,28 @@ struct MobileAbout: View {
                                 .accessibilityHidden(true)
                         }
                     }
+                    if let fingerprint = StockCatalog.materialPackFingerprint {
+                        Button(T("Copy Current Material Fingerprint", "复制当前材料指纹", "複製目前材料指紋"), systemImage: "doc.on.doc") {
+                            UIPasteboard.general.string = fingerprint
+                            copiedMaterialFingerprint = true
+                        }
+                        .accessibilityIdentifier("about.copy-material-fingerprint")
+                        if copiedMaterialFingerprint {
+                            Text(T("Material fingerprint copied", "已复制材料指纹", "已複製材料指紋"))
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("about.material-fingerprint-copied")
+                        }
+                    }
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
                         if let version {
                             Text(T("Version \(version)", "版本 \(version)", "版本 \(version)"))
                                 .accessibilityIdentifier("about.version")
+                        }
+                        if StockCatalog.materialPackFingerprint != nil {
+                            Text(T("For support: identifies the installed material data, not the materials used in an older edit.",
+                                   "供排查使用：只标识当前安装的材料数据，不代表旧编辑使用的材料。",
+                                   "供排查使用：只標識目前安裝的材料資料，不代表舊編輯使用的材料。"))
                         }
                         Text(T("An independent derivative of Hanze Qiu’s SpektraLab and Andrea Volpato’s spektrafilm.", "基于 Hanze Qiu 的 SpektraLab 与 Andrea Volpato 的 spektrafilm 的独立衍生项目。", "基於 Hanze Qiu 的 SpektraLab 與 Andrea Volpato 的 spektrafilm 的獨立衍生專案。"))
                     }

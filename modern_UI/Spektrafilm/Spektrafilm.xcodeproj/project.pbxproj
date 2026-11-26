@@ -104,6 +104,7 @@
 		};
 		2B2644847B65D3BAE9E395ED /* FilmCanvasInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FilmCanvasInput.swift"; sourceTree = "<group>"; };
 		4427487EA5994272B72FACF7 /* FramePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FramePipeline.swift"; sourceTree = "<group>"; };
+		8E6E4A77F94812EE2F688494 /* HasselbladCrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HasselbladCrop.swift"; sourceTree = "<group>"; };
 		5C6EA4AC509736AE9587FCE5 /* ImageDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageDecoder.swift"; sourceTree = "<group>"; };
 		0213404ECEEF9008E1F1D085 /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Library.swift"; sourceTree = "<group>"; };
 		B580055306499DDD14A30404 /* PairComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PairComposer.swift"; sourceTree = "<group>"; };
@@ -113,6 +114,7 @@
 			children = (
 				2B2644847B65D3BAE9E395ED /* FilmCanvasInput.swift */,
 				4427487EA5994272B72FACF7 /* FramePipeline.swift */,
+				8E6E4A77F94812EE2F688494 /* HasselbladCrop.swift */,
 				5C6EA4AC509736AE9587FCE5 /* ImageDecoder.swift */,
 				0213404ECEEF9008E1F1D085 /* Library.swift */,
 				B580055306499DDD14A30404 /* PairComposer.swift */,
@@ -138,6 +140,7 @@
 		5EBA1EA96734DA21A5F7B3AD /* CameraFilterChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraFilterChoice.swift"; sourceTree = "<group>"; };
 		2C3EFD7B5DE8EA57D406BDBB /* CurveMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CurveMath.swift"; sourceTree = "<group>"; };
 		1FBA54A8DDF9F7C6003FE5D2 /* DecodeResidency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DecodeResidency.swift"; sourceTree = "<group>"; };
+		C3E3AF4C1C0564CC595ABE9D /* DesktopIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesktopIdentity.swift"; sourceTree = "<group>"; };
 		8D09A6A4DAA786A635404B54 /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FeatureFlags.swift"; sourceTree = "<group>"; };
 		D4397AB5CB17C72C8113A0E3 /* FilmEdge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FilmEdge.swift"; sourceTree = "<group>"; };
 		1FD42235BD294C6BC7257371 /* Frame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Frame.swift"; sourceTree = "<group>"; };
@@ -167,6 +170,7 @@
 				5EBA1EA96734DA21A5F7B3AD /* CameraFilterChoice.swift */,
 				2C3EFD7B5DE8EA57D406BDBB /* CurveMath.swift */,
 				1FBA54A8DDF9F7C6003FE5D2 /* DecodeResidency.swift */,
+				C3E3AF4C1C0564CC595ABE9D /* DesktopIdentity.swift */,
 				8D09A6A4DAA786A635404B54 /* FeatureFlags.swift */,
 				D4397AB5CB17C72C8113A0E3 /* FilmEdge.swift */,
 				1FD42235BD294C6BC7257371 /* Frame.swift */,
@@ -452,6 +456,7 @@
 		3B5B23434C9E6560483E822B /* bundle-licenses.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "bundle-licenses.sh"; sourceTree = "<group>"; };
 		769986EEE867DFEAEA6221C8 /* capture-live.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "capture-live.sh"; sourceTree = "<group>"; };
 		58B2C0307BBC444C754E5565 /* check-bundle-resources.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "check-bundle-resources.sh"; sourceTree = "<group>"; };
+		8CDD9D952D75B270AF039B8F /* check-hasselblad-crop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "check-hasselblad-crop.swift"; sourceTree = "<group>"; };
 		7A1377F4B609B3CE3513CAFD /* gen-catalog.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "gen-catalog.py"; sourceTree = "<group>"; };
 		D9DFA21EE15AC0B57DCC3ECE /* gen-project.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "gen-project.py"; sourceTree = "<group>"; };
 		2364A4BDECB2036E04A42FE8 /* live-window.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "live-window.swift"; sourceTree = "<group>"; };
@@ -467,6 +472,7 @@
 				3B5B23434C9E6560483E822B /* bundle-licenses.sh */,
 				769986EEE867DFEAEA6221C8 /* capture-live.sh */,
 				58B2C0307BBC444C754E5565 /* check-bundle-resources.sh */,
+				8CDD9D952D75B270AF039B8F /* check-hasselblad-crop.swift */,
 				7A1377F4B609B3CE3513CAFD /* gen-catalog.py */,
 				D9DFA21EE15AC0B57DCC3ECE /* gen-project.py */,
 				2364A4BDECB2036E04A42FE8 /* live-window.swift */,
@@ -591,6 +597,7 @@
 		A84DF384B8C7128D032843A4 /* SoftProof.swift */ = {isa = PBXBuildFile; fileRef = DAC951270862F3EBF54E65A9; };
 		3D40E78DA89FC2579DDAC52A /* FilmCanvasInput.swift */ = {isa = PBXBuildFile; fileRef = 2B2644847B65D3BAE9E395ED; };
 		F6660EA5984BB7FEBB512200 /* FramePipeline.swift */ = {isa = PBXBuildFile; fileRef = 4427487EA5994272B72FACF7; };
+		850B7DB9A1747FCEF6023964 /* HasselbladCrop.swift */ = {isa = PBXBuildFile; fileRef = 8E6E4A77F94812EE2F688494; };
 		CA2BE094757F62E51F68AC84 /* ImageDecoder.swift */ = {isa = PBXBuildFile; fileRef = 5C6EA4AC509736AE9587FCE5; };
 		1297465B9809E3E4D0ABEC0E /* Library.swift */ = {isa = PBXBuildFile; fileRef = 0213404ECEEF9008E1F1D085; };
 		D0CC2825C04D7FECC550EFCD /* PairComposer.swift */ = {isa = PBXBuildFile; fileRef = B580055306499DDD14A30404; };
@@ -603,6 +610,7 @@
 		AE231648B1800BBE1F87C312 /* CameraFilterChoice.swift */ = {isa = PBXBuildFile; fileRef = 5EBA1EA96734DA21A5F7B3AD; };
 		E886BD4074E7E3786311553F /* CurveMath.swift */ = {isa = PBXBuildFile; fileRef = 2C3EFD7B5DE8EA57D406BDBB; };
 		4DBB0A11BA317C74BFCD4D8E /* DecodeResidency.swift */ = {isa = PBXBuildFile; fileRef = 1FBA54A8DDF9F7C6003FE5D2; };
+		750D567B2852FAB1BC4C0C74 /* DesktopIdentity.swift */ = {isa = PBXBuildFile; fileRef = C3E3AF4C1C0564CC595ABE9D; };
 		3F5E047EB998D3EA8BF03709 /* FeatureFlags.swift */ = {isa = PBXBuildFile; fileRef = 8D09A6A4DAA786A635404B54; };
 		86884419644A89FE72E55543 /* FilmEdge.swift */ = {isa = PBXBuildFile; fileRef = D4397AB5CB17C72C8113A0E3; };
 		4B575E99E7B877393ED8E8AF /* Frame.swift */ = {isa = PBXBuildFile; fileRef = 1FD42235BD294C6BC7257371; };
@@ -715,6 +723,7 @@
 				A84DF384B8C7128D032843A4 /* SoftProof.swift */,
 				3D40E78DA89FC2579DDAC52A /* FilmCanvasInput.swift */,
 				F6660EA5984BB7FEBB512200 /* FramePipeline.swift */,
+				850B7DB9A1747FCEF6023964 /* HasselbladCrop.swift */,
 				CA2BE094757F62E51F68AC84 /* ImageDecoder.swift */,
 				1297465B9809E3E4D0ABEC0E /* Library.swift */,
 				D0CC2825C04D7FECC550EFCD /* PairComposer.swift */,
@@ -727,6 +736,7 @@
 				AE231648B1800BBE1F87C312 /* CameraFilterChoice.swift */,
 				E886BD4074E7E3786311553F /* CurveMath.swift */,
 				4DBB0A11BA317C74BFCD4D8E /* DecodeResidency.swift */,
+				750D567B2852FAB1BC4C0C74 /* DesktopIdentity.swift */,
 				3F5E047EB998D3EA8BF03709 /* FeatureFlags.swift */,
 				86884419644A89FE72E55543 /* FilmEdge.swift */,
 				4B575E99E7B877393ED8E8AF /* Frame.swift */,
@@ -917,6 +927,7 @@
 		4896A72C44598467FE52969D /* SoftProof.swift */ = {isa = PBXBuildFile; fileRef = DAC951270862F3EBF54E65A9; };
 		7F62B0B3CE63B4BE6D31E7AF /* FilmCanvasInput.swift */ = {isa = PBXBuildFile; fileRef = 2B2644847B65D3BAE9E395ED; };
 		6F5C2A066215EE3B4004FEEF /* FramePipeline.swift */ = {isa = PBXBuildFile; fileRef = 4427487EA5994272B72FACF7; };
+		75FA320ACD30F90E8C71F04D /* HasselbladCrop.swift */ = {isa = PBXBuildFile; fileRef = 8E6E4A77F94812EE2F688494; };
 		637B70BEEE9CC3B5EF251B7B /* ImageDecoder.swift */ = {isa = PBXBuildFile; fileRef = 5C6EA4AC509736AE9587FCE5; };
 		3FB16CB7FDC19A13FFA1FF8F /* Library.swift */ = {isa = PBXBuildFile; fileRef = 0213404ECEEF9008E1F1D085; };
 		970661502612597BEC51DEB0 /* PairComposer.swift */ = {isa = PBXBuildFile; fileRef = B580055306499DDD14A30404; };
@@ -929,6 +940,7 @@
 		FEBB7BDE2190736D767753C0 /* CameraFilterChoice.swift */ = {isa = PBXBuildFile; fileRef = 5EBA1EA96734DA21A5F7B3AD; };
 		945B7C96E6D95C47077CA637 /* CurveMath.swift */ = {isa = PBXBuildFile; fileRef = 2C3EFD7B5DE8EA57D406BDBB; };
 		842D1F1ADDED2E0D85465F76 /* DecodeResidency.swift */ = {isa = PBXBuildFile; fileRef = 1FBA54A8DDF9F7C6003FE5D2; };
+		AF53F0C4318F703C8CB27F63 /* DesktopIdentity.swift */ = {isa = PBXBuildFile; fileRef = C3E3AF4C1C0564CC595ABE9D; };
 		7E935B1DAB7134D9F7B1B2BC /* FeatureFlags.swift */ = {isa = PBXBuildFile; fileRef = 8D09A6A4DAA786A635404B54; };
 		305B3CE2187FD2365F059D0A /* FilmEdge.swift */ = {isa = PBXBuildFile; fileRef = D4397AB5CB17C72C8113A0E3; };
 		9819A2D3AAA591B64BF92E5A /* Frame.swift */ = {isa = PBXBuildFile; fileRef = 1FD42235BD294C6BC7257371; };
@@ -1098,6 +1110,7 @@
 				4896A72C44598467FE52969D /* SoftProof.swift */,
 				7F62B0B3CE63B4BE6D31E7AF /* FilmCanvasInput.swift */,
 				6F5C2A066215EE3B4004FEEF /* FramePipeline.swift */,
+				75FA320ACD30F90E8C71F04D /* HasselbladCrop.swift */,
 				637B70BEEE9CC3B5EF251B7B /* ImageDecoder.swift */,
 				3FB16CB7FDC19A13FFA1FF8F /* Library.swift */,
 				970661502612597BEC51DEB0 /* PairComposer.swift */,
@@ -1110,6 +1123,7 @@
 				FEBB7BDE2190736D767753C0 /* CameraFilterChoice.swift */,
 				945B7C96E6D95C47077CA637 /* CurveMath.swift */,
 				842D1F1ADDED2E0D85465F76 /* DecodeResidency.swift */,
+				AF53F0C4318F703C8CB27F63 /* DesktopIdentity.swift */,
 				7E935B1DAB7134D9F7B1B2BC /* FeatureFlags.swift */,
 				305B3CE2187FD2365F059D0A /* FilmEdge.swift */,
 				9819A2D3AAA591B64BF92E5A /* Frame.swift */,
@@ -1268,7 +1282,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-framework Metal -framework QuartzCore -framework Accelerate -framework CoreText -framework CoreGraphics";
-				PRODUCT_BUNDLE_IDENTIFIER = com.hanze.filmify;
+				PRODUCT_BUNDLE_IDENTIFIER = com.silverphase.editor;
 				PRODUCT_NAME = Silverphase;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -1315,7 +1329,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-framework Metal -framework QuartzCore -framework Accelerate -framework CoreText -framework CoreGraphics";
-				PRODUCT_BUNDLE_IDENTIFIER = com.hanze.filmify;
+				PRODUCT_BUNDLE_IDENTIFIER = com.silverphase.editor;
 				PRODUCT_NAME = Silverphase;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -1388,7 +1402,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-framework Metal -framework QuartzCore -framework Accelerate -framework CoreText -framework CoreGraphics";
-				PRODUCT_BUNDLE_IDENTIFIER = com.hanze.filmify.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.silverphase.editor.tests;
 				PRODUCT_NAME = SpektrafilmTests;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -1432,7 +1446,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-framework Metal -framework QuartzCore -framework Accelerate -framework CoreText -framework CoreGraphics";
-				PRODUCT_BUNDLE_IDENTIFIER = com.hanze.filmify.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.silverphase.editor.tests;
 				PRODUCT_NAME = SpektrafilmTests;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;

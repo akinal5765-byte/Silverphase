@@ -53,29 +53,19 @@ struct PreviousSessionReport: Sendable, Equatable {
 
 enum LogCleanup {
 
-    /// Every name this app has written a session file under.
-    ///
-    /// New files get `sessionPrefix`; the rest are here because **cleanup has
-    /// to be able to see what earlier builds wrote**. The log directory is a
-    /// persisted setting, so an install that has been through a rename keeps
-    /// writing into the folder it was already pointed at — and a retention
-    /// rule that only matched the current name would leave every file from
-    /// before the rename in place, for ever, while reporting that it had
-    /// cleaned. The names are dead weight the moment the last such file is
-    /// gone, and harmless until then.
-    static let sessionPrefixes = ["spektralab-", "filmify-", "spektrafilm-"]
-
-    /// What `Log.start` names a new session file.
-    static let sessionPrefix = sessionPrefixes[0]
+    /// Retain/rotate our logs only, even if the user picks a custom folder
+    /// also used by SpektraLab. Older files may be from either product.
+    static let sessionPrefix = "silverphase-"
+    static let latestLinkName = "latest-silverphase.jsonl"
 
     /// The session files in `directory`, newest first. Only files this app
-    /// writes are considered: `latest.jsonl` is a symlink and anything else in
+    /// writes are considered: `latest-silverphase.jsonl` is a symlink and anything else in
     /// the folder belongs to whoever put it there.
     static func logFiles(in directory: URL, fileManager: FileManager = .default) -> [URL] {
         let names = (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
         return names
             .filter { name in
-                name.hasSuffix(".jsonl") && sessionPrefixes.contains { name.hasPrefix($0) }
+                name.hasSuffix(".jsonl") && name.hasPrefix(sessionPrefix)
             }
             .map { directory.appending(path: $0) }
             .sorted { modificationDate($0, fileManager) > modificationDate($1, fileManager) }
@@ -157,7 +147,7 @@ enum LogCleanup {
         where file.lastPathComponent != keeping?.lastPathComponent {
             delete(file, &outcome, fileManager)
         }
-        let link = directory.appending(path: "latest.jsonl")
+        let link = directory.appending(path: LogCleanup.latestLinkName)
         if FileManager.default.fileExists(atPath: link.path)
             || (try? fileManager.destinationOfSymbolicLink(atPath: link.path)) != nil {
             try? fileManager.removeItem(at: link)
@@ -228,7 +218,7 @@ final class LogFileSink: LogSink, @unchecked Sendable {
     /// Readable from anywhere; written only on the queue.
     let failure = Guarded<String?>(nil)
 
-    private let queue = DispatchQueue(label: "com.hanze.filmify.log", qos: .utility)
+    private let queue = DispatchQueue(label: DesktopIdentity.bundleIdentifier + ".log", qos: .utility)
     private var handle: FileHandle?
     private var buffer: [String] = []
     private var timerScheduled = false
@@ -357,10 +347,10 @@ final class LogFileSink: LogSink, @unchecked Sendable {
         }
     }
 
-    /// `latest.jsonl` → this session's file. A relative destination, so the
+    /// `latest-silverphase.jsonl` → this session's file. A relative destination, so the
     /// link still resolves if the directory is moved or synced somewhere else.
     private func linkLatest(_ fileManager: FileManager) {
-        let link = directory.appending(path: "latest.jsonl")
+        let link = directory.appending(path: LogCleanup.latestLinkName)
         try? fileManager.removeItem(at: link)
         try? fileManager.createSymbolicLink(atPath: link.path,
                                             withDestinationPath: sessionFile.lastPathComponent)
