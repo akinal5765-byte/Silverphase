@@ -39,6 +39,33 @@ import UniformTypeIdentifiers
         }
     }
 
+    private static func galleryRasterEdgesMatchInterior() -> Bool {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB) else { return false }
+        let size = CGSize(width: 501, height: 800)
+        let pixels = Data((0..<(501 * 800)).flatMap { _ -> [UInt8] in [80, 100, 140, 255] })
+        let portrait = CIImage(bitmapData: pixels, bytesPerRow: 501 * 4, size: size, format: .RGBA8, colorSpace: space)
+        let context = CIContext(options: [.cacheIntermediates: false])
+        for source in [portrait, portrait.oriented(.right)] {
+            for edge in [384.0, 799.0] {
+                let frame = MobileSimulationSize.resizeForPreview(source, scale: edge / 800)
+                guard let raster = context.createCGImage(frame, from: frame.extent, format: .RGBA8, colorSpace: space),
+                      let data = raster.dataProvider?.data, let bytes = CFDataGetBytePtr(data),
+                      raster.bitsPerPixel == 32, CFDataGetLength(data) >= raster.bytesPerRow * raster.height,
+                      max(raster.width, raster.height) == Int(edge) else { return false }
+                func matchesCentre(x: Int, y: Int) -> Bool {
+                    let offset = y * raster.bytesPerRow + x * 4
+                    let centre = raster.height / 2 * raster.bytesPerRow + raster.width / 2 * 4
+                    return (0..<4).allSatisfy { abs(Int(bytes[offset + $0]) - Int(bytes[centre + $0])) <= 1 }
+                }
+                guard matchesCentre(x: 0, y: raster.height / 2),
+                      matchesCentre(x: raster.width - 1, y: raster.height / 2),
+                      matchesCentre(x: raster.width / 2, y: 0),
+                      matchesCentre(x: raster.width / 2, y: raster.height - 1) else { return false }
+            }
+        }
+        return true
+    }
+
     static func run() {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -48,6 +75,7 @@ import UniformTypeIdentifiers
             func require(_ value: Bool, _ label: String) throws {
                 guard value else { throw MobileFailure.message(label) }; checks.append(label)
             }
+            try require(galleryRasterEdgesMatchInterior(), "thumbnail and draft resampling preserve portrait and landscape edge pixels")
             let doc = MobileDocument(directory: directory); doc.active = false; doc.editorVisible = false
             var portrait = MobilePhoto(name: "Portrait", filename: "portrait.jpg")
             portrait.sourceAspect = 2.0 / 3; portrait.sourceMegapixels = 12

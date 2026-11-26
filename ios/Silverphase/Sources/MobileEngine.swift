@@ -833,7 +833,8 @@ actor MobileEngine {
             }
             galleryTrace?.mark("encoded input open end")
             let scale = min(1, sqrt(inputMP * 1_000_000 / (input.extent.width * input.extent.height)))
-            image = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            image = gallery ? MobileSimulationSize.resizeForPreview(input, scale: scale)
+                : input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
         let targetSize = simulationSize.map { size in
             let scale = min(1, sqrt(inputMP / MobileSimulationSize.megapixels(size)))

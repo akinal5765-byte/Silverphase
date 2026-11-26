@@ -9,6 +9,8 @@ import UniformTypeIdentifiers
 enum MobileLibraryPreview {
     private static let lock = NSLock()
     private struct Key: Encodable {
+        // Ignore old JPEGs that may already contain an edge matte.
+        let rasterVersion = 2
         let recipe: [String: ParamValue]
         let geometry: MobileGeometry
         let cropRemapsEffects: Bool
@@ -37,7 +39,7 @@ enum MobileLibraryPreview {
                 let folder = url.deletingLastPathComponent()
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 let scale = min(1, 384.0 / Double(max(image.width, image.height)))
-                let input = CIImage(cgImage: image).transformed(by: .init(scaleX: scale, y: scale))
+                let input = MobileSimulationSize.resizeForPreview(CIImage(cgImage: image), scale: scale)
                 let context = CIContext(options: [.cacheIntermediates: false])
                 defer { context.clearCaches() }
                 guard let small = context.createCGImage(input, from: input.extent, format: .RGBA8, colorSpace: image.colorSpace) else { return false }

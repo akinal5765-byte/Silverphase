@@ -88,6 +88,17 @@ enum MobileSimulationSize {
 
     static func megapixels(_ size: CGSize) -> Double { size.width * size.height / 1_000_000 }
 
+    /// Resize to whole pixels and sample only the image at its boundary.
+    /// A fractional trailing pixel can turn bright after film inversion or
+    /// leave a matte when the thumbnail is encoded as JPEG.
+    static func resizeForPreview(_ image: CIImage, scale: Double) -> CIImage {
+        guard scale < 1 else { return image }
+        let extent = image.extent
+        let size = CGSize(width: max(1, (extent.width * scale).rounded()),
+                          height: max(1, (extent.height * scale).rounded()))
+        return resize(image, to: size)
+    }
+
     static func resize(_ image: CIImage, to size: CGSize) -> CIImage {
         let extent = image.extent
         guard extent.size != size else { return image }
