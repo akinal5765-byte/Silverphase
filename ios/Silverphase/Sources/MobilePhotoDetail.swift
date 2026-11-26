@@ -52,7 +52,6 @@ struct MobilePhotoDetail: View {
     @State private var stripScrubbing = false
     @State private var stripProxyID: UUID?
     @State private var filmstripItems: [DetailFilmstrip.Item] = []
-    @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
     private static let titledFilmButtonWidth: CGFloat = 160
@@ -64,27 +63,23 @@ struct MobilePhotoDetail: View {
 
     private enum HingeReading { case pending, measured(Bool?) }
     private enum Placement: Equatable { case top, bottom, systemSide }
-    private struct FitMode: Equatable {
-        let window: CGSize
-        let placement: Placement
-    }
-    private struct FitSample: Equatable {
-        let mode: FitMode
-        let frame: CGRect
-    }
-    private var fitMode: FitMode {
-        FitMode(window: windowSize == .zero ? initialWindowSize : windowSize, placement: placement)
-    }
-    private var fittedFrame: CGRect? { stableFit?.mode == fitMode ? stableFit?.frame : nil }
-
-    private var placement: Placement {
-        if UIDevice.current.userInterfaceIdiom == .pad { return .top }
-        let closed = switch hinge {
+    private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
+    private var hingeClosed: Bool? {
+        switch hinge {
         case .pending: initialHingeClosed
         case .measured(let value): value
         }
+    }
+    private var isDuoCover: Bool {
+        if #available(iOS 27.1, *) { return hingeClosed == true }
+        return false
+    }
+
+    private var placement: Placement {
+        if UIDevice.current.userInterfaceIdiom == .pad { return .top }
+        let closed = hingeClosed
         if #available(iOS 27.1, *), let closed {
-            let size = windowSize == .zero ? initialWindowSize : windowSize
+            let size = detailWindowSize
             return closed || size.width >= size.height ? .systemSide : .top
         }
         return .bottom
@@ -318,35 +313,35 @@ struct MobilePhotoDetail: View {
     }
 
     private func content(_ photo: MobilePhoto) -> some View {
-        GeometryReader { safe in
-            let safeFrame = safe.frame(in: .global)
-            let sample = FitSample(mode: fitMode, frame: CGRect(
-                x: safeFrame.minX + EditorDesign.gutter, y: safeFrame.minY + EditorDesign.gutter,
-                width: max(1, safeFrame.width - 2 * EditorDesign.gutter),
-                height: max(1, safeFrame.height - EditorDesign.gutter)))
-            ZStack {
-                // Like the editor, the canvas bleeds to the window edges.
-                // Its framed-to-fit pose is a separate, stable safe rectangle.
-                picture(photo).ignoresSafeArea(.container, edges: .all)
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    filmstrip
-                        .frame(height: Self.stripBand)
-                }
-                .opacity(showsControls ? 1 : 0)
-                .allowsHitTesting(showsControls)
-                .accessibilityHidden(!showsControls)
+        ZStack {
+            // The canvas uses the whole window. Chrome is laid out in the
+            // safe area above it; none of those controls changes the fit.
+            picture(photo).ignoresSafeArea(.container, edges: .all)
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                filmstrip.frame(height: Self.stripBand)
             }
-            .frame(width: safe.size.width, height: safe.size.height)
-            .task(id: showsControls ? sample : nil) {
-                // Chrome visibility is not a layout version. Reopening it
-                // cannot overwrite the fit rectangle in the same posture.
-                guard showsControls, stableFit?.mode != sample.mode else { return }
-                if stableFit != nil {
-                    do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            .opacity(showsControls ? 1 : 0)
+            .allowsHitTesting(showsControls)
+            .accessibilityHidden(!showsControls)
+        }
+        .overlay(alignment: .top) {
+            // Unlike the canvas, this overlay starts below the navigation
+            // bar. Keep the cover date out of the compressed toolbar lane.
+            VStack(spacing: 5) {
+                if isDuoCover && showsControls {
+                    dateLabel(photo)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .foregroundStyle(reduceTransparency ? Color.white : Color.primary)
+                        .modifier(ChromeSurface())
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                stableFit = sample
+                previewStatus(photo)
             }
+            .padding(.horizontal, EditorDesign.gutter)
+            .padding(.top, 6)
+            .allowsHitTesting(false)
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: photoID)
@@ -419,7 +414,9 @@ struct MobilePhotoDetail: View {
             backItem
         }
         if #available(iOS 27.1, *) {
-            dateItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.low).sharedBackgroundVisibility(.hidden)
+            if !isDuoCover {
+                dateItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.low).sharedBackgroundVisibility(.hidden)
+            }
             metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
         } else if #available(iOS 26.0, *) {
             dateItem(photo).sharedBackgroundVisibility(.hidden)
@@ -434,6 +431,7 @@ struct MobilePhotoDetail: View {
                 infoTool(photo)
                 editTool(photo)
                 more(photo)
+                deleteTool(photo)
             }
         } else if #available(iOS 27.1, *), placement == .systemSide {
             // Register with the same native navigation/sidebar host as the editor.
@@ -450,6 +448,9 @@ struct MobilePhotoDetail: View {
             ToolbarItem(id: "photo-detail.native-edit", placement: .bottomBar) {
                 editTool(photo)
             }.axisBehavior(.verticalPreferred).visibilityPriority(.high)
+            ToolbarItem(id: "photo-detail.native-delete", placement: .bottomBar) {
+                deleteTool(photo)
+            }.axisBehavior(.verticalPreferred)
         } else {
             ToolbarItem(placement: .topBarTrailing) { more(photo) }
             ToolbarItemGroup(placement: .bottomBar) {
@@ -457,6 +458,7 @@ struct MobilePhotoDetail: View {
                 Spacer()
                 infoTool(photo)
                 editTool(photo)
+                deleteTool(photo)
             }
         }
     }
@@ -469,22 +471,32 @@ struct MobilePhotoDetail: View {
 
     private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
         ToolbarItem(id: "photo-detail.native-date", placement: .topBarLeading) {
-            VStack(alignment: .leading, spacing: 1) {
-                if let date = photo.libraryDate {
-                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                        .font(.subheadline.weight(.semibold)).lineLimit(1)
-                        .fixedSize(horizontal: fitMode.window.width >= 620, vertical: false)
-
-                    Text(date.formatted(date: .omitted, time: .shortened))
-                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                } else {
-                    Text(photo.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                }
-            }
-            .frame(maxWidth: fitMode.window.width >= 620 ? 148 : 108, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("photo-detail.date")
+            dateLabel(photo)
+                .frame(maxWidth: detailWindowSize.width >= 620 ? 148 : 108, alignment: .leading)
         }
+    }
+
+    private func dateLabel(_ photo: MobilePhoto) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            if let date = photo.libraryDate {
+                ViewThatFits(in: .horizontal) {
+                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .fixedSize(horizontal: true, vertical: false)
+                    Text(date.formatted(date: .numeric, time: .omitted))
+                        .lineLimit(1).minimumScaleFactor(0.75)
+                }
+                .font(.subheadline.weight(.semibold))
+
+                Text(date.formatted(date: .omitted, time: .shortened))
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+            } else {
+                Text(photo.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(photo.libraryDate?.formatted(date: .long, time: .shortened) ?? photo.name)
+        .accessibilityIdentifier("photo-detail.date")
     }
 
     private var backItem: ToolbarItem<String, some View> {
@@ -683,7 +695,7 @@ struct MobilePhotoDetail: View {
                     GalleryTileAudit.record("fit \(demand.fitEdge) demand \(String(describing: demand.viewport))")
 #endif
                 }
-            }, fitFrame: fittedFrame, neighbors: neighbors,
+            }, prefersCoverFill: isDuoCover, neighbors: neighbors,
                              gridBackdrop: gridBackdrop, gridTarget: gridTarget, entryTarget: entryTarget, backCommand: backCommand,
                              onEntryStarted: { entryCurtain = false }, onPage: page, onPull: { active in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { pulling = active }
@@ -701,23 +713,25 @@ struct MobilePhotoDetail: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .overlay(alignment: .top) {
-            if originalHoldID == photo.id {
-                previewBadge(originalLabel(photo), id: "photo-detail.original-hold",
-                             loading: originalFitWork != nil || originalDetailWork != nil)
-            } else if canvasDemand?.nativeZoom == true, showsControls {
-                let result = visibleTile(galleryTile, photo: photo, viewport: canvasDemand?.viewport)
-                let output = document.galleryNativeOutput(photo, original: false)
-                let nativeEdge = max(output.width, output.height)
-                let baseIsNative = nativeEdge > 0 && !MobileFilmGate.presents(photo.recipe) && developedPreview
-                    && preview.map { Double(max($0.width, $0.height)) >= Double(nativeEdge) * 0.999 } == true
-                let fullResolution = result?.nativeSize != nil || baseIsNative
-                let loading = !fullResolution && result == nil && !filmUnavailable && tileRequest != nil
-                let label = fullResolution ? T("Full resolution", "原始分辨率", "原始解析度")
-                    : result != nil ? T("High-resolution preview", "高清预览", "高解析度預覽")
-                    : T("Fit preview", "适屏预览", "適屏預覽")
-                previewBadge(label, id: "photo-detail.native-status", loading: loading)
-            }
+    }
+
+    @ViewBuilder
+    private func previewStatus(_ photo: MobilePhoto) -> some View {
+        if originalHoldID == photo.id {
+            previewBadge(originalLabel(photo), id: "photo-detail.original-hold",
+                         loading: originalFitWork != nil || originalDetailWork != nil)
+        } else if canvasDemand?.nativeZoom == true, showsControls {
+            let result = visibleTile(galleryTile, photo: photo, viewport: canvasDemand?.viewport)
+            let output = document.galleryNativeOutput(photo, original: false)
+            let nativeEdge = max(output.width, output.height)
+            let baseIsNative = nativeEdge > 0 && !MobileFilmGate.presents(photo.recipe) && developedPreview
+                && preview.map { Double(max($0.width, $0.height)) >= Double(nativeEdge) * 0.999 } == true
+            let fullResolution = result?.nativeSize != nil || baseIsNative
+            let loading = !fullResolution && result == nil && !filmUnavailable && tileRequest != nil
+            let label = fullResolution ? T("Full resolution", "原始分辨率", "原始解析度")
+                : result != nil ? T("High-resolution preview", "高清预览", "高解析度預覽")
+                : T("Fit preview", "适屏预览", "適屏預覽")
+            previewBadge(label, id: "photo-detail.native-status", loading: loading)
         }
     }
 
@@ -737,7 +751,6 @@ struct MobilePhotoDetail: View {
         .padding(.horizontal, 10).padding(.vertical, 5)
         .foregroundStyle(reduceTransparency ? Color.white : Color.primary)
         .modifier(ChromeSurface())
-        .padding(.top, 6)
         .allowsHitTesting(false)
     }
 
@@ -812,7 +825,25 @@ struct MobilePhotoDetail: View {
         }
         .frame(height: 56)
         .frame(maxWidth: 560)
+        .mask {
+            if reduceTransparency {
+                Rectangle()
+            } else {
+                HStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 12)
+                    Rectangle()
+                    LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 12)
+                }
+            }
+        }
         .padding(.horizontal, EditorDesign.gutter)
+    }
+
+    private func deleteTool(_ photo: MobilePhoto) -> some View {
+        Button(role: .destructive) { onDelete(photo) } label: {
+            Label(T("Remove from Library", "从图库删除", "從圖庫刪除"), systemImage: "trash")
+        }
+        .accessibilityIdentifier("photo-detail.delete")
     }
 
     private func exportTool(_ photo: MobilePhoto) -> some View {
@@ -1079,7 +1110,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
     let comparisonImage: CGImage?
     let onCompare: (Bool) -> Void
     let onDemand: (GalleryCanvasDemand) -> Void
-    let fitFrame: CGRect?
+    let prefersCoverFill: Bool
     let neighbors: [Int: DetailPageNeighbor]
     let gridBackdrop: UIImage?
     let gridTarget: CGRect?
@@ -1105,7 +1136,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         view.entryTarget = entryTarget; view.onEntryStarted = onEntryStarted
         view.onDemand = onDemand
         view.onCompare = onCompare
-        view.update(photoID: photoID, name: name, image: image, developed: developed, fitFrame: fitFrame)
+        view.update(photoID: photoID, name: name, image: image, developed: developed, prefersCoverFill: prefersCoverFill)
         view.updateTile(tile)
         view.updateComparison(comparisonImage, detail: comparisonTile)
         view.requestNativeZoom(nativeZoomCommand, output: nativeOutput)
@@ -1129,8 +1160,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private var source: CGImage?
         private var photoID: UUID?
         private var lastViewport = CGSize.zero
-        private var fitFrame: CGRect?
-        private var fitCenter = CGPoint.zero
+        private var prefersCoverFill = false
         private var needsFit = false
 
         private var settingGeometry = false
@@ -1230,8 +1260,8 @@ private struct DetailZoomCanvas: UIViewRepresentable {
 
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-        func update(photoID: UUID, name: String, image: CGImage?, developed: Bool, fitFrame: CGRect?) {
-            if self.fitFrame != fitFrame { self.fitFrame = fitFrame; needsFit = true }
+        func update(photoID: UUID, name: String, image: CGImage?, developed: Bool, prefersCoverFill: Bool) {
+            if self.prefersCoverFill != prefersCoverFill { self.prefersCoverFill = prefersCoverFill; needsFit = true }
             accessibilityLabel = name
             if self.photoID != photoID {
                 self.photoID = photoID
@@ -1302,10 +1332,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 settingGeometry = true
                 setZoomScale(1, animated: false)
                 let pixelSize = source.map { CGSize(width: $0.width, height: $0.height) } ?? bounds.size
-                let available = fitRectForCurrentWindow()
-                fitCenter = CGPoint(x: available.midX, y: available.midY)
-                let fit = min(available.width / pixelSize.width, available.height / pixelSize.height)
-                let fitted = CGSize(width: pixelSize.width * fit, height: pixelSize.height * fit)
+                let fitted = defaultSize(for: pixelSize)
                 photoView.frame = CGRect(origin: .zero, size: fitted)
                 contentSize = fitted
                 setZoomScale(scale, animated: false)
@@ -1313,7 +1340,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 let offset = CGPoint(x: normalized.x * fitted.width * scale - bounds.width / 2,
                                      y: normalized.y * fitted.height * scale - bounds.height / 2)
                 if scale <= minimumZoomScale + 0.015 {
-                    contentOffset = CGPoint(x: -contentInset.left, y: -contentInset.top)
+                    contentOffset = defaultOffset
                 } else {
                     contentOffset = CGPoint(
                         x: min(max(offset.x, -contentInset.left), max(-contentInset.left, contentSize.width - bounds.width + contentInset.right)),
@@ -1503,7 +1530,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
 
         private func centerFittedPhoto() {
             guard isFitted, !isZooming, !isZoomAnimating, !settingGeometry, !correctingFitOffset else { return }
-            let target = CGPoint(x: -contentInset.left, y: -contentInset.top)
+            let target = defaultOffset
             if abs(contentOffset.x - target.x) > 0.5 || abs(contentOffset.y - target.y) > 0.5 {
                 correctingFitOffset = true
                 contentOffset = target
@@ -1571,36 +1598,29 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         }
 #endif
 
-        private func fitRectForCurrentWindow() -> CGRect {
-            let viewport = CGRect(origin: .zero, size: bounds.size)
-            guard let window else { return viewport }
-            let insets = window.safeAreaInsets
-            // Chrome overlays the image. Use a symmetric vertical fit based
-            // on hardware insets only, never the visible filmstrip or toolbar.
-            let insetY = max(insets.top, insets.bottom, 6)
-            let fitHeight = max(1, viewport.height - 2 * insetY)
-            if let fitFrame {
-                let origin = convert(bounds, to: window).origin
-                let local = fitFrame.offsetBy(dx: -origin.x, dy: -origin.y)
-                // A rotation can arrive while the toolbar is hidden. Do not
-                // apply an old landscape fit rect to a portrait window.
-                if viewport.insetBy(dx: -1, dy: -1).contains(local),
-                   local.width > viewport.width * 0.60,
-                   (viewport.width * 0.33...viewport.width * 0.67).contains(local.midX) {
-                    return CGRect(x: local.minX, y: insetY, width: local.width, height: fitHeight)
-                }
-            }
-            return CGRect(x: insets.left + 8, y: insetY,
-                          width: max(1, viewport.width - insets.left - insets.right - 16), height: fitHeight)
+        private func defaultSize(for image: CGSize) -> CGSize {
+            guard image.width > 0, image.height > 0 else { return .zero }
+            let widthScale = bounds.width / image.width
+            let heightScale = bounds.height / image.height
+            let fit = min(widthScale, heightScale)
+            // Only the folded cover goes a little beyond fit: stop once the
+            // window is covered, and never turn a wide photo into a tight crop.
+            let scale = prefersCoverFill ? min(max(widthScale, heightScale), fit * 1.06) : fit
+            return CGSize(width: image.width * scale, height: image.height * scale)
+        }
+
+        private var defaultOffset: CGPoint {
+            // On the cover an oversized axis is cropped symmetrically, not
+            // pinned to the top/left. Manual zoom/pan owns all other offsets.
+            CGPoint(x: max(0, photoView.frame.width - bounds.width) / 2 - contentInset.left,
+                    y: max(0, photoView.frame.height - bounds.height) / 2 - contentInset.top)
         }
 
         private func updateCentering() {
             let rendered = photoView.frame.size
-            let x = max(0, bounds.width - rendered.width)
-            let y = max(0, bounds.height - rendered.height)
-            let leading = min(x, max(0, fitCenter.x - rendered.width / 2))
-            let top = min(y, max(0, fitCenter.y - rendered.height / 2))
-            let inset = UIEdgeInsets(top: top, left: leading, bottom: y - top, right: x - leading)
+            let x = max(0, bounds.width - rendered.width) / 2
+            let y = max(0, bounds.height - rendered.height) / 2
+            let inset = UIEdgeInsets(top: y, left: x, bottom: y, right: x)
             if contentInset != inset { contentInset = inset }
         }
 
@@ -1667,7 +1687,6 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private func scheduleEntryIfReady() {
             guard !entered, !scheduledEntry, source != nil, !needsFit,
                   let window, !photoView.bounds.isEmpty else { return }
-            if !reduceMotion, entryTarget != nil, gridBackdrop != nil, fitFrame == nil { return }
             scheduledEntry = true
             DispatchQueue.main.async { [weak self, weak window] in
                 guard let self, let window, self.window === window, !self.entered else { return }
@@ -1752,9 +1771,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             let center = CGPoint(x: transitionStart.midX + CGFloat(step) * (transitionViewport.width + 12),
                                  y: transitionStart.midY)
             let size = neighbors[step]?.image.map { CGSize(width: $0.width, height: $0.height) } ?? transitionStart.size
-            let fit = fitRectForCurrentWindow().size
-            let scale = min(fit.width / max(1, size.width), fit.height / max(1, size.height))
-            let fitted = CGSize(width: size.width * scale, height: size.height * scale)
+            let fitted = defaultSize(for: size)
             return CGRect(x: center.x - fitted.width / 2, y: center.y - fitted.height / 2,
                           width: fitted.width, height: fitted.height)
         }

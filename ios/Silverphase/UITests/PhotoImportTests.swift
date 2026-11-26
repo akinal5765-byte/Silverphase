@@ -219,6 +219,16 @@ final class PhotoImportTests: XCTestCase {
                 XCTAssertEqual(CGFloat(bounds[2]), windowSize.width, accuracy: 2)
                 XCTAssertEqual(CGFloat(bounds[3]), windowSize.height, accuracy: 2)
             }
+            #if targetEnvironment(simulator)
+            if zoom == 100 {
+                let image = before.split(separator: "|").dropFirst().first?.split(separator: ",").compactMap { Int($0) } ?? []
+                guard image.count == 4, bounds.count == 4 else { return XCTFail("Missing fit geometry") }
+                XCTAssertLessThanOrEqual(image[2], bounds[2] + 1)
+                XCTAssertLessThanOrEqual(image[3], bounds[3] + 1)
+                XCTAssertTrue(abs(image[2] - bounds[2]) <= 1 || abs(image[3] - bounds[3]) <= 1,
+                              "Fit should reach a window edge without cropping the photograph")
+            }
+            #endif
             canvas.tap()
             XCTAssertTrue(edit.waitForNonExistence(timeout: 5))
             XCTAssertEqual(canvas.value as? String, before)
@@ -226,6 +236,29 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(edit.waitForExistence(timeout: 5))
             XCTAssertEqual(canvas.value as? String, before)
         }
+    }
+
+    @MainActor func testPhotoDetailTrashUsesLibraryConfirmation() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let cell = app.buttons["library.photo.来源"]
+        XCTAssertTrue(cell.waitForExistence(timeout: 18))
+        cell.tap()
+        let trash = app.buttons["photo-detail.delete"]
+        XCTAssertTrue(trash.waitForExistence(timeout: 5))
+        trash.tap()
+        let alert = app.alerts["Remove from Library?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.buttons["Cancel"].tap()
+        XCTAssertTrue(app.images["photo-detail.image"].exists)
+        trash.tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.buttons["Delete"].tap()
+        XCTAssertTrue(cell.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["library.photo.目标 A"].waitForExistence(timeout: 5))
     }
 
     @MainActor func testPhotoDetailHoldOriginalRestoresZoom() {

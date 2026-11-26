@@ -19,8 +19,9 @@ struct DetailFilmstrip: UIViewRepresentable {
     let onScrubbing: (Bool) -> Void
     let onSelect: (UUID, CGImage?) -> Void
 
-    private static let side: CGFloat = 44
-    private static let spacing: CGFloat = 4
+    private static let itemWidth: CGFloat = 36
+    private static let itemHeight: CGFloat = 54
+    private static let spacing: CGFloat = 2
     private static let cellIdentifier = "gallery-filmstrip"
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -28,7 +29,7 @@ struct DetailFilmstrip: UIViewRepresentable {
     func makeUIView(context: Context) -> UICollectionView {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
-        layout.itemSize = CGSize(width: Self.side, height: Self.side)
+        layout.itemSize = CGSize(width: Self.itemWidth, height: Self.itemHeight)
         layout.minimumLineSpacing = Self.spacing
         layout.minimumInteritemSpacing = 0
 
@@ -118,7 +119,7 @@ struct DetailFilmstrip: UIViewRepresentable {
             let old = layoutUpdate
             layoutUpdate = true
             defer { layoutUpdate = old }
-            let padding = max(0, (view.bounds.width - DetailFilmstrip.side) / 2)
+            let padding = max(0, (view.bounds.width - DetailFilmstrip.itemWidth) / 2)
             let insets = UIEdgeInsets(top: 0, left: padding, bottom: 0, right: padding)
             if view.contentInset != insets { view.contentInset = insets }
             view.layoutIfNeeded()
@@ -130,7 +131,7 @@ struct DetailFilmstrip: UIViewRepresentable {
 
         private func indexNearest(to center: CGFloat) -> Int? {
             guard let view, !items.isEmpty else { return nil }
-            let radius = DetailFilmstrip.side * 2
+            let radius = DetailFilmstrip.itemWidth * 2
             let region = CGRect(x: center - radius, y: 0, width: radius * 2, height: view.bounds.height)
             return view.collectionViewLayout.layoutAttributesForElements(in: region)?
                 .filter { $0.representedElementCategory == .cell }
@@ -255,8 +256,8 @@ struct DetailFilmstrip: UIViewRepresentable {
             guard let view, items.indices.contains(index.item) else { return }
             let center = view.contentOffset.x + view.bounds.width / 2
             let itemCenter = cell.center.x
-            let distance = min(1, abs(itemCenter - center) / (DetailFilmstrip.side * 2.15))
-            cell.apply(distance: reduceMotion ? 0 : sqrt(distance), selected: items[index.item].id == selected)
+            let distance = min(1, abs(itemCenter - center) / DetailFilmstrip.itemWidth)
+            cell.apply(emphasis: reduceMotion ? 0 : (1 - distance), selected: items[index.item].id == selected)
         }
     }
 
@@ -274,6 +275,7 @@ struct DetailFilmstrip: UIViewRepresentable {
 
     private final class ThumbnailCell: UICollectionViewCell {
         private let artwork = UIView()
+        private let selectionMark = UIView()
         private let imageView = UIImageView()
         private var item: Item?
         private var load: Task<Void, Never>?
@@ -283,12 +285,17 @@ struct DetailFilmstrip: UIViewRepresentable {
         override init(frame: CGRect) {
             super.init(frame: frame)
             artwork.backgroundColor = .tertiarySystemFill
-            artwork.layer.cornerRadius = 7
+            artwork.layer.cornerRadius = 5
             artwork.layer.cornerCurve = .continuous
             artwork.clipsToBounds = true
             imageView.contentMode = .scaleAspectFill
             artwork.addSubview(imageView)
             contentView.addSubview(artwork)
+            selectionMark.backgroundColor = .systemOrange
+            selectionMark.layer.cornerRadius = 1
+            selectionMark.isUserInteractionEnabled = false
+            selectionMark.isHidden = true
+            contentView.addSubview(selectionMark)
             isAccessibilityElement = true
             accessibilityTraits = .button
         }
@@ -297,9 +304,11 @@ struct DetailFilmstrip: UIViewRepresentable {
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            artwork.bounds = CGRect(origin: .zero, size: contentView.bounds.size)
-            artwork.center = CGPoint(x: contentView.bounds.midX, y: contentView.bounds.midY)
+            artwork.bounds = CGRect(origin: .zero, size: CGSize(width: contentView.bounds.width, height: contentView.bounds.height - 8))
+            artwork.center = CGPoint(x: contentView.bounds.midX, y: artwork.bounds.height / 2 + 1)
             imageView.frame = artwork.bounds
+            selectionMark.frame = CGRect(x: contentView.bounds.midX - 6, y: contentView.bounds.maxY - 3,
+                                         width: 12, height: 2)
         }
 
         override func prepareForReuse() {
@@ -326,14 +335,12 @@ struct DetailFilmstrip: UIViewRepresentable {
             }
         }
 
-        func apply(distance: CGFloat, selected: Bool) {
-            let scale = 1 - 0.10 * distance
+        func apply(emphasis: CGFloat, selected: Bool) {
+            let scale = selected ? 1 : 0.94 + 0.02 * emphasis
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             artwork.transform = CGAffineTransform(scaleX: scale, y: scale)
-            artwork.alpha = 1 - 0.27 * distance
-            artwork.layer.borderColor = UIColor.systemOrange.cgColor
-            artwork.layer.borderWidth = selected ? (2 - 0.5 * distance) : 0
+            selectionMark.isHidden = !selected
             CATransaction.commit()
             let traits: UIAccessibilityTraits = selected ? [.button, .selected] : .button
             if traits != accessibilityTraits { accessibilityTraits = traits }
