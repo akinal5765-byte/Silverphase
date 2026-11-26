@@ -149,17 +149,64 @@ struct MobileWaistFilmTrack {
         var pitch: CGFloat { max(1, min(width * 0.90, size.width * 0.282)) }
         var laneHeight: CGFloat { height + 12 }
 
+        private var focalLength: CGFloat { max(1, width * 3.2, size.width * 1.08) }
+        private var coverGap: CGFloat { min(6, width * 0.05) }
+
+        private func naturalCenter(at distance: CGFloat) -> CGFloat {
+            distance * pitch + MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
+        }
+
+        private func pose(at distance: CGFloat, center: CGFloat, reduceMotion: Bool) -> CoverPose {
+            MobileWaistFilmTrack.pose(at: distance, screenX: center, focalLength: focalLength,
+                                     reduceMotion: reduceMotion)
+        }
+
+        private func edge(at distance: CGFloat, center: CGFloat, side: CGFloat) -> CGFloat {
+            let point = CGPoint(x: side * width / 2, y: 0)
+            let tilted = pose(at: distance, center: center, reduceMotion: false)
+            // Reserve whichever edge extends further, even with Reduce Motion.
+            return center + side * max(abs(tilted.project(point).x), abs(point.x) * tilted.verticalScale)
+        }
+
         func centerX(of slot: Int, at coordinate: CGFloat) -> CGFloat {
-            let distance = CGFloat(slot) - coordinate
-            return size.width / 2 + distance * pitch
-                + MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
+            let leftSlot = Int(floor(coordinate))
+            let phase = coordinate - CGFloat(leftSlot)
+            let leftDistance = -phase, rightDistance = 1 - phase
+            let naturalLeft = naturalCenter(at: leftDistance), naturalRight = naturalCenter(at: rightDistance)
+            var left = naturalLeft, right = naturalRight
+            // Keep a gutter between projected edges throughout the drag.
+            // The nearer cover moves less; on a detent it stays on the axis.
+            for _ in 0..<6 {
+                let gap = edge(at: rightDistance, center: right, side: -1)
+                    - edge(at: leftDistance, center: left, side: 1)
+                guard gap < coverGap - 0.001 else { break }
+                let correction = coverGap - gap
+                left -= correction * phase
+                right += correction * (1 - phase)
+            }
+            let side: CGFloat = slot <= leftSlot ? -1 : 1
+            var current = side < 0 ? leftSlot : leftSlot + 1
+            var center = side < 0 ? left : right
+            // Keep the original placement of the outer covers unless their
+            // visible edges would touch. This preserves the outer peek.
+            while current != slot {
+                let precedingEdge = edge(at: CGFloat(current) - coordinate, center: center, side: side)
+                current += side < 0 ? -1 : 1
+                let distance = CGFloat(current) - coordinate
+                center = naturalCenter(at: distance)
+                for _ in 0..<6 {
+                    let facingEdge = edge(at: distance, center: center, side: -side)
+                    let correction = coverGap - side * (facingEdge - precedingEdge)
+                    guard correction > 0.001 else { break }
+                    center += side * correction
+                }
+            }
+            return size.width / 2 + center
         }
 
         func coverPose(of slot: Int, at coordinate: CGFloat, reduceMotion: Bool) -> CoverPose {
             let center = centerX(of: slot, at: coordinate) - size.width / 2
-            return MobileWaistFilmTrack.pose(at: CGFloat(slot) - coordinate, screenX: center,
-                                            focalLength: max(1, width * 3.2, size.width * 1.08),
-                                            reduceMotion: reduceMotion)
+            return pose(at: CGFloat(slot) - coordinate, center: center, reduceMotion: reduceMotion)
         }
 
         func slots(around center: Int) -> ClosedRange<Int> {
