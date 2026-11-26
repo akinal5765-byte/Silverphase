@@ -182,14 +182,10 @@ struct MobilePhoto: Codable, Identifiable {
     }
 
     private func previewMegapixels(_ photo: MobilePhoto, edge: Int) -> Double {
-        if let size = simulationWorkingSize(photo), let simulationEdge = MobileSimulationSize.edge(in: photo.recipe) {
-            let scale = min(1, Double(edge) / Double(simulationEdge), 3840 / max(size.width, size.height))
-            return MobileSimulationSize.megapixels(size) * scale * scale
-        }
         let native = nativeOutputSize
-        let long = max(1, max(native.width, native.height))
-        let sourceCap = MobilePreviewPolicy.megapixels(edge: 3840, aspect: photo.sourceAspect)
-        return max(0.01, min(sourceCap, min(photo.sourceMegapixels, photo.sourceMegapixels * pow(Double(edge) / long, 2))))
+        return MobilePreviewPolicy.fitInputMegapixels(edge: edge, sourceAspect: photo.sourceAspect,
+            sourceMP: photo.sourceMegapixels, outputLongEdge: max(native.width, native.height),
+            simulationSize: simulationWorkingSize(photo), simulationEdge: MobileSimulationSize.edge(in: photo.recipe))
     }
     private var viewport: MobileViewport?
     private var detailTask: Task<Void, Never>?
@@ -276,6 +272,15 @@ struct MobilePhoto: Codable, Identifiable {
     func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
         MobileLibraryPreview.url(photo: photo, cropRemapsEffects: preferences.values.cropRemapsEffects, diBlueCompensation: preferences.values.diBlueCompensation)
     }
+    func libraryRenderRequestKey(_ photo: MobilePhoto) -> URL {
+        var input = photo
+        // Camera matching writes result metadata during the same fit job.
+        // That is not a new user edit. Cache files still use the full recipe.
+        for field in [MobileCameraPrep.baseline, MobileCameraPrep.limited, MobileCameraPrep.failure] {
+            input.recipe[field] = nil
+        }
+        return libraryPreviewURL(input)
+    }
     private func cameraRenderRecipe(_ photo: MobilePhoto) -> [String: WireValue] {
         var recipe = photo.recipe
         recipe["_diBlue"] = .bool(preferences.values.diBlueCompensation)
@@ -290,6 +295,172 @@ struct MobilePhoto: Codable, Identifiable {
         if preview.animation != nil { photosOfferedDevelopment.insert(photo.id) }
         return preview
     }
+
+    /// Render the current edit independently of the editor's Metal session.
+    /// The library's 384px thumbnail remains a fast first frame, never the
+    /// final rendition. Use a fit-tier size, bounded for older iPhones.
+    func renderLibraryDetail(_ photo: MobilePhoto, fitEdge: Int, using renderer: MobileEngine) async throws -> (image: CGImage, cacheKey: URL) {
+        let trace = GalleryRenderTrace("fit")
+        trace.mark("brightness calibration start; baseline=\(photo.recipe[MobileCameraPrep.baseline] != nil)")
+        let resolvedPhoto = try await resolveCameraBrightness(photo, using: renderer)
+        trace.mark("brightness calibration end; recipe updated=\(resolvedPhoto.recipe != photo.recipe)")
+        let edge = preferences.values.lowerPreviewInLowPower && ProcessInfo.processInfo.isLowPowerModeEnabled
+            ? min(1600, fitEdge) : fitEdge
+        let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
+        let sourceMP = photo.sourceMegapixels > 0 ? photo.sourceMegapixels : MobilePreviewPolicy.megapixels(edge: edge, aspect: aspect)
+        let height = sqrt(sourceMP * 1_000_000 / aspect)
+        let output = resolvedPhoto.geometry.outputSize(for: CGSize(width: height * aspect, height: height))
+        let simulation = try? MobileSimulationSize.workingSize(in: resolvedPhoto.recipe, geometry: resolvedPhoto.geometry, aspect: aspect)
+        let requested = MobilePreviewPolicy.fitInputMegapixels(edge: edge, sourceAspect: aspect,
+            sourceMP: sourceMP, outputLongEdge: max(output.width, output.height), simulationSize: simulation,
+            simulationEdge: MobileSimulationSize.edge(in: resolvedPhoto.recipe))
+        // Gallery may have adjacent previews and a zoom tile in flight.
+        let target = min(3.3, requested)
+        try Task.checkCancellation()
+        let image = try await renderer.renderGalleryFrame(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
+                                                          geometry: resolvedPhoto.geometry, megapixels: target, trace: trace)
+        try Task.checkCancellation()
+        // Do not rewrite a matching cache just by looking at it again.
+        let key = libraryPreviewURL(resolvedPhoto)
+        if !FileManager.default.fileExists(atPath: key.path) {
+            cacheLibraryPreview(image, photo: resolvedPhoto)
+        }
+        return (image, key)
+    }
+
+    func renderLibraryDraft(_ photo: MobilePhoto, using renderer: MobileEngine) async throws -> CGImage {
+        let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
+        let estimated = MobilePreviewPolicy.megapixels(edge: 800, aspect: aspect)
+        return try await renderer.renderGalleryFrame(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                                    geometry: photo.geometry, megapixels: estimated, draft: true,
+                                                    trace: GalleryRenderTrace("draft"))
+    }
+
+    func galleryNativeOutput(_ photo: MobilePhoto, original: Bool) -> CGSize {
+        let aspect = photo.sourceAspect
+        guard aspect.isFinite, aspect > 0, photo.sourceMegapixels.isFinite, photo.sourceMegapixels > 0 else { return .zero }
+        let height = sqrt(photo.sourceMegapixels * 1_000_000 / aspect)
+        let source = CGSize(width: height * aspect, height: height)
+        if !original, let simulation = simulationWorkingSize(photo) {
+            return photo.geometry.outputSize(for: simulation)
+        }
+        return photo.geometry.outputSize(for: source)
+    }
+
+    func renderLibraryOriginalTile(_ photo: MobilePhoto, viewport: MobileViewport,
+                                   using renderer: MobileEngine) async throws -> MobileDetailTile {
+        try await renderer.originalDetail(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                           geometry: photo.geometry, viewport: viewport.rect,
+                                           pixelLongEdge: viewport.pixelLongEdge, gallery: true)
+    }
+
+    func renderLibraryTile(_ photo: MobilePhoto, viewport: MobileViewport,
+                           using renderer: MobileDetailRenderer) async throws -> MobileDetailTile {
+        try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                geometry: photo.geometry, viewport: viewport.rect, pixelLongEdge: viewport.pixelLongEdge,
+                                galleryFitEdge: viewport.previewLongEdge, trace: GalleryRenderTrace("detail"))
+    }
+
+#if DEBUG
+    private func galleryBenchmarkJPEGCandidate() -> MobilePhoto? {
+        photos.first {
+            abs($0.sourceMegapixels - 43.228848) < 0.008 &&
+                ($0.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .jpeg) == true
+                 || UTType(filenameExtension: url(for: $0).pathExtension)?.conforms(to: .jpeg) == true)
+        }
+    }
+
+    func runGalleryNativeComparison() async {
+        guard Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
+        let output = URL.documentsDirectory.appendingPathComponent("gallery-native-comparison.json")
+        func save(_ content: [String: Any]) {
+            if let data = try? JSONSerialization.data(withJSONObject: content, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: output, options: .atomic)
+            }
+        }
+        guard let photo = galleryBenchmarkJPEGCandidate() else {
+            save(["status": "matching test dimensions not found"]); return
+        }
+        save(["status": "running"])
+        var results: [[String: Any]] = []
+        for original in [true, false] {
+            let dimensions = galleryNativeOutput(photo, original: original)
+            let edge = Double(max(dimensions.width, dimensions.height))
+            let viewport = MobileViewport(rect: CGRect(x: 0.27, y: 0.25, width: 0.43, height: 0.30),
+                                          zoom: 4, pixelLongEdge: edge, previewLongEdge: 1920)
+            let start = ProcessInfo.processInfo.systemUptime
+            let mode = original ? "original" : "film"
+            do {
+                let tile: MobileDetailTile
+                if original {
+                    tile = try await renderLibraryOriginalTile(photo, viewport: viewport, using: MobileEngine())
+                } else {
+                    let renderer = MobileDetailRenderer()
+                    tile = try await renderLibraryTile(photo, viewport: viewport, using: renderer)
+                    await renderer.clear()
+                }
+                let actual = max(Double(tile.image.width) / tile.rect.width, Double(tile.image.height) / tile.rect.height)
+                results.append(["mode": mode, "native": tile.nativeSize != nil, "expectedEdge": Int(edge.rounded()),
+                                "equivalentEdge": Int(actual.rounded()), "ms": Int((ProcessInfo.processInfo.systemUptime - start) * 1000)])
+            } catch {
+                results.append(["mode": mode, "native": false, "error": String(describing: type(of: error))])
+            }
+            save(["status": "running", "sourceMP": photo.sourceMegapixels, "samples": results])
+        }
+        save(["status": "complete", "sourceMP": photo.sourceMegapixels, "samples": results])
+    }
+
+    /// QA-only device benchmark. Reuse the already on-device asset by its
+    /// measured dimensions without copying pixels or recording its identity.
+    func runGalleryJPEGComparison() async {
+        let output = URL.documentsDirectory.appendingPathComponent("gallery-jpeg-comparison.json")
+        func save(_ report: [String: Any]) {
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: output, options: .atomic)
+            }
+        }
+        guard Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
+        guard let photo = galleryBenchmarkJPEGCandidate() else {
+            save(["status": "matching test dimensions not found"]); return
+        }
+        let url = url(for: photo)
+        let size = photo.geometry.outputSize(for: CGSize(width: photo.sourceAspect * 10000, height: 10000))
+        let originalLong = sqrt(photo.sourceMegapixels * 1_000_000 * max(photo.sourceAspect, 1 / photo.sourceAspect))
+        let outputLong = originalLong * max(size.width, size.height) / max(photo.sourceAspect * 10000, 10000)
+        let mp = min(3.3, MobilePreviewPolicy.fitInputMegapixels(edge: 1920, sourceAspect: photo.sourceAspect,
+                                    sourceMP: photo.sourceMegapixels, outputLongEdge: outputLong))
+        let recipe = cameraRenderRecipe(photo)
+        var rows: [[String: Any]] = []
+        for mode in ["previous-gallery", "imageio-gallery", "editor-reference", "imageio-gallery", "previous-gallery"] {
+            let engine = MobileEngine()
+            let trace = GalleryRenderTrace("benchmark " + mode)
+            let start = ProcessInfo.processInfo.systemUptime
+            do {
+                let image: CGImage
+                if mode == "editor-reference" {
+                    let result = try await engine.render(url: url, recipe: recipe, megapixels: mp,
+                                                         geometry: photo.geometry, galleryTrace: trace)
+                    let working = try MobileFilmGate.presents(recipe) ? result.image : photo.geometry.apply(to: result.image)
+                    let before = try MobileFilmGate.presents(recipe) ? result.original : photo.geometry.apply(to: result.original)
+                    image = try await engine.canvasImage(working)
+                    _ = try await engine.canvasImage(before)
+                } else {
+                    var settings = recipe
+                    if mode == "previous-gallery" { settings["_galleryLegacyJPEG"] = .bool(true) }
+                    image = try await engine.renderGalleryFrame(url: url, recipe: settings, geometry: photo.geometry,
+                                                                megapixels: mp, trace: trace)
+                }
+                let ms = Int((ProcessInfo.processInfo.systemUptime - start) * 1000)
+                rows.append(["mode": mode, "ms": ms, "width": image.width, "height": image.height])
+            } catch {
+                rows.append(["mode": mode, "error": String(describing: type(of: error))])
+            }
+            await engine.close()
+            save(["status": "running", "sourceMP": photo.sourceMegapixels, "samples": rows])
+        }
+        save(["status": "complete", "sourceMP": photo.sourceMegapixels, "samples": rows])
+    }
+#endif
 
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {
         let source = url(for: photo)
@@ -608,6 +779,21 @@ struct MobilePhoto: Codable, Identifiable {
         endParameterInteraction()
         let wasPositive = value("film_stock")?.stringValue.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
         edit { Self.applyFilm(film, to: &$0.recipe, wasPositive: wasPositive) }
+    }
+    func setLibraryFilm(_ film: Stock, for id: UUID) {
+        guard film.isFilm, !isInteractionLocked, !editorVisible,
+              let index = photos.firstIndex(where: { $0.id == id }) else { return }
+        let before = photos[index]
+        var after = before
+        let oldID = before.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
+        guard oldID != film.id else { return }
+        let wasPositive = oldID.flatMap { StockCatalog.shared.stock($0) }?.isPositive == true
+        Self.applyFilm(film, to: &after.recipe, wasPositive: wasPositive)
+        photos[index] = after
+        if !save() { photos[index] = before; return }
+        undoStack.append([id: MobileEditSnapshot(before)])
+        if undoStack.count > 100 { undoStack.removeFirst() }
+        redoStack = []
     }
     nonisolated static func applyCapturedRecipe(_ captured: MobileCameraRecipe, to recipe: inout [String: WireValue]) throws {
         if let id = captured.filmID {

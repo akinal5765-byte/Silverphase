@@ -39,6 +39,87 @@ import UniformTypeIdentifiers
         }
     }
 
+    private static func galleryRasterEdgesMatchInterior() -> Bool {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB) else { return false }
+        let size = CGSize(width: 501, height: 800)
+        let pixels = Data((0..<(501 * 800)).flatMap { _ -> [UInt8] in [80, 100, 140, 255] })
+        let portrait = CIImage(bitmapData: pixels, bytesPerRow: 501 * 4, size: size, format: .RGBA8, colorSpace: space)
+        let context = CIContext(options: [.cacheIntermediates: false])
+        for source in [portrait, portrait.oriented(.right)] {
+            for edge in [384.0, 799.0] {
+                let frame = MobileSimulationSize.resizeForPreview(source, scale: edge / 800)
+                guard let raster = context.createCGImage(frame, from: frame.extent, format: .RGBA8, colorSpace: space),
+                      let data = raster.dataProvider?.data, let bytes = CFDataGetBytePtr(data),
+                      raster.bitsPerPixel == 32, CFDataGetLength(data) >= raster.bytesPerRow * raster.height,
+                      max(raster.width, raster.height) == Int(edge) else { return false }
+                func matchesCentre(x: Int, y: Int) -> Bool {
+                    let offset = y * raster.bytesPerRow + x * 4
+                    let centre = raster.height / 2 * raster.bytesPerRow + raster.width / 2 * 4
+                    return (0..<4).allSatisfy { abs(Int(bytes[offset + $0]) - Int(bytes[centre + $0])) <= 1 }
+                }
+                guard matchesCentre(x: 0, y: raster.height / 2),
+                      matchesCentre(x: raster.width - 1, y: raster.height / 2),
+                      matchesCentre(x: raster.width / 2, y: 0),
+                      matchesCentre(x: raster.width / 2, y: raster.height - 1) else { return false }
+            }
+        }
+        return true
+    }
+
+    private static func photoPreviewAlphaEdgesAreRepaired() -> Bool {
+        let full = SIMD4<Float>(0.35, 0.55, 0.7, 1)
+        let darkEdge = SIMD4<Float>(0.03, 0.08, 0.12, 0.35)
+        let opaqueDetail = SIMD4<Float>(0.05, 0.15, 0.25, 1)
+        for (width, height) in [(5, 7), (7, 5)] {
+            var pixels = Array(repeating: full, count: width * height)
+            let right = 2 * width + width - 1, top = 2, inner = width + 2
+            pixels[right] = darkEdge
+            pixels[top] = darkEdge
+            pixels[inner] = SIMD4<Float>(0.4, 0.6, 0.8, 1.073) // possible Lanczos ringing
+            pixels[0] = opaqueDetail
+            pixels[inner + 1] = darkEdge // never touch interior samples
+            let repaired = pixels.withUnsafeMutableBytes {
+                MobileEngine.repairPhotoPreviewEdges($0.baseAddress!, width: width, height: height)
+            }
+            if repaired != 2 || pixels[right] != full || pixels[top] != full
+                || pixels[0] != opaqueDetail || pixels[inner + 1] != darkEdge { return false }
+        }
+        return true
+    }
+
+    private static func scaledRAWPreviewReplicatesOnlyTheGuardBand() -> Bool {
+        let space = CGColorSpace(name: CGColorSpace.linearSRGB)!
+        let context = CIContext(options: [.workingColorSpace: space, .cacheIntermediates: false])
+        for (w, h) in [(63, 97), (97, 63)] {
+            let original: [SIMD4<Float>] = (0..<(w * h)).map { i in
+                let x = i % w, y = i / w
+                if x < 2 || y < 2 || x >= w - 2 || y >= h - 2 {
+                    // Include dim and nonuniform fringes, not just bright opaque stripes.
+                    return SIMD4<Float>(Float((x+y) % 5), 0.09, 0.22, 1)
+                }
+                return SIMD4<Float>(Float(x) / Float(w), Float(y) / Float(h), 0.25, 1)
+            }
+            let data = original.withUnsafeBytes { Data($0) }
+            let size = CGSize(width: w, height: h)
+            let image = CIImage(bitmapData: data, bytesPerRow: w * 16, size: size, format: .RGBAf, colorSpace: space)
+            let output = MobileEngine.stabilizeScaledRAWPreview(image)
+            guard output.extent == image.extent else { return false }
+            var raster = Array(repeating: SIMD4<Float>.zero, count: w * h)
+            raster.withUnsafeMutableBytes {
+                context.render(output, toBitmap: $0.baseAddress!, rowBytes: w * 16,
+                               bounds: output.extent, format: .RGBAf, colorSpace: space)
+            }
+            for y in 0..<h {
+                for x in 0..<w {
+                    let nearest = min(max(y, 2), h - 3) * w + min(max(x, 2), w - 3)
+                    let delta = raster[y * w + x] - original[nearest]
+                    guard (0..<4).allSatisfy({ abs(delta[$0]) < 0.002 }) else { return false }
+                }
+            }
+        }
+        return true
+    }
+
     static func run() {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -48,6 +129,9 @@ import UniformTypeIdentifiers
             func require(_ value: Bool, _ label: String) throws {
                 guard value else { throw MobileFailure.message(label) }; checks.append(label)
             }
+            try require(galleryRasterEdgesMatchInterior(), "thumbnail and draft resampling preserve portrait and landscape edge pixels")
+            try require(photoPreviewAlphaEdgesAreRepaired(), "preview raster repairs only outer partial-alpha samples before film inversion")
+            try require(scaledRAWPreviewReplicatesOnlyTheGuardBand(), "scaled RAW preview preserves extent and interior without brightness thresholds")
             let doc = MobileDocument(directory: directory); doc.active = false; doc.editorVisible = false
             var portrait = MobilePhoto(name: "Portrait", filename: "portrait.jpg")
             portrait.sourceAspect = 2.0 / 3; portrait.sourceMegapixels = 12
@@ -60,6 +144,24 @@ import UniformTypeIdentifiers
             landscape.geometry.value.angle = -7; landscape.geometry.value.flipH = true
             let original = Data("original bytes".utf8)
             for photo in [portrait, landscape] { try original.write(to: doc.url(for: photo)) }
+            // Reproduce an upgrade with a cache entry from the old RAW raster.
+            let legacyPreview = MobileLibraryPreview.url(photo: portrait,
+                cropRemapsEffects: doc.preferences.values.cropRemapsEffects,
+                diBlueCompensation: doc.preferences.values.diBlueCompensation, rasterVersion: 2)
+            let currentPreview = doc.libraryPreviewURL(portrait)
+            defer { MobileLibraryPreview.remove(portrait.id) }
+            try FileManager.default.createDirectory(at: legacyPreview.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("old raster".utf8).write(to: legacyPreview)
+            try require(currentPreview != legacyPreview && !FileManager.default.fileExists(atPath: currentPreview.path),
+                        "legacy RAW raster cache cannot seed the detail or grid")
+            let fixture = CIImage(color: CIColor(red: 0.4, green: 0.5, blue: 0.6)).cropped(to: CGRect(x: 0, y: 0, width: 12, height: 16))
+            guard let raster = CIContext().createCGImage(fixture, from: fixture.extent) else {
+                throw MobileFailure.message("library thumbnail fixture unavailable")
+            }
+            try require(MobileLibraryPreview.write(raster, to: currentPreview, source: doc.url(for: portrait))
+                        && CGImageSourceCreateWithURL(currentPreview as CFURL, nil) != nil
+                        && !FileManager.default.fileExists(atPath: legacyPreview.path),
+                        "new RAW raster thumbnail replaces the old entry and is ready for a warm launch")
             doc.photos = [portrait, landscape]; doc.selection = landscape.id
             doc.mark(landscape.id, rating: 4, flag: "pick")
             doc.copySettings(portrait, groups: [.geometry]); doc.pasteSettings(to: [landscape.id])
@@ -148,9 +250,13 @@ import UniformTypeIdentifiers
         document.active = false; document.editorVisible = false
         guard document.photos.isEmpty else { return }
         let documentation = ProcessInfo.processInfo.arguments.contains("--documentation-captures")
-        let size = documentation ? CGSize(width: 384, height: 576) : CGSize(width: 96, height: 64)
+        let tileFixture = ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+            || ProcessInfo.processInfo.arguments.contains("--gallery-compare-audit")
+            || ProcessInfo.processInfo.arguments.contains("--gallery-native-audit")
+        let size = tileFixture ? CGSize(width: 2080, height: 3120)
+            : documentation ? CGSize(width: 384, height: 576) : CGSize(width: 96, height: 64)
         let input: CIImage
-        if documentation {
+        if documentation || tileFixture {
             input = CIFilter(name: "CILinearGradient", parameters: [
                 "inputPoint0": CIVector(x: 0, y: 0), "inputPoint1": CIVector(x: size.width, y: size.height),
                 "inputColor0": CIColor(red: 0.12, green: 0.22, blue: 0.30),
@@ -160,14 +266,17 @@ import UniformTypeIdentifiers
             input = CIImage(color: CIColor(red: 0.75, green: 0.3, blue: 0.1)).cropped(to: CGRect(origin: .zero, size: size))
         }
         guard let image = CIContext().createCGImage(input, from: input.extent) else { return }
+        let mixFormats = ProcessInfo.processInfo.arguments.contains("--library-format-fixture")
         document.photos = ["来源", "目标 A", "目标 B"].enumerated().map { index, name in
-            var photo = MobilePhoto(name: name, filename: "fixture-\(index).jpg")
+            let format: UTType = mixFormats ? [.jpeg, .png, .tiff][index] : .jpeg
+            let ext = format.preferredFilenameExtension ?? "jpg"
+            var photo = MobilePhoto(name: name, filename: "fixture-\(index).\(ext)")
             photo.sourceMegapixels = size.width * size.height / 1_000_000; photo.sourceAspect = size.width / size.height
             photo.recipe["exposure_compensation_ev"] = .double(documentation ? 0 : index == 0 ? 1 : -Double(index))
             if index == 1, ProcessInfo.processInfo.arguments.contains("--legacy-simulation-fixture") {
                 photo.recipe[MobileSimulationSize.key] = .double(600)
             }
-            if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, UTType.jpeg.identifier as CFString, 1, nil) {
+            if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, format.identifier as CFString, 1, nil) {
                 CGImageDestinationAddImage(writer, image, nil); CGImageDestinationFinalize(writer)
             }
             return photo
