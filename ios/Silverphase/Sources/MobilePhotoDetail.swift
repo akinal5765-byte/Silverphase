@@ -9,7 +9,10 @@ struct MobilePhotoDetail: View {
     let initialHingeClosed: Bool?
     let initialWindowSize: CGSize
     @Binding var photoID: UUID
+    let gridBackdrop: UIImage?
+    let gridTarget: CGRect?
     let onBack: () -> Void
+    let onPullDismiss: () -> Void
     let onEdit: (MobilePhoto) -> Void
     let onExport: (MobilePhoto) -> Void
     let onInfo: (MobilePhoto) -> Void
@@ -25,12 +28,17 @@ struct MobilePhotoDetail: View {
     @State private var hinge: HingeReading = .pending
     @State private var windowSize: CGSize = .zero
     @State private var chromeVisible = true
+    @State private var pulling = false
+    @State private var neighbors: [Int: DetailPageNeighbor] = [:]
+    @State private var filmstripItems: [DetailFilmstrip.Item] = []
     @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, image: CGImage)] = []
     private static let ratingsBand: CGFloat = 52
     private static let stripBand: CGFloat = 58
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+
+    private var showsControls: Bool { chromeVisible && !pulling }
 
     private enum HingeReading { case pending, measured(Bool?) }
     private enum Placement: Equatable { case top, bottom, systemSide }
@@ -61,21 +69,14 @@ struct MobilePhotoDetail: View {
     }
 
     private var photo: MobilePhoto? { document.photos.first { $0.id == photoID } }
-    private var strip: [MobilePhoto] {
-        let index = photoIDs.firstIndex(of: photoID) ?? 0
-        guard !photoIDs.isEmpty else { return [] }
-        let indexed = Dictionary(uniqueKeysWithValues: document.photos.map { ($0.id, $0) })
-        return photoIDs[max(0, index - 16)...min(photoIDs.count - 1, index + 16)].compactMap { indexed[$0] }
-    }
-
     var body: some View {
         NavigationStack {
             if let photo {
                 content(photo)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { navigationItems(photo) }
-                    .toolbar(chromeVisible ? .visible : .hidden, for: .navigationBar)
-                    .toolbar(chromeVisible && placement != .top ? .visible : .hidden, for: .bottomBar)
+                    .toolbar(showsControls ? .visible : .hidden, for: .navigationBar)
+                    .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailToolbarAxis(usesTop: placement == .top))
             } else {
@@ -98,7 +99,7 @@ struct MobilePhotoDetail: View {
             }
             let warm = await Self.loadPreview(cached, limit: 384)
             guard !Task.isCancelled else { return }
-            if let warm { preview = warm; previewID = photo.id }
+            if let warm, preview == nil { preview = warm; previewID = photo.id }
             else if preview == nil {
                 let original = await Self.loadPreview(document.url(for: photo), limit: 960)
                 guard !Task.isCancelled else { return }
@@ -120,6 +121,15 @@ struct MobilePhotoDetail: View {
                 if recentRenditions.count > 2 { recentRenditions.removeLast() }
                 preview = result; previewID = photo.id; developedPreview = true
             } catch { /* Keep the best already available rendition. */ }
+        }
+        .task(id: photoID) { await prepareNeighbors() }
+        .task(id: photoIDs) {
+            let byID = Dictionary(uniqueKeysWithValues: document.photos.map { ($0.id, $0) })
+            filmstripItems = photoIDs.compactMap { byID[$0].map(stripItem) }
+        }
+        .onChange(of: document.libraryPreviewVersions[photoID]) { _, _ in
+            guard let photo, let index = filmstripItems.firstIndex(where: { $0.id == photoID }) else { return }
+            filmstripItems[index] = stripItem(photo)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             recentRenditions.removeAll()
@@ -166,15 +176,15 @@ struct MobilePhotoDetail: View {
                     filmstrip
                         .frame(height: Self.stripBand)
                 }
-                .opacity(chromeVisible ? 1 : 0)
-                .allowsHitTesting(chromeVisible)
-                .accessibilityHidden(!chromeVisible)
+                .opacity(showsControls ? 1 : 0)
+                .allowsHitTesting(showsControls)
+                .accessibilityHidden(!showsControls)
             }
             .frame(width: safe.size.width, height: safe.size.height)
-            .task(id: chromeVisible ? sample : nil) {
+            .task(id: showsControls ? sample : nil) {
                 // Chrome visibility is not a layout version. Reopening it
                 // cannot overwrite the fit rectangle in the same posture.
-                guard chromeVisible, stableFit?.mode != sample.mode else { return }
+                guard showsControls, stableFit?.mode != sample.mode else { return }
                 if stableFit != nil {
                     do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
                 }
@@ -208,15 +218,10 @@ struct MobilePhotoDetail: View {
         } else {
             backItem
         }
-        ToolbarItem(placement: .principal) {
-            VStack(spacing: 1) {
-                Text(photo.libraryDate?.formatted(date: .abbreviated, time: .omitted) ?? photo.name)
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
-                if let date = photo.libraryDate {
-                    Text(date.formatted(date: .omitted, time: .shortened))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }.accessibilityElement(children: .combine)
+        if #available(iOS 27.1, *) {
+            dateItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.low)
+        } else {
+            dateItem(photo)
         }
         if placement == .top {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -248,6 +253,22 @@ struct MobilePhotoDetail: View {
                 infoTool(photo)
                 editTool(photo)
             }
+        }
+    }
+
+    private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-date", placement: .topBarLeading) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(photo.libraryDate?.formatted(date: .abbreviated, time: .omitted) ?? photo.name)
+                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                if let date = photo.libraryDate {
+                    Text(date.formatted(date: .omitted, time: .shortened))
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            .frame(maxWidth: placement == .bottom ? 158 : 186, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("photo-detail.date")
         }
     }
 
@@ -310,7 +331,11 @@ struct MobilePhotoDetail: View {
         ZStack {
             DetailZoomCanvas(photoID: photo.id, name: photo.name, image: previewID == photo.id ? preview : nil,
                              reduceMotion: reduceMotion, developed: developedPreview,
-                             fitFrame: fittedFrame, onPage: page, onTap: {
+                             fitFrame: fittedFrame, neighbors: neighbors,
+                             gridBackdrop: gridBackdrop, gridTarget: gridTarget,
+                             onPage: page, onPull: { active in
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { pulling = active }
+            }, onDismiss: onPullDismiss, onTap: {
                 guard !voiceOver else { return }
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { chromeVisible.toggle() }
             })
@@ -326,41 +351,57 @@ struct MobilePhotoDetail: View {
         .clipped()
     }
 
-    private func page(_ step: Int) {
-        guard let index = photoIDs.firstIndex(of: photoID) else { return }
+    private func neighbor(_ step: Int) -> MobilePhoto? {
+        guard let index = photoIDs.firstIndex(of: photoID) else { return nil }
         var next = index + step
         while photoIDs.indices.contains(next) {
-            let id = photoIDs[next]
-            if document.photos.contains(where: { $0.id == id }) {
-                photoID = id
-                return
-            }
+            if let p = document.photos.first(where: { $0.id == photoIDs[next] }) { return p }
             next += step
+        }
+        return nil
+    }
+
+    private func prepareNeighbors() async {
+        let current = photoID
+        let adjacent = [-1, 1].compactMap { step in
+            neighbor(step).map { (step, $0, document.libraryPreviewURL($0), document.url(for: $0)) }
+        }
+        neighbors = Dictionary(uniqueKeysWithValues: adjacent.map { step, photo, url, _ in
+            (step, DetailPageNeighbor(id: photo.id, image: recentRenditions.first(where: { $0.key == url })?.image))
+        })
+        for (step, photo, cached, original) in adjacent {
+            if neighbors[step]?.image != nil { continue }
+            var quick = await Self.loadPreview(cached, limit: 384)
+            if quick == nil, !Task.isCancelled { quick = await Self.loadPreview(original, limit: 960) }
+            guard !Task.isCancelled, photoID == current else { return }
+            neighbors[step] = DetailPageNeighbor(id: photo.id, image: quick)
         }
     }
 
+    private func page(_ step: Int) {
+        guard let target = neighbor(step) else { return }
+        let first = neighbors[step]
+        if first?.id == target.id { preview = first?.image; previewID = target.id }
+        photoID = target.id
+    }
+
+    private func stripItem(_ photo: MobilePhoto) -> DetailFilmstrip.Item {
+        DetailFilmstrip.Item(id: photo.id, name: photo.name, previewURL: document.libraryPreviewURL(photo),
+                            sourceURL: document.url(for: photo), version: document.libraryPreviewVersions[photo.id, default: 0])
+    }
+
     private var filmstrip: some View {
-        ScrollViewReader { reader in
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 5) {
-                    ForEach(strip) { item in
-                        Button { photoID = item.id } label: {
-                            let cached = document.libraryPreviewURL(item)
-                            FilmstripThumbnail(url: FileManager.default.fileExists(atPath: cached.path) ? cached : document.url(for: item),
-                                               fillsFrame: true, version: document.libraryPreviewVersions[item.id, default: 0])
-                                .frame(width: 40, height: 44)
-                                .clipShape(.rect(cornerRadius: 5))
-                                .overlay { if item.id == photoID { RoundedRectangle(cornerRadius: 5).strokeBorder(MobileStyle.accent, lineWidth: 2) } }
-                        }.buttonStyle(.plain).id(item.id).accessibilityLabel(item.name)
-                    }
-                }.padding(.horizontal, 12)
-            }.scrollIndicators(.hidden)
-                .onChange(of: photoID, initial: true) { _, id in
-                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.24)) { reader.scrollTo(id, anchor: .center) }
-                }
-        }.frame(height: 48)
-            .frame(maxWidth: min(560, CGFloat(strip.count) * 45 + 20))
-            .padding(.horizontal, EditorDesign.gutter)
+        DetailFilmstrip(items: filmstripItems, selection: photoID, reduceMotion: reduceMotion) { id in
+            guard photoID != id else { return }
+            if let adjacent = neighbors.first(where: { $0.value.id == id }) {
+                page(adjacent.key)
+            } else {
+                photoID = id
+            }
+        }
+        .frame(height: 56)
+        .frame(maxWidth: 560)
+        .padding(.horizontal, EditorDesign.gutter)
     }
 
     private func exportTool(_ photo: MobilePhoto) -> some View {
@@ -404,6 +445,11 @@ private struct DetailToolbarAxis: ViewModifier {
 
 /// UIKit's zoom recognizer, deceleration, and rubber-banding are used instead
 /// of composing SwiftUI magnify/drag gestures that compete with photo paging.
+private struct DetailPageNeighbor {
+    let id: UUID
+    let image: CGImage?
+}
+
 private struct DetailZoomCanvas: UIViewRepresentable {
     let photoID: UUID
     let name: String
@@ -411,13 +457,24 @@ private struct DetailZoomCanvas: UIViewRepresentable {
     let reduceMotion: Bool
     let developed: Bool
     let fitFrame: CGRect?
+    let neighbors: [Int: DetailPageNeighbor]
+    let gridBackdrop: UIImage?
+    let gridTarget: CGRect?
     let onPage: (Int) -> Void
+    let onPull: (Bool) -> Void
+    let onDismiss: () -> Void
     let onTap: () -> Void
 
     func makeUIView(context: Context) -> ZoomView { ZoomView() }
 
+    static func dismantleUIView(_ uiView: ZoomView, coordinator: ()) {
+        uiView.removeTransition()
+    }
+
     func updateUIView(_ view: ZoomView, context: Context) {
         view.onPage = onPage; view.onTap = onTap; view.reduceMotion = reduceMotion
+        view.neighbors = neighbors; view.gridBackdrop = gridBackdrop; view.gridTarget = gridTarget
+        view.onPull = onPull; view.onDismiss = onDismiss
         view.update(photoID: photoID, name: name, image: image, developed: developed, fitFrame: fitFrame)
     }
 
@@ -429,8 +486,25 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private var fitFrame: CGRect?
         private var fitCenter = CGPoint.zero
         private var needsFit = false
-        private var animatesNextPhoto = false
+
         private var settingGeometry = false
+        private var correctingFitOffset = false
+        private enum SwipeAxis { case horizontal, pull }
+        private var axis: SwipeAxis?
+        private var transitionHost: UIView?
+        private let transitionGrid = UIImageView()
+        private let transitionCurrent = UIImageView()
+        private let transitionNeighbor = UIImageView()
+        private var transitionStart = CGRect.zero
+        private var transitionViewport = CGRect.zero
+        private var pendingPage: UUID?
+        private var activeStep: Int?
+        private var settling = false
+        var neighbors: [Int: DetailPageNeighbor] = [:]
+        var gridBackdrop: UIImage?
+        var gridTarget: CGRect?
+        var onPull: ((Bool) -> Void)?
+        var onDismiss: (() -> Void)?
 #if DEBUG
         private var captureTask: Task<Void, Never>?
 #endif
@@ -462,14 +536,10 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             single.require(toFail: double)
             addGestureRecognizer(single)
             addGestureRecognizer(double)
-            for direction: UISwipeGestureRecognizer.Direction in [.left, .right] {
-                let swipe = UISwipeGestureRecognizer(target: self, action: #selector(swipePhoto(_:)))
-                swipe.direction = direction
-                swipe.delegate = self
-                addGestureRecognizer(swipe)
-                panGestureRecognizer.require(toFail: swipe)
-            }
-
+            let browse = UIPanGestureRecognizer(target: self, action: #selector(browsePan(_:)))
+            browse.maximumNumberOfTouches = 1
+            browse.delegate = self
+            addGestureRecognizer(browse)
             isAccessibilityElement = true
             accessibilityTraits = [.image]
             accessibilityIdentifier = "photo-detail.image"
@@ -488,13 +558,11 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             if self.fitFrame != fitFrame { self.fitFrame = fitFrame; needsFit = true }
             accessibilityLabel = name
             if self.photoID != photoID {
-                let hadPhoto = self.photoID != nil
                 self.photoID = photoID
                 setZoomScale(1, animated: false)
                 source = nil
                 photoView.image = nil
                 photoView.layer.removeAllAnimations()
-                animatesNextPhoto = hadPhoto
                 needsFit = true
             }
             if let image, image !== source {
@@ -508,13 +576,6 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 // A higher-res rendition of the same crop must not touch
                 // zoom, offset, or deceleration just to swap pixel buffers.
                 if oldAspect.map({ abs($0 / aspect - 1) > 0.006 }) ?? true { needsFit = true }
-                if animatesNextPhoto, !reduceMotion {
-                    let fade = CABasicAnimation(keyPath: "opacity")
-                    fade.fromValue = 0.15; fade.toValue = 1; fade.duration = 0.21
-                    fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                    photoView.layer.add(fade, forKey: "detail.page-fade")
-                }
-                animatesNextPhoto = false
             }
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--photo-detail-resolution-audit") {
@@ -523,6 +584,10 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             }
 #endif
             if needsFit { setNeedsLayout() }
+            if pendingPage == photoID, source != nil {
+                layoutIfNeeded()
+                removeTransition()
+            }
 #if DEBUG
             updateGeometryAudit()
 #endif
@@ -539,6 +604,11 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             super.layoutSubviews()
             guard !settingGeometry, bounds.width > 0, bounds.height > 0 else { return }
             if needsFit || lastViewport != bounds.size {
+                if transitionHost != nil && !settling && lastViewport != bounds.size {
+                    let wasPull = axis == .pull
+                    removeTransition()
+                    if wasPull { onPull?(false) }
+                }
                 let scale = zoomScale
                 let center = viewportCenterInPhoto
                 let normalized = CGPoint(x: center.x / max(1, photoView.bounds.width),
@@ -572,6 +642,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 updateZoomState()
             } else {
                 updateCentering()
+                centerFittedPhoto()
             }
 #if DEBUG
             updateGeometryAudit()
@@ -587,7 +658,22 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         }
 
         func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            centerFittedPhoto()
             updateZoomState()
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            centerFittedPhoto()
+        }
+
+        private func centerFittedPhoto() {
+            guard isFitted, !isZooming, !isZoomAnimating, !settingGeometry, !correctingFitOffset else { return }
+            let target = CGPoint(x: -contentInset.left, y: -contentInset.top)
+            if abs(contentOffset.x - target.x) > 0.5 || abs(contentOffset.y - target.y) > 0.5 {
+                correctingFitOffset = true
+                contentOffset = target
+                correctingFitOffset = false
+            }
         }
 
         private func updateZoomState() {
@@ -649,7 +735,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 let local = fitFrame.offsetBy(dx: -origin.x, dy: -origin.y)
                 // A rotation can arrive while the toolbar is hidden. Do not
                 // apply an old landscape fit rect to a portrait window.
-                if viewport.contains(local) { return local }
+                if viewport.insetBy(dx: -1, dy: -1).contains(local),
+                   local.width > viewport.width * 0.60,
+                   (viewport.width * 0.33...viewport.width * 0.67).contains(local.midX) { return local }
             }
             let insets = window.safeAreaInsets
             return CGRect(x: insets.left + 8, y: insets.top + 52,
@@ -658,22 +746,196 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         }
 
         private func updateCentering() {
-            let x = max(0, bounds.width - contentSize.width)
-            let y = max(0, bounds.height - contentSize.height)
-            let leading = min(x, max(0, fitCenter.x - contentSize.width / 2))
-            let top = min(y, max(0, fitCenter.y - contentSize.height / 2))
+            let rendered = photoView.frame.size
+            let x = max(0, bounds.width - rendered.width)
+            let y = max(0, bounds.height - rendered.height)
+            let leading = min(x, max(0, fitCenter.x - rendered.width / 2))
+            let top = min(y, max(0, fitCenter.y - rendered.height / 2))
             let inset = UIEdgeInsets(top: top, left: leading, bottom: y - top, right: x - leading)
             if contentInset != inset { contentInset = inset }
         }
 
         override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-            if gestureRecognizer is UISwipeGestureRecognizer { return isFitted && !isZooming && !isZoomAnimating }
+            if gestureRecognizer is UIPanGestureRecognizer && gestureRecognizer !== panGestureRecognizer {
+                return isFitted && !isZooming && !isZoomAnimating && !settling && source != nil
+            }
             return super.gestureRecognizerShouldBegin(gestureRecognizer)
         }
 
-        @objc private func swipePhoto(_ gesture: UISwipeGestureRecognizer) {
-            guard isFitted, !isZooming, !isZoomAnimating else { return }
-            onPage?(gesture.direction == .left ? 1 : -1)
+        @objc private func browsePan(_ gesture: UIPanGestureRecognizer) {
+            guard !settling, let window else { return }
+            let d = gesture.translation(in: window)
+            let v = gesture.velocity(in: window)
+            switch gesture.state {
+            case .began, .changed:
+                if axis == nil {
+                    let x = abs(d.x), y = abs(d.y)
+                    // Lock once and never let a diagonal hand movement turn
+                    // a page into a dismissal halfway through the gesture.
+                    if x >= 9 && x > y * 1.16 { axis = .horizontal }
+                    else if d.y >= 12 && y > x * 1.26 { axis = .pull }
+                    guard let axis else { return }
+                    startTransition(in: window, showsGrid: axis == .pull)
+                    if axis == .pull { onPull?(true) }
+                }
+                guard let axis else { return }
+                switch axis {
+                case .horizontal:
+                    let step = d.x < 0 ? 1 : -1
+                    let hasNeighbor = neighbors[step] != nil
+                    let travel = min(transitionViewport.width, max(-transitionViewport.width, d.x))
+                    showPage(step: step, travel: hasNeighbor ? travel : travel * 0.24)
+                case .pull:
+                    let progress = min(1, max(0, d.y / max(1, transitionViewport.height * 0.45)))
+                    let scale = reduceMotion ? 1 : 1 - progress * 0.34
+                    transitionCurrent.bounds.size = CGSize(width: transitionStart.width * scale, height: transitionStart.height * scale)
+                    transitionCurrent.center = CGPoint(x: transitionStart.midX + d.x * 0.22, y: transitionStart.midY + max(0, d.y))
+                    transitionCurrent.layer.cornerRadius = reduceMotion ? 0 : progress * 12
+                    transitionGrid.alpha = min(1, progress * 1.9)
+                }
+            case .ended:
+                guard let axis else { return }
+                if axis == .horizontal {
+                    let step = d.x < 0 ? 1 : -1
+                    let enough = abs(d.x) >= transitionViewport.width * 0.24
+                        || (abs(d.x) > 24 && abs(v.x) > 420 && d.x * v.x > 0)
+                    if enough, let candidate = neighbors[step] {
+                        finishPage(step: step, candidate: candidate)
+                    } else { restoreTransition(pulling: false) }
+                } else {
+                    let enough = d.y >= min(160, transitionViewport.height * 0.19) || (d.y > 28 && v.y > 680)
+                    if enough { finishPull() } else { restoreTransition(pulling: true) }
+                }
+            case .cancelled, .failed:
+                if let axis { restoreTransition(pulling: axis == .pull) }
+            default: break
+            }
+        }
+
+        private func startTransition(in window: UIWindow, showsGrid: Bool) {
+            let host = UIView(frame: window.bounds)
+            host.isUserInteractionEnabled = false
+            host.clipsToBounds = true
+            window.addSubview(host)
+            transitionHost = host
+            transitionViewport = window.bounds
+            transitionStart = photoView.convert(photoView.bounds, to: window)
+            if showsGrid {
+                transitionGrid.frame = host.bounds
+                transitionGrid.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                transitionGrid.contentMode = .scaleAspectFill
+                let windowAspect = host.bounds.width / max(1, host.bounds.height)
+                if let gridBackdrop, abs((gridBackdrop.size.width / max(1, gridBackdrop.size.height)) / windowAspect - 1) < 0.1 {
+                    transitionGrid.image = gridBackdrop
+                } else {
+                    transitionGrid.image = nil
+                    transitionGrid.backgroundColor = backgroundColor ?? .clear
+                }
+                transitionGrid.alpha = 0
+                host.addSubview(transitionGrid)
+            }
+            transitionNeighbor.contentMode = .scaleToFill
+            transitionNeighbor.clipsToBounds = true
+            host.addSubview(transitionNeighbor)
+            transitionCurrent.image = photoView.image
+            transitionCurrent.contentMode = .scaleToFill
+            transitionCurrent.clipsToBounds = true
+            transitionCurrent.layer.cornerRadius = 0
+            transitionCurrent.alpha = 1
+            transitionCurrent.frame = transitionStart
+            host.addSubview(transitionCurrent)
+            photoView.alpha = 0
+        }
+
+        private func neighborFrame(_ step: Int, offset: CGFloat) -> CGRect {
+            let center = CGPoint(x: transitionStart.midX + CGFloat(step) * (transitionViewport.width + 12) + offset,
+                                 y: transitionStart.midY)
+            let size = neighbors[step]?.image.map { CGSize(width: $0.width, height: $0.height) } ?? transitionStart.size
+            let fit = fitRectForCurrentWindow().size
+            let scale = min(fit.width / max(1, size.width), fit.height / max(1, size.height))
+            let fitted = CGSize(width: size.width * scale, height: size.height * scale)
+            return CGRect(x: center.x - fitted.width / 2, y: center.y - fitted.height / 2,
+                          width: fitted.width, height: fitted.height)
+        }
+
+        private func showPage(step: Int, travel: CGFloat) {
+            if activeStep != step {
+                activeStep = step
+                transitionNeighbor.image = neighbors[step]?.image.map { UIImage(cgImage: $0) }
+            } else if transitionNeighbor.image == nil, let incoming = neighbors[step]?.image {
+                transitionNeighbor.image = UIImage(cgImage: incoming)
+            }
+            transitionCurrent.frame = transitionStart.offsetBy(dx: travel, dy: 0)
+            transitionNeighbor.frame = neighborFrame(step, offset: travel)
+        }
+
+        private func finishPage(step: Int, candidate: DetailPageNeighbor) {
+            settling = true
+            let end = -CGFloat(step) * (transitionViewport.width + 12)
+            if activeStep != step { showPage(step: step, travel: 0) }
+            let duration = reduceMotion ? 0 : 0.24
+            UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .beginFromCurrentState]) {
+                self.showPage(step: step, travel: end)
+            } completion: { [weak self] _ in
+                guard let self else { return }
+                self.pendingPage = candidate.image == nil ? nil : candidate.id
+                self.onPage?(step)
+                if self.pendingPage == nil { self.removeTransition() }
+            }
+        }
+
+        private func finishPull() {
+            settling = true
+            let target: CGRect?
+            if transitionGrid.image != nil, let gridTarget, transitionViewport.insetBy(dx: -2, dy: -2).contains(gridTarget),
+               gridTarget.width > 8, gridTarget.height > 8 {
+                target = gridTarget
+            } else { target = nil }
+            let duration = reduceMotion ? 0 : 0.27
+            UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
+                if let target {
+                    self.transitionCurrent.contentMode = .scaleAspectFill
+                    self.transitionCurrent.frame = target
+                } else {
+                    self.transitionCurrent.alpha = 0
+                    self.transitionCurrent.transform = CGAffineTransform(scaleX: 0.66, y: 0.66)
+                }
+                self.transitionCurrent.layer.cornerRadius = 7
+                self.transitionGrid.alpha = 1
+            } completion: { [weak self] _ in self?.onDismiss?() }
+        }
+
+        private func restoreTransition(pulling: Bool) {
+            settling = true
+            UIView.animate(withDuration: reduceMotion ? 0 : 0.25, delay: 0,
+                           usingSpringWithDamping: 0.9, initialSpringVelocity: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction]) {
+                if pulling {
+                    self.transitionCurrent.frame = self.transitionStart
+                    self.transitionCurrent.layer.cornerRadius = 0
+                    self.transitionGrid.alpha = 0
+                } else if let step = self.activeStep { self.showPage(step: step, travel: 0) }
+            } completion: { [weak self] _ in
+                self?.removeTransition()
+                if pulling { self?.onPull?(false) }
+            }
+        }
+
+        func removeTransition() {
+            transitionGrid.removeFromSuperview()
+            transitionNeighbor.removeFromSuperview()
+            transitionCurrent.removeFromSuperview()
+            transitionHost?.removeFromSuperview()
+            transitionHost = nil
+            transitionGrid.image = nil
+            transitionCurrent.image = nil
+            transitionCurrent.transform = .identity
+            transitionNeighbor.image = nil
+            photoView.alpha = 1
+            activeStep = nil
+            pendingPage = nil
+            axis = nil
+            settling = false
         }
 
         @objc private func singleTap() { onTap?() }

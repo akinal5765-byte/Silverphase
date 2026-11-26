@@ -88,6 +88,43 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 5))
     }
 
+    @MainActor func testPhotoDetailDiagonalPagingAndPullDown() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",
+                               "--photo-detail-geometry-audit"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let photo = app.images["photo-detail.image"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "photo-detail.date").firstMatch.exists)
+        let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.79, dy: 0.42))
+        let diagonal = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.55))
+        start.press(forDuration: 0.06, thenDragTo: diagonal)
+        let next = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "目标 A"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [next], timeout: 8), .completed)
+        XCTAssertTrue(app.buttons["photo-detail.back"].exists)
+        let pose = try XCTUnwrap(photo.value as? String).split(separator: "|")
+        if pose.count == 3 {
+            let image = pose[1].split(separator: ",").compactMap { Double($0) }
+            let viewport = pose[2].split(separator: ",").compactMap { Double($0) }
+            if image.count == 4 && viewport.count == 4 {
+                XCTAssertEqual(image[0] + image[2] / 2, viewport[0] + viewport[2] / 2, accuracy: 30)
+            } else { XCTFail("Expected image and viewport bounds") }
+        } else { XCTFail("Expected a fitted image pose") }
+        let pullBase = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.52, dy: 0.30))
+        let shortPull = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.52, dy: 0.36))
+        pullBase.press(forDuration: 0.15, thenDragTo: shortPull, withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(app.buttons["photo-detail.back"].waitForExistence(timeout: 5))
+        XCTAssertEqual(photo.label, "目标 A")
+        let drop = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.52, dy: 0.74))
+        pullBase.press(forDuration: 0.06, thenDragTo: drop)
+        XCTAssertTrue(photo.waitForNonExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["library.photo.目标 A"].waitForExistence(timeout: 6))
+    }
+
     @MainActor func testPhotoDetailChromeDoesNotMoveTheCanvas() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",

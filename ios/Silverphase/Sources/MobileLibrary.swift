@@ -1,9 +1,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 struct MobileLibrary: View {
     @Bindable var document: MobileDocument
-    @Namespace private var libraryPhotoTransition
     @Environment(\.accessibilityReduceMotion) private var reducePhotoTransitionMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
@@ -18,6 +18,9 @@ struct MobileLibrary: View {
     @State private var formatFilter: String?
     @State private var detail: LibraryPhotoDetailRequest?
     @State private var detailID = UUID()
+    @State private var detailGridBackdrop: UIImage?
+    @State private var detailGridTiles: [UUID: CGRect] = [:]
+    @State private var capturedGridTiles: [UUID: CGRect] = [:]
     @State private var detailEditor: LibraryEditorRequest?
     @State private var detailCopy: MobileSettingsCopyRequest?
     @State private var detailExport: LibraryExportRequest?
@@ -78,9 +81,9 @@ struct MobileLibrary: View {
         return FileManager.default.fileExists(atPath: preview.path) ? preview : document.url(for: photo)
     }
 
-    var body: some View {
+    private var libraryGrid: some View {
         let photos = filtered
-        NavigationStack {
+        return NavigationStack {
             ScrollView {
                 if let issue = document.libraryReadError {
                     ContentUnavailableView(T("The library cannot be read right now", "图库暂时无法读取", "圖庫暫時無法讀取"), systemImage: "externaldrive.badge.exclamationmark", description: Text(issue + T("\nOriginals and records are safe. Restart and try again.",
@@ -110,6 +113,7 @@ struct MobileLibrary: View {
                         .padding(.horizontal, EditorDesign.unit)
                         .coordinateSpace(name: "library.grid")
                         .onPreferenceChange(LibraryCellFrames.self) { cellFrames = $0 }
+                        .onPreferenceChange(DetailGridTileFrames.self) { detailGridTiles = $0 }
                         .background {
                             LibrarySelectionGesture(enabled: document.isSelectingPhotos && !document.isInteractionLocked,
                                 ids: photos.map(\.id), frames: cellFrames, selection: document.selectedPhotoIDs,
@@ -151,6 +155,10 @@ struct MobileLibrary: View {
             }
         }
         .onChange(of: photos.map(\.id)) { _, ids in document.restrictPhotoSelection(to: ids) }
+    }
+
+    var body: some View {
+        let presentations = libraryGrid
         .fullScreenCover(isPresented: $showingCamera, onDismiss: {
             if let cameraReturnPhotoID {
                 visiblePhotoID = cameraReturnPhotoID
@@ -203,6 +211,7 @@ struct MobileLibrary: View {
         .onChange(of: availableFormats) { _, formats in
             if let formatFilter, !formats.contains(formatFilter) { self.formatFilter = nil }
         }
+        return presentations
 #if DEBUG
         .task(id: document.photos.isEmpty) {
             if ProcessInfo.processInfo.arguments.contains("--photo-detail-ui-regression"),
@@ -257,31 +266,57 @@ struct MobileLibrary: View {
         guard !document.isInteractionLocked else { return }
         searchFocused = false
         detailID = photo.id
+        capturedGridTiles = detailGridTiles
+        // Keep a single, screen-sized image of the live grid in memory for
+        // photo-only pull-down. Never write these photos to disk or a log.
+        if !reducePhotoTransitionMotion,
+           let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })?.keyWindow {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = min(1.25, window.traitCollection.displayScale)
+            format.opaque = true
+            detailGridBackdrop = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+            }
+        }
         let ids = filtered.map(\.id)
         detail = LibraryPhotoDetailRequest(id: photo.id, ids: ids.contains(photo.id) ? ids : [photo.id])
     }
 
-    private func returnToDetailPhoto() { visiblePhotoID = detailID }
+    private func returnToDetailPhoto() {
+        // If the destination tile is already visible, keep the real grid
+        // exactly where the pull-down snapshot ended instead of jumping to top.
+        let size = detailGridBackdrop?.size ?? phoneWindowSize
+        let screen = CGRect(origin: .zero, size: size)
+        if let target = detailGridTiles[detailID], screen.contains(target) {
+            // No scrolling necessary.
+        } else {
+            visiblePhotoID = detailID
+        }
+        detailGridBackdrop = nil
+        capturedGridTiles = [:]
+    }
 
-    private func closeDetail() {
-        returnToDetailPhoto()
-        detail = nil
+    private func closeDetail() { detail = nil }
+
+    private func finishPhotoPull() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { closeDetail() }
     }
 
     @ViewBuilder
     private func detailPresentation(_ request: LibraryPhotoDetailRequest) -> some View {
-        if reducePhotoTransitionMotion {
-            detailPage(request)
-        } else {
-            detailPage(request)
-                .navigationTransition(.zoom(sourceID: detailID, in: libraryPhotoTransition))
-        }
+        // SwiftUI's zoom applies to the whole cover and installs its own
+        // pan-to-dismiss recognizer. The canvas owns pull-down instead.
+        detailPage(request).interactiveDismissDisabled()
     }
 
     private func detailPage(_ request: LibraryPhotoDetailRequest) -> some View {
         MobilePhotoDetail(document: document, photoIDs: request.ids, initialHingeClosed: phoneHingeClosed,
                           initialWindowSize: phoneWindowSize, photoID: $detailID,
-                          onBack: closeDetail,
+                          gridBackdrop: detailGridBackdrop, gridTarget: capturedGridTiles[detailID],
+                          onBack: closeDetail, onPullDismiss: finishPhotoPull,
                           onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
                           onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },
                           onInfo: { detailInfo = $0 },
@@ -480,7 +515,12 @@ struct MobileLibrary: View {
                                 .accessibilityHidden(true)
                             }
                             .frame(width: tile.size.width, height: tile.size.height)
-                            .matchedTransitionSource(id: photo.id, in: libraryPhotoTransition)
+                            .background {
+                                GeometryReader { proxy in
+                                    Color.clear.preference(key: DetailGridTileFrames.self,
+                                                           value: [photo.id: proxy.frame(in: .global)])
+                                }
+                            }
                     }
                 }
                 .contentShape(Rectangle())
@@ -687,6 +727,13 @@ struct MobileLibrary: View {
         }
     }
 }
+private struct DetailGridTileFrames: PreferenceKey {
+    static let defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
 private struct LibraryPhotoDetailRequest: Identifiable {
     let id: UUID
     let ids: [UUID]
