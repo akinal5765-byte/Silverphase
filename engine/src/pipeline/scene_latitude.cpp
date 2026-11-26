@@ -41,13 +41,25 @@ bool Pipeline::node_camera_tone(const Image& in, Image& out, std::string& error)
                           in.pixels(), error);
 }
 
+namespace {
+
+bool local_tone_grid_wanted(const Params& params) {
+    const auto& camera = params.camera;
+    return !params.debug.deactivate_spatial_effects &&
+           (camera.local_tone_brights != 0.0 || camera.local_tone_darks != 0.0 ||
+            camera.prep_detail != 0.0);
+}
+
+}  // namespace
+
 bool Pipeline::local_camera_tone_wanted() const {
     const auto& camera = params_.camera;
-    return !params_.debug.lut_mode && !params_.debug.deactivate_spatial_effects &&
-           !params_.film_render.overscan.pair &&
-           (camera.local_tone_brights != 0.0 || camera.local_tone_darks != 0.0 ||
+    // Independent colour samples must not share a grid, but should still
+    // go through every pointwise prep operation in the resolved recipe.
+    return !params_.debug.lut_mode && !params_.film_render.overscan.pair &&
+           (local_tone_grid_wanted(params_) ||
             camera.prep_exposure_ev != 0.0 || camera.prep_contrast != 0.0 ||
-            camera.prep_lift != 0.0 || camera.prep_gain != 0.0 || camera.prep_detail != 0.0 ||
+            camera.prep_lift != 0.0 || camera.prep_gain != 0.0 ||
             camera.prep_vibrance != 0.0 || camera.prep_saturation != 0.0);
 }
 
@@ -57,7 +69,7 @@ bool Pipeline::node_local_camera_tone(const Image& in, Image& out, std::string& 
     // log-luminance grid and our own response instead of its Rec.709 LUT.
     Timer t(this, "filming.expose.local_camera_tone");
     const auto& c = params_.camera;
-    const bool spatial = c.local_tone_brights != 0.0 || c.local_tone_darks != 0.0 || c.prep_detail != 0.0;
+    const bool spatial = local_tone_grid_wanted(params_);
     const uint32_t edge = std::max(in.w, in.h);
     const uint32_t grid_edge = std::min(edge, 512u);
     const uint32_t w = spatial ? std::max(1u, uint32_t(uint64_t(in.w) * grid_edge / edge)) : 0;

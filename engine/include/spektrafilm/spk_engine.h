@@ -249,9 +249,10 @@ spk_status spk_render_viewfinder(spk_session* session, uint32_t long_edge, spk_r
 /* Render independent colour samples using a temporary pointwise pipeline.
  * Source pixels are samples, not spatial neighbours: no grain/glare, blur,
  * sharpening, diffusion, halation/headroom, auto exposure, geometry, border/date or
- * contrast mask. Film curves, non-spatial DIR, scanner references, print EDR
- * and output colour processing retain their resolved values. Params/source/
- * cached document negatives are unchanged. Output ownership matches spk_render.
+ * contrast mask. Pointwise camera prep, film curves, non-spatial DIR, scanner
+ * references, print EDR and output colour processing retain their resolved
+ * values. Params, source and cached document negatives are unchanged.
+ * Output ownership matches spk_render.
  * For preview table generation, not a substitute for photograph development. */
 spk_status spk_render_color_samples(spk_session* session, spk_result* out);
 
