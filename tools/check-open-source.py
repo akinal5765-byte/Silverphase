@@ -90,6 +90,7 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | ado
     'engine/resources_product/neutral_print_filters.json',
     'license/DATA-SOURCES.md',
     'license/media-inventory.json',
+    'docs/site/media-provenance.json',
     'tools/check-open-source.py',
     'tools/stock-artwork.py',
     'modern_UI/design/film-artwork/generated-stock-covers-v2-manifest.json',

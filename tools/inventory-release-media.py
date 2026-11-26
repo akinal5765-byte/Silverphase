@@ -12,7 +12,7 @@ p.add_argument('--check', action='store_true')
 a = p.parse_args()
 names = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT)
 names = sorted(set(names.decode().rstrip('\0').split('\0')))
-media_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif', '.heic', '.tif', '.tiff', '.exr', '.pdf'}
+media_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif', '.heic', '.tif', '.tiff', '.exr', '.pdf', '.mp4'}
 cover_root = 'modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/'
 manifests = {}
 for m in (ROOT / 'modern_UI/design/film-artwork').glob('generated-*-manifest.json'):
@@ -21,21 +21,20 @@ for m in (ROOT / 'modern_UI/design/film-artwork').glob('generated-*-manifest.jso
             manifests[cover_root + item['file']] = str(m.relative_to(ROOT))
         if 'web' in item:
             manifests[item['web']['path']] = str(m.relative_to(ROOT))
-# Register only the already-published site images. Keep their photo and UI terms;
-# website publication does not relicence a source photograph.
-gallery_names = {f'docs/site/gallery/{number:02d}{suffix}.webp'
-                 for number in range(1, 7) for suffix in ('', '-raw')}
-plate_names = {f'docs/site/plates/{name}.webp' for name in (
-    'acros-grade-00', 'acros-grade-4', 'bird', 'develop-negative', 'develop-print',
-    'glow', 'grain', 'lotus-portra', 'lotus-reference', 'lotus-superia-xtra-400',
-    'lotus-vision3-500t', 'lotus', 'night-clean', 'night', 'portra-detail',
-    'portra', 'raw-detail', 'raw', 'sign-soft', 'sign-strong', 'strip',
-    'supra-detail', 'supra',
-)}
-interface_names = {f'docs/site/interface/{name}.webp' for name in (
-    'ios-editor-en-v7', 'ios-editor-v7', 'ipad-editor-en-v7', 'ipad-editor-v7',
-    'macos-editor-en-v7', 'macos-editor-v7', 'macos-editor',
-)}
+website_manifest = "docs/site/media-provenance.json"
+website = json.loads((ROOT / website_manifest).read_text())["assets"]
+website_scopes = {
+    "web-photo": "Published Silverphase website demonstration only. No RAW redistribution or general photograph reuse grant.",
+    "web-ui": "Published website screenshot only. No general photograph reuse grant; system UI, fonts and packaging retain their terms.",
+}
+for name, record in website.items():
+    path = Path(name)
+    if (path.as_posix() != name or path.parent.as_posix() not in {
+            "docs/site/gallery", "docs/site/interface", "docs/site/plates"}
+            or path.suffix.lower() not in {".webp", ".mp4"} or record["kind"] not in website_scopes
+            or name in manifests or not (ROOT / path).is_file() or name not in names
+            or (ROOT / path).is_symlink()):
+        raise SystemExit(f"Invalid website media provenance entry: {name}")
 entries = []
 for name in names:
     path = ROOT / name
@@ -44,12 +43,14 @@ for name in names:
     if name in manifests:
         kind, evidence = 'generated-cover', manifests[name]
         terms = 'Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded.'
-    elif name in gallery_names or name in plate_names:
-        kind, evidence = 'published-website-study', 'Already-published project previews; docs/showcase/README.md and docs/site site history.'
-        terms = 'Silverphase project demonstration only; no general photo-reuse grant and no distribution of original RAW photographs.'
-    elif name in interface_names:
-        kind, evidence = 'published-website-ui-capture', 'docs/showcase/README.md and docs/site site history; existing native application captures.'
-        terms = 'Project demonstration screenshot use only; retain rights in system UI, stock artwork and source photographs.'
+    elif name in website:
+        record = website[name]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
+            raise SystemExit(f"Website media bytes changed; update reviewed provenance for: {name}")
+        kind = record["kind"]
+        evidence = (f"{website_manifest}: {record['case']} {record['evidence']}; "
+                    f"published as {record['published_commit']}.")
+        terms = website_scopes[kind]
     elif name.startswith((cover_root, 'modern_UI/film_covers/')):
         kind, evidence = 'legacy-cover', 'Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.'
         terms = 'Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded.'
