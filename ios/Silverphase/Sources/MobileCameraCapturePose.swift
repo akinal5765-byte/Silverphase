@@ -37,6 +37,12 @@ struct MobileWaistCameraGeometry {
 /// The still photo ratio is fitted inside the canvas, independent of where
 /// controls are overlaid. Rotating the connection switches its axes.
 enum MobileCameraViewfinderGeometry {
+    static func previewCanvas(panel: CGSize, bottomSafeArea: CGFloat, isInner: Bool, isTabletop: Bool) -> CGSize {
+        guard isInner, isTabletop || panel.width > panel.height, bottomSafeArea.isFinite, bottomSafeArea > 0
+        else { return panel }
+        return CGSize(width: panel.width, height: panel.height + bottomSafeArea)
+    }
+
     static func orientedAspect(_ landscapeAspect: CGFloat, angle: CGFloat) -> CGFloat {
         let aspect = landscapeAspect.isFinite && landscapeAspect > 0 ? landscapeAspect : 4.0 / 3.0
         guard angle.isFinite else { return aspect }

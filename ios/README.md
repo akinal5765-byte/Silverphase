@@ -149,8 +149,12 @@ including the lens row, as one measured group on the viewer's right. It preserve
 their relative order and spacing in portrait and landscape. On Duo, the
 viewfinder fits the still-photo aspect ratio and stays centered; it may leave
 margins rather than crop the framing to the shape of the screen. The controls
-float above it. AVFoundation supplies separate, display-aware preview and
-capture angles; a processed preview frame from the previous angle is discarded. AVKit's
+float above it. In inner landscape and tabletop, only the photographic canvas
+extends behind the bottom system area; camera controls still respect it.
+AVFoundation supplies separate, display-aware preview and capture angles;
+a processed preview frame from the previous angle is discarded. The rear
+selfie development preview uses the finder bounds without changing the file's
+orientation. AVKit's
 direction coordinator identifies the physical rear camera facing an open
 Duo's outer display; the app uses that display's native layout without forcing
 a 180-degree turn or changing how saved photos are mirrored.

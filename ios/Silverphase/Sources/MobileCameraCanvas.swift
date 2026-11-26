@@ -23,23 +23,23 @@ struct MobileCameraCanvasGeometry: Equatable {
 }
 
 struct MobileCameraCanvas<Content: View>: View {
-    let content: Content
+    private let content: (EdgeInsets) -> Content
     @State private var interfaceQuarterTurn = 0.0
     let followsInterface: Bool
     let interfaceChanged: ((Double) -> Void)?
 
     init(followsInterface: Bool = false, interfaceChanged: ((Double) -> Void)? = nil,
-         @ViewBuilder content: () -> Content) {
+         @ViewBuilder content: @escaping (EdgeInsets) -> Content) {
         self.followsInterface = followsInterface
         self.interfaceChanged = interfaceChanged
-        self.content = content()
+        self.content = content
     }
 
     var body: some View {
         GeometryReader { geometry in
             let layout = MobileCameraCanvasGeometry(viewport: geometry.size, interfaceQuarterTurn: interfaceQuarterTurn,
                                                     followsInterface: followsInterface)
-            content
+            content(geometry.safeAreaInsets)
                 .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .rotationEffect(.degrees(layout.rotation))
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)

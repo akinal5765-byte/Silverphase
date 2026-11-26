@@ -92,6 +92,27 @@ enum MobileLockedCameraChecks {
             }
             checks.append("Duo inner, outer, and tabletop preview sizing keeps the full oriented still-photo aspect")
 
+            let innerLandscape = CGSize(width: 640, height: 452)
+            let lowerPanel = CGSize(width: 409, height: 258)
+            let innerPortrait = CGSize(width: 409, height: 580)
+            let extendedLandscape = MobileCameraViewfinderGeometry.previewCanvas(
+                panel: innerLandscape, bottomSafeArea: 24, isInner: true, isTabletop: false)
+            let extendedTabletop = MobileCameraViewfinderGeometry.previewCanvas(
+                panel: lowerPanel, bottomSafeArea: 20, isInner: true, isTabletop: true)
+            try require(extendedLandscape == CGSize(width: 640, height: 476) &&
+                        extendedTabletop == CGSize(width: 409, height: 278),
+                        "Only the Duo photographic canvas extends by the measured bottom system inset")
+            try require(MobileCameraViewfinderGeometry.previewCanvas(
+                panel: innerPortrait, bottomSafeArea: 24, isInner: true, isTabletop: false) == innerPortrait &&
+                        MobileCameraViewfinderGeometry.previewCanvas(
+                panel: innerLandscape, bottomSafeArea: 24, isInner: false, isTabletop: false) == innerLandscape,
+                        "Duo inner portrait and the outer/folded layout must retain the existing preview canvas")
+            let composed = MobileCameraViewfinderGeometry.imageSize(
+                in: extendedLandscape, aspect: 0.75, fillsPanel: false)
+            try require(composed == CGSize(width: 357, height: 476),
+                        "Portrait capture in a landscape Duo scene should reach the lower edge without cropping")
+            checks.append("Duo landscape and tabletop camera backdrop extends under the bottom system area without cropping")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")
