@@ -113,6 +113,14 @@ enum MobileLockedCameraChecks {
                         "Portrait capture in a landscape Duo scene should reach the lower edge without cropping")
             checks.append("Duo landscape and tabletop camera backdrop extends under the bottom system area without cropping")
 
+            for (inner, closed, selfie, expected) in [
+                (false, true, false, true), (false, false, true, true),
+                (true, false, false, false), (true, false, true, false), (false, false, false, false)
+            ] {
+                try require(MobileCameraViewfinderGeometry.usesFullOuterAperture(
+                    isInner: inner, hingeClosed: closed, rearSelfie: selfie) == expected,
+                    "Only folded and rear-selfie outer viewing use the full outer aperture")
+            }
             let outer = MobileCameraViewfinderGeometry.outerViewport(
                 safeSize: CGSize(width: 390, height: 760), top: 46, leading: 2, bottom: 34, trailing: 6)
             try require(outer == CGRect(x: -2, y: -46, width: 398, height: 840),

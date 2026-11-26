@@ -152,9 +152,9 @@ margins rather than crop the framing to the shape of the screen. The controls
 float above it. In inner landscape and tabletop, only the photographic canvas
 extends behind the bottom system area; camera controls still respect it.
 AVFoundation supplies separate, display-aware preview and capture angles;
-a processed preview frame from the previous angle is discarded. The rear
-selfie viewfinder and development preview both fill the outer display with a
-center crop, including behind the system insets. The controls stay in the safe
+a processed preview frame from the previous angle is discarded. The folded
+and rear-selfie viewfinders and their development previews fill the outer display
+with a center crop, including behind the system insets. The controls stay in the safe
 area. This is presentation only: it doesn't crop or rotate the saved file. AVKit's
 direction coordinator identifies the physical rear camera facing an open
 Duo's outer display; the app uses that display's native layout without forcing

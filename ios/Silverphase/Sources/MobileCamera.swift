@@ -226,6 +226,11 @@ struct MobileCameraView: View {
 
 #if SILVERPHASE_APP
     private var fillsPanel: Bool { (hingeClosed ?? initialHingeClosed) == true }
+    private var usesFullOuterAperture: Bool {
+        MobileCameraViewfinderGeometry.usesFullOuterAperture(
+            isInner: usesInnerCameraLayout, hingeClosed: fillsPanel, rearSelfie: rearSelfieOnHostDisplay
+        )
+    }
     private var revealRotation: Double { (interfaceQuarterTurn - shotQuarterTurn).remainder(dividingBy: 360) }
     private var revealSwapsAxes: Bool { abs(revealRotation.remainder(dividingBy: 180)) == 90 }
 
@@ -305,7 +310,7 @@ struct MobileCameraView: View {
             let previewSize = MobileCameraViewfinderGeometry.previewCanvas(
                 panel: panel.size, bottomSafeArea: safeInsets.bottom, isInner: usesInnerCameraLayout, isTabletop: waist != nil
             )
-            let outer = rearSelfieOnHostDisplay ? MobileCameraViewfinderGeometry.outerViewport(
+            let outer = usesFullOuterAperture ? MobileCameraViewfinderGeometry.outerViewport(
                 safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
                 bottom: safeInsets.bottom, trailing: safeInsets.trailing
             ) : nil
@@ -522,7 +527,7 @@ struct MobileCameraView: View {
                     Image(decorative: reveal.image, scale: 1).resizable().scaledToFill()
                         .frame(width: swapsAxes ? rect.height : rect.width,
                                height: swapsAxes ? rect.width : rect.height)
-                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : rearSelfieOnHostDisplay ? 0 : 20))
+                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : usesFullOuterAperture ? 0 : 20))
                         .rotationEffect(.degrees(revealRotation))
                         .position(x: rect.midX, y: rect.midY)
                         .accessibilityHidden(true)
@@ -1351,16 +1356,16 @@ struct MobileCameraView: View {
                 }
                 if let reveal {
                     let ratio = CGFloat(reveal.image.width) / CGFloat(reveal.image.height)
-                    // Rear-selfie display handoff can give preview and the still
-                    // different axes. Use the actual finder envelope as the reveal
-                    // bounds; never stretch the print to the preview's aspect.
-                    let envelope = rearSelfieOnHostDisplay
+                    // Both outer-screen modes share the finder bounds. Even
+                    // when the still and preview have different axes, the print
+                    // covers that viewport without stretching the source.
+                    let envelope = usesFullOuterAperture
                         ? viewfinderImageSize(in: proxy.size, fillsPanel: fillsPanel) : proxy.size
                     let unrotated = revealSwapsAxes
                         ? CGSize(width: envelope.height, height: envelope.width) : envelope
                     let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: fillsPanel)
                     let width = print.width, height = print.height
-                    let visible = rearSelfieOnHostDisplay ? envelope
+                    let visible = usesFullOuterAperture ? envelope
                         : CGSize(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
                     Group {
                         if landingPhoto {
@@ -1380,7 +1385,7 @@ struct MobileCameraView: View {
                         }
                     }
                     .frame(width: width, height: height)
-                    .clipShape(.rect(cornerRadius: fillsPanel || rearSelfieOnHostDisplay ? 0 : 20))
+                    .clipShape(.rect(cornerRadius: fillsPanel || usesFullOuterAperture ? 0 : 20))
                     .rotationEffect(.degrees(revealRotation))
                     .frame(width: visible.width, height: visible.height)
                     .clipped()

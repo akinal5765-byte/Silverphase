@@ -37,6 +37,10 @@ struct MobileWaistCameraGeometry {
 /// The still photo ratio is fitted inside the canvas, independent of where
 /// controls are overlaid. Rotating the connection switches its axes.
 enum MobileCameraViewfinderGeometry {
+    static func usesFullOuterAperture(isInner: Bool, hingeClosed: Bool, rearSelfie: Bool) -> Bool {
+        !isInner && (hingeClosed || rearSelfie)
+    }
+
     static func previewCanvas(panel: CGSize, bottomSafeArea: CGFloat, isInner: Bool, isTabletop: Bool) -> CGSize {
         guard isInner, isTabletop || panel.width > panel.height, bottomSafeArea.isFinite, bottomSafeArea > 0
         else { return panel }
