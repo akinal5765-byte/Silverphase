@@ -51,6 +51,101 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertEqual(preview.label, "目标 A")
     }
 
+    @MainActor func testPhotoDetailZoomPanPagingAndChrome() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                               "--documentation-captures", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let photo = app.descendants(matching: .any).matching(identifier: "photo-detail.image").firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 8))
+        XCTAssertEqual(photo.label, "来源")
+        func waitForZoom(_ value: String) -> Bool {
+            let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: photo)
+            return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
+        }
+        XCTAssertTrue(waitForZoom("100%"))
+        photo.doubleTap()
+        XCTAssertTrue(waitForZoom("250%"))
+        photo.swipeLeft()
+        XCTAssertEqual(photo.label, "来源")
+        photo.doubleTap()
+        XCTAssertTrue(waitForZoom("100%"))
+        photo.pinch(withScale: 1.6, velocity: 1)
+        let zoomed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value != %@ AND value != nil", "100%"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [zoomed], timeout: 5), .completed)
+        photo.doubleTap()
+        XCTAssertTrue(waitForZoom("100%"))
+        photo.swipeLeft()
+        let next = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "目标 A"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [next], timeout: 5), .completed)
+        photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForNonExistence(timeout: 5))
+        photo.tap()
+        XCTAssertTrue(app.buttons["photo-detail.edit"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor func testPhotoDetailChromeDoesNotMoveTheCanvas() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",
+                               "--photo-detail-geometry-audit"]
+        app.launch()
+        defer { app.terminate() }
+        let cell = app.buttons["library.photo.来源"]
+        XCTAssertTrue(cell.waitForExistence(timeout: 18))
+        cell.tap()
+        let canvas = app.images["photo-detail.image"]
+        XCTAssertTrue(canvas.waitForExistence(timeout: 8))
+        let edit = app.buttons["photo-detail.edit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        for zoom in [100, 250] {
+            if zoom != 100 { canvas.doubleTap() }
+            let set = NSPredicate(format: "value BEGINSWITH %@", "\(zoom)%|")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: set, object: canvas)], timeout: 6), .completed)
+            let before = try XCTUnwrap(canvas.value as? String)
+            let windowSize = app.frame.size
+            let bounds = before.split(separator: "|").last?.split(separator: ",").compactMap { Int($0) } ?? []
+            XCTAssertEqual(bounds.count, 4)
+            if bounds.count == 4 {
+                XCTAssertEqual(CGFloat(bounds[2]), windowSize.width, accuracy: 2)
+                XCTAssertEqual(CGFloat(bounds[3]), windowSize.height, accuracy: 2)
+            }
+            canvas.tap()
+            XCTAssertTrue(edit.waitForNonExistence(timeout: 5))
+            XCTAssertEqual(canvas.value as? String, before)
+            canvas.tap()
+            XCTAssertTrue(edit.waitForExistence(timeout: 5))
+            XCTAssertEqual(canvas.value as? String, before)
+        }
+    }
+
+    @MainActor func testPhotoDetailPromotesWarmThumbnail() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--documentation-captures", "--photo-detail-resolution-audit"]
+        app.launch()
+        defer { app.terminate() }
+        let cell = app.buttons["library.photo.来源"]
+        XCTAssertTrue(cell.waitForExistence(timeout: 18))
+        let photo = app.images["photo-detail.image"]
+        let final = NSPredicate { _, _ in
+            guard let value = photo.value as? String, value.hasPrefix("developed-"),
+                  let pixels = Int(value.dropFirst("developed-".count)) else { return false }
+            return pixels > 384
+        }
+        for _ in 0..<2 {
+            cell.tap()
+            XCTAssertTrue(photo.waitForExistence(timeout: 8))
+            let expectation = XCTNSPredicateExpectation(predicate: final, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 15), .completed)
+            app.buttons["photo-detail.back"].tap()
+            XCTAssertTrue(cell.waitForExistence(timeout: 8))
+        }
+    }
+
     @MainActor func testParameterLabelsAcrossChineseLocales() throws {
         for language in ["yue-Hant-HK", "zh-Hant-TW", "zh-Hans-CN"] {
             let app = XCUIApplication()

@@ -291,6 +291,25 @@ struct MobilePhoto: Codable, Identifiable {
         return preview
     }
 
+    /// Render the current edit independently of the editor's Metal session.
+    /// The library's 384px thumbnail remains a fast first frame, never the
+    /// final rendition. Use a fit-tier size, bounded for older iPhones.
+    func renderLibraryDetail(_ photo: MobilePhoto, using renderer: MobileEngine) async throws -> CGImage {
+        let resolvedPhoto = try await resolveCameraBrightness(photo, using: renderer)
+        let edge = ProcessInfo.processInfo.isLowPowerModeEnabled ? 1600 : 2560
+        let tier = MobilePreviewPolicy.megapixels(edge: edge, aspect: max(0.01, photo.sourceAspect))
+        let target = max(0.01, min(3.3, tier, photo.sourceMegapixels > 0 ? photo.sourceMegapixels : tier))
+        try Task.checkCancellation()
+        let result = try await renderer.cameraDevelopment(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
+                                                          geometry: resolvedPhoto.geometry, animate: false, megapixels: target)
+        try Task.checkCancellation()
+        // Do not rewrite a matching cache just by looking at it again.
+        if !FileManager.default.fileExists(atPath: libraryPreviewURL(resolvedPhoto).path) {
+            cacheLibraryPreview(result.image, photo: resolvedPhoto)
+        }
+        return result.image
+    }
+
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {
         let source = url(for: photo)
         let isRAW = photo.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .rawImage) == true

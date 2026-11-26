@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 struct MobileLibrary: View {
     @Bindable var document: MobileDocument
+    @Namespace private var libraryPhotoTransition
+    @Environment(\.accessibilityReduceMotion) private var reducePhotoTransitionMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var searchFocused: Bool
@@ -197,9 +199,7 @@ struct MobileLibrary: View {
         .sheet(item: $exportRequest) { request in
             exportPage(request) { exportRequest = nil }
         }
-        .fullScreenCover(item: $detail) { request in
-            detailPage(request)
-        }
+        .fullScreenCover(item: $detail, onDismiss: returnToDetailPhoto, content: detailPresentation)
         .onChange(of: availableFormats) { _, formats in
             if let formatFilter, !formats.contains(formatFilter) { self.formatFilter = nil }
         }
@@ -261,13 +261,26 @@ struct MobileLibrary: View {
         detail = LibraryPhotoDetailRequest(id: photo.id, ids: ids.contains(photo.id) ? ids : [photo.id])
     }
 
+    private func returnToDetailPhoto() { visiblePhotoID = detailID }
+
     private func closeDetail() {
-        visiblePhotoID = detailID
+        returnToDetailPhoto()
         detail = nil
     }
 
+    @ViewBuilder
+    private func detailPresentation(_ request: LibraryPhotoDetailRequest) -> some View {
+        if reducePhotoTransitionMotion {
+            detailPage(request)
+        } else {
+            detailPage(request)
+                .navigationTransition(.zoom(sourceID: detailID, in: libraryPhotoTransition))
+        }
+    }
+
     private func detailPage(_ request: LibraryPhotoDetailRequest) -> some View {
-        MobilePhotoDetail(document: document, photoIDs: request.ids, initialDuo: phoneHingeClosed != nil, photoID: $detailID,
+        MobilePhotoDetail(document: document, photoIDs: request.ids, initialHingeClosed: phoneHingeClosed,
+                          initialWindowSize: phoneWindowSize, photoID: $detailID,
                           onBack: closeDetail,
                           onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
                           onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },
@@ -467,6 +480,7 @@ struct MobileLibrary: View {
                                 .accessibilityHidden(true)
                             }
                             .frame(width: tile.size.width, height: tile.size.height)
+                            .matchedTransitionSource(id: photo.id, in: libraryPhotoTransition)
                     }
                 }
                 .contentShape(Rectangle())

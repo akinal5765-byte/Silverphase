@@ -411,9 +411,9 @@ actor MobileEngine {
         try colorPipeline().convert(working, engine: engine, target: .p3)
     }
     func cameraDevelopment(url: URL, recipe: [String: WireValue], geometry: MobileGeometry = MobileGeometry(),
-                           animate: Bool) throws -> MobileCameraDevelopment {
+                           animate: Bool, megapixels: Double = 1) throws -> MobileCameraDevelopment {
         defer { close() }
-        let result = try render(url: url, recipe: recipe, megapixels: 1, geometry: geometry)
+        let result = try render(url: url, recipe: recipe, megapixels: megapixels, geometry: geometry)
         let framed = MobileFilmGate.presents(recipe)
         let print = try framed ? result.image : geometry.apply(to: result.image)
         let display = try canvasImage(print)
