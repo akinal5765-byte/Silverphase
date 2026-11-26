@@ -92,6 +92,19 @@ Compare peak memory, wall time, and thermal behavior on a
 physical device using the same 2- and 5-minute footage before drawing a
 throughput conclusion.
 
+### Renderer-only benchmark
+
+Launch Debug with `--video-renderer-benchmark` to measure three short sample
+frames at 256, 512, and 1024 stripe rows. It writes
+`Documents/video-renderer-benchmark.json`. The first result includes setup;
+compare the next two separately. The report splits input conversion and
+film-engine time and records retained engine allocation (not peak device
+memory). It does not time decoding, encoding, or Photos. By default it creates
+synthetic 3840×2160 frames. For a local device-format sample, put a short 30 fps
+test MOV at `Documents/video-renderer-input.mov`, and optionally supply
+`--video-benchmark-film <stock-id>`. It does not change the sample or save it
+to Photos. Simulator timings do not predict iPhone throughput.
+
 ## Required acceptance
 
 1. Open the entry from the Library menu, grant camera and microphone

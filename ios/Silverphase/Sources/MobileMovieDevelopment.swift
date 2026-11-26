@@ -271,6 +271,78 @@ extension MobileMovieDevelopment {
         }
     }
 
+    // Short, opt-in benchmark. Measures only the actual frame developer;
+    // decode, encoding, and Photos are deliberately outside these timings.
+    @MainActor static func runRendererBenchmark() async {
+        let report = URL.documentsDirectory.appending(path: "video-renderer-benchmark.json")
+        let colors: [CIColor] = [
+            .init(red: 0.8, green: 0.32, blue: 0.16),
+            .init(red: 0.11, green: 0.55, blue: 0.72),
+            .init(red: 0.22, green: 0.3, blue: 0.56)
+        ]
+        let fixture = URL.documentsDirectory.appending(path: "video-renderer-input.mov")
+        let hasFixture = FileManager.default.fileExists(atPath: fixture.path)
+        let arguments = ProcessInfo.processInfo.arguments
+        let filmArg = arguments.firstIndex(of: "--video-benchmark-film").flatMap { index in
+            arguments.indices.contains(index + 1) ? arguments[index + 1] : nil
+        }
+        let film = filmArg ?? MobileCameraRecipe.defaultFilmID
+        var results: [[String: Any]] = []
+        #if targetEnvironment(simulator)
+        let permitted = true
+        #else
+        let permitted = os_proc_available_memory() > 2_000_000_000
+        #endif
+        if permitted {
+            do {
+                let frames: [CIImage]
+                if hasFixture {
+                    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: fixture))
+                    generator.appliesPreferredTrackTransform = true
+                    generator.requestedTimeToleranceBefore = .zero
+                    generator.requestedTimeToleranceAfter = .zero
+                    var input: [CIImage] = []
+                    for index in 0..<3 {
+                        let (image, _) = try await generator.image(at: CMTime(value: Int64(index), timescale: 30))
+                        input.append(CIImage(cgImage: image))
+                    }
+                    frames = input
+                } else {
+                    frames = colors.map { color in
+                        CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: 3840, height: 2160))
+                    }
+                }
+                for rows in [256, 512, 1024] {
+                    do {
+                        let renderer = try MobileMovieFrameRenderer(film: film, stripRows: rows)
+                        var times: [Double] = []
+                        var engineTimes: [Double] = []
+                        var inputTimes: [Double] = []
+                        for frame in frames {
+                            _ = try autoreleasepool {
+                                let start = DispatchTime.now().uptimeNanoseconds
+                                let image = try renderer.render(frame)
+                                times.append(Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000)
+                                engineTimes.append(renderer.lastEngineMS)
+                                inputTimes.append(renderer.lastInputMS)
+                                return image.extent
+                            }
+                        }
+                        results.append(["rows": rows, "film": film, "renderMS": times, "engineMS": engineTimes,
+                                        "inputMS": inputTimes, "engineBytes": renderer.engineBytes()])
+                    } catch {
+                        results.append(["rows": rows, "error": error.localizedDescription])
+                    }
+                }
+            } catch {
+                results.append(["error": error.localizedDescription])
+            }
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: results, options: [.prettyPrinted]) {
+            try? data.write(to: report, options: .atomic)
+        }
+    }
+
     static func runFormatRegression() {
         typealias Mode = MobileMovieProfile
         func spec(_ w: Int, _ h: Int, _ rate: Int32) -> Mode {
@@ -365,12 +437,24 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
     private let outputSpace: CGColorSpace
     private let engine: OpaquePointer
     private let film: String
+    private let stripRows: Int
+#if DEBUG
+    private(set) var lastEngineMS = 0.0
+    private(set) var lastInputMS = 0.0
+
+    func engineBytes() -> Double {
+        guard let json = spk_memory_report(engine),
+              let report = try? JSONSerialization.jsonObject(with: Data(String(cString: json).utf8)) as? [String: Any],
+              let bytes = report["total_bytes"] as? NSNumber else { return -1 }
+        return bytes.doubleValue
+    }
+#endif
     private let lock = NSLock()
     private var session: OpaquePointer?
     private var input: MTLBuffer?
     private var size: CGSize = .zero
 
-    init(film: String) throws {
+    init(film: String, stripRows: Int = 256) throws {
         guard let device = MTLCreateSystemDefaultDevice(), let linear = MobileInputColor.linearProPhoto(),
               let srgb = CGColorSpace(name: CGColorSpace.sRGB),
               let resources = Bundle.main.url(forResource: "engine", withExtension: nil, subdirectory: StockCatalog.resourceDirectory),
@@ -383,6 +467,7 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
         outputSpace = srgb
         self.engine = engine
         self.film = film
+        self.stripRows = stripRows
     }
 
     deinit {
@@ -405,7 +490,7 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
         values["extended_dynamic_range"] = .bool(false)
         values["glare_active"] = .bool(false) // The still glare field is independently randomized.
         values["striped"] = .bool(true)
-        values["strip_rows"] = .double(256)
+        values["strip_rows"] = .double(Double(stripRows))
         values["overscan_active"] = .bool(false)
         values["date_imprint_active"] = .bool(false)
         values["product_defaults"] = .bool(true)
@@ -429,7 +514,13 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
                 size = extent.size
             }
             guard let input else { throw MobileFailure.message("Could not allocate the video frame buffer.") }
+#if DEBUG
+            let inputStart = DispatchTime.now().uptimeNanoseconds
+#endif
             context.render(frame, toBitmap: input.contents(), rowBytes: width * 16, bounds: extent, format: .RGBAf, colorSpace: inputSpace)
+#if DEBUG
+            lastInputMS = Double(DispatchTime.now().uptimeNanoseconds - inputStart) / 1_000_000
+#endif
             var pixels = spk_device_image(buffer: Unmanaged.passUnretained(input as AnyObject).toOpaque(),
                                           width: UInt32(width), height: UInt32(height), channels: 4)
             if let session {
@@ -444,6 +535,9 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
             guard spk_render(session, "full", &storage.result) == SPK_OK,
                   storage.result.width == UInt32(width), storage.result.height == UInt32(height)
             else { throw failure() }
+#if DEBUG
+            lastEngineMS = storage.result.elapsed_ms
+#endif
             let stride = Int(storage.result.row_stride_px) * 8
             guard let provider = storage.provider(),
                   let image = CGImage(width: width, height: height, bitsPerComponent: 16, bitsPerPixel: 64,
