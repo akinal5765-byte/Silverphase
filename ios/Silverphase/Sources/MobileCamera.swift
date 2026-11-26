@@ -2022,6 +2022,11 @@ private struct MobileWaistFilmWheel: View {
     @State private var position: ScrollPosition
     @State private var focusedSlot: Int
     @State private var phase: ScrollPhase = .idle
+    @State private var lastSettledSlot: Int
+    @State private var correctedForThisScroll = false
+    @State private var settlePulse = 0
+    @State private var detentHaptic = UISelectionFeedbackGenerator()
+    @State private var settleHaptic = UIImpactFeedbackGenerator(style: .soft)
 
     private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
     private var centeredStock: Stock { stocks[track.index(at: focusedSlot)] }
@@ -2035,6 +2040,7 @@ private struct MobileWaistFilmWheel: View {
         let initial = track.interiorSlot(of: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
         _position = State(initialValue: ScrollPosition(id: initial, anchor: .center))
         _focusedSlot = State(initialValue: initial)
+        _lastSettledSlot = State(initialValue: initial)
     }
 
     var body: some View {
@@ -2051,6 +2057,13 @@ private struct MobileWaistFilmWheel: View {
                             let relative = slot - focusedSlot
                             Button { snap(to: slot) } label: {
                                 cover(stock, width: width, height: height)
+                                    .keyframeAnimator(initialValue: CGFloat(1), trigger: settlePulse) { cover, scale in
+                                        cover.scaleEffect(!motionReduced && phase == .idle && slot == lastSettledSlot ? scale : 1)
+                                    } keyframes: { _ in
+                                        LinearKeyframe(0.984, duration: 0.06)
+                                        CubicKeyframe(1.021, duration: 0.095)
+                                        CubicKeyframe(1, duration: 0.155)
+                                    }
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(stock.displayName)
@@ -2058,11 +2071,11 @@ private struct MobileWaistFilmWheel: View {
                             .accessibilityIdentifier("camera.waist-film.\(relative)")
                             .accessibilityHidden(abs(relative) > 2)
                             .zIndex(-Double(abs(relative)))
-                            .visualEffect { content, proxy in
+                            .visualEffect { [flatAtRest = phase == .idle && relative == 0] content, proxy in
                                 let center = proxy.size.width / 2
                                 let middle = proxy.bounds(of: .scrollView(axis: .horizontal))?.midX ?? center
                                 let pose = MobileWaistFilmTrack.pose(
-                                    at: (center - middle) / max(1, pitch), reduceMotion: motionReduced)
+                                    at: flatAtRest ? 0 : (center - middle) / max(1, pitch), reduceMotion: motionReduced)
                                 return content
                                     .scaleEffect(pose.scale)
                                     .rotation3DEffect(.degrees(pose.angle), axis: (0, 1, 0), perspective: 0.42)
@@ -2083,13 +2096,38 @@ private struct MobileWaistFilmWheel: View {
                 .onScrollGeometryChange(for: Int.self) { scroll in
                     track.slot(offset: scroll.contentOffset.x, inset: scroll.contentInsets.leading, pitch: pitch)
                 } action: { _, slot in
-                    if phase != .idle { focusedSlot = slot }
+                    guard phase != .idle, slot != focusedSlot else { return }
+                    focusedSlot = slot
+                    if phase == .interacting && enabled {
+                        detentHaptic.selectionChanged()
+                        detentHaptic.prepare()
+                    }
                 }
                 .onScrollPhaseChange { _, new, context in
                     phase = new
+                    if new == .interacting {
+                        correctedForThisScroll = false
+                        detentHaptic.prepare()
+                        settleHaptic.prepare()
+                    }
                     guard new == .idle else { return }
-                    let slot = track.slot(offset: context.geometry.contentOffset.x,
-                                          inset: context.geometry.contentInsets.leading, pitch: pitch)
+                    let offset = context.geometry.contentOffset.x
+                    let inset = context.geometry.contentInsets.leading
+                    let slot = track.slot(offset: offset, inset: inset, pitch: pitch)
+                    if enabled && !correctedForThisScroll &&
+                        abs(track.centerError(at: slot, offset: offset, inset: inset, pitch: pitch)) > 0.5 {
+                        correctedForThisScroll = true
+                        focusedSlot = slot
+                        if motionReduced {
+                            jump(to: slot)
+                            settle(at: slot)
+                        } else {
+                            withAnimation(.spring(response: 0.26, dampingFraction: 0.77)) {
+                                position.scrollTo(id: slot, anchor: .center)
+                            }
+                        }
+                        return
+                    }
                     settle(at: slot)
                 }
 
@@ -2113,11 +2151,6 @@ private struct MobileWaistFilmWheel: View {
         }
         .accessibilityIdentifier("camera.waist-film-wheel")
         .disabled(!enabled)
-        // Tick only when the active detent changes during a finger drag, never
-        // on every pixel, on programmatic recenter or on lower-picker changes.
-        .sensoryFeedback(.selection, trigger: track.index(at: focusedSlot)) { _, _ in
-            phase == .interacting
-        }
         .onChange(of: selectedID) { _, _ in synchronizeSelection() }
         .onChange(of: enabled) { _, active in
             if active { synchronizeSelection() }
@@ -2146,6 +2179,8 @@ private struct MobileWaistFilmWheel: View {
     private func snap(to target: Int) {
         guard enabled, stocks.count > 1 else { return }
         let slot = min(track.slotCount - 1, max(0, target))
+        correctedForThisScroll = false
+        settleHaptic.prepare()
         if reduceMotion || slot == focusedSlot {
             jump(to: slot)
             settle(at: slot)
@@ -2158,19 +2193,29 @@ private struct MobileWaistFilmWheel: View {
         focusedSlot = slot
         guard enabled else { return }
         let id = stocks[track.index(at: slot)].id
+        if track.index(at: lastSettledSlot) != track.index(at: slot) {
+            lastSettledSlot = slot
+            settleHaptic.impactOccurred(intensity: 0.65)
+            if !reduceMotion { settlePulse &+= 1 }
+        }
         if id != selectedID { select(id) }
         if track.isNearPhysicalEnd(slot) {
             // Normal last→first movement stays on adjacent physical cells.
             // Only recenter if a user has traversed several laps.
-            jump(to: track.interiorSlot(of: track.index(at: slot)))
+            let interior = track.interiorSlot(of: track.index(at: slot))
+            lastSettledSlot = interior
+            jump(to: interior)
         }
     }
 
     private func synchronizeSelection() {
         guard centeredStock.id != selectedID, let index = stocks.firstIndex(where: { $0.id == selectedID }) else { return }
         let slot = track.closestSlot(of: index, to: focusedSlot)
+        correctedForThisScroll = false
+        settleHaptic.prepare()
         if reduceMotion {
             jump(to: slot)
+            settle(at: slot)
         } else {
             // A lower-panel picker choice still moves the same upper track.
             // Take the shortest route, including across a catalog boundary.

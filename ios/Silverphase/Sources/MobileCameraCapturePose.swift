@@ -119,6 +119,10 @@ struct MobileWaistFilmTrack {
         return Int(min(CGFloat(slotCount - 1), max(0, steps)))
     }
 
+    func centerError(at slot: Int, offset: CGFloat, inset: CGFloat, pitch: CGFloat) -> CGFloat {
+        offset + inset - CGFloat(slot) * pitch
+    }
+
     static func pose(at position: CGFloat, reduceMotion: Bool)
         -> (scale: CGFloat, angle: Double, depth: CGFloat, opacity: Double)
     {

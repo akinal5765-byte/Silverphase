@@ -211,7 +211,7 @@ final class PhotoImportTests: XCTestCase {
         }
         XCTAssertLessThan(leftFilm.frame.midX, centerFilm.frame.midX)
         XCTAssertLessThan(centerFilm.frame.midX, rightFilm.frame.midX)
-        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 4)
+        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 1)
         let nextStock = rightFilm.label
         let oldStock = centerFilm.label
         XCTAssertNotEqual(nextStock, oldStock)
@@ -227,6 +227,7 @@ final class PhotoImportTests: XCTestCase {
             centerFilm.exists && (wheel.value as? String) == centerFilm.label && centerFilm.label != nextStock
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 1, "Releasing after a drag centers the cover exactly")
 
         let previous = centerFilm.label
         app.buttons["camera.film"].tap()
@@ -244,7 +245,7 @@ final class PhotoImportTests: XCTestCase {
             centerFilm.exists && centerFilm.label == requested && (wheel.value as? String) == requested
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [synchronized], timeout: 5), .completed)
-        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 4)
+        XCTAssertEqual(centerFilm.frame.midX, app.frame.midX, accuracy: 1)
         let photo = XCTAttachment(screenshot: app.screenshot())
         photo.name = "Tabletop film wheel after scrolling and lower-picker selection"
         photo.lifetime = .keepAlways
