@@ -2024,7 +2024,6 @@ private struct MobileWaistFilmWheel: View {
     @State private var phase: ScrollPhase = .idle
     @State private var lastSettledSlot: Int
     @State private var correctedForThisScroll = false
-    @State private var settlePulse = 0
     @State private var measuredPitch: CGFloat = 0
     @State private var lastTickTime: TimeInterval = -.infinity
     @State private var detentHaptic = UIImpactFeedbackGenerator(style: .medium)
@@ -2060,20 +2059,13 @@ private struct MobileWaistFilmWheel: View {
                             let relative = slot - focusedSlot
                             Button { snap(to: slot) } label: {
                                 cover(stock, width: width, height: height)
-                                    .keyframeAnimator(initialValue: CGFloat(1), trigger: settlePulse) { cover, scale in
-                                        cover.scaleEffect(!motionReduced && phase == .idle && slot == lastSettledSlot ? scale : 1)
-                                    } keyframes: { _ in
-                                        LinearKeyframe(0.984, duration: 0.06)
-                                        CubicKeyframe(1.021, duration: 0.095)
-                                        CubicKeyframe(1, duration: 0.155)
-                                    }
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(stock.displayName)
                             .accessibilityAddTraits(relative == 0 && stock.id == selectedID ? .isSelected : [])
                             .accessibilityIdentifier("camera.waist-film.\(relative)")
                             .accessibilityHidden(abs(relative) > 2)
-                            .visualEffect { [flatAtRest = phase == .idle && relative == 0] content, proxy in
+                            .visualEffect { [flatAtRest = phase == .idle && !correctedForThisScroll && relative == 0] content, proxy in
                                 let center = proxy.size.width / 2
                                 let middle = proxy.bounds(of: .scrollView(axis: .horizontal))?.midX ?? center
                                 let distance = flatAtRest ? 0 : (center - middle) / max(1, pitch)
@@ -2095,7 +2087,7 @@ private struct MobileWaistFilmWheel: View {
                 }
                 .scrollIndicators(.hidden)
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-                .scrollTargetBehavior(MobileWaistFilmSnap(track: track, pitch: pitch))
+                .scrollTargetBehavior(MobileWaistFilmSnap(track: track, pitch: pitch, reduceMotion: motionReduced))
                 .scrollPosition($position, anchor: .center)
                 .scrollDisabled(!enabled || stocks.count == 1)
                 .frame(height: height + 12)
@@ -2137,7 +2129,7 @@ private struct MobileWaistFilmWheel: View {
                         } else {
                             correctedForThisScroll = true
                             focusedSlot = slot
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.78)) {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                                 scroll(to: slot)
                             }
                         }
@@ -2206,12 +2198,12 @@ private struct MobileWaistFilmWheel: View {
 
     private func settle(at slot: Int) {
         focusedSlot = slot
+        correctedForThisScroll = false
         guard enabled else { return }
         let id = stocks[track.index(at: slot)].id
         if track.index(at: lastSettledSlot) != track.index(at: slot) {
             lastSettledSlot = slot
             settleHaptic.impactOccurred()
-            if !reduceMotion { settlePulse &+= 1 }
         }
         if id != selectedID { select(id) }
         if track.isNearPhysicalEnd(slot) {
@@ -2256,16 +2248,17 @@ private struct MobileWaistFilmWheel: View {
     }
 }
 
-/// Preserve system deceleration but make its endpoint match the exact
-/// center used by taps, lower-panel choices and resize corrections.
+/// Native scrolling handles the flick. Leave the final few points of actual
+/// strip travel for the shared center spring after deceleration; no cover
+/// animates independently from the others.
 private struct MobileWaistFilmSnap: ScrollTargetBehavior {
     let track: MobileWaistFilmTrack
     let pitch: CGFloat
+    let reduceMotion: Bool
 
     func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
         guard pitch > 0, context.axes.contains(.horizontal) else { return }
-        let slot = track.slot(offset: target.rect.minX, inset: 0, pitch: pitch)
-        target.rect.origin.x = track.centerOffset(at: slot, pitch: pitch)
+        target.rect.origin.x = track.coastOffset(projected: target.rect.minX, pitch: pitch, reduceMotion: reduceMotion)
         target.rect.size.width = context.containerSize.width
         target.anchor = .topLeading
     }

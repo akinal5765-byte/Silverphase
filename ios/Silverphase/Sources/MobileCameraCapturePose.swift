@@ -123,6 +123,15 @@ struct MobileWaistFilmTrack {
         CGFloat(slot) * pitch
     }
 
+    func coastOffset(projected: CGFloat, pitch: CGFloat, reduceMotion: Bool) -> CGFloat {
+        let slot = slot(offset: projected, inset: 0, pitch: pitch)
+        let center = centerOffset(at: slot, pitch: pitch)
+        guard !reduceMotion, projected.isFinite else { return center }
+        let slack = min(pitch * 0.10, 11)
+        let coast = center + min(slack, max(-slack, projected - center))
+        return min(centerOffset(at: slotCount - 1, pitch: pitch), max(0, coast))
+    }
+
     func centerError(at slot: Int, offset: CGFloat, inset: CGFloat, pitch: CGFloat) -> CGFloat {
         offset + inset - centerOffset(at: slot, pitch: pitch)
     }
