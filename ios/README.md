@@ -161,10 +161,9 @@ Duo's outer display. In this mode only, the live finder and film preview use
 the still orientation with the relative display offset reversed. At shutter,
 development latches the difference between the displayed and captured directions
 so it matches the frozen preview. The app does not change the rotation or
-mirroring of saved photos. On the outer rear-selfie screen the capture
-group follows the way the device is held and stays on the viewer’s right,
-even when UIKit keeps the window in portrait. The controls move separately
-from the viewfinder.
+mirroring of saved photos. On the outer rear-selfie screen, glyphs follow
+the physical roll relative to UIKit; button positions and the viewfinder are
+unchanged.
 [Apple's iPhone Duo camera guidance](https://developer.apple.com/videos/play/tech-talks/111465/).
 
 An active horizontal fold keeps the viewfinder, header and right-hand capture
