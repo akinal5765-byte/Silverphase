@@ -20,8 +20,6 @@ struct ProcessToolbar: ViewModifier {
     @Binding var inspector: Bool
     @Binding var materials: Bool
     @Binding var exporting: Bool
-    @Binding var about: Bool
-    @Binding var settings: Bool
     @Binding var importing: Bool
     @Binding var pickingPhotos: Bool
     var enabled: Bool
@@ -63,7 +61,7 @@ struct ProcessToolbar: ViewModifier {
                     }.axisBehavior(.verticalPreferred).visibilityPriority(.low)
                     ToolbarItem(placement: .topBarLeading) {
                         NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                                         exporting: $exporting, about: $about, settings: $settings,
+                                         exporting: $exporting,
                                          importing: $importing, pickingPhotos: $pickingPhotos)
                     }.axisBehavior(.verticalPreferred).visibilityPriority(.low)
                 }
@@ -88,7 +86,7 @@ struct ProcessToolbar: ViewModifier {
                         .disabled(document.image == nil || document.isInteractionLocked || document.delivering)
                         .accessibilityIdentifier("editor.export")
                         NativeEditorMenu(document: document, inspector: $inspector, materials: $materials,
-                                         exporting: $exporting, about: $about, settings: $settings,
+                                         exporting: $exporting,
                                          importing: $importing, pickingPhotos: $pickingPhotos)
                     }
                 }
@@ -104,8 +102,6 @@ struct NativeEditorMenu: View {
     @Binding var inspector: Bool
     @Binding var materials: Bool
     @Binding var exporting: Bool
-    @Binding var about: Bool
-    @Binding var settings: Bool
     @Binding var importing: Bool
     @Binding var pickingPhotos: Bool
     var body: some View {
@@ -129,10 +125,6 @@ struct NativeEditorMenu: View {
             Section {
                 Button(T("Zoom to Fit", "适合窗口", "適合視窗"), systemImage: "arrow.down.right.and.arrow.up.left") { document.zoomToFit() }.disabled(document.image == nil || document.cropEditing)
                 Button(T("1:1 native pixels", "1:1 原始像素", "1:1 原始像素"), systemImage: "1.magnifyingglass") { document.zoomToNative() }.disabled(document.image == nil || document.cropEditing)
-            }
-            Section {
-                Button(T("Settings", "设置", "設定"), systemImage: "gearshape") { settings = true }
-                Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = true }
             }
         } label: { Label(T("Menu", "菜单", "選單"), systemImage: "ellipsis") }
         .tint(.primary)

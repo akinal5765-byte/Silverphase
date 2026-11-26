@@ -384,6 +384,13 @@ final class PhotoImportTests: XCTestCase {
         photo.press(forDuration: 3)
         XCTAssertFalse(app.staticTexts["photo-detail.original-hold"].exists)
         XCTAssertEqual(photo.value as? String, zoom)
+        menu.tap()
+        let fit = app.buttons["photo-detail.zoom-to-fit"]
+        XCTAssertTrue(fit.waitForExistence(timeout: 6))
+        fit.tap()
+        let atFit = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "100%"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [atFit], timeout: 8), .completed)
+        XCTAssertTrue(badge.waitForNonExistence(timeout: 5))
     }
 
     @MainActor func testPhotoDetailPromotesZoomViewportWithoutMoving() throws {
@@ -717,7 +724,17 @@ final class PhotoImportTests: XCTestCase {
         for _ in 0..<8 { if naming.isHittable { break }; panel.swipeUp() }
         XCTAssertTrue(naming.isHittable)
         capture("portrait-export-naming")
-        app.buttons["editor.menu"].tap(); app.buttons["设置"].tap()
+        app.buttons["editor.menu"].tap()
+        XCTAssertFalse(app.buttons["设置"].exists)
+        XCTAssertFalse(app.buttons["关于 Silverphase"].exists)
+        app.tap()
+        app.buttons["editor.library"].tap()
+        let backFromDetail = app.buttons["photo-detail.back"]
+        XCTAssertTrue(backFromDetail.waitForExistence(timeout: 6))
+        backFromDetail.tap()
+        let libraryMenu = app.buttons["library.menu"]
+        XCTAssertTrue(libraryMenu.waitForExistence(timeout: 6)); libraryMenu.tap()
+        app.buttons["设置"].tap()
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
         let storage = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "应用内图库")).firstMatch
         for _ in 0..<5 { if storage.isHittable { break }; app.swipeUp() }

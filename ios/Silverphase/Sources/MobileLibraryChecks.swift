@@ -66,6 +66,27 @@ import UniformTypeIdentifiers
         return true
     }
 
+    private static func photoPreviewAlphaEdgesAreRepaired() -> Bool {
+        let full = SIMD4<Float>(0.35, 0.55, 0.7, 1)
+        let darkEdge = SIMD4<Float>(0.03, 0.08, 0.12, 0.35)
+        let opaqueDetail = SIMD4<Float>(0.05, 0.15, 0.25, 1)
+        for (width, height) in [(5, 7), (7, 5)] {
+            var pixels = Array(repeating: full, count: width * height)
+            let right = 2 * width + width - 1, top = 2, inner = width + 2
+            pixels[right] = darkEdge
+            pixels[top] = darkEdge
+            pixels[inner] = SIMD4<Float>(0.4, 0.6, 0.8, 1.073) // possible Lanczos ringing
+            pixels[0] = opaqueDetail
+            pixels[inner + 1] = darkEdge // never touch interior samples
+            let repaired = pixels.withUnsafeMutableBytes {
+                MobileEngine.repairPhotoPreviewEdges($0.baseAddress!, width: width, height: height)
+            }
+            if repaired != 2 || pixels[right] != full || pixels[top] != full
+                || pixels[0] != opaqueDetail || pixels[inner + 1] != darkEdge { return false }
+        }
+        return true
+    }
+
     static func run() {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -76,6 +97,7 @@ import UniformTypeIdentifiers
                 guard value else { throw MobileFailure.message(label) }; checks.append(label)
             }
             try require(galleryRasterEdgesMatchInterior(), "thumbnail and draft resampling preserve portrait and landscape edge pixels")
+            try require(photoPreviewAlphaEdgesAreRepaired(), "preview raster repairs only outer partial-alpha samples before film inversion")
             let doc = MobileDocument(directory: directory); doc.active = false; doc.editorVisible = false
             var portrait = MobilePhoto(name: "Portrait", filename: "portrait.jpg")
             portrait.sourceAspect = 2.0 / 3; portrait.sourceMegapixels = 12

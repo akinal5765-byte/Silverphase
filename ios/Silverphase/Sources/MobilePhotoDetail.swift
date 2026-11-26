@@ -28,6 +28,7 @@ struct MobilePhotoDetail: View {
     @State private var originalUnavailable = false
     @State private var filmUnavailable = false
     @State private var nativeZoomCommand = 0
+    @State private var fitZoomCommand = 0
     @State private var canvasDemand: GalleryCanvasDemand?
     @State private var galleryTile: (key: URL, tile: MobileDetailTile)?
     @State private var tileWork: Task<Void, Never>?
@@ -100,6 +101,7 @@ struct MobilePhotoDetail: View {
         let key: URL
         let viewport: MobileViewport
         let memoryDrop: Int
+        let wantsNative: Bool
     }
 
     private var zoomedDemand: Bool { canvasDemand?.photoID == photoID && canvasDemand?.viewport != nil }
@@ -108,15 +110,17 @@ struct MobilePhotoDetail: View {
         guard !stripScrubbing, previewID == photoID,
               displayedFilmKey == photo.map({ document.libraryPreviewURL($0) }),
               let photo, let demand = canvasDemand, demand.photoID == photo.id,
-              let viewport = demand.viewport, viewport.needsDetail else { return nil }
-        return TileRequest(key: document.libraryPreviewURL(photo), viewport: viewport, memoryDrop: memoryDrop)
+              let viewport = demand.viewport, (demand.nativeZoom || viewport.needsDetail) else { return nil }
+        return TileRequest(key: document.libraryPreviewURL(photo), viewport: viewport, memoryDrop: memoryDrop,
+                           wantsNative: demand.nativeZoom)
     }
 
     private var originalTileRequest: TileRequest? {
         guard !stripScrubbing, let photo, originalHoldID == photo.id,
               originalProxy?.id == photo.id, let demand = canvasDemand, demand.photoID == photo.id,
-              let viewport = demand.originalViewport, viewport.needsDetail else { return nil }
-        return TileRequest(key: document.libraryPreviewURL(photo), viewport: viewport, memoryDrop: memoryDrop)
+              let viewport = demand.originalViewport, (demand.nativeZoom || viewport.needsDetail) else { return nil }
+        return TileRequest(key: document.libraryPreviewURL(photo), viewport: viewport, memoryDrop: memoryDrop,
+                           wantsNative: demand.nativeZoom)
     }
 
     private var photo: MobilePhoto? { document.photos.first { $0.id == photoID } }
@@ -559,6 +563,9 @@ struct MobilePhotoDetail: View {
 
     private func more(_ photo: MobilePhoto) -> some View {
         Menu {
+            Button(T("Zoom to Fit", "适合窗口", "適合視窗"), systemImage: "arrow.down.right.and.arrow.up.left") {
+                fitZoomCommand += 1
+            }.accessibilityIdentifier("photo-detail.zoom-to-fit")
             Button(T("Actual Pixels (1:1)", "实际像素（1:1）", "實際像素（1:1）"), systemImage: "1.magnifyingglass") {
                 filmUnavailable = false; originalUnavailable = false
                 nativeZoomCommand += 1
@@ -616,7 +623,7 @@ struct MobilePhotoDetail: View {
     private func startTileWorkIfNeeded() {
         guard tileWork == nil, let request = tileRequest, let photo else { return }
         if let galleryTile, galleryTile.key == request.key,
-           Self.tile(galleryTile.tile, satisfies: request.viewport) { return }
+           Self.tile(galleryTile.tile, satisfies: request) { return }
         filmUnavailable = false
         let generation = tileGeneration
         tileWork = Task {
@@ -646,7 +653,8 @@ struct MobilePhotoDetail: View {
             try Task.checkCancellation()
             guard let latest = tileRequest, latest.key == request.key else { return }
             let actual = max(Double(result.image.width) / result.rect.width, Double(result.image.height) / result.rect.height)
-            guard actual > Double(request.viewport.previewLongEdge) * 1.07 else {
+            guard (request.wantsNative && result.nativeSize != nil)
+                || actual > Double(request.viewport.previewLongEdge) * (request.wantsNative ? 1.001 : 1.07) else {
                 filmUnavailable = true
 #if DEBUG
                 GalleryTileAudit.record("detail unchanged: current \(request.viewport.previewLongEdge) px, available \(Int(actual)) px")
@@ -676,7 +684,7 @@ struct MobilePhotoDetail: View {
     private func renderOriginalTile() async {
         guard let request = originalTileRequest, let photo else { return }
         if let originalTile, originalTile.key == request.key,
-           Self.tile(originalTile.tile, satisfies: request.viewport) { return }
+           Self.tile(originalTile.tile, satisfies: request) { return }
         originalUnavailable = false
         let work = UUID()
         originalDetailWork = work
@@ -687,7 +695,8 @@ struct MobilePhotoDetail: View {
             try Task.checkCancellation()
             guard originalTileRequest == request else { return }
             let actual = max(Double(result.image.width) / result.rect.width, Double(result.image.height) / result.rect.height)
-            guard actual > Double(request.viewport.previewLongEdge) * 1.07 else { originalUnavailable = true; return }
+            guard (request.wantsNative && result.nativeSize != nil)
+                || actual > Double(request.viewport.previewLongEdge) * (request.wantsNative ? 1.001 : 1.07) else { originalUnavailable = true; return }
             originalTile = (request.key, result)
 #if DEBUG
             GalleryTileAudit.record("original viewport \(Int(actual)) px; native=\(result.nativeSize != nil)")
@@ -697,9 +706,13 @@ struct MobilePhotoDetail: View {
         }
     }
 
-    private static func tile(_ tile: MobileDetailTile, satisfies viewport: MobileViewport) -> Bool {
+    private static func tile(_ tile: MobileDetailTile, satisfies request: TileRequest) -> Bool {
+        let viewport = request.viewport
+        guard tile.rect.contains(viewport.rect) else { return false }
+        if tile.nativeSize != nil { return true }
+        if request.wantsNative { return false }
         let edge = max(Double(tile.image.width) / tile.rect.width, Double(tile.image.height) / tile.rect.height)
-        return tile.rect.contains(viewport.rect) && (tile.nativeSize != nil || edge >= viewport.pixelLongEdge * 0.97)
+        return edge >= viewport.pixelLongEdge * 0.97
     }
 
     private func picture(_ photo: MobilePhoto) -> some View {
@@ -709,7 +722,8 @@ struct MobilePhotoDetail: View {
                              tile: galleryTile?.key == document.libraryPreviewURL(photo) ? galleryTile?.tile : nil,
                              comparisonTile: originalHoldID == photo.id && originalTile?.key == document.libraryPreviewURL(photo) ? originalTile?.tile : nil,
                              nativeOutput: document.galleryNativeOutput(photo, original: false),
-                             nativeZoomCommand: nativeZoomCommand,
+                             originalNativeOutput: document.galleryNativeOutput(photo, original: true),
+                             nativeZoomCommand: nativeZoomCommand, fitZoomCommand: fitZoomCommand,
                              comparisonImage: originalHoldID == photo.id && originalProxy?.id == photo.id ? originalProxy?.image : nil,
                              onCompare: { hold in
                                  originalFitWork = nil
@@ -1135,7 +1149,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
     let tile: MobileDetailTile?
     let comparisonTile: MobileDetailTile?
     let nativeOutput: CGSize
+    let originalNativeOutput: CGSize
     let nativeZoomCommand: Int
+    let fitZoomCommand: Int
     let comparisonImage: CGImage?
     let onCompare: (Bool) -> Void
     let onDemand: (GalleryCanvasDemand) -> Void
@@ -1168,7 +1184,10 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         view.update(photoID: photoID, name: name, image: image, developed: developed, prefersCoverFill: prefersCoverFill)
         view.updateTile(tile)
         view.updateComparison(comparisonImage, detail: comparisonTile)
+        view.nativeOutputEdges = (max(nativeOutput.width, nativeOutput.height),
+                                  max(originalNativeOutput.width, originalNativeOutput.height))
         view.requestNativeZoom(nativeZoomCommand, output: nativeOutput)
+        view.requestFitZoom(fitZoomCommand)
         view.requestBack(backCommand)
     }
 
@@ -1180,6 +1199,8 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private var displayedOriginal: CGImage?
         private var displayedOriginalTile: MobileDetailTile?
         private var nativeCommand = 0
+        private var fitCommand = 0
+        var nativeOutputEdges: (film: CGFloat, original: CGFloat) = (0, 0)
         private var nativeZoom = false
         var onCompare: ((Bool) -> Void)?
         private var tile: MobileDetailTile?
@@ -1484,6 +1505,16 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in self?.scheduleDemand() }
         }
 
+        func requestFitZoom(_ command: Int) {
+            guard command != fitCommand else { return }
+            fitCommand = command
+            nativeZoom = false
+            lastScheduledDemand = nil
+            setZoomScale(1, animated: !reduceMotion)
+            centerFittedPhoto()
+            scheduleDemand()
+        }
+
         @objc private func holdOriginal(_ gesture: UILongPressGestureRecognizer) {
             switch gesture.state {
             case .began: if source != nil, transitionHost == nil { onCompare?(true) }
@@ -1525,19 +1556,20 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             let b = photoView.bounds
             let edge = MobilePreviewPolicy.fitEdge(pixels: Double(max(b.width, b.height) * displayScale))
             let visible = photoView.convert(bounds, from: self)
-            func request(for frame: CGRect, previewEdge: Int) -> MobileViewport? {
-                guard zoomScale > 1.05, !frame.isEmpty else { return nil }
+            func request(for frame: CGRect, previewEdge: Int, nativeEdge: CGFloat) -> MobileViewport? {
+                guard (nativeZoom || zoomScale > 1.05), !frame.isEmpty else { return nil }
                 let cropped = visible.intersection(frame)
                 guard !cropped.isNull, !cropped.isEmpty else { return nil }
                 let rect = CGRect(x: (cropped.minX - frame.minX) / frame.width, y: (cropped.minY - frame.minY) / frame.height,
                                   width: cropped.width / frame.width, height: cropped.height / frame.height)
                 let limit = nativeZoom ? 16384.0 : 10240.0
-                let pixels = min(limit, Double(max(frame.width, frame.height) * zoomScale * displayScale))
+                let target = nativeZoom && nativeEdge > 0 ? nativeEdge : max(frame.width, frame.height) * zoomScale * displayScale
+                let pixels = min(limit, Double(target))
                 return MobileViewport(rect: rect, zoom: Double(zoomScale), pixelLongEdge: pixels, previewLongEdge: previewEdge)
             }
-            let normalized = request(for: b, previewEdge: max(source.width, source.height))
+            let normalized = request(for: b, previewEdge: max(source.width, source.height), nativeEdge: nativeOutputEdges.film)
             let originalRequest = displayedOriginal.flatMap {
-                request(for: comparisonFrame, previewEdge: max($0.width, $0.height))
+                request(for: comparisonFrame, previewEdge: max($0.width, $0.height), nativeEdge: nativeOutputEdges.original)
             }
             let next = GalleryCanvasDemand(photoID: id, fitEdge: edge, viewport: normalized,
                                            originalViewport: originalRequest, nativeZoom: nativeZoom)

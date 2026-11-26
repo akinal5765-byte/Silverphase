@@ -458,7 +458,9 @@ actor MobileEngine {
     func cameraDevelopment(url: URL, recipe: [String: WireValue], geometry: MobileGeometry = MobileGeometry(),
                            animate: Bool, megapixels: Double = 1) throws -> MobileCameraDevelopment {
         defer { close() }
-        let result = try render(url: url, recipe: recipe, megapixels: megapixels, geometry: geometry)
+        var settings = recipe
+        settings["_repairPhotoPreviewEdges"] = .bool(true)
+        let result = try render(url: url, recipe: settings, megapixels: megapixels, geometry: geometry)
         let framed = MobileFilmGate.presents(recipe)
         let print = try framed ? result.image : geometry.apply(to: result.image)
         let display = try canvasImage(print)
@@ -787,6 +789,10 @@ actor MobileEngine {
         let inputMP = min(megapixels, simulationSize.map(MobileSimulationSize.megapixels) ?? megapixels)
         let isRaw = inputMetadata.isRaw
         let gallery = recipe["_galleryPreview"]?.boolValue == true
+        let preview = gallery || recipe["_repairPhotoPreviewEdges"]?.boolValue == true
+        let type = inputMetadata.typeIdentifier.flatMap(UTType.init)
+        let opaquePhoto = isRaw || type?.conforms(to: .jpeg) == true
+            || type?.conforms(to: .heic) == true || type?.conforms(to: .heif) == true
         if isRaw {
             galleryTrace?.mark("RAW filter open start")
             guard let raw = CIRAWFilter(imageURL: url), raw.nativeSize.width > 0, raw.nativeSize.height > 0 else { throw MobileFailure.message(TDetached("The system cannot decode this RAW", "系统无法解码这款 RAW", "系統無法解碼這款 RAW")) }
@@ -833,7 +839,7 @@ actor MobileEngine {
             }
             galleryTrace?.mark("encoded input open end")
             let scale = min(1, sqrt(inputMP * 1_000_000 / (input.extent.width * input.extent.height)))
-            image = gallery ? MobileSimulationSize.resizeForPreview(input, scale: scale)
+            image = (gallery || (preview && opaquePhoto)) ? MobileSimulationSize.resizeForPreview(input, scale: scale)
                 : input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
         let targetSize = simulationSize.map { size in
@@ -894,11 +900,44 @@ actor MobileEngine {
         try Task.checkCancellation()
         context.render(placed, toBitmap: buffer.contents(), rowBytes: width * 16,
                        bounds: CGRect(x: 0, y: 0, width: width, height: height), format: .RGBAf, colorSpace: linear)
+        if preview && opaquePhoto {
+            let count = Self.repairPhotoPreviewEdges(buffer.contents(), width: width, height: height)
+            if count > 0 { galleryTrace?.mark("repaired \(count) partially transparent perimeter samples") }
+        }
         galleryTrace?.mark("RAW/CI working pixel render end")
         try Task.checkCancellation()
         return (buffer, width, height, original)
         }
     }
+
+    // The film engine consumes RGB and ignores alpha. A clipped RAW/HEIC
+    // perimeter sample can therefore become a bright line after inversion.
+    // Repair only an outer sample when its immediate interior is fully opaque;
+    // never crop, touch the interior, or apply this to an exported render.
+    nonisolated static func repairPhotoPreviewEdges(_ bytes: UnsafeMutableRawPointer, width: Int, height: Int) -> Int {
+        guard width >= 3, height >= 3 else { return 0 }
+        let pixels = bytes.assumingMemoryBound(to: SIMD4<Float>.self)
+        var repairs = 0
+        func repair(_ outer: Int, _ inner: Int, _ deeper: Int) {
+            guard pixels[outer].w < 0.99 else { return }
+            let donor = abs(pixels[inner].w - 1) < 0.002 ? inner : deeper
+            guard abs(pixels[donor].w - 1) < 0.002 else { return }
+            pixels[outer] = pixels[donor]
+            repairs += 1
+        }
+        for x in 0..<width {
+            let interiorX = min(max(1, x), width - 2)
+            repair(x, width + interiorX, min(2, height - 2) * width + interiorX)
+            repair((height - 1) * width + x, (height - 2) * width + interiorX,
+                   max(1, height - 3) * width + interiorX)
+        }
+        for y in 1..<(height - 1) {
+            repair(y * width, y * width + 1, y * width + min(2, width - 2))
+            repair(y * width + width - 1, y * width + width - 2, y * width + max(1, width - 3))
+        }
+        return repairs
+    }
+
 }
 
 #if DEBUG
