@@ -123,7 +123,7 @@ build_dylib() {
 build_tests() {
   collect_sources
   local driver
-  for driver in dump_setup dump_json gpu_smoke print_balance film_reference; do
+  for driver in dump_setup dump_json gpu_smoke print_balance film_reference pointwise_prep; do
     [[ -f "$here/tests/$driver.cpp" ]] || continue
     "$CXX" "${cxxflags[@]}" "${includes[@]}" -I"$here/tests" \
       "$here/tests/$driver.cpp" "${sources[@]}" "${frameworks[@]}" -o "$out/$driver"
