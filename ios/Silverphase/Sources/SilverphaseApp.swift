@@ -203,7 +203,7 @@ import OSLog
         } else if ProcessInfo.processInfo.arguments.contains("--compact-editor-ui-regression") {
             MobileSmokeChecks.prepareCompactPhoneUI(document)
         } else if ProcessInfo.processInfo.arguments.contains("--library-regression") {
-            MobileLibraryChecks.run()
+            await MobileLibraryChecks.run()
             await MobileLibraryChecks.exportBatch()
         } else if ProcessInfo.processInfo.arguments.contains("--library-ui-regression") {
             MobileLibraryChecks.prepareUI(document)

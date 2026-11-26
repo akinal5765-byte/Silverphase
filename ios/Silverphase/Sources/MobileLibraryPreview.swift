@@ -8,9 +8,9 @@ import UniformTypeIdentifiers
 /// A pasted/undone edit never displays another recipe's finished photograph.
 enum MobileLibraryPreview {
     private static let lock = NSLock()
-    // The RAW preview raster changed before film processing. A thumbnail
-    // encoded by the previous pipeline is not valid as the first frame.
-    private static let rasterVersion = 3
+    // Earlier thumbnails could have been written by the editor without
+    // the gallery and camera's pre-film edge guard.
+    private static let rasterVersion = 4
     private struct Key: Encodable {
         let rasterVersion: Int
         let recipe: [String: ParamValue]

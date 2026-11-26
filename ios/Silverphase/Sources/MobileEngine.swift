@@ -118,6 +118,7 @@ actor MobileEngine {
     private var sourceURL: URL?
     private var original: CGImage?
     private var openedMP = 0.0
+    private var openedWithEditorRAWGuard = false
     private var decodeInfo: [String: WireValue] = [:]
     private var appliedGeometry = MobileGeometry()
     private var appliedRecipe: [String: WireValue] = [:]
@@ -151,6 +152,7 @@ actor MobileEngine {
         workGate.register(nil)
         if let session { spk_session_release(session) }
         session = nil; sourceURL = nil; original = nil; openedMP = 0; appliedRecipe = [:]; appliedWire = [:]
+        openedWithEditorRAWGuard = false
     }
     func close() {
         releaseSession()
@@ -183,7 +185,7 @@ actor MobileEngine {
     }
 
     func render(url: URL, recipe: [String: WireValue], megapixels: Double = 2, geometry: MobileGeometry = MobileGeometry(), inputMetadata: MobileImageMetadata? = nil, brightnessProbe: Bool = false,
-                galleryTrace: GalleryRenderTrace? = nil) throws -> MobileRender {
+                galleryTrace: GalleryRenderTrace? = nil, editorRAWGuard: Bool = false) throws -> MobileRender {
         try autoreleasepool {
             try Task.checkCancellation()
             try workGate.check()
@@ -251,7 +253,10 @@ actor MobileEngine {
             // merely sending a smaller delta would leave the old value live.
             let removedOverride = appliedRecipe.keys.contains { !["_interactivePreview", "_interactiveEdge"].contains($0) && recipe[$0] == nil }
             let filmChanged = appliedRecipe["film_stock"] != recipe["film_stock"]
-            let decodeChanged = ["_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active", MobileSimulationSize.key].contains { appliedRecipe[$0] != recipe[$0] } || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
+            let protectEditorRAW = editorRAWGuard && metadata.isRaw && recipe["_exporting"]?.boolValue != true
+            let decodeChanged = openedWithEditorRAWGuard != protectEditorRAW
+                || ["_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active", MobileSimulationSize.key].contains { appliedRecipe[$0] != recipe[$0] }
+                || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
             if sourceURL != url || openedMP != megapixels || session == nil || removedOverride || filmChanged || decodeChanged || ((presentation || recipe[MobileSimulationSize.key] != nil) && appliedGeometry != geometry) {
                 // Gallery discards each decoded photo/session, not the
                 // independent engine's Metal pipelines and material cache.
@@ -273,7 +278,8 @@ actor MobileEngine {
                 traceExport("before-decode")
                 galleryTrace?.mark("decode start")
                 let decoded = try decode(url: url, megapixels: megapixels, device: device, recipe: recipe,
-                                         geometry: geometry, metadata: metadata, galleryTrace: galleryTrace)
+                                         geometry: geometry, metadata: metadata, galleryTrace: galleryTrace,
+                                         editorRAWGuard: protectEditorRAW)
                 galleryTrace?.mark("decode end \(decoded.width)x\(decoded.height)")
                 traceExport("decoded")
                 try Task.checkCancellation()
@@ -293,6 +299,7 @@ actor MobileEngine {
                 guard session != nil else { close(); throw MobileFailure.message(TDetached("The image engine session could not be opened", "无法打开图像引擎会话", "無法開啟影像引擎會話")) }
                 workGate.register(session)
                 sourceURL = url; openedMP = megapixels; original = decoded.original
+                openedWithEditorRAWGuard = protectEditorRAW
             } else if let session {
                 let changed = delta.filter { appliedWire[$0.key] != $0.value }
                 if !changed.isEmpty {
@@ -434,6 +441,14 @@ actor MobileEngine {
     func canvasImage(_ working: CGImage) throws -> CGImage {
         try colorPipeline().convert(working, engine: engine, target: .p3)
     }
+    /// The editor's settled display also supplies the library thumbnail.
+    /// Match the gallery/camera's scaled RAW input guard without changing
+    /// encoded previews, unscaled RAW, exports or native detail tiles.
+    func renderEditorPreview(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
+                             megapixels: Double) throws -> MobileRender {
+        try render(url: url, recipe: recipe, megapixels: megapixels, geometry: geometry, editorRAWGuard: true)
+    }
+
     /// Gallery frames reuse engine and color-transform setup, but never
     /// retain a previous photo's decoded RAW or working session.
     func renderGalleryFrame(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
@@ -776,7 +791,9 @@ actor MobileEngine {
         return image
     }
 
-    private func decode(url: URL, megapixels: Double, device: MTLDevice, recipe: [String: WireValue], geometry: MobileGeometry, metadata: MobileImageMetadata? = nil, galleryTrace: GalleryRenderTrace? = nil) throws -> (buffer: MTLBuffer, width: Int, height: Int, original: CGImage) {
+    private func decode(url: URL, megapixels: Double, device: MTLDevice, recipe: [String: WireValue],
+                        geometry: MobileGeometry, metadata: MobileImageMetadata? = nil, galleryTrace: GalleryRenderTrace? = nil,
+                        editorRAWGuard: Bool = false) throws -> (buffer: MTLBuffer, width: Int, height: Int, original: CGImage) {
         try autoreleasepool {
         var image: CIImage
         var comparison: CIImage?
@@ -822,7 +839,7 @@ actor MobileEngine {
             // A scaled RAW decode can emit a spurious perimeter in any
             // orientation. Extend the valid interior over that perimeter
             // before geometry or film processing; never touch export.
-            image = preview && raw.scaleFactor < 1 ? Self.stabilizeScaledRAWPreview(output) : output
+            image = Self.stabilizeScaledRAWPreview(output, scale: raw.scaleFactor, enabled: preview || editorRAWGuard)
         } else {
             decodeInfo = ["_raw": .bool(false), "_lensSupported": .bool(false)]
             let badge = MobileImageMetadata.formatBadge(for: inputMetadata.typeIdentifier) ?? "unknown"
@@ -945,7 +962,8 @@ actor MobileEngine {
     /// Keep the exact raster extent and color values of the interior.
     /// The decoder's two-sample guard band, rather than the subject's
     /// brightness or alpha, determines which samples to rebuild.
-    nonisolated static func stabilizeScaledRAWPreview(_ image: CIImage) -> CIImage {
+    nonisolated static func stabilizeScaledRAWPreview(_ image: CIImage, scale: Float, enabled: Bool) -> CIImage {
+        guard enabled, scale < 1 else { return image }
         let raster = image.extent.integral
         guard !raster.isNull, !raster.isInfinite, raster.width > 8, raster.height > 8 else { return image }
         let valid = raster.insetBy(dx: 2, dy: 2)
