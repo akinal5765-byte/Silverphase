@@ -138,6 +138,20 @@ enum MobileLockedCameraChecks {
             try require(outerFinder == outer.size, "The viewfinder must cover the full outer frame")
             checks.append("outer rear selfie uses one full-screen viewport for preview and development")
 
+            for capture in [CGFloat(0), 90, 180, 270] {
+                try require(MobileCameraViewfinderGeometry.previewAngle(layer: 90, capture: capture, rearSelfie: true) == capture &&
+                            MobileCameraViewfinderGeometry.previewAngle(layer: 90, capture: capture, rearSelfie: false) == 90,
+                            "Only the rear selfie finder follows the recorded still orientation reference")
+                try require(MobileCameraViewfinderGeometry.developmentRotation(capture: capture, preview: capture) == 0,
+                            "An unturned rear selfie print should not rotate between preview and reveal")
+            }
+            try require(MobileCameraViewfinderGeometry.developmentRotation(capture: 270, preview: 0) == 90 &&
+                        MobileCameraViewfinderGeometry.developmentRotation(capture: 90, preview: 0) == -90,
+                        "Outer print must follow finder orientation changes after shutter")
+            try require(MobileCameraViewfinderGeometry.previewAngle(layer: 90, capture: .nan, rearSelfie: true) == 90,
+                        "An invalid capture angle should fall back to the normal layer reference")
+            checks.append("only Duo rear-selfie preview and print use the same live still orientation reference")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")

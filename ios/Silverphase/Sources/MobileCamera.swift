@@ -152,6 +152,7 @@ struct MobileCameraView: View {
     @State private var frozenShot: CGImage?
     @State private var reveal: MobileCameraDevelopment?
     @State private var shotQuarterTurn = 0.0
+    @State private var outerShotAngle: CGFloat?
     @State private var revealOpacity = 0.0
     @State private var landingPhoto = false
     @State private var photoAtThumbnail = false
@@ -231,7 +232,12 @@ struct MobileCameraView: View {
             isInner: usesInnerCameraLayout, hingeClosed: fillsPanel, rearSelfie: rearSelfieOnHostDisplay
         )
     }
-    private var revealRotation: Double { (interfaceQuarterTurn - shotQuarterTurn).remainder(dividingBy: 360) }
+    private var revealRotation: Double {
+        if rearSelfieOnHostDisplay, let outerShotAngle {
+            return Double(MobileCameraViewfinderGeometry.developmentRotation(capture: outerShotAngle, preview: previewAngle))
+        }
+        return (interfaceQuarterTurn - shotQuarterTurn).remainder(dividingBy: 360)
+    }
     private var revealSwapsAxes: Bool { abs(revealRotation.remainder(dividingBy: 180)) == 90 }
 
 #else
@@ -1924,6 +1930,9 @@ struct MobileCameraView: View {
         // the pose-based path and its existing fallback.
         let selectedPose = shutterPose
         let captureAngle = followsInterface ? camera.horizonCaptureAngle : nil
+#if SILVERPHASE_APP
+        outerShotAngle = rearSelfieOnHostDisplay ? captureAngle : nil
+#endif
         let selectedFlash = flash
         let selectedLens = lens
         let usesDepth = portraitMode

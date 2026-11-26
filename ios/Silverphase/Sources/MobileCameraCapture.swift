@@ -838,6 +838,11 @@ struct MobileCameraPreview: UIViewRepresentable {
         view.rotationObservation = rotation.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]) { [weak view] _, _ in
             Task { @MainActor in view?.setNeedsLayout() }
         }
+#if SILVERPHASE_APP
+        view.captureRotationObservation = rotation.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.new]) { [weak view] _, _ in
+            Task { @MainActor in view?.captureRotationChanged() }
+        }
+#endif
         return view
     }
 
@@ -855,6 +860,9 @@ struct MobileCameraPreview: UIViewRepresentable {
 
     static func dismantleUIView(_ view: Preview, coordinator: ()) {
         view.rotationObservation?.invalidate()
+#if SILVERPHASE_APP
+        view.captureRotationObservation?.invalidate()
+#endif
         view.previewObservation?.invalidate()
         view.captureInteraction?.isEnabled = false
         view.rotation = nil
@@ -878,6 +886,12 @@ struct MobileCameraPreview: UIViewRepresentable {
 #if SILVERPHASE_APP
         private var directionCoordinator: AnyObject?
         private var lastRearSelfie: Bool?
+        var captureRotationObservation: NSKeyValueObservation?
+
+        func captureRotationChanged() {
+            guard lastRearSelfie == true, previewLayer.session != nil else { return }
+            updateConnectionOrientation()
+        }
 
         @available(iOS 27.1, *)
         func observeRearCameraDirection(_ device: AVCaptureDevice) {
@@ -962,7 +976,19 @@ struct MobileCameraPreview: UIViewRepresentable {
             // The coordinator is attached to this layer and already accounts
             // for which Duo display hosts it. The static capture-for-pose API
             // does not use the layer coordinate system.
-            let angle = rotation.videoRotationAngleForHorizonLevelPreview
+            let layerAngle = rotation.videoRotationAngleForHorizonLevelPreview
+#if SILVERPHASE_APP
+            // For open Duo with the rear sensor facing the outer display, the
+            // layer reference can disagree with the actual rear-camera pixels.
+            // Use the positive, uncropped still's moving reference for this
+            // one preview mode. No rotation constant or photo change.
+            let angle = MobileCameraViewfinderGeometry.previewAngle(
+                layer: layerAngle, capture: rotation.videoRotationAngleForHorizonLevelCapture,
+                rearSelfie: lastRearSelfie == true
+            )
+#else
+            let angle = layerAngle
+#endif
             if connection.isVideoRotationAngleSupported(angle), connection.videoRotationAngle != angle {
                 connection.videoRotationAngle = angle
             }
