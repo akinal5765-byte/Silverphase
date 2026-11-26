@@ -1,6 +1,6 @@
 # Video device check
 
-This draft exposes a separate UHD (3840 × 2160) SDR HEVC rear-camera recorder in Library → ⋯ →
+This draft exposes a separate, device-configured SDR HEVC rear-camera recorder in Library → ⋯ →
 Record Video in Debug only, until device acceptance. It has no application recording-duration cap. Recording stays in
 the foreground, with sound; interruptions end the current take rather than
 trying to resume into the same file. Capture quality, thermal behavior, and
@@ -9,7 +9,14 @@ export speed are not yet validated on iPhone.
 The hardware writes a QuickTime source; the separate post-capture pass uses the
 selected film's normal print/scan workflow through the native Metal engine,
 one frame at a time. It preserves the audio track and has no app-imposed limit
-on the source length. 30 fps is the default; 60 fps is only offered if the rear camera reports a compatible UHD SDR format. Capture and export validate the actual raster, nominal frame rate, and HEVC codec. No automatic downgrade. The live viewfinder is ungraded. Glare and per-frame film
+on the source length. Automatic Maximum takes the largest available raster
+for the selected physical rear lens, then the fastest frame rate at that
+raster, based on the lens's AVFoundation movie-compatible SDR formats.
+Turn Automatic off to pick resolution and then one of its supported rates.
+Changing lenses preserves the existing manual pair only if the new lens
+offers it. Otherwise the app asks for a new pair. The configured dimensions
+and frame rate are shown before recording. No silent fallback on setup,
+capture, or export failure. The live viewfinder is ungraded. Glare and per-frame film
 auto-metering are intentionally off in this first version. The still, Portrait,
 camera shortcut and lock-screen routes keep their own camera configuration. Live
 Photo and real-time graded recording are not part of this change.
@@ -36,7 +43,9 @@ its Documents directory under one or more of these names:
 - `video-check-uhd60-landscape.mov` and `video-check-uhd60-portrait.mov`
 - `video-check-legacy-small.mov` for a smaller historical input (no UHD claim)
 
-Launch with `--video-export-regression`. The app writes
+Launch with `--video-format-regression` for ranking, rational frame rates,
+legacy metadata and rotation-normalized dimensions. It writes `video-format-report.json`.
+Launch with `--video-export-regression` for capture-format and export checks. The app writes
 `video-export-report.json` and, for each successful conversion, a
 `video-check-…-developed.mov` beside its source without saving to Photos.
 Run the pair checker on the files to check real presentation timestamps and
@@ -50,7 +59,11 @@ camera recording, hardware thermals, sustained AV cadence, or playback sync.
    permissions. Repeat with microphone denied; verify no pretend-silent take,
    and the settings message. Check the original camera and Portrait can still
    open from their normal entry points after leaving video.
-2. Record in landscape for at least two minutes, including speech or a clap
+2. Check Automatic Maximum and manual controls with each available rear lens.
+   Try the highest automatic pair and a lower manual pair; switch to a lens
+   without that pair and check the prompt. Controls must be locked during
+   recording. Check that high-speed takes play in real time with sound.
+   Record in landscape for at least two minutes, including speech or a clap
    near both ends and moving subjects. Stop explicitly. Confirm playback has
    sound and the shot has no ten-second cap. Repeat in portrait with another
    film. Check both orientations at 30 fps and, where offered, repeat at 60 fps.

@@ -23,31 +23,31 @@ enum MobileMovieDevelopment {
                               descriptions.allSatisfy { CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_HEVC })
     }
 
-    private static func validateCapture(_ track: VideoTrack, frameRate: Int?) throws {
+    private static func validateCapture(_ track: VideoTrack, expected: MobileMovieProfile?) throws {
         // Older Debug builds may have one pending 1080p clip. Do not apply
         // a newly saved UHD profile retroactively to that original file.
-        guard let frameRate else { return }
+        guard let expected else { return }
         let long = max(track.size.width, track.size.height), short = min(track.size.width, track.size.height)
-        guard long == CGFloat(MobileMovieProfile.width), short == CGFloat(MobileMovieProfile.height),
-              track.frameRate.isFinite, abs(track.frameRate - Float(frameRate)) <= 0.5, track.hevc else {
+        guard long == CGFloat(expected.raster.width), short == CGFloat(expected.raster.height),
+              track.frameRate.isFinite, abs(Double(track.frameRate) - expected.fps) <= 0.5, track.hevc else {
             let actual = "\(Int(track.size.width))×\(Int(track.size.height)) / \(track.frameRate.formatted()) fps"
-            throw MobileFailure.message(TDetached("Recording did not match the selected 4K HEVC profile (\(actual)). The original was kept.",
-                                                  "录像未达到所选 4K HEVC 规格（实测 \(actual)），已保留原片。",
-                                                  "錄影未達所選 4K HEVC 規格（實測 \(actual)），已保留原片。"))
+            throw MobileFailure.message(TDetached("Recording did not match the selected HEVC format (\(actual)). The original was kept.",
+                                                  "录像未达到所选 HEVC 规格（实测 \(actual)），已保留原片。",
+                                                  "錄影未達所選 HEVC 規格（實測 \(actual)），已保留原片。"))
         }
     }
 
-    static func checkCapture(source: URL, frameRate: Int?) async throws {
+    static func checkCapture(source: URL, expected: MobileMovieProfile?) async throws {
         let asset = AVURLAsset(url: source)
         let video = try await asset.loadTracks(withMediaType: .video)
         let audio = try await asset.loadTracks(withMediaType: .audio)
         guard let track = video.first, !audio.isEmpty else {
             throw MobileFailure.message(TDetached("The recording has no playable video or audio track.", "录像没有可播放的视频或音频轨道。", "錄影沒有可播放的影片或音訊軌道。"))
         }
-        try validateCapture(await inspect(track), frameRate: frameRate)
+        try validateCapture(await inspect(track), expected: expected)
     }
 
-    @MainActor static func export(source: URL, destination: URL, film: String, frameRate: Int?,
+    @MainActor static func export(source: URL, destination: URL, film: String, expected: MobileMovieProfile?,
                        progress: @escaping @Sendable (Double) -> Void) async throws {
         let asset = AVURLAsset(url: source)
         let duration = try await asset.load(.duration)
@@ -57,7 +57,7 @@ enum MobileMovieDevelopment {
             throw MobileFailure.message(TDetached("The recording has no playable video or audio track.", "录像没有可播放的视频或音频轨道。", "錄影沒有可播放的影片或音訊軌道。"))
         }
         let input = try await inspect(inputTrack)
-        try validateCapture(input, frameRate: frameRate)
+        try validateCapture(input, expected: expected)
         if FileManager.default.fileExists(atPath: destination.path) { return }
         // Start with the still HEIF export's conservative working-set gate.
         // This estimates free headroom, not peak or a measured device budget.
@@ -121,6 +121,28 @@ enum MobileMovieDevelopment {
 
 #if DEBUG
 extension MobileMovieDevelopment {
+    static func runFormatRegression() {
+        typealias Mode = MobileMovieProfile
+        func spec(_ w: Int, _ h: Int, _ rate: Int32) -> Mode {
+            Mode(raster: .init(w, h), duration: CMTime(value: 1, timescale: rate))
+        }
+        let uhd60 = spec(3840, 2160, 60)
+        let uhd30 = spec(3840, 2160, 30)
+        let large = spec(4096, 2160, 24)
+        let hd120 = spec(1920, 1080, 120)
+        let ntsc = Mode(raster: uhd60.raster, duration: CMTime(value: 1001, timescale: 60000))
+        let tests = [
+            "ranking": Mode.ranked([hd120, uhd30, large, uhd60, ntsc]) == [large, uhd60, ntsc, uhd30, hd120],
+            "equivalentDuration": Mode.ranked([uhd60, Mode(raster: uhd60.raster, duration: CMTime(value: 2, timescale: 120))]) == [uhd60],
+            "legacyTake": Mode.legacyUHD(60) == uhd60 && Mode.legacyUHD(24) == nil,
+            "storedFormat": (try? JSONEncoder().encode(ntsc)).flatMap { try? JSONDecoder().decode(Mode.self, from: $0) } == ntsc,
+            "orientation": Mode.Raster(2160, 3840) == uhd60.raster
+        ]
+        if let data = try? JSONEncoder().encode(tests) {
+            try? data.write(to: URL.documentsDirectory.appending(path: "video-format-report.json"), options: .atomic)
+        }
+    }
+
     /// Explicit Debug-only launch check. Fixtures are injected into a test
     /// container by the developer; nothing is bundled or added to Photos.
     @MainActor static func runExportRegression() async {
@@ -128,24 +150,35 @@ extension MobileMovieDevelopment {
         let report = directory.appending(path: "video-export-report.json")
         try? FileManager.default.removeItem(at: report)
         var results: [[String: String]] = []
+        var cropMismatchRejected: Bool?
         for variant in ["uhd30-landscape", "uhd30-portrait", "uhd60-landscape", "uhd60-portrait", "legacy-small"] {
             let source = directory.appending(path: "video-check-\(variant).mov")
             guard FileManager.default.fileExists(atPath: source.path) else { continue }
             let destination = directory.appending(path: "video-check-\(variant)-developed.mov")
             let rate: Int? = variant.hasPrefix("uhd30") ? 30 : (variant.hasPrefix("uhd60") ? 60 : nil)
+            if variant == "uhd60-landscape" {
+                let deliberatelyWrong = MobileMovieProfile(raster: .init(1920, 1080), duration: CMTime(value: 1, timescale: 60))
+                do {
+                    try await checkCapture(source: source, expected: deliberatelyWrong)
+                    cropMismatchRejected = false
+                } catch { cropMismatchRejected = true }
+            }
+            var passedCapture = false
             do {
                 if FileManager.default.fileExists(atPath: destination.path) {
                     try FileManager.default.removeItem(at: destination)
                 }
-                try await checkCapture(source: source, frameRate: rate)
+                try await checkCapture(source: source, expected: rate.flatMap(MobileMovieProfile.legacyUHD))
+                passedCapture = true
                 try await export(source: source, destination: destination,
-                                 film: MobileCameraRecipe.defaultFilmID, frameRate: rate) { _ in }
+                                 film: MobileCameraRecipe.defaultFilmID, expected: rate.flatMap(MobileMovieProfile.legacyUHD)) { _ in }
                 results.append(["fixture": variant, "status": "passed"])
             } catch {
-                results.append(["fixture": variant, "status": "failed", "error": error.localizedDescription])
+                results.append(["fixture": variant, "status": "failed", "captureCheck": passedCapture ? "passed" : "failed", "error": error.localizedDescription])
             }
         }
-        let data = ["results": results, "freeMemoryBytes": Int(os_proc_available_memory())] as [String: Any]
+        var data: [String: Any] = ["results": results, "freeMemoryBytes": Int(os_proc_available_memory())]
+        if let cropMismatchRejected { data["cropMismatchRejected"] = cropMismatchRejected }
         if let encoded = try? JSONSerialization.data(withJSONObject: data, options: [.prettyPrinted, .sortedKeys]) {
             try? encoded.write(to: report, options: .atomic)
         }
@@ -215,12 +248,12 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
         defer { lock.unlock() }
         return try autoreleasepool {
             let extent = frame.extent
-            guard !extent.isInfinite, !extent.isEmpty, max(extent.width, extent.height) <= CGFloat(MobileMovieProfile.width),
-                  min(extent.width, extent.height) <= CGFloat(MobileMovieProfile.height),
-                  extent.width.rounded() == extent.width, extent.height.rounded() == extent.height else {
+            guard !extent.isInfinite, !extent.isEmpty,
+                  let width = Int(exactly: extent.width), let height = Int(exactly: extent.height),
+                  UInt32(exactly: width) != nil, UInt32(exactly: height) != nil,
+                  width > 0, height > 0, width <= device.maxBufferLength / max(height, 1) / 16 else {
                 throw MobileFailure.message(TDetached("Unsupported video frame size.", "不支持的视频帧尺寸。", "不支援的影片畫面尺寸。"))
             }
-            let width = Int(extent.width), height = Int(extent.height)
             if extent.size != size {
                 if let session { spk_session_release(session); self.session = nil }
                 input = device.makeBuffer(length: width * height * 16, options: .storageModeShared)
