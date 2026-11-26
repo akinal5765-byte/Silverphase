@@ -322,6 +322,10 @@ struct MobilePhotoDetail: View {
                 Spacer(minLength: 0)
                 filmstrip.frame(height: Self.stripBand)
             }
+            // Duo's controls live in the side lane. The strip tracks the
+            // bottom of the canvas, not a second, empty bottom toolbar lane.
+            .padding(.bottom, placement == .systemSide ? EditorDesign.contentInset : 0)
+            .ignoresSafeArea(.container, edges: placement == .systemSide ? .bottom : [])
             .opacity(showsControls ? 1 : 0)
             .allowsHitTesting(showsControls)
             .accessibilityHidden(!showsControls)
@@ -339,7 +343,7 @@ struct MobilePhotoDetail: View {
     }
 
     private func metadata(_ photo: MobilePhoto) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: placement == .systemSide ? EditorDesign.unit : 2 * EditorDesign.unit) {
             rating(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
             flag(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
             filmButton(photo)
@@ -368,7 +372,7 @@ struct MobilePhotoDetail: View {
                 document.setLibraryFilm(film, for: photo.id)
                 showingFilm = false
             }
-            .presentationCompactAdaptation(.sheet)
+            .presentationCompactAdaptation(.popover)
         }
     }
 
@@ -469,23 +473,21 @@ struct MobilePhotoDetail: View {
     private func dateLabel(_ photo: MobilePhoto) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             if let date = photo.libraryDate {
-                ViewThatFits(in: .horizontal) {
-                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                    Text(date.formatted(date: .numeric, time: .omitted))
-                        .lineLimit(1).allowsTightening(true).minimumScaleFactor(0.75)
-                }
-                .font(.caption.weight(.semibold))
-
+                // Ask for exactly the width of the two localized strings.
+                // The variable-width film chip should give up its title
+                // before either of these lines is compressed or truncated.
+                Text(date.formatted(date: .numeric, time: .omitted))
+                    .font(EditorDesign.panelTitle).monospacedDigit().lineLimit(1)
                 Text(date.formatted(date: .omitted, time: .shortened))
-                    .font(.caption2).foregroundStyle(.secondary)
-                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .font(EditorDesign.parameter).monospacedDigit()
+                    .foregroundStyle(.secondary).lineLimit(1)
             } else {
-                Text(photo.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(photo.name)
+                    .font(EditorDesign.panelTitle).lineLimit(1)
+                    .frame(maxWidth: 88, alignment: .leading)
             }
         }
-        .frame(maxWidth: 124, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(photo.libraryDate?.formatted(date: .long, time: .shortened) ?? photo.name)
         .accessibilityIdentifier("photo-detail.date")
@@ -874,8 +876,6 @@ private struct DetailFilmPicker: View {
     let cancel: () -> Void
     let select: (Stock) -> Void
     @State private var query = ""
-    @State private var detent = PresentationDetent.medium
-    @FocusState private var searchFocused: Bool
 
     private var matches: [Stock] {
         let stocks = StockCatalog.shared.filmsForPicker
@@ -913,7 +913,6 @@ private struct DetailFilmPicker: View {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(T("Search films", "搜索胶片", "搜尋膠片"), text: $query)
                         .textFieldStyle(.plain)
-                        .focused($searchFocused)
                         .submitLabel(.search)
                         .accessibilityIdentifier("photo-detail.film-search")
                     if !query.isEmpty {
@@ -947,10 +946,6 @@ private struct DetailFilmPicker: View {
             }
         }
         .frame(idealWidth: 420, idealHeight: 470)
-        .presentationDetents([.medium, .large], selection: $detent)
-        .onChange(of: searchFocused) { _, focused in
-            if focused { detent = .large }
-        }
         .accessibilityAction(.escape) { cancel() }
     }
 
