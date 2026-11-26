@@ -4,8 +4,10 @@
 
 New source builds use the macOS identifier `com.silverphase.editor`. Published
 1.3.1 (build 6) and earlier builds using `com.hanze.filmify` are unchanged.
-iPhone and iPad already use `com.silverphase.editor`; their app and data are
-unchanged. Silverphase for Mac has no installed command or MCP server.
+iPhone and iPad already use `com.silverphase.editor`, as do their camera
+extensions under separate suffixes. Their Store identity and data are unchanged.
+See [iOS distribution](../ios/APP-STORE.md#distribution-maintenance) for the
+release identity check. Silverphase for Mac has no installed command or MCP server.
 
 The older desktop build used a data folder that SpektraLab can also use. The
 new build does not automatically adopt the contents, change the old folder, or
@@ -42,7 +44,8 @@ Silverphase.app in **Open With** or Lightroom's external editor settings.
 
 新源码构建使用独立的 macOS 标识符 `com.silverphase.editor`。已发布的
 1.3.1（构建 6）及仍用旧标识符 `com.hanze.filmify` 的版本不会因此改变。
-iPhone 和 iPad 早已使用新标识符，应用和数据不受影响。Silverphase
+iPhone 和 iPad 的商店版已经使用 `com.silverphase.editor`，相机扩展使用同一前缀。
+这次不会变更移动端标识或迁移数据，见 [iOS 发布检查](../ios/APP-STORE.md#distribution-maintenance)。Silverphase
 桌面版没有安装独立命令行工具或 MCP 服务。
 
 旧版桌面数据目录可能与 SpektraLab 共用。新版不会自动接管该目录，
