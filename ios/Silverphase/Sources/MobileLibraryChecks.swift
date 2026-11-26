@@ -87,20 +87,35 @@ import UniformTypeIdentifiers
         return true
     }
 
-    private static func scaledRAWWhiteBorderIsRepaired() -> Bool {
-        let interior = SIMD4<Float>(0.20, 0.27, 0.31, 1)
-        let hot = SIMD4<Float>(3.0, 3.1, 3.0, 1)
-        for (w, h, vertical) in [(64, 96, true), (96, 64, false)] {
-            var pixels = Array(repeating: interior, count: w * h)
-            let outer = vertical ? (0..<h).map { $0 * w + w - 1 } : Array(0..<w)
-            for index in outer { pixels[index] = hot }
-            let genuineHighlight = w * 8
-            pixels[genuineHighlight] = hot
-            let repaired = pixels.withUnsafeMutableBytes {
-                MobileEngine.repairScaledRAWWhiteBorder($0.baseAddress!, width: w, height: h)
+    private static func scaledRAWPreviewReplicatesOnlyTheGuardBand() -> Bool {
+        let space = CGColorSpace(name: CGColorSpace.linearSRGB)!
+        let context = CIContext(options: [.workingColorSpace: space, .cacheIntermediates: false])
+        for (w, h) in [(63, 97), (97, 63)] {
+            let original: [SIMD4<Float>] = (0..<(w * h)).map { i in
+                let x = i % w, y = i / w
+                if x < 2 || y < 2 || x >= w - 2 || y >= h - 2 {
+                    // Include dim and nonuniform fringes, not just bright opaque stripes.
+                    return SIMD4<Float>(Float((x+y) % 5), 0.09, 0.22, 1)
+                }
+                return SIMD4<Float>(Float(x) / Float(w), Float(y) / Float(h), 0.25, 1)
             }
-            if repaired != outer.count || !outer.allSatisfy({ pixels[$0] == interior })
-                || pixels[genuineHighlight] != hot { return false }
+            let data = original.withUnsafeBytes { Data($0) }
+            let size = CGSize(width: w, height: h)
+            let image = CIImage(bitmapData: data, bytesPerRow: w * 16, size: size, format: .RGBAf, colorSpace: space)
+            let output = MobileEngine.stabilizeScaledRAWPreview(image)
+            guard output.extent == image.extent else { return false }
+            var raster = Array(repeating: SIMD4<Float>.zero, count: w * h)
+            raster.withUnsafeMutableBytes {
+                context.render(output, toBitmap: $0.baseAddress!, rowBytes: w * 16,
+                               bounds: output.extent, format: .RGBAf, colorSpace: space)
+            }
+            for y in 0..<h {
+                for x in 0..<w {
+                    let nearest = min(max(y, 2), h - 3) * w + min(max(x, 2), w - 3)
+                    let delta = raster[y * w + x] - original[nearest]
+                    guard (0..<4).allSatisfy({ abs(delta[$0]) < 0.002 }) else { return false }
+                }
+            }
         }
         return true
     }
@@ -116,7 +131,7 @@ import UniformTypeIdentifiers
             }
             try require(galleryRasterEdgesMatchInterior(), "thumbnail and draft resampling preserve portrait and landscape edge pixels")
             try require(photoPreviewAlphaEdgesAreRepaired(), "preview raster repairs only outer partial-alpha samples before film inversion")
-            try require(scaledRAWWhiteBorderIsRepaired(), "scaled RAW preview repairs a uniform opaque white perimeter without touching local highlights")
+            try require(scaledRAWPreviewReplicatesOnlyTheGuardBand(), "scaled RAW preview preserves extent and interior without brightness thresholds")
             let doc = MobileDocument(directory: directory); doc.active = false; doc.editorVisible = false
             var portrait = MobilePhoto(name: "Portrait", filename: "portrait.jpg")
             portrait.sourceAspect = 2.0 / 3; portrait.sourceMegapixels = 12

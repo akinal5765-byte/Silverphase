@@ -819,7 +819,10 @@ actor MobileEngine {
             }
             MobileInputColor.prepareSceneLinearRAW(raw)
             guard let output = raw.outputImage else { throw MobileFailure.message(TDetached("RAW decoding produced no output", "RAW 解码没有输出", "RAW 解碼沒有輸出")) }
-            image = output
+            // A scaled RAW decode can emit a spurious perimeter in any
+            // orientation. Extend the valid interior over that perimeter
+            // before geometry or film processing; never touch export.
+            image = preview && raw.scaleFactor < 1 ? Self.stabilizeScaledRAWPreview(output) : output
         } else {
             decodeInfo = ["_raw": .bool(false), "_lensSupported": .bool(false)]
             let badge = MobileImageMetadata.formatBadge(for: inputMetadata.typeIdentifier) ?? "unknown"
@@ -904,10 +907,6 @@ actor MobileEngine {
             let count = Self.repairPhotoPreviewEdges(buffer.contents(), width: width, height: height)
             if count > 0 { galleryTrace?.mark("repaired \(count) partially transparent perimeter samples") }
         }
-        if preview && isRaw && inputMP < inputMetadata.megapixels * 0.98 {
-            let count = Self.repairScaledRAWWhiteBorder(buffer.contents(), width: width, height: height)
-            if count > 0 { galleryTrace?.mark("repaired \(count) anomalous opaque RAW border samples") }
-        }
         galleryTrace?.mark("RAW/CI working pixel render end")
         try Task.checkCancellation()
         return (buffer, width, height, original)
@@ -943,54 +942,14 @@ actor MobileEngine {
     }
 
 
-    /// Some scaled CIRAWFilter outputs contain a nearly uniform, fully
-    /// opaque, over-range outer row or column. Do not crop the preview:
-    /// if nearly the entire edge has the same large linear-RGB pedestal
-    /// over both neighboring rows, use pixels from the nearest valid row.
-    /// Never call this for full-resolution export or for encoded input.
-    nonisolated static func repairScaledRAWWhiteBorder(_ bytes: UnsafeMutableRawPointer, width: Int, height: Int) -> Int {
-        guard width >= 32, height >= 32 else { return 0 }
-        let pixels = bytes.assumingMemoryBound(to: SIMD4<Float>.self)
-        func luma(_ p: SIMD4<Float>) -> Float { (p.x + p.y + p.z) / 3 }
-        func offset(_ edge: Int, _ along: Int, _ depth: Int) -> Int {
-            switch edge {
-            case 0: along * width + depth
-            case 1: along * width + width - 1 - depth
-            case 2: depth * width + along
-            default: (height - 1 - depth) * width + along
-            }
-        }
-        func pedestal(_ edge: Int, _ along: Int) -> Float? {
-            let outer = pixels[offset(edge, along, 0)]
-            let inner = pixels[offset(edge, along, 1)]
-            let deeper = pixels[offset(edge, along, 3)]
-            guard abs(outer.w - 1) < 0.002, abs(inner.w - 1) < 0.002, abs(deeper.w - 1) < 0.002,
-                  min(outer.x, outer.y, outer.z) > 1.15 else { return nil }
-            let delta = luma(outer) - max(luma(inner), luma(deeper))
-            return delta.isFinite && delta > 0.85 ? delta : nil
-        }
-        let badEdges = (0..<4).filter { edge in
-            let length = edge < 2 ? height : width
-            let samples = Array(stride(from: 4, to: length - 4, by: max(1, length / 128)))
-            let deltas = samples.compactMap { pedestal(edge, $0) }.sorted()
-            guard deltas.count >= 20, deltas.count * 100 >= samples.count * 95 else { return false }
-            return deltas[deltas.count * 9 / 10] - deltas[deltas.count / 10] < 0.30
-        }
-        var repairs = 0
-        for edge in badEdges {
-            let length = edge < 2 ? height : width
-            for i in 0..<length {
-                let innerAlong = min(max(i, 1), length - 2)
-                let inner = pixels[offset(edge, innerAlong, 1)]
-                let outerIndex = offset(edge, i, 0)
-                let outer = pixels[outerIndex]
-                guard abs(inner.w - 1) < 0.002, abs(outer.w - 1) < 0.002,
-                      min(outer.x, outer.y, outer.z) > 1.15, luma(outer) - luma(inner) > 0.85 else { continue }
-                pixels[outerIndex] = inner
-                repairs += 1
-            }
-        }
-        return repairs
+    /// Keep the exact raster extent and color values of the interior.
+    /// The decoder's two-sample guard band, rather than the subject's
+    /// brightness or alpha, determines which samples to rebuild.
+    nonisolated static func stabilizeScaledRAWPreview(_ image: CIImage) -> CIImage {
+        let raster = image.extent.integral
+        guard !raster.isNull, !raster.isInfinite, raster.width > 8, raster.height > 8 else { return image }
+        let valid = raster.insetBy(dx: 2, dy: 2)
+        return image.cropped(to: valid).clampedToExtent().cropped(to: raster)
     }
 
 }
