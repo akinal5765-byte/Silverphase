@@ -21,6 +21,10 @@ p.add_argument('--output', type=Path, required=True)
 p.add_argument('--derived-data', type=Path, help='Optional existing Xcode cache; not included in release assets')
 p.add_argument('--preflight-only', action='store_true', help='Check release source and output path without building')
 a = p.parse_args()
+if a.platform == 'macos' and not a.tag.startswith('macos-'):
+    p.error('macOS releases require a macos-vX.Y.Z tag; use vX.Y.Z for iOS')
+if a.platform == 'ios' and a.tag.startswith('macos-'):
+    p.error('iOS releases require a vX.Y.Z tag without the macos- prefix')
 version_tag = a.tag.removeprefix('macos-') if a.platform == 'macos' else a.tag
 if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?', version_tag):
     p.error('Use a version tag without path characters')

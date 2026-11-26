@@ -127,13 +127,15 @@ python3 tools/package-public-release.py --platform macos --tag macos-v1.4.0 \
   --output output/macos-release --preflight-only
 ```
 
-Use the requested platform's actual tag. Preflight does not invoke Xcode or
-create output. If a local tag exists, it must identify the clean checkout's
+Use `macos-vX.Y.Z` for macOS and `vX.Y.Z` for iOS; a tag for the other platform
+is rejected even if both tags identify the same commit. Preflight does not
+invoke Xcode or create output. If a local tag exists, it must identify the clean checkout's
 exact commit, including when using an annotated tag. If the tag does not exist
 locally, the command warns but permits building before tagging. Before uploading
 an asset, verify that the publication tag on GitHub points to the manifest's
-`source_commit`. The package manifest and the DMG's `INSTALL.txt` link directly
-to that commit rather than relying on the tag remaining unchanged.
+`source_commit`. The published `macos-build.json` or `ios-build.json`, the bundled
+`PublicRelease.json`, and the DMG's `INSTALL.txt` link directly to that commit
+rather than relying on the tag remaining unchanged.
 
 Provide the corresponding source for that exact binary revision, build scripts
 and bundled notices through a method permitted by GPL section 6. A generic

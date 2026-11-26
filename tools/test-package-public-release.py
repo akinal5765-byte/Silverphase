@@ -58,6 +58,19 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)['local_tag_verified_at_build'])
 
+    def test_platform_tags_are_distinct_even_on_same_commit(self):
+        self.git('tag', 'macos-v1.2.3')
+        self.git('tag', 'v1.2.3')
+        for platform, tag, message in [
+            ('macos', 'v1.2.3', 'macOS releases require a macos-vX.Y.Z tag'),
+            ('ios', 'macos-v1.2.3', 'iOS releases require a vX.Y.Z tag'),
+        ]:
+            with self.subTest(platform=platform, tag=tag):
+                result = self.preflight(tag, platform=platform)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertFalse(self.output.exists())
+
     def test_mismatched_tag_stops_real_build_before_output_creation(self):
         self.git('tag', 'macos-v1.2.3', self.first)
         result = self.preflight('macos-v1.2.3', build=True)
