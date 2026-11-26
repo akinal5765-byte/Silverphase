@@ -402,6 +402,7 @@ struct MobileEditor: View {
                     } else {
                     PhotoCanvas(canvas: document.canvasState, image: document.neutralPreview ?? (document.showOriginal ? document.original : document.image),
                                 fitInsets: canvasFit,
+                                prefersDuoFill: systemProcessToolbar,
                                 detail: document.pickingNeutral ? nil : (document.showOriginal ? document.originalDetailTile : document.detailTile),
                                 onViewport: document.requestDetail,
                                 onOriginalViewport: document.requestOriginalDetail,
@@ -599,6 +600,7 @@ struct MobileEditor: View {
                 } else {
                     PhotoCanvas(canvas: document.canvasState,
                                 image: document.neutralPreview ?? (document.showOriginal ? document.original : document.image),
+                                prefersDuoFill: systemProcessToolbar,
                                 detail: document.pickingNeutral ? nil : (document.showOriginal ? document.originalDetailTile : document.detailTile),
                                 onViewport: document.requestDetail, onOriginalViewport: document.requestOriginalDetail,
                                 nativeSize: document.showOriginal ? document.originalNativeOutputSize : document.nativeOutputSize,
@@ -891,6 +893,7 @@ struct PhotoCanvas: View {
     @Bindable var canvas: MobileCanvasState
     let image: CGImage?
     var fitInsets = EdgeInsets()
+    var prefersDuoFill = false
     var detail: MobileDetailTile?
     var onViewport: ((MobileViewport) -> Void)?
     var onOriginalViewport: ((MobileViewport) -> Void)?
@@ -923,7 +926,8 @@ struct PhotoCanvas: View {
                 let w = max(1, geometry.size.width - fitInsets.leading - fitInsets.trailing)
                 let h = max(1, geometry.size.height - fitInsets.top - fitInsets.bottom)
                 let logicalSize = onNeutral == nil && nativeSize.width > 0 && nativeSize.height > 0 ? nativeSize : CGSize(width: image.width, height: image.height)
-                let factor = min(w / logicalSize.width, h / logicalSize.height)
+                let factor = MobilePhotoFit.scale(image: logicalSize, available: CGSize(width: w, height: h),
+                                                  duo: prefersDuoFill && onNeutral == nil)
                 let iw = logicalSize.width * factor, ih = logicalSize.height * factor
                 let nativeScale = CGFloat(MobilePreviewPolicy.nativeZoom(nativeLongEdge: Double(max(nativeSize.width, nativeSize.height)),
                     fitLongEdgePoints: Double(max(iw, ih)), displayScale: Double(displayScale)))

@@ -90,6 +90,15 @@ final class PhotoImportTests: XCTestCase {
         presentation.name = "Film picker anchored to toolbar"
         presentation.lifetime = .keepAlways
         add(presentation)
+        let filter = app.buttons["photo-detail.film-filter"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        filter.tap()
+        let monochrome = app.buttons["photo-detail.film-filter.monochrome"]
+        XCTAssertTrue(monochrome.waitForExistence(timeout: 5))
+        monochrome.tap()
+        XCTAssertFalse(app.buttons["photo-detail.film-stock.kodak_portra_400"].exists)
+        filter.tap()
+        app.buttons["photo-detail.film-filter.all"].tap()
         let search = app.textFields["photo-detail.film-search"]
         XCTAssertTrue(search.waitForExistence(timeout: 6))
         search.tap()

@@ -783,46 +783,12 @@ struct MobileCameraView: View {
                 Color.clear.contentShape(Rectangle())
                     .onTapGesture { setFilmPicker(false) }
                     .accessibilityHidden(true)
-                VStack(spacing: 0) {
-                    Capsule().fill(.white.opacity(0.5)).frame(width: 36, height: 4)
-                        .frame(maxWidth: .infinity, minHeight: 20)
-                        .contentShape(Rectangle())
-                        .gesture(DragGesture().onEnded { drag in
-                            if drag.translation.height > 24 { setFilmPicker(false) }
-                        })
-                        .accessibilityHidden(true)
-                    HStack {
-                        Text(T("Choose Film", "选择胶片", "選擇膠片")).font(.headline).accessibilityAddTraits(.isHeader)
-                        Spacer()
-                        Button(T("Done", "完成", "完成")) { setFilmPicker(false) }.tint(MobileStyle.accent)
-                            .frame(minHeight: 32)
-                    }
-                    .padding(.horizontal, 18)
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 12) {
-                            ForEach(films) { stock in
-                                Button {
-                                    filmID = stock.id
-                                    setFilmPicker(false)
-                                } label: {
-                                    BrowserCard(title: stock.displayName, subtitle: stock.speedLabel ?? "", width: 96, selected: stock.id == film?.id, stock: stock) {
-                                        if let artwork = stock.packagingArtworkURL {
-                                            FilmstripThumbnail(url: artwork, fillsFrame: true)
-                                        } else {
-                                            Image(systemName: "film").frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        }
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(stock.name)
-                                .accessibilityAddTraits(stock.id == film?.id ? .isSelected : [])
-                            }
-                        }
-                        .padding(12)
-                    }
-                }
-                .frame(maxWidth: 560)
-                .frame(height: geometry.size.height * 0.54)
+                MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
+                    filmID = stock.id
+                    setFilmPicker(false)
+                }, identifier: "camera.film-picker")
+                .frame(maxWidth: 470)
+                .frame(height: min(geometry.size.height, max(280, geometry.size.height * 0.64)))
                 .modifier(ChromeSurface(radius: 30, interactive: true))
                 .padding(.horizontal, 8)
                 .padding(.bottom, 6)

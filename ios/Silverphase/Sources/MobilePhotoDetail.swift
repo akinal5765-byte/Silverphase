@@ -63,7 +63,7 @@ struct MobilePhotoDetail: View {
     private var showsControls: Bool { chromeVisible && !pulling }
 
     private enum HingeReading { case pending, measured(Bool?) }
-    private enum Placement: Equatable { case top, bottom, systemSide }
+    private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
         switch hinge {
@@ -71,8 +71,8 @@ struct MobilePhotoDetail: View {
         case .measured(let value): value
         }
     }
-    private var isDuoCover: Bool {
-        if #available(iOS 27.1, *) { return hingeClosed == true }
+    private var isDuo: Bool {
+        if #available(iOS 27.1, *) { return hingeClosed != nil }
         return false
     }
 
@@ -81,7 +81,7 @@ struct MobilePhotoDetail: View {
         let closed = hingeClosed
         if #available(iOS 27.1, *), let closed {
             let size = detailWindowSize
-            return closed || size.width >= size.height ? .systemSide : .top
+            return closed || size.width >= size.height ? .systemSide : .duoPortrait
         }
         return .bottom
     }
@@ -124,10 +124,10 @@ struct MobilePhotoDetail: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { navigationItems(photo) }
                     .toolbar(showsControls ? .visible : .hidden, for: .navigationBar)
-                    .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
+                    .toolbar(showsControls && (placement == .bottom || placement == .systemSide) ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailNoScrollMask())
-                    .modifier(DetailToolbarAxis(usesTop: placement == .top))
+                    .modifier(DetailToolbarAxis(usesTop: placement == .top || placement == .duoPortrait))
             } else {
                 Button(backLabel, action: onPullDismiss)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -324,11 +324,16 @@ struct MobilePhotoDetail: View {
             }
             // Duo's controls live in the side lane. The strip tracks the
             // bottom of the canvas, not a second, empty bottom toolbar lane.
-            .padding(.bottom, placement == .systemSide ? EditorDesign.contentInset : 0)
-            .ignoresSafeArea(.container, edges: placement == .systemSide ? .bottom : [])
+            .padding(.bottom, isDuo ? EditorDesign.contentInset : 0)
+            .ignoresSafeArea(.container, edges: isDuo ? .bottom : [])
             .opacity(showsControls ? 1 : 0)
             .allowsHitTesting(showsControls)
             .accessibilityHidden(!showsControls)
+        }
+        .overlay(alignment: .trailing) {
+            if placement == .duoPortrait && showsControls {
+                portraitDuoActions(photo)
+            }
         }
         .overlay(alignment: .top) {
             // The overlay starts below the navigation bar, not at the
@@ -340,6 +345,24 @@ struct MobilePhotoDetail: View {
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: photoID)
+    }
+
+    // In unfolded portrait the system may give us only a horizontal
+    // toolbar. Keep actions at the right like Photos without shrinking the canvas.
+    private func portraitDuoActions(_ photo: MobilePhoto) -> some View {
+        VStack(spacing: EditorDesign.unit * 2) {
+            tool(backLabel, "chevron.left", id: "photo-detail.back") { backCommand += 1 }
+                .modifier(DetailRailButton())
+            VStack(spacing: 0) {
+                exportTool(photo).modifier(DetailRailButton(single: false))
+                infoTool(photo).modifier(DetailRailButton(single: false))
+                editTool(photo).modifier(DetailRailButton(single: false))
+                more(photo).modifier(DetailRailButton(single: false))
+            }
+            .modifier(ChromeSurface(radius: 22))
+            deleteTool(photo).modifier(DetailRailButton())
+        }
+        .padding(.trailing, EditorDesign.gutter)
     }
 
     private func metadata(_ photo: MobilePhoto) -> some View {
@@ -360,6 +383,7 @@ struct MobilePhotoDetail: View {
             }
             filmTrigger(width: EditorDesign.hitSize, name: name) {
                 Image(systemName: "film").font(EditorDesign.sectionTitle)
+                    .frame(width: 30, height: 30)
             }
         }
         .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: nil) {
@@ -372,7 +396,7 @@ struct MobilePhotoDetail: View {
         let button = Button { showingFilm = true } label: { label() }
         return Group {
             if #available(iOS 26.0, *) {
-                button.buttonStyle(.glass).buttonBorderShape(.capsule)
+                button.buttonStyle(.glass).buttonBorderShape(width == EditorDesign.hitSize ? .circle : .capsule)
             } else {
                 button.buttonStyle(.plain)
                     .frame(maxWidth: .infinity, minHeight: EditorDesign.hitSize)
@@ -389,7 +413,7 @@ struct MobilePhotoDetail: View {
 
     private func filmPicker(_ photo: MobilePhoto) -> some View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
-        return DetailFilmPicker(selectedID: id, cancel: { showingFilm = false }) { film in
+        return MobileFilmPickerGrid(stocks: StockCatalog.shared.filmsForPicker, selectedID: id, cancel: { showingFilm = false }) { film in
             guard photoID == photo.id else { showingFilm = false; return }
             document.setLibraryFilm(film, for: photo.id)
             showingFilm = false
@@ -420,8 +444,8 @@ struct MobilePhotoDetail: View {
     @ToolbarContentBuilder
     private func navigationItems(_ photo: MobilePhoto) -> some ToolbarContent {
         if #available(iOS 27.1, *), placement == .systemSide {
-            backItem.axisBehavior(.horizontalOnly)
-        } else {
+            backItem.axisBehavior(.verticalPreferred).visibilityPriority(.init(higherThan: .high))
+        } else if placement != .duoPortrait {
             backItem
         }
         if #available(iOS 27.1, *) {
@@ -462,7 +486,7 @@ struct MobilePhotoDetail: View {
             ToolbarItem(id: "photo-detail.native-delete", placement: .bottomBar) {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
-        } else {
+        } else if placement == .bottom {
             ToolbarItem(placement: .topBarTrailing) { more(photo) }
             ToolbarItemGroup(placement: .bottomBar) {
                 exportTool(photo)
@@ -705,7 +729,7 @@ struct MobilePhotoDetail: View {
                     GalleryTileAudit.record("fit \(demand.fitEdge) demand \(String(describing: demand.viewport))")
 #endif
                 }
-            }, prefersCoverFill: isDuoCover, neighbors: neighbors,
+            }, prefersCoverFill: isDuo, neighbors: neighbors,
                              gridBackdrop: gridBackdrop, gridTarget: gridTarget, entryTarget: entryTarget, backCommand: backCommand,
                              onEntryStarted: { entryCurtain = false }, onPage: page, onPull: { active in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { pulling = active }
@@ -887,36 +911,75 @@ struct MobilePhotoDetail: View {
     }
 }
 
-private struct DetailFilmPicker: View {
+private struct DetailRailButton: ViewModifier {
+    var single = true
+    func body(content: Content) -> some View {
+        let icon = content.labelStyle(.iconOnly).buttonStyle(.plain)
+            .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+            .contentShape(Rectangle())
+        if single { icon.modifier(ChromeSurface(radius: 22, interactive: true)) }
+        else { icon }
+    }
+}
+
+struct MobileFilmPickerGrid: View {
+    let stocks: [Stock]
     let selectedID: String?
     let cancel: () -> Void
     let select: (Stock) -> Void
+    var identifier = "photo-detail.film"
     @State private var query = ""
+    @State private var filter = MobileMaterialFilter.all
+    @State private var availableWidth: CGFloat = 340
+
+    private let filters: [MobileMaterialFilter] = [.all, .positive, .negative, .monochrome, .experimental]
+    private let gap = EditorDesign.unit * 2
+    private let inset = EditorDesign.contentInset
+    private var usableWidth: CGFloat { max(1, availableWidth - 2 * inset) }
+    private var columnCount: Int { min(4, max(2, Int((usableWidth + gap) / (98 + gap)))) }
+    private var cardWidth: CGFloat { max(1, floor((usableWidth - CGFloat(columnCount - 1) * gap) / CGFloat(columnCount))) }
 
     private var matches: [Stock] {
-        let stocks = StockCatalog.shared.filmsForPicker
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty {
-            return stocks.filter {
-                $0.name.localizedStandardContains(query)
-                    || $0.displayName.localizedStandardContains(query)
-                    || ($0.speedLabel?.localizedStandardContains(query) ?? false)
-            }
+        let results = stocks.filter { stock in
+            filter.includes(stock, favorites: [], recent: [])
+                && (query.isEmpty || stock.name.localizedStandardContains(query)
+                    || stock.displayName.localizedStandardContains(query)
+                    || (stock.speedLabel?.localizedStandardContains(query) ?? false))
         }
-        // The current cover is immediately visible without interrupting the
-        // catalog order of the remaining films.
-        guard let selected = stocks.first(where: { $0.id == selectedID }) else { return stocks }
-        return [selected] + stocks.filter { $0.id != selectedID }
+        guard query.isEmpty, let selected = results.first(where: { $0.id == selectedID }) else { return results }
+        return [selected] + results.filter { $0.id != selectedID }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: EditorDesign.unit) {
                 HStack {
                     Text(T("Choose Film", "切换胶片", "切換膠片"))
                         .font(.headline).accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("photo-detail.film-title")
-                    Spacer()
+                        .accessibilityIdentifier(identifier + "-title")
+                    Spacer(minLength: EditorDesign.unit)
+                    Menu {
+                        ForEach(filters) { item in
+                            Button {
+                                filter = item
+                            } label: {
+                                if filter == item { Label(item.title, systemImage: "checkmark") }
+                                else { Text(item.title) }
+                            }
+                            .accessibilityIdentifier(identifier + "-filter." + String(describing: item))
+                        }
+                    } label: {
+                        Image(systemName: filter == .all ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+                            .font(EditorDesign.sectionTitle)
+                            .foregroundStyle(filter == .all ? Color.primary : MobileStyle.accent)
+                            .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                            .modifier(ChromeSurface(radius: 22, interactive: true))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(T("Filter films", "筛选胶片", "篩選膠片"))
+                    .accessibilityValue(filter.title)
+                    .accessibilityIdentifier(identifier + "-filter")
                     Button(action: cancel) {
                         Image(systemName: "xmark").font(.caption.weight(.semibold))
                             .frame(width: 44, height: 44)
@@ -924,14 +987,14 @@ private struct DetailFilmPicker: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(T("Close", "关闭", "關閉"))
-                    .accessibilityIdentifier("photo-detail.film-close")
+                    .accessibilityIdentifier(identifier + "-close")
                 }
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(T("Search films", "搜索胶片", "搜尋膠片"), text: $query)
                         .textFieldStyle(.plain)
                         .submitLabel(.search)
-                        .accessibilityIdentifier("photo-detail.film-search")
+                        .accessibilityIdentifier(identifier + "-search")
                     if !query.isEmpty {
                         Button { query = "" } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
@@ -939,7 +1002,7 @@ private struct DetailFilmPicker: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(T("Clear search", "清除搜索", "清除搜尋"))
-                        .accessibilityIdentifier("photo-detail.film-clear")
+                        .accessibilityIdentifier(identifier + "-clear")
                     }
                 }
                 .font(.subheadline)
@@ -947,79 +1010,52 @@ private struct DetailFilmPicker: View {
                 .frame(minHeight: 44)
                 .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12))
             }
-            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
+            .padding(.horizontal, inset).padding(.top, EditorDesign.unit).padding(.bottom, EditorDesign.unit * 2)
             if matches.isEmpty {
                 ContentUnavailableView(T("No matching film", "没有匹配的胶片", "沒有符合的膠片"), systemImage: "film")
                     .frame(maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 106), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cardWidth), spacing: gap), count: columnCount), spacing: gap) {
                         ForEach(matches) { stock in card(stock) }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, inset)
+                    .padding(.bottom, inset)
+                    .frame(maxWidth: .infinity)
                 }
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { availableWidth = max(1, $0) }
                 .scrollDismissesKeyboard(.interactively)
-                .accessibilityIdentifier("photo-detail.film-grid")
+                .accessibilityIdentifier(identifier + "-grid")
             }
         }
-        .frame(idealWidth: 340, idealHeight: 370)
+        .frame(idealWidth: 440, idealHeight: 390)
         .accessibilityAction(.escape) { cancel() }
     }
 
     private func card(_ stock: Stock) -> some View {
         let selected = stock.id == selectedID
+        let subtitle = stock.speedLabel ?? ""
         return Button { select(stock) } label: {
-            VStack(alignment: .leading, spacing: 5) {
-                Color.clear.aspectRatio(16.0 / 9.0, contentMode: .fit)
-                    .overlay {
-                        if let artwork = stock.packagingArtworkURL {
-                            FilmstripThumbnail(url: artwork, fillsFrame: true)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
-                            Image(systemName: "film")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .background(.primary.opacity(0.07))
-                    .clipShape(.rect(cornerRadius: 7))
-                    .fotufilmBadge(for: stock)
-                    .overlay(alignment: .topTrailing) {
-                        if selected {
-                            Image(systemName: "checkmark.circle.fill")
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, MobileStyle.accent)
-                                .padding(5)
-                        }
-                    }
-                    .accessibilityHidden(true)
-                Text(stock.displayName).font(.caption.weight(.semibold))
-                    .lineLimit(2, reservesSpace: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(variant(stock)).font(.caption2)
-                    .foregroundStyle(.secondary).lineLimit(1)
+            BrowserCard(title: stock.displayName, subtitle: subtitle, width: cardWidth,
+                        selected: selected, stock: stock, compact: true) {
+                if let artwork = stock.packagingArtworkURL {
+                    FilmstripThumbnail(url: artwork, fillsFrame: true)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Image(systemName: "film").frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(MobileStyle.well)
+                }
             }
-            .padding(6)
-            .background(.primary.opacity(0.045), in: .rect(cornerRadius: 11))
-            .overlay {
-                RoundedRectangle(cornerRadius: 11)
-                    .strokeBorder(selected ? MobileStyle.accent : Color.clear, lineWidth: 1.5)
-            }
-            .contentShape(.rect(cornerRadius: 11))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(stock.displayName)
-        .accessibilityValue(variant(stock))
+        .accessibilityValue(subtitle)
         .accessibilityHint(stock.isFotufilm ? "Fotufilm" : "")
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("photo-detail.film-stock." + stock.id)
-    }
-
-    private func variant(_ stock: Stock) -> String {
-        if stock.isLocalExperimental { return T("Experimental", "实验", "實驗") }
-        return stock.speedLabel ?? (stock.isMonochrome ? T("B&W", "黑白", "黑白") : "")
+        .accessibilityIdentifier(identifier + "-stock." + stock.id)
     }
 }
+
 
 private struct DetailNoScrollMask: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
@@ -1606,12 +1642,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
 
         private func defaultSize(for image: CGSize) -> CGSize {
             guard image.width > 0, image.height > 0 else { return .zero }
-            let widthScale = bounds.width / image.width
-            let heightScale = bounds.height / image.height
-            let fit = min(widthScale, heightScale)
-            // Only the folded cover goes a little beyond fit: stop once the
-            // window is covered, and never turn a wide photo into a tight crop.
-            let scale = prefersCoverFill ? min(max(widthScale, heightScale), fit * 1.06) : fit
+            let scale = MobilePhotoFit.scale(image: image, available: bounds.size, duo: prefersCoverFill)
             return CGSize(width: image.width * scale, height: image.height * scale)
         }
 
