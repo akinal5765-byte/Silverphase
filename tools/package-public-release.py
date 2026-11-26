@@ -13,11 +13,13 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / 'modern_UI/Spektrafilm'
+SOURCE_REPOSITORY = 'https://github.com/akinal5765-byte/Silverphase'
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--platform', choices=['macos', 'ios'], required=True)
 p.add_argument('--tag', required=True, help='For example macos-v1.1.0 or v1.1.1')
 p.add_argument('--output', type=Path, required=True)
 p.add_argument('--derived-data', type=Path, help='Optional existing Xcode cache; not included in release assets')
+p.add_argument('--preflight-only', action='store_true', help='Check release source and output path without building')
 a = p.parse_args()
 version_tag = a.tag.removeprefix('macos-') if a.platform == 'macos' else a.tag
 if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?', version_tag):
@@ -25,10 +27,32 @@ if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?', version_tag):
 out = a.output.expanduser().resolve()
 if ROOT not in out.parents or not out.is_relative_to(ROOT / 'output'):
     p.error('Use an ignored directory under output/')
-out.mkdir(parents=True, exist_ok=True)
 if subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT):
     p.error('Commit the source first so the binaries identify an exact clean revision')
 commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+tag_ref = 'refs/tags/' + a.tag
+if subprocess.run(['git', 'check-ref-format', tag_ref], cwd=ROOT).returncode:
+    p.error('Use a valid Git tag name')
+tag_status = subprocess.run(['git', 'show-ref', '--verify', '--quiet', tag_ref], cwd=ROOT).returncode
+if tag_status == 0:
+    tagged = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', tag_ref + '^{commit}'],
+                            cwd=ROOT, text=True, capture_output=True)
+    if tagged.returncode:
+        p.error(f'Tag {a.tag!r} does not identify a commit')
+    if tagged.stdout.strip() != commit:
+        p.error(f'Tag {a.tag!r} points to {tagged.stdout.strip()[:12]}, not HEAD {commit[:12]}; '
+                'check out the intended release revision before packaging')
+elif tag_status == 1:
+    print(f'warning: tag {a.tag!r} does not exist locally; before publishing, '
+          f'verify that the release tag points to {commit}', file=sys.stderr)
+else:
+    p.error(f'Could not inspect local release tag {a.tag!r}')
+source = {'tag': a.tag, 'source_commit': commit, 'source_repository': SOURCE_REPOSITORY,
+          'source_url': f'{SOURCE_REPOSITORY}/tree/{commit}', 'local_tag_verified_at_build': tag_status == 0}
+if a.preflight_only:
+    print(json.dumps(source, indent=2))
+    raise SystemExit(0)
+out.mkdir(parents=True, exist_ok=True)
 version = version_tag[1:].split('-', 1)[0]
 env = dict(os.environ, SILVERPHASE_LOCAL_MATERIALS='0')
 log = (out / ('build-' + a.platform + '.log')).open('w')
@@ -101,7 +125,7 @@ for f in app.rglob('*.metallib'):
     major = int(re.search(r'PlatformMajor:\s*(\d+)', header).group(1))
     assert major <= floor, (f.name, major)
     metal_platforms.append({'path': str(f.relative_to(app)), 'minimum_platform_major': major})
-manifest = {'tag': a.tag, 'source_commit': commit, 'source_repository': 'https://github.com/akinal5765-byte/Silverphase',
+manifest = {**source,
             'platform': a.platform, 'version': version, 'build': info['CFBundleVersion'],
             'architecture': 'arm64', 'minimum_os': minimum, 'public_materials': len(public),
             'local_materials': 0, 'notices': sorted(f.name for f in notices.iterdir() if f.is_file()),
@@ -118,7 +142,16 @@ if a.platform == 'macos':
     run(['codesign', '--verify', '--deep', '--strict', app])
     os.symlink('/Applications', app.parent / 'Applications')
     shutil.copytree(resources / 'Licenses', app.parent / 'Licenses')
-    (app.parent / 'INSTALL.txt').write_text('Silverphase ' + a.tag + '\nApple Silicon; macOS 15 or later.\nDrag Silverphase to Applications.\n\nUpgrading from 1.3.1 or earlier? Keep the old app and back up your edits and presets before replacing it. The new app does not migrate them automatically. Copy only the files you recognize; keep the old copies until the new app opens your edits correctly.\n从 1.3.1 或更早版本升级：替换前保留旧应用并备份编辑与导出配方。新版不会自动迁移；请按指南选择性复制，确认编辑能正常打开后再处理旧文件。\nMigration / 迁移指南: https://github.com/akinal5765-byte/Silverphase/blob/' + a.tag + '/docs/MACOS-IDENTITY-UPGRADE.md\n\nThis build has no Developer ID signature and is not notarized.\nIf macOS blocks it, review System Settings > Privacy & Security and use Open Anyway only if you trust this download.\nDo not disable Gatekeeper globally.\nSource: https://github.com/akinal5765-byte/Silverphase/tree/' + a.tag + '\nCommit: ' + commit + '\n')
+    (app.parent / 'INSTALL.txt').write_text(
+        'Silverphase ' + a.tag + '\nApple Silicon; macOS 15 or later.\nDrag Silverphase to Applications.\n\n'
+        'Upgrading from 1.3.1 or earlier? Keep the old app and back up your edits and presets before replacing it. '
+        'The new app does not migrate them automatically. Copy only the files you recognize; keep the old copies until the new app opens your edits correctly.\n'
+        '从 1.3.1 或更早版本升级：替换前保留旧应用并备份编辑与导出配方。新版不会自动迁移；请按指南选择性复制，确认编辑能正常打开后再处理旧文件。\n'
+        f'Migration / 迁移指南: {SOURCE_REPOSITORY}/blob/{commit}/docs/MACOS-IDENTITY-UPGRADE.md\n\n'
+        'This build has no Developer ID signature and is not notarized.\n'
+        'If macOS blocks it, review System Settings > Privacy & Security and use Open Anyway only if you trust this download.\n'
+        'Do not disable Gatekeeper globally.\n'
+        f'Source: {source["source_url"]}\nCommit: {commit}\n')
     asset = out / ('Silverphase-' + version_tag[1:] + '-macOS-arm64.dmg')
     run(['hdiutil', 'create', '-volname', 'Silverphase ' + version_tag[1:], '-srcfolder', app.parent,
          '-ov', '-format', 'UDZO', asset])
