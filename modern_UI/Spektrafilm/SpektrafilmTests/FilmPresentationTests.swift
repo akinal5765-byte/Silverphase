@@ -49,6 +49,40 @@ final class FilmPresentationTests: XCTestCase {
         }
     }
 
+    func testCustomEdgeLabelRoundTripsAndOnlyReplacesStockText() throws {
+        for format in [FilmEdgeFormat.f135, .f6x6, .f135Half] {
+            var automatic = FilmParams.default
+            automatic.filmEdge.active = true
+            automatic.filmEdge.format = format
+            automatic.filmEdge.pair = format == .f135Half
+            automatic.filmEdge.frameNumber = 23
+            automatic.filmEdge.edgeText = "ORIGINAL STOCK"
+            let data = try JSONEncoder().encode(automatic.filmEdge)
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            XCTAssertNil(json["customLabel"])
+            let priorEdge = try JSONDecoder().decode(FilmEdgeSettings.self, from: data)
+            XCTAssertEqual(priorEdge, automatic.filmEdge)
+
+            var custom = automatic
+            custom.filmEdge.customLabel = FilmEdgeSettings.editableLabel("roll   2/ ")
+            let restored = try JSONDecoder().decode(FilmParams.self, from: JSONEncoder().encode(custom))
+            XCTAssertEqual(restored, custom)
+            XCTAssertEqual(restored.delta(from: automatic).delta, ["overscan_edge_text": .string("ROLL 2/")])
+            XCTAssertEqual(restored.delta(from: automatic).layers, [.shoot])
+            XCTAssertNotEqual(Session.printStamp(automatic), Session.printStamp(restored))
+
+            custom.filmEdge.customLabel = "  "
+            XCTAssertEqual(custom.fullDelta, automatic.fullDelta)
+            XCTAssertEqual(Session.printStamp(custom), Session.printStamp(automatic))
+            custom.filmEdge.customLabel = "TAKE 10"
+            custom.filmEdge.active = false
+            XCTAssertNil(custom.fullDelta["overscan_edge_text"])
+        }
+        XCTAssertEqual(FilmEdgeSettings.editableLabel("aZ09 +-./x⚡😃%"), "AZ09 +-./X")
+        XCTAssertEqual(FilmEdgeSettings.editableLabel("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), "ABCDEFGHIJ")
+        XCTAssertNil(FilmEdgeSettings.printableLabel("胶片 🧪"))
+    }
+
     func testFrameAndMarginDateAvailability() {
         var p = FilmParams.default
         p.dateBack.active = true
@@ -172,6 +206,119 @@ final class FilmPresentationTests: XCTestCase {
         let previous = try XCTUnwrap(session.renderer.live)
         session.updateHalfFramePair { $0.right?.exposureEV = -1 }
         try await waitFor { session.renderer.live != nil && session.renderer.live !== previous && session.serviceSessionIDForExport != nil && !session.busy }
+    }
+
+    @MainActor
+    func testCustomEdgeLabelChangesTheSameStripInPreviewAndFullTIFF() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let oldPreview = UserDefaults.standard.object(forKey: Session.previewEdgeKey)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+            UserDefaults.standard.set(oldPreview, forKey: Session.previewEdgeKey)
+        }
+        let photo = folder.appending(path: "stock.tif")
+        try PortTestFrame.write(to: photo, width: 1400, height: 1200)
+        let mediumFormat = folder.appending(path: "medium.tif")
+        try FileManager.default.copyItem(at: photo, to: mediumFormat)
+        let pairURL = folder.appending(path: "stock.spektrapair")
+        var pair = HalfFramePair(folder: folder.path)
+        pair.left = .init(url: photo); pair.right = .init(url: photo); pair.onStrip = true
+        try pair.save(to: pairURL)
+
+        let session = Session()
+        session.setPreviewLongEdge(1080)
+        session.beginBatchExport() // Disable the background full-canvas ladder, not preview rendering.
+        defer { session.endBatchExport() }
+        let rgb = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let readback = CIContext(mtlDevice: session.renderer.device)
+        func pixels(_ image: CIImage) -> (w: Int, h: Int, bytes: [UInt8]) {
+            let w = Int(image.extent.width), h = Int(image.extent.height)
+            var bytes = [UInt8](repeating: 0, count: w * h * 4)
+            bytes.withUnsafeMutableBytes { ptr in
+                readback.render(image, toBitmap: ptr.baseAddress!, rowBytes: w * 4,
+                                bounds: image.extent, format: .RGBA8, colorSpace: rgb)
+            }
+            return (w, h, bytes)
+        }
+        func compare(_ a: (w: Int, h: Int, bytes: [UInt8]), _ b: (w: Int, h: Int, bytes: [UInt8])) {
+            XCTAssertEqual(a.w, b.w); XCTAssertEqual(a.h, b.h)
+            guard a.w == b.w, a.h == b.h else { return }
+            var changedOnEdge = 0
+            var changedInPicture = 0
+            for y in 0..<a.h {
+                for x in 0..<a.w {
+                    let i = 4 * (y * a.w + x)
+                    guard abs(Int(a.bytes[i]) - Int(b.bytes[i])) > 2 else { continue }
+                    if y < a.h / 8 || y >= 7 * a.h / 8 { changedOnEdge += 1 }
+                    if y > a.h / 3 && y < 2 * a.h / 3 { changedInPicture += 1 }
+                }
+            }
+            XCTAssertGreaterThan(changedOnEdge, 10, "stock lettering should visibly change in the rebate")
+            XCTAssertEqual(changedInPicture, 0, "the exposed photos should not change")
+        }
+        func render(_ url: URL, after preceding: MTLTexture?) async throws ->
+            (MTLTexture, (w: Int, h: Int, bytes: [UInt8]), (w: Int, h: Int, bytes: [UInt8])) {
+            let deadline = Date().addingTimeInterval(60)
+            while Date() < deadline {
+                if session.selection == url, let live = session.renderer.live, live !== preceding,
+                   let id = session.serviceSessionIDForExport, !session.busy {
+                    let workingSpace = try XCTUnwrap(CGColorSpace(name: CGColorSpace.rommrgb))
+                    let preview = try XCTUnwrap(CIImage(mtlTexture: live, options: [.colorSpace: workingSpace]))
+                    let previewPixels = pixels(preview)
+                    var recipe = ExportRecipe()
+                    recipe.format = .tiff; recipe.colorSpace = .sRGB
+                    recipe.folder = .fixed(path: folder.appending(path: "out").path)
+                    recipe.subfolder = ""; recipe.existing = .overwrite
+                    let context = NamingRule.Context(originalName: url.lastPathComponent,
+                        filmStock: session.params.filmStock, printStock: session.params.printStock,
+                        pixelSize: preview.extent.size, counter: 1, date: Date())
+                    let outcome = try await Exporter.export(session: session, recipe: recipe, context: context, sessionID: id)
+                    let file = try XCTUnwrap(outcome.urls.first)
+                    let source = try XCTUnwrap(CGImageSourceCreateWithURL(file as CFURL, nil))
+                    let full = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+                    XCTAssertGreaterThan(max(full.width, full.height), max(live.width, live.height))
+                    return (live, previewPixels, pixels(CIImage(cgImage: full)))
+                }
+                try await Task.sleep(for: .milliseconds(25))
+            }
+            throw NSError(domain: "FilmPresentationTests", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "No settled preview: \(session.status)"])
+        }
+
+        let examples: [(URL, FilmEdgeFormat, String)] = [
+            (photo, .f135, "kodak_gold_200"), (mediumFormat, .f6x6, "fujifilm_pro_400h"),
+            (pairURL, .f135Half, "kodak_gold_200"),
+        ]
+        for (url, format, stock) in examples {
+            let isPair = format == .f135Half
+            var saved = Sidecar()
+            saved.params.filmStock = stock
+            saved.params.autoExposure = false
+            saved.params.grainActive = false
+            saved.params.halationActive = false
+            saved.params.glareActive = false
+            saved.params.filmEdge.active = true
+            saved.params.filmEdge.format = format
+            saved.params.filmEdge.pair = isPair
+            saved.params.filmEdge.seeded = true
+            saved.params.filmEdge.frameNumber = 23
+            try saved.save(for: url)
+            let previous = session.renderer.live
+            session.open(urls: [url])
+            let (automatic, previewA, fullA) = try await render(url, after: previous)
+
+            var params = session.params
+            params.filmEdge.customLabel = "ROLL 24"
+            session.params = params
+            let (_, previewB, fullB) = try await render(url, after: automatic)
+            compare(previewA, previewB)
+            compare(fullA, fullB)
+            XCTAssertEqual(session.params.filmEdge.frameNumber, 23)
+            XCTAssertEqual(session.params.filmEdge.pair, isPair)
+            session.flushSave()
+            XCTAssertEqual(Sidecar.load(for: url)?.params.filmEdge.customLabel, "ROLL 24")
+        }
     }
 
     func testEXIFDateAndMarksMatchUpstream() {
