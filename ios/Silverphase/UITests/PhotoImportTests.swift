@@ -84,6 +84,14 @@ final class PhotoImportTests: XCTestCase {
         let search = app.textFields["photo-detail.film-search"]
         XCTAssertTrue(search.waitForExistence(timeout: 6))
         search.tap()
+        search.typeText("Agfachrome 100")
+        let fotufilm = app.buttons["photo-detail.film-stock.agfa_agfachrome_100_fotufilm"]
+        XCTAssertTrue(fotufilm.waitForExistence(timeout: 6))
+        XCTAssertNotEqual(fotufilm.value as? String, "Fotufilm", "Origin is a cover badge, not the speed label")
+        let clear = app.buttons["photo-detail.film-clear"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        search.tap()
         search.typeText("HP5")
         let stock = app.buttons["photo-detail.film-stock.ilford_hp5_plus_400"]
         XCTAssertTrue(stock.waitForExistence(timeout: 6))

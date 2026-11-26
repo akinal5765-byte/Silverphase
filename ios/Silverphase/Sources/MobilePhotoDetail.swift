@@ -43,6 +43,8 @@ struct MobilePhotoDetail: View {
     @State private var developedPreview = false
     @State private var displayedFilmKey: URL?
     @State private var showingFilm = false
+    @Namespace private var filmPickerTransition
+    private static let filmPickerSource = "gallery-film-picker"
     @State private var hinge: HingeReading = .pending
     @State private var windowSize: CGSize = .zero
     @State private var chromeVisible = true
@@ -134,6 +136,16 @@ struct MobilePhotoDetail: View {
             }
         }
         .tint(.primary)
+        .sheet(isPresented: $showingFilm) {
+            if let photo {
+                if #available(iOS 18.0, *), !reduceMotion {
+                    filmPicker(photo)
+                        .navigationTransition(.zoom(sourceID: Self.filmPickerSource, in: filmPickerTransition))
+                } else {
+                    filmPicker(photo)
+                }
+            }
+        }
         .overlay {
             if entryCurtain, !reduceMotion, entryTarget != nil, let gridBackdrop {
                 GeometryReader { geometry in
@@ -357,22 +369,32 @@ struct MobilePhotoDetail: View {
             // Evaluate the toolbar's actual proposal after its other items
             // take their space. Both candidates have a fixed width, so a
             // different stock name cannot make the control switch modes.
-            ViewThatFits(in: .horizontal) {
-                titledFilmChip(name ?? T("Film", "胶片", "膠片"))
-                chip(nil, symbol: "film").frame(width: 44).fixedSize()
+            if #available(iOS 18.0, *) {
+                filmButtonLabel(name)
+                    .matchedTransitionSource(id: Self.filmPickerSource, in: filmPickerTransition)
+            } else {
+                filmButtonLabel(name)
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
         .accessibilityValue(name ?? "")
         .accessibilityIdentifier("photo-detail.film")
-        .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-            DetailFilmPicker(selectedID: id, cancel: { showingFilm = false }) { film in
-                guard photoID == photo.id else { showingFilm = false; return }
-                document.setLibraryFilm(film, for: photo.id)
-                showingFilm = false
-            }
-            .presentationCompactAdaptation(.popover)
+    }
+
+    private func filmButtonLabel(_ name: String?) -> some View {
+        ViewThatFits(in: .horizontal) {
+            titledFilmChip(name ?? T("Film", "胶片", "膠片"))
+            chip(nil, symbol: "film").frame(width: 44).fixedSize()
+        }
+    }
+
+    private func filmPicker(_ photo: MobilePhoto) -> some View {
+        let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
+        return DetailFilmPicker(selectedID: id, cancel: { showingFilm = false }) { film in
+            guard photoID == photo.id else { showingFilm = false; return }
+            document.setLibraryFilm(film, for: photo.id)
+            showingFilm = false
         }
     }
 
@@ -876,6 +898,8 @@ private struct DetailFilmPicker: View {
     let cancel: () -> Void
     let select: (Stock) -> Void
     @State private var query = ""
+    @State private var detent: PresentationDetent = .fraction(0.62)
+    @FocusState private var searchFocused: Bool
 
     private var matches: [Stock] {
         let stocks = StockCatalog.shared.filmsForPicker
@@ -913,6 +937,7 @@ private struct DetailFilmPicker: View {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(T("Search films", "搜索胶片", "搜尋膠片"), text: $query)
                         .textFieldStyle(.plain)
+                        .focused($searchFocused)
                         .submitLabel(.search)
                         .accessibilityIdentifier("photo-detail.film-search")
                     if !query.isEmpty {
@@ -922,6 +947,7 @@ private struct DetailFilmPicker: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(T("Clear search", "清除搜索", "清除搜尋"))
+                        .accessibilityIdentifier("photo-detail.film-clear")
                     }
                 }
                 .font(.subheadline)
@@ -945,7 +971,12 @@ private struct DetailFilmPicker: View {
                 .accessibilityIdentifier("photo-detail.film-grid")
             }
         }
-        .frame(idealWidth: 420, idealHeight: 470)
+        // Keep the system's native, inset Liquid Glass background at the
+        // starting detent; the full-height detent has room for the keyboard.
+        .presentationDetents([.fraction(0.62), .large], selection: $detent)
+        .onChange(of: searchFocused) { _, focused in
+            if focused { detent = .large }
+        }
         .accessibilityAction(.escape) { cancel() }
     }
 
@@ -965,6 +996,7 @@ private struct DetailFilmPicker: View {
                     }
                     .background(.primary.opacity(0.07))
                     .clipShape(.rect(cornerRadius: 7))
+                    .fotufilmBadge(for: stock)
                     .overlay(alignment: .topTrailing) {
                         if selected {
                             Image(systemName: "checkmark.circle.fill")
@@ -991,12 +1023,12 @@ private struct DetailFilmPicker: View {
         .buttonStyle(.plain)
         .accessibilityLabel(stock.displayName)
         .accessibilityValue(variant(stock))
+        .accessibilityHint(stock.isFotufilm ? "Fotufilm" : "")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("photo-detail.film-stock." + stock.id)
     }
 
     private func variant(_ stock: Stock) -> String {
-        if stock.isFotufilm { return "Fotufilm" }
         if stock.isLocalExperimental { return T("Experimental", "实验", "實驗") }
         return stock.speedLabel ?? (stock.isMonochrome ? T("B&W", "黑白", "黑白") : "")
     }
