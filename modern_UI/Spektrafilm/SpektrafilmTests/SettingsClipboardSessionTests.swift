@@ -134,8 +134,8 @@ final class SettingsClipboardSessionTests: XCTestCase {
         XCTAssertEqual(Sidecar.load(for: b)?.state, .processed, "the develop did not clear the stale mark on disk")
     }
 
-    /// PRD R4: one ⌘Z undoes the whole paste on the frame on the canvas.
-    func testOneUndoRestoresTheWholePaste() async throws {
+    /// PRD R4: one ⌘Z undoes the whole paste, even between rapid control edits.
+    func testPasteIsAnUndoBoundaryBetweenRapidEdits() async throws {
         let url = try copies(of: "_smoke_1mp.tif")[0]
         let s = Session()
         s.open(urls: [url])
@@ -146,19 +146,37 @@ final class SettingsClipboardSessionTests: XCTestCase {
         p.filmStock = "kodak_gold_200"
         p.printBrightnessStops = 1
         p.effects.grain = 1.5
-        s.clipboardGroups = Set(ClipboardGroup.allCases)
+        let defaults = UserDefaults.standard
+        let key = Session.clipboardGroupsKey
+        let saved = defaults.object(forKey: key)
+        defer {
+            if let saved { defaults.set(saved, forKey: key) }
+            else { defaults.removeObject(forKey: key) }
+        }
+        s.clipboardGroups = [.film, .print]
         s.sidecar.params = p        // the source state, without an undo step of its own
         s.copySettings()
         s.sidecar = before
 
-        // Edits within half a second share an undo step; the paste is its own.
-        try await Task.sleep(for: .milliseconds(600))
+        // No delay: simulate a control edit, a paste and another control edit
+        // before the ordinary half-second undo coalescing window expires.
+        s.params.printBrightnessStops = -1
+        let beforePaste = s.sidecar
         s.pasteSettings()
         XCTAssertEqual(s.params.filmStock, "kodak_gold_200")
         XCTAssertEqual(s.params.effects.grain, 1.5)
+        XCTAssertEqual(s.params.printBrightnessStops, 1)
+        let afterPaste = s.sidecar
+        s.params.printBrightnessStops = 0.25
+
         s.undo()
-        XCTAssertEqual(s.sidecar.params, before.params)
-        XCTAssertEqual(s.sidecar.decode, before.decode)
+        XCTAssertEqual(s.params, afterPaste.params, "the edit after Paste needs its own undo step")
+        s.undo()
+        XCTAssertEqual(s.params, beforePaste.params, "undoing Paste must preserve the preceding edit")
+        XCTAssertEqual(s.sidecar.decode, beforePaste.decode)
+        s.undo()
+        XCTAssertEqual(s.params, before.params)
+        XCTAssertFalse(s.canUndo, "the three edits should create exactly three undo steps")
     }
 
     /// PRD R6.

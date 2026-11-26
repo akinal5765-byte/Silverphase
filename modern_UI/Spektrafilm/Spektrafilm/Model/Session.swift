@@ -4162,6 +4162,10 @@ final class Session: CanvasHost {
         let now = Date()
         guard now.timeIntervalSince(lastUndoAt) > 0.5 else { return }
         lastUndoAt = now
+        appendUndoSnapshot()
+    }
+
+    private func appendUndoSnapshot() {
         undoPairs.append(halfFramePair)
         undoStack.append(editSnapshot)
         if undoStack.count > 60 { undoStack.removeFirst(); undoPairs.removeFirst() }
@@ -4262,7 +4266,10 @@ final class Session: CanvasHost {
     private func pasteLive(_ clip: SettingsClip) -> Bool {
         let next = clip.applied(to: sidecar)
         guard next != sidecar else { return false }
-        pushUndo()
+        // Paste is one explicit command, not another event in the slider's
+        // coalescing window. A following edit also needs its own checkpoint.
+        appendUndoSnapshot()
+        lastUndoAt = .distantPast
         let decodeChanged = next.decode != sidecar.decode
         if next.params.cameraTone.matchesCameraBrightness != params.cameraTone.matchesCameraBrightness {
             cameraBrightnessRequest = UUID()
