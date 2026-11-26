@@ -103,11 +103,16 @@ the separate upstream licensing question.
   No App Store exception was found in this checkout. Free pricing does not
   change licence obligations. Preserve attribution and exact corresponding source;
   see [LICENSES.md](../LICENSES.md).
-- Select the developer team locally in Xcode. Confirm that
-  `com.silverphase.editor` is available and register that exact identifier with
-  the Increased Memory Limit capability. Distribution provisioning must retain
-  `com.apple.developer.kernel.increased-memory-limit`.
-- Use the existing App Store Connect record for updates. Check storefront availability, pricing and any pending agreements in App Store Connect.
+- Keep the existing App Store Connect record **6829987567** and app bundle
+  identifier `com.silverphase.editor`. Keep the existing embedded identifiers
+  `com.silverphase.editor.camera-control` and
+  `com.silverphase.editor.locked-camera`. Changing the app identifier after a
+  build has been uploaded requires a different App Store record and is not an
+  update to the current app. See [Apple's bundle ID documentation](https://developer.apple.com/documentation/xcode/changing-the-bundle-identifier).
+- Select the correct signing team in Xcode and retain
+  `com.apple.developer.kernel.increased-memory-limit` for the app's distribution
+  provisioning. Check storefront availability, pricing and pending agreements
+  in App Store Connect.
 - Publish a privacy policy and support page with the maintainer's contact details.
   Add an accessible privacy-policy link inside the app before submission.
 - Supply current iPhone and iPad screenshots, description, keywords, category,
@@ -143,6 +148,7 @@ archives Release and produces a dSYM. Public builds must disable local materials
 
 ```sh
 python3 ios/Silverphase/Tools/gen-project.py --check
+python3 ios/Silverphase/Tools/check-release-identity.py
 DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer \
 SILVERPHASE_LOCAL_MATERIALS=0 \
 xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
@@ -150,11 +156,13 @@ xcodebuild -project ios/Silverphase/Silverphase.xcodeproj \
   -derivedDataPath /tmp/silverphase-appstore-derived \
   -archivePath /tmp/silverphase-appstore-preflight.xcarchive \
   CODE_SIGNING_ALLOWED=NO archive
+python3 ios/Silverphase/Tools/check-release-identity.py /tmp/silverphase-appstore-preflight.xcarchive
 ```
 
 This is an unsigned preflight archive, not an uploadable distribution build.
 For distribution, use an appropriate signing team and provisioning, validate in
-Xcode Organizer, inspect the signed entitlements and generate a privacy report.
+Xcode Organizer, rerun the identity check on the signed archive, inspect the
+signed entitlements and generate a privacy report.
 Confirm that `LocalMaterials/` and `*_experimental.json` are absent, and that both
 base/product data and licence notices are present.
 

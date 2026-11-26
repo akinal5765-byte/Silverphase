@@ -1117,12 +1117,9 @@ final class Session: CanvasHost {
     private var saveTask: Task<Void, Never>?
     private var reopenTask: Task<Void, Never>?
     private var printWritebackTask: Task<Void, Never>?
-    // Renamed with the product. The old `com.hanze.spektrafilm` and
-    // `com.hanze.filmify` directories are simply orphaned: this holds
-    // decoded-TIFF caches, which rebuild on demand, so nothing needs
-    // migrating and nothing is lost but disk.
-    nonisolated static let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        .appending(path: "com.hanze.spektralab")
+    // Decode and render caches rebuild on demand. Leave the old shared cache
+    // intact: SpektraLab may still use it.
+    nonisolated static let cacheRoot = DesktopIdentity.cacheDirectory
     nonisolated static var diskCacheRoot: URL { cacheRoot.appending(path: "store") }
 
     init(renderer: Renderer? = nil, diagnostics: Diagnostics = .shared,

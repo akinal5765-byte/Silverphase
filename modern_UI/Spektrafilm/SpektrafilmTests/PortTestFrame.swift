@@ -5,8 +5,7 @@ import UniformTypeIdentifiers
 
 /// Synthetic encoded scene for pipeline/sidecar tests, never a RAW decode oracle.
 enum PortTestFrame {
-    static func write(to url: URL, highContrast: Bool = false) throws {
-        let w = 256, h = 192
+    static func write(to url: URL, highContrast: Bool = false, width w: Int = 256, height h: Int = 192) throws {
         var bytes = [UInt8](repeating: 255, count: w * h * 4)
         for y in 0..<h { for x in 0..<w {
             let v = UInt8(highContrast ? (x < w / 2 ? 3 : 250) : 20 + 210 * x / (w - 1))

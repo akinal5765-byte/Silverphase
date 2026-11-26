@@ -19,6 +19,23 @@ for m in (ROOT / 'modern_UI/design/film-artwork').glob('generated-*-manifest.jso
     for item in json.loads(m.read_text()).get('items', []):
         if 'file' in item:
             manifests[cover_root + item['file']] = str(m.relative_to(ROOT))
+        if 'web' in item:
+            manifests[item['web']['path']] = str(m.relative_to(ROOT))
+# Register only the already-published site images. Keep their photo and UI terms;
+# website publication does not relicence a source photograph.
+gallery_names = {f'docs/site/gallery/{number:02d}{suffix}.webp'
+                 for number in range(1, 7) for suffix in ('', '-raw')}
+plate_names = {f'docs/site/plates/{name}.webp' for name in (
+    'acros-grade-00', 'acros-grade-4', 'bird', 'develop-negative', 'develop-print',
+    'glow', 'grain', 'lotus-portra', 'lotus-reference', 'lotus-superia-xtra-400',
+    'lotus-vision3-500t', 'lotus', 'night-clean', 'night', 'portra-detail',
+    'portra', 'raw-detail', 'raw', 'sign-soft', 'sign-strong', 'strip',
+    'supra-detail', 'supra',
+)}
+interface_names = {f'docs/site/interface/{name}.webp' for name in (
+    'ios-editor-en-v7', 'ios-editor-v7', 'ipad-editor-en-v7', 'ipad-editor-v7',
+    'macos-editor-en-v7', 'macos-editor-v7', 'macos-editor',
+)}
 entries = []
 for name in names:
     path = ROOT / name
@@ -27,6 +44,12 @@ for name in names:
     if name in manifests:
         kind, evidence = 'generated-cover', manifests[name]
         terms = 'Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded.'
+    elif name in gallery_names or name in plate_names:
+        kind, evidence = 'published-website-study', 'Already-published project previews; docs/showcase/README.md and docs/site site history.'
+        terms = 'Silverphase project demonstration only; no general photo-reuse grant and no distribution of original RAW photographs.'
+    elif name in interface_names:
+        kind, evidence = 'published-website-ui-capture', 'docs/showcase/README.md and docs/site site history; existing native application captures.'
+        terms = 'Project demonstration screenshot use only; retain rights in system UI, stock artwork and source photographs.'
     elif name.startswith((cover_root, 'modern_UI/film_covers/')):
         kind, evidence = 'legacy-cover', 'Maintainer AI-origin statement, 2026-10-31; exact historical prompt not recorded.'
         terms = 'Project-controlled portion: CC-BY-SA-4.0; third-party packaging/brand elements excluded.'

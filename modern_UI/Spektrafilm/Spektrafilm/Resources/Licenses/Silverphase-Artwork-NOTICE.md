@@ -1,9 +1,10 @@
 # Silverphase artwork: scope, sources and attribution
 
-Reviewed 2026-10-31. The maintainer confirms that the film covers were generated
-with AI prompts and requested retention of the current packaging-style artwork.
-This notice records provenance and separates project-controlled artwork from
-third-party rights. It does not certify that every packaging element is cleared.
+The maintainer confirmed AI generation and retention of the historical
+packaging-style artwork on 2026-10-31. The current library series uses newly
+generated illustrations, based on text and stock color palettes rather than
+packaging images. This notice separates project-controlled artwork from
+third-party rights; it does not certify rights clearance.
 
 ## Project-controlled artwork
 
@@ -17,11 +18,13 @@ No exclusive copyright claim is made over machine-generated elements.
 
 The scope of this grant is limited to these project-controlled contributions:
 
-- Current material/workflow `.png` covers under
-  `modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/`, identified by the
-  `generated-*-manifest.json` files in `modern_UI/design/film-artwork/`.
-  Those manifests record actual prompts, filenames and aliases. The three
-  product B&W covers added on 2026-10-31 used built-in imagegen with text only.
+- Built-in stock illustrations in
+  `modern_UI/Spektrafilm/Spektrafilm/Resources/FilmCovers/` and their resized
+  website derivatives in `docs/site/covers/`. The
+  `modern_UI/design/film-artwork/generated-stock-covers-v2-manifest.json`
+  records the text-only prompts, source and derivative hashes, and aliases.
+  The two separately generated workflow labels remain identified by
+  `generated-workflow-manifest.json`.
 - Silverphase icon SVG layers, Icon Composer documents and icon-only previews
   under `design/app-icon/` and the production `Silverphase.icon` document.
   The production document is generated locally by `Tools/make-icon.py`; the
@@ -42,7 +45,7 @@ elements. This project does not grant trademark rights or purport to relicense
 third-party packaging design. Material names identify the simulated materials;
 no manufacturer affiliation, certification or endorsement is implied.
 
-Several saved prompts explicitly request resemblance to real packaging. AI
+Several historical prompts explicitly request resemblance to real packaging. AI
 provenance and this disclaimer do not establish permission for those elements.
 Recipients must consider their intended use; retain this distinction when
 redistributing artwork. The decision to keep these illustrations is not a finding

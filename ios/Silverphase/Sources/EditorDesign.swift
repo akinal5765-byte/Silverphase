@@ -93,10 +93,14 @@ struct BrowserCard<Artwork: View>: View {
     let selected: Bool
     var stock: Stock? = nil
     @ViewBuilder let artwork: () -> Artwork
+    private var artworkWidth: CGFloat { width - EditorDesign.cardInset * 2 }
+    private var artworkHeight: CGFloat {
+        stock == nil ? EditorDesign.artworkHeight + (title == nil ? 14 : 0) : artworkWidth / EditorDesign.materialArtworkAspect
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             artwork()
-                .frame(width: width - EditorDesign.cardInset * 2, height: EditorDesign.artworkHeight + (title == nil ? 14 : 0))
+                .frame(width: artworkWidth, height: artworkHeight)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: EditorDesign.artworkRadius, style: .continuous))
                 .fotufilmBadge(for: stock)
@@ -110,7 +114,8 @@ struct BrowserCard<Artwork: View>: View {
             Spacer(minLength: 0)
         }
         .padding(EditorDesign.cardInset)
-        .frame(width: width, height: EditorDesign.cardHeight, alignment: .topLeading)
+        .frame(width: width, height: EditorDesign.cardHeight + (stock == nil ? 0 : max(0, artworkHeight - EditorDesign.artworkHeight)),
+               alignment: .topLeading)
         .modifier(BrowserSelection(selected: selected))
     }
 }

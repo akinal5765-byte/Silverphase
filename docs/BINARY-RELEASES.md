@@ -25,6 +25,11 @@ update checker also recognizes older unprefixed tags that carry a macOS DMG.
 
 Download **macOS 1.3.1 (build 6)** from its [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1). The [version notes](../modern_UI/Spektrafilm/releases/1.3.1.md) describe the changes and verification.
 
+Source builds using Silverphase's own bundle identifier keep desktop data
+separate from SpektraLab. If switching from 1.3.1 or an older build with the
+legacy identifier, see [keeping your existing edits](MACOS-IDENTITY-UPGRADE.md).
+This transition does not change the app already published at the 1.3.1 tag.
+
 macOS 1.2.0 (build 4) introduced Lightroom Classic single-photo external editing.
 Install Silverphase in Applications and select it under Lightroom's additional
 external editor settings; no separate `.lrplugin` is needed. See the

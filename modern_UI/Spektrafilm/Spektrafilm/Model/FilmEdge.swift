@@ -116,6 +116,9 @@ struct FilmEdgeSettings: Codable, Equatable, Sendable {
     /// The stock's edge print, resolved by the session from the stock in use.
     /// Desktop prints the real name (answer B16).
     var edgeText = ""
+    /// Optional per-photo replacement for the stock name, not the stock's
+    /// marking style, frame numbering or perforations.
+    var customLabel: String?
     /// From EXIF, resolved by the session; 0 = unknown (the engine takes f/5.6).
     var fNumber = 0.0
     /// The crop the engine's frame was cut with, as a key; resolved by the
@@ -159,6 +162,10 @@ struct FilmEdgeSettings: Codable, Equatable, Sendable {
         fog = try c.decodeIfPresent(Double.self, forKey: .fog) ?? d.fog
         leaks = try c.decodeIfPresent(Double.self, forKey: .leaks) ?? d.leaks
         edgeText = try c.decodeIfPresent(String.self, forKey: .edgeText) ?? d.edgeText
+        if let label = try? c.decodeIfPresent(String.self, forKey: .customLabel) {
+            let editable = Self.editableLabel(label)
+            customLabel = editable.isEmpty ? nil : editable
+        }
         fNumber = try c.decodeIfPresent(Double.self, forKey: .fNumber) ?? d.fNumber
         pair = try c.decodeIfPresent(Bool.self, forKey: .pair) ?? d.pair
         framing = try c.decodeIfPresent(String.self, forKey: .framing) ?? d.framing
@@ -190,6 +197,28 @@ struct FilmEdgeSettings: Codable, Equatable, Sendable {
     /// True when the engine draws the film: the switch, on a format it has.
     var effective: Bool { active && format.isAvailable }
 
+    // The common alphabet of CoreText, the Fuji 7x9 names face and the 5x7
+    // edge faces in overscan.cpp. Keep labels short for the narrow name slots;
+    // the engine still fits them to the selected stock's physical layout.
+    static let customLabelLimit = 10
+
+    static func editableLabel(_ text: String) -> String {
+        let bytes = text.utf8.lazy.compactMap { byte -> UInt8? in
+            switch byte {
+            case 97...122: byte - 32
+            case 65...90, 48...57, 32, 43, 45...47: byte  // A–Z, 0–9, space, + - . /
+            default: nil
+            }
+        }
+        // Preserve a trailing space while typing; trim it only for the frame.
+        return String(decoding: bytes.prefix(customLabelLimit), as: UTF8.self)
+    }
+
+    static func printableLabel(_ text: String) -> String? {
+        let parts = editableLabel(text).split(separator: " ")
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
     /// `overscan_active` always, so turning it off reaches the engine; the
     /// rest only while it is on, so a frame without a film edge keeps the
     /// stamp it had (off is structural: nothing is dispatched).
@@ -210,7 +239,7 @@ struct FilmEdgeSettings: Codable, Equatable, Sendable {
             ("overscan_frame_number", .double(Double(frameNumber.clamped(to: Self.frameNumberRange))), .shoot),
             ("overscan_fog", .double(fog.clamped(to: Self.fogRange)), .shoot),
             ("overscan_leaks", .double(leaks.clamped(to: Self.leaksRange)), .shoot),
-            ("overscan_edge_text", .string(edgeText), .shoot),
+            ("overscan_edge_text", .string(customLabel.flatMap(Self.printableLabel) ?? edgeText), .shoot),
             ("overscan_f_number", .double(fNumber.clamped(to: 0...64)), .shoot),
         ]
 
