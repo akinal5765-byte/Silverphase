@@ -111,6 +111,10 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 6))
         XCTAssertLessThan(abs(title.frame.midY - buttonFrame.midY), 170,
                           "The film picker should open near its top toolbar button, not as a bottom sheet")
+        let firstCard = app.buttons["photo-detail.film-stock.kodak_portra_400"]
+        XCTAssertTrue(firstCard.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.frame.minX, firstCard.frame.minX, accuracy: 3,
+                       "Title and card grid share the same horizontal inset")
         let presentation = XCTAttachment(screenshot: app.screenshot())
         presentation.name = "Film picker anchored to toolbar"
         presentation.lifetime = .keepAlways

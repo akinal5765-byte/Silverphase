@@ -933,15 +933,10 @@ struct MobileFilmPickerGrid: View {
     var identifier = "photo-detail.film"
     @State private var query = ""
     @State private var filter = MobileMaterialFilter.all
-    @State private var availableWidth: CGFloat = 340
 
     private let filters: [MobileMaterialFilter] = [.all, .positive, .negative, .monochrome, .experimental]
     private let gap = EditorDesign.unit * 2
     private let inset = EditorDesign.contentInset
-    private var usableWidth: CGFloat { max(1, availableWidth - 2 * inset) }
-    private var columnCount: Int { min(4, max(2, Int((usableWidth + gap) / (98 + gap)))) }
-    private var cardWidth: CGFloat { max(1, floor((usableWidth - CGFloat(columnCount - 1) * gap) / CGFloat(columnCount))) }
-
     private var matches: [Stock] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let results = stocks.filter { stock in
@@ -955,6 +950,19 @@ struct MobileFilmPickerGrid: View {
     }
 
     var body: some View {
+        GeometryReader { geometry in
+            let usableWidth = max(1, geometry.size.width - 2 * inset)
+            let columns = min(4, max(2, Int((usableWidth + gap) / (98 + gap))))
+            let cardWidth = max(1, (usableWidth - CGFloat(columns - 1) * gap) / CGFloat(columns))
+            pickerBody(columns: columns, cardWidth: cardWidth)
+                .frame(width: usableWidth, height: geometry.size.height)
+                .padding(.horizontal, inset)
+        }
+        .frame(idealWidth: 440, idealHeight: 390)
+        .accessibilityAction(.escape) { cancel() }
+    }
+
+    private func pickerBody(columns: Int, cardWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: EditorDesign.unit) {
                 HStack {
@@ -977,7 +985,7 @@ struct MobileFilmPickerGrid: View {
                             .font(EditorDesign.sectionTitle)
                             .foregroundStyle(filter == .all ? Color.primary : MobileStyle.accent)
                             .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
-                            .modifier(ChromeSurface(radius: MobileStyle.radius, interactive: true))
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(T("Filter films", "筛选胶片", "篩選膠片"))
@@ -986,7 +994,7 @@ struct MobileFilmPickerGrid: View {
                     Button(action: cancel) {
                         Image(systemName: "xmark").font(EditorDesign.sectionTitle)
                             .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
-                            .modifier(ChromeSurface(radius: MobileStyle.radius, interactive: true))
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(T("Close", "关闭", "關閉"))
@@ -1013,33 +1021,29 @@ struct MobileFilmPickerGrid: View {
                 .frame(minHeight: 44)
                 .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12))
             }
-            .padding(.horizontal, inset).padding(.top, EditorDesign.gutter).padding(.bottom, EditorDesign.unit * 2)
+            .padding(.top, EditorDesign.gutter).padding(.bottom, EditorDesign.unit * 2)
             if matches.isEmpty {
                 ContentUnavailableView(T("No matching film", "没有匹配的胶片", "沒有符合的膠片"), systemImage: "film")
                     .frame(maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cardWidth), spacing: gap), count: columnCount), spacing: gap) {
-                        ForEach(matches) { stock in card(stock) }
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cardWidth), spacing: gap), count: columns), spacing: gap) {
+                        ForEach(matches) { stock in card(stock, width: cardWidth) }
                     }
-                    .padding(.horizontal, inset)
                     .padding(.bottom, inset)
                     .frame(maxWidth: .infinity)
                 }
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { availableWidth = max(1, $0) }
                 .scrollDismissesKeyboard(.interactively)
                 .accessibilityIdentifier(identifier + "-grid")
             }
         }
-        .frame(idealWidth: 440, idealHeight: 390)
-        .accessibilityAction(.escape) { cancel() }
     }
 
-    private func card(_ stock: Stock) -> some View {
+    private func card(_ stock: Stock, width: CGFloat) -> some View {
         let selected = stock.id == selectedID
         let subtitle = stock.speedLabel ?? ""
         return Button { select(stock) } label: {
-            BrowserCard(title: stock.displayName, subtitle: subtitle, width: cardWidth,
+            BrowserCard(title: stock.displayName, subtitle: subtitle, width: width,
                         selected: selected, stock: stock, compact: true) {
                 if let artwork = stock.packagingArtworkURL {
                     FilmstripThumbnail(url: artwork, fillsFrame: true)
