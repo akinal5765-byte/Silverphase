@@ -136,6 +136,9 @@ struct MobileCameraView: View {
     }
     private var controlRotationTarget: Double {
 #if SILVERPHASE_APP
+#if DEBUG
+        if let outerGripRotationForChecks { return outerGripRotationForChecks }
+#endif
         if rearSelfieOnHostDisplay {
             // iOS may keep the outer window portrait while the user rolls
             // the device. Rotate the existing glyphs, not the control frames.
@@ -360,7 +363,9 @@ struct MobileCameraView: View {
             }
 #endif
             .overlay(alignment: .top) {
-                if !usesInnerCameraLayout {
+                if displaysOuterRearSelfieControls {
+                    outerRearSelfieControls(in: size)
+                } else if !usesInnerCameraLayout {
                     standardCameraControls
                 } else if !tabletop {
                     cameraHeader
@@ -387,6 +392,43 @@ struct MobileCameraView: View {
                     }
                 }
             }
+    }
+
+    private var displaysOuterRearSelfieControls: Bool {
+#if DEBUG
+        if outerGripRotationForChecks != nil { return true }
+#endif
+        return rearSelfieOnHostDisplay
+    }
+
+#if DEBUG
+    private var outerGripRotationForChecks: Double? {
+        guard isLayoutCheck,
+              let raw = ProcessInfo.processInfo.environment["SILVERPHASE_TEST_OUTER_GRIP"],
+              let value = Double(raw), [0, -90, 90, 180].contains(value) else { return nil }
+        return value
+    }
+#endif
+
+    private func outerRearSelfieControls(in viewport: CGSize) -> some View {
+        // The controls have their own holding-relative coordinate space. The
+        // preview stays in the scene and must not receive this rotation.
+        let chrome = MobileCameraCanvasGeometry(viewport: viewport, interfaceQuarterTurn: controlRotation)
+        return VStack(spacing: 8) {
+            cameraHeader
+            // The header keeps the full outer width. Measure the remaining
+            // height in holding coordinates so controls never overlap it.
+            GeometryReader { geometry in
+                let span = min(geometry.size.height, Self.dockContentWidth + 2 * Self.dockHorizontalInset)
+                innerCameraGrip(span: span)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            }
+        }
+        .frame(width: chrome.contentSize.width, height: chrome.contentSize.height)
+        .environment(\.cameraChromeQuarterTurn, controlRotation)
+        .rotationEffect(.degrees(controlRotation))
+        .frame(width: viewport.width, height: viewport.height)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: controlRotation)
     }
 
     private func innerCameraGrip(span: CGFloat) -> some View {
@@ -2111,10 +2153,12 @@ private struct SidewaysCaptureBank: Layout {
 
 private extension EnvironmentValues {
     @Entry var captureBankQuarterTurn: Double = 0
+    @Entry var cameraChromeQuarterTurn: Double = 0
 }
 
 private struct CameraControlOrientation: ViewModifier {
     @Environment(\.captureBankQuarterTurn) private var mountRotation
+    @Environment(\.cameraChromeQuarterTurn) private var chromeRotation
     let rotation: Double
     let animated: Bool
     let anchor: UnitPoint
@@ -2126,7 +2170,7 @@ private struct CameraControlOrientation: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.rotationEffect(.degrees(rotation + mountRotation), anchor: anchor)
+        content.rotationEffect(.degrees(rotation + mountRotation - chromeRotation), anchor: anchor)
             .animation(animated ? .easeInOut(duration: 0.22) : nil, value: rotation)
     }
 }

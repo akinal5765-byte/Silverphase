@@ -175,6 +175,41 @@ final class PhotoImportTests: XCTestCase {
         }
     }
 
+    @MainActor func testOuterRearSelfieShutterStaysOnHoldingRight() {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for angle in [0, -90, 90] {
+            let app = XCUIApplication()
+            app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--camera-layout-check"]
+            app.launchEnvironment["SILVERPHASE_TEST_OUTER_GRIP"] = String(angle)
+            app.launch()
+            let camera = app.buttons["library.camera"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 15))
+            camera.tap()
+            let grip = app.otherElements["camera.side-grip"]
+            XCTAssertTrue(grip.waitForExistence(timeout: 5))
+            let shutter = grip.buttons["camera.shutter"]
+            XCTAssertTrue(shutter.exists)
+            let screen = app.frame
+            let b = shutter.frame
+            XCTAssertTrue(screen.contains(b))
+            if angle == -90 {
+                XCTAssertLessThan(b.midY, screen.midY - screen.height / 4)
+            } else if angle == 90 {
+                XCTAssertGreaterThan(b.midY, screen.midY + screen.height / 4)
+            } else {
+                XCTAssertGreaterThan(b.midX, screen.midX + screen.width / 4)
+            }
+            for id in ["camera.latest", "camera.film", "camera.diffusion"] {
+                let button = grip.buttons[id]
+                XCTAssertTrue(button.exists)
+                XCTAssertTrue(screen.contains(button.frame))
+            }
+            XCTAssertFalse(app.buttons["camera.back"].frame.intersects(b))
+            app.terminate()
+        }
+    }
+
     @MainActor func testDuoWaistCameraControlLayout() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
