@@ -77,6 +77,17 @@ scaled output under the original-spec claim.
 The production export memory guard remains active. This check does not test
 camera recording, hardware thermals, sustained AV cadence, or playback sync.
 
+## Performance boundary
+
+AVFoundation owns decoding, frame timing, HEVC encoding, and audio. The
+dedicated renderer owns only frame color processing. Its Core Graphics provider
+retains the engine's own output storage until Core Image finishes consuming that
+frame, rather than making a second full RGBA16 copy. This is not a fully
+zero-copy pipeline: decoding, color conversion, and GPU access may still
+introduce buffers. Compare peak memory, wall time, and thermal behavior on a
+physical device using the same 2- and 5-minute footage before drawing a
+throughput conclusion.
+
 ## Required acceptance
 
 1. Open the entry from the Library menu, grant camera and microphone

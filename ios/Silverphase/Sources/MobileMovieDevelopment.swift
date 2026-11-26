@@ -339,6 +339,25 @@ extension MobileMovieDevelopment {
 // The composition can request frames concurrently. Serialize each engine
 // session and use AVFoundation's source timestamps, not wall-clock preview
 // cadence. Only frame-sized buffers are allocated, independent of duration.
+// A renderer result has its own Metal-backed storage, independent of the
+// renderer's next frame. Core Graphics keeps this owner alive until it has
+// finished reading the image, which can outlive the composition callback.
+private final class MobileMovieFrameStorage {
+    var result = spk_result()
+    deinit { spk_result_free(&result) }
+
+    func provider() -> CGDataProvider? {
+        guard let source = result.rgba16 else { return nil }
+        let bytes = Int(result.row_stride_px) * 8 * Int(result.height)
+        let retained = Unmanaged.passRetained(self)
+        let provider = CGDataProvider(dataInfo: retained.toOpaque(), data: source, size: bytes) { info, _, _ in
+            if let info { Unmanaged<MobileMovieFrameStorage>.fromOpaque(info).release() }
+        }
+        if provider == nil { retained.release() }
+        return provider
+    }
+}
+
 private final class MobileMovieFrameRenderer: @unchecked Sendable {
     let context: CIContext
     private let device: MTLDevice
@@ -421,15 +440,12 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
                 session = opened
             }
             guard let session else { throw failure() }
-            var result = spk_result()
-            defer { spk_result_free(&result) }
-            guard spk_render(session, "full", &result) == SPK_OK, let source = result.rgba16,
-                  result.width == UInt32(width), result.height == UInt32(height) else { throw failure() }
-            // AVFoundation may retain the frame after this callback. Copy
-            // bytes before releasing the result texture, not its pointer.
-            let stride = Int(result.row_stride_px) * 8
-            let bytes = Data(bytes: source, count: stride * height)
-            guard let provider = CGDataProvider(data: bytes as CFData),
+            let storage = MobileMovieFrameStorage()
+            guard spk_render(session, "full", &storage.result) == SPK_OK,
+                  storage.result.width == UInt32(width), storage.result.height == UInt32(height)
+            else { throw failure() }
+            let stride = Int(storage.result.row_stride_px) * 8
+            guard let provider = storage.provider(),
                   let image = CGImage(width: width, height: height, bitsPerComponent: 16, bitsPerPixel: 64,
                                       bytesPerRow: stride, space: outputSpace,
                                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
