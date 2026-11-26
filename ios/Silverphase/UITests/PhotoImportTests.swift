@@ -24,8 +24,9 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(date.exists)
         let back = control("back").frame
         let tools = ["rating", "flag", "film"].map { control($0).frame }
-        XCTAssertLessThan(back.minX, date.frame.minX)
-        XCTAssertLessThan(date.frame.midX, tools[0].midX)
+        XCTAssertGreaterThanOrEqual(date.frame.minX + 1, back.maxX)
+        XCTAssertLessThanOrEqual(date.frame.maxX, tools[0].minX + 1)
+        XCTAssertEqual(date.frame.midY, back.midY, accuracy: 8)
         for tool in tools {
             XCTAssertEqual(tool.midY, back.midY, accuracy: 8)
         }
@@ -177,8 +178,9 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(photo.waitForExistence(timeout: 8))
         let date = app.descendants(matching: .any).matching(identifier: "photo-detail.date").firstMatch
         XCTAssertTrue(date.waitForExistence(timeout: 5))
-        XCTAssertGreaterThanOrEqual(date.frame.minY, app.buttons["photo-detail.back"].frame.maxY - 1,
-                                    "The date has its own row below Back")
+        let back = app.buttons["photo-detail.back"].frame
+        XCTAssertGreaterThanOrEqual(date.frame.minX + 1, back.maxX)
+        XCTAssertEqual(date.frame.midY, back.midY, accuracy: 8, "The date sits beside Back on the left")
         let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.79, dy: 0.42))
         let diagonal = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.55))
         start.press(forDuration: 0.06, thenDragTo: diagonal)

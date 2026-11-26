@@ -326,22 +326,12 @@ struct MobilePhotoDetail: View {
             .accessibilityHidden(!showsControls)
         }
         .overlay(alignment: .top) {
-            // Unlike the canvas, this overlay starts below the navigation
-            // bar. Date and preview status have their own layout; neither
-            // competes with Back or the native toolbar for width.
-            VStack(spacing: 5) {
-                if showsControls {
-                    dateLabel(photo)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .foregroundStyle(reduceTransparency ? Color.white : Color.primary)
-                        .modifier(ChromeSurface())
-                }
-                previewStatus(photo)
-            }
-            .padding(.horizontal, EditorDesign.gutter)
-            .padding(.top, 6)
-            .allowsHitTesting(false)
+            // The overlay starts below the navigation bar, not at the
+            // window edge like the photo itself.
+            previewStatus(photo)
+                .padding(.horizontal, EditorDesign.gutter)
+                .padding(.top, 6)
+                .allowsHitTesting(false)
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: photoID)
@@ -414,10 +404,15 @@ struct MobilePhotoDetail: View {
             backItem
         }
         if #available(iOS 27.1, *) {
+            dateItem(photo).axisBehavior(.horizontalOnly)
+                .visibilityPriority(.init(higherThan: .high))
+                .sharedBackgroundVisibility(.hidden)
             metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
         } else if #available(iOS 26.0, *) {
+            dateItem(photo).sharedBackgroundVisibility(.hidden)
             metadataItem(photo).sharedBackgroundVisibility(.hidden)
         } else {
+            dateItem(photo)
             metadataItem(photo)
         }
         if placement == .top {
@@ -464,16 +459,23 @@ struct MobilePhotoDetail: View {
         }
     }
 
+    private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-date", placement: .topBarLeading) {
+            dateLabel(photo)
+        }
+    }
+
     private func dateLabel(_ photo: MobilePhoto) -> some View {
-        VStack(spacing: 1) {
+        VStack(alignment: .leading, spacing: 1) {
             if let date = photo.libraryDate {
                 ViewThatFits(in: .horizontal) {
                     Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
                     Text(date.formatted(date: .numeric, time: .omitted))
-                        .lineLimit(1).minimumScaleFactor(0.75)
+                        .lineLimit(1).allowsTightening(true).minimumScaleFactor(0.75)
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.caption.weight(.semibold))
 
                 Text(date.formatted(date: .omitted, time: .shortened))
                     .font(.caption2).foregroundStyle(.secondary)
@@ -482,6 +484,7 @@ struct MobilePhotoDetail: View {
                 Text(photo.name).font(.subheadline.weight(.semibold)).lineLimit(1)
             }
         }
+        .frame(maxWidth: 124, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(photo.libraryDate?.formatted(date: .long, time: .shortened) ?? photo.name)
         .accessibilityIdentifier("photo-detail.date")
