@@ -8,7 +8,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 repo = root.parents[1]
 shared = repo / 'modern_UI/Spektrafilm/Spektrafilm/Model'
-sources = sorted((root / 'Sources').glob('*.swift')) + [shared / 'StockCatalogCore.swift', shared / 'ParamValue.swift', shared / 'Geometry.swift', shared / 'CameraBrightnessFit.swift', shared / 'OutputGamutPolicy.swift']
+sources = sorted((root / 'Sources').glob('*.swift')) + [root / 'Sources/SilverphaseFTPReceiver.mm'] + [shared / 'StockCatalogCore.swift', shared / 'ParamValue.swift', shared / 'Geometry.swift', shared / 'CameraBrightnessFit.swift', shared / 'OutputGamutPolicy.swift']
 def uid(value): return hashlib.sha1(value.encode()).hexdigest()[:24].upper()
 def quote(value): return '"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
 objects = []
@@ -17,7 +17,8 @@ def obj(key, body):
 refs, builds = [], []
 for source in sources:
     path = os.path.relpath(source, root)
-    ref = obj(path, f'isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {quote(path)}; sourceTree = SOURCE_ROOT;')
+    file_type = 'sourcecode.cpp.objcpp' if source.suffix == '.mm' else 'sourcecode.swift'
+    ref = obj(path, f'isa = PBXFileReference; lastKnownFileType = {file_type}; path = {quote(path)}; sourceTree = SOURCE_ROOT;')
     refs.append(ref)
     builds.append(obj('build:' + path, f'isa = PBXBuildFile; fileRef = {ref};'))
 # Both platforms compile the same Icon Composer source; no copied PNG catalog.
@@ -37,6 +38,16 @@ product = obj('product', 'isa = PBXFileReference; explicitFileType = wrapper.app
 source_phase = obj('sources', f'isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(builds)}); runOnlyForDeploymentPostprocessing = 0;')
 script_phase = obj('engine', 'isa = PBXShellScriptBuildPhase; buildActionMask = 2147483647; alwaysOutOfDate = 1; files = (); inputPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/bash; shellScript = "bash \\\"$SRCROOT/Tools/build-engine.sh\\\"";')
 app_info = plistlib.loads((root / 'Info.plist').read_bytes())
+debug_info = plistlib.dumps({**app_info,
+    'NSLocalNetworkUsageDescription': 'Silverphase receives original photos directly from your camera on your local network.',
+    'NSBonjourServices': ['_ftp._tcp.'],
+}, sort_keys=False)
+debug_info_path = root / 'Debug-Info.plist'
+if '--check' in sys.argv:
+    if not debug_info_path.exists() or debug_info_path.read_bytes() != debug_info:
+        sys.exit('Debug-Info.plist is stale; run Tools/gen-project.py')
+else:
+    debug_info_path.write_bytes(debug_info)
 configs = []
 for name in ['Debug', 'Release']:
     settings = {
@@ -54,6 +65,11 @@ for name in ['Debug', 'Release']:
         'ALWAYS_SEARCH_USER_PATHS': 'NO', 'SWIFT_ACTIVE_COMPILATION_CONDITIONS': 'SILVERPHASE_APP DEBUG' if name == 'Debug' else 'SILVERPHASE_APP',
         'DEBUG_INFORMATION_FORMAT': 'dwarf' if name == 'Debug' else 'dwarf-with-dsym', 'GENERATE_INFOPLIST_FILE': 'NO',
     }
+    settings['CLANG_ENABLE_OBJC_ARC'] = 'YES'
+    settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
+    if name == 'Debug':
+        settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) DEBUG=1'
+        settings['INFOPLIST_FILE'] = 'Debug-Info.plist'
     configs.append(obj('config:' + name, 'isa = XCBuildConfiguration; name = ' + name + '; buildSettings = {' + ''.join(k + ' = ' + quote(v) + ';' for k,v in settings.items()) + '};'))
 config_list = obj('configs', f'isa = XCConfigurationList; buildConfigurations = ({",".join(configs)}); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')
 extension_targets, extension_dependencies, extension_phases = [], [], []
