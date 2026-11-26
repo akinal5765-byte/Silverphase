@@ -152,7 +152,7 @@ struct MobileCameraView: View {
     @State private var frozenShot: CGImage?
     @State private var reveal: MobileCameraDevelopment?
     @State private var shotQuarterTurn = 0.0
-    @State private var outerShotAngle: CGFloat?
+    @State private var outerShotDisplayRotation: CGFloat?
     @State private var revealOpacity = 0.0
     @State private var landingPhoto = false
     @State private var photoAtThumbnail = false
@@ -233,10 +233,9 @@ struct MobileCameraView: View {
         )
     }
     private var revealRotation: Double {
-        if rearSelfieOnHostDisplay, let outerShotAngle {
-            return Double(MobileCameraViewfinderGeometry.developmentRotation(capture: outerShotAngle, preview: previewAngle))
-        }
-        return (interfaceQuarterTurn - shotQuarterTurn).remainder(dividingBy: 360)
+        let sceneRotation = interfaceQuarterTurn - shotQuarterTurn
+        let presentationRotation = rearSelfieOnHostDisplay ? Double(outerShotDisplayRotation ?? 0) : 0
+        return (sceneRotation + presentationRotation).remainder(dividingBy: 360)
     }
     private var revealSwapsAxes: Bool { abs(revealRotation.remainder(dividingBy: 180)) == 90 }
 
@@ -1931,7 +1930,13 @@ struct MobileCameraView: View {
         let selectedPose = shutterPose
         let captureAngle = followsInterface ? camera.horizonCaptureAngle : nil
 #if SILVERPHASE_APP
-        outerShotAngle = rearSelfieOnHostDisplay ? captureAngle : nil
+        outerShotDisplayRotation = nil
+        if rearSelfieOnHostDisplay, let captureAngle {
+            let shownAngle = camera.lookGeometry().angle
+            outerShotDisplayRotation = MobileCameraViewfinderGeometry.developmentRotation(
+                capture: captureAngle, preview: shownAngle
+            )
+        }
 #endif
         let selectedFlash = flash
         let selectedLens = lens

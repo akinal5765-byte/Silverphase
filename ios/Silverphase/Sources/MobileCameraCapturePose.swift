@@ -38,7 +38,13 @@ struct MobileWaistCameraGeometry {
 /// controls are overlaid. Rotating the connection switches its axes.
 enum MobileCameraViewfinderGeometry {
     static func previewAngle(layer: CGFloat, capture: CGFloat, rearSelfie: Bool) -> CGFloat {
-        rearSelfie && capture.isFinite ? capture : layer
+        guard rearSelfie, capture.isFinite, layer.isFinite else { return layer }
+        // In the measured open-outer handoff, the verified still reference
+        // appeared a quarter-turn clockwise in the finder. Invert the layer's
+        // relative display offset instead of baking a fixed turn into pixels.
+        let displayOffset = (layer - capture).remainder(dividingBy: 360)
+        let angle = (capture - displayOffset).truncatingRemainder(dividingBy: 360)
+        return angle < 0 ? angle + 360 : angle
     }
 
     static func developmentRotation(capture: CGFloat, preview: CGFloat) -> CGFloat {

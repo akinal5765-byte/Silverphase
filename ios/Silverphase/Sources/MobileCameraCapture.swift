@@ -978,10 +978,9 @@ struct MobileCameraPreview: UIViewRepresentable {
             // does not use the layer coordinate system.
             let layerAngle = rotation.videoRotationAngleForHorizonLevelPreview
 #if SILVERPHASE_APP
-            // For open Duo with the rear sensor facing the outer display, the
-            // layer reference can disagree with the actual rear-camera pixels.
-            // Use the positive, uncropped still's moving reference for this
-            // one preview mode. No rotation constant or photo change.
+            // Open Duo rear selfies need the outer display conversion from
+            // the moving still reference, not a fixed turn. Use the selected
+            // layer angle for native, film and frozen preview alike.
             let angle = MobileCameraViewfinderGeometry.previewAngle(
                 layer: layerAngle, capture: rotation.videoRotationAngleForHorizonLevelCapture,
                 rearSelfie: lastRearSelfie == true

@@ -158,9 +158,10 @@ with a center crop, including behind the system insets. The controls stay in the
 area. This is presentation only: it doesn't crop or rotate the saved file. AVKit's
 direction coordinator identifies the physical rear camera facing an open
 Duo's outer display. In this mode only, the live finder and film preview use
-the same moving orientation reference as the still. The development animation
-follows changes from that shutter-time orientation. The app does not force a
-fixed turn or change the rotation or mirroring of saved photos.
+the still orientation with the relative display offset reversed. At shutter,
+development latches the difference between the displayed and captured directions
+so it matches the frozen preview. The app does not change the rotation or
+mirroring of saved photos.
 [Apple's iPhone Duo camera guidance](https://developer.apple.com/videos/play/tech-talks/111465/).
 
 An active horizontal fold keeps the viewfinder, header and right-hand capture
