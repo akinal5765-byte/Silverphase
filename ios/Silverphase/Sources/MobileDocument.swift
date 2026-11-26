@@ -336,6 +336,24 @@ struct MobilePhoto: Codable, Identifiable {
                                                     trace: GalleryRenderTrace("draft"))
     }
 
+    func galleryNativeOutput(_ photo: MobilePhoto, original: Bool) -> CGSize {
+        let aspect = photo.sourceAspect
+        guard aspect.isFinite, aspect > 0, photo.sourceMegapixels.isFinite, photo.sourceMegapixels > 0 else { return .zero }
+        let height = sqrt(photo.sourceMegapixels * 1_000_000 / aspect)
+        let source = CGSize(width: height * aspect, height: height)
+        if !original, let simulation = simulationWorkingSize(photo) {
+            return photo.geometry.outputSize(for: simulation)
+        }
+        return photo.geometry.outputSize(for: source)
+    }
+
+    func renderLibraryOriginalTile(_ photo: MobilePhoto, viewport: MobileViewport,
+                                   using renderer: MobileEngine) async throws -> MobileDetailTile {
+        try await renderer.originalDetail(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                           geometry: photo.geometry, viewport: viewport.rect,
+                                           pixelLongEdge: viewport.pixelLongEdge, gallery: true)
+    }
+
     func renderLibraryTile(_ photo: MobilePhoto, viewport: MobileViewport,
                            using renderer: MobileDetailRenderer) async throws -> MobileDetailTile {
         try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
@@ -344,6 +362,54 @@ struct MobilePhoto: Codable, Identifiable {
     }
 
 #if DEBUG
+    private func galleryBenchmarkJPEGCandidate() -> MobilePhoto? {
+        photos.first {
+            abs($0.sourceMegapixels - 43.228848) < 0.008 &&
+                ($0.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .jpeg) == true
+                 || UTType(filenameExtension: url(for: $0).pathExtension)?.conforms(to: .jpeg) == true)
+        }
+    }
+
+    func runGalleryNativeComparison() async {
+        guard Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
+        let output = URL.documentsDirectory.appendingPathComponent("gallery-native-comparison.json")
+        func save(_ content: [String: Any]) {
+            if let data = try? JSONSerialization.data(withJSONObject: content, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: output, options: .atomic)
+            }
+        }
+        guard let photo = galleryBenchmarkJPEGCandidate() else {
+            save(["status": "matching test dimensions not found"]); return
+        }
+        save(["status": "running"])
+        var results: [[String: Any]] = []
+        for original in [true, false] {
+            let dimensions = galleryNativeOutput(photo, original: original)
+            let edge = Double(max(dimensions.width, dimensions.height))
+            let viewport = MobileViewport(rect: CGRect(x: 0.27, y: 0.25, width: 0.43, height: 0.30),
+                                          zoom: 4, pixelLongEdge: edge, previewLongEdge: 1920)
+            let start = ProcessInfo.processInfo.systemUptime
+            let mode = original ? "original" : "film"
+            do {
+                let tile: MobileDetailTile
+                if original {
+                    tile = try await renderLibraryOriginalTile(photo, viewport: viewport, using: MobileEngine())
+                } else {
+                    let renderer = MobileDetailRenderer()
+                    tile = try await renderLibraryTile(photo, viewport: viewport, using: renderer)
+                    await renderer.clear()
+                }
+                let actual = max(Double(tile.image.width) / tile.rect.width, Double(tile.image.height) / tile.rect.height)
+                results.append(["mode": mode, "native": tile.nativeSize != nil, "expectedEdge": Int(edge.rounded()),
+                                "equivalentEdge": Int(actual.rounded()), "ms": Int((ProcessInfo.processInfo.systemUptime - start) * 1000)])
+            } catch {
+                results.append(["mode": mode, "native": false, "error": String(describing: type(of: error))])
+            }
+            save(["status": "running", "sourceMP": photo.sourceMegapixels, "samples": results])
+        }
+        save(["status": "complete", "sourceMP": photo.sourceMegapixels, "samples": results])
+    }
+
     /// QA-only device benchmark. Reuse the already on-device asset by its
     /// measured dimensions without copying pixels or recording its identity.
     func runGalleryJPEGComparison() async {
@@ -354,11 +420,9 @@ struct MobilePhoto: Codable, Identifiable {
             }
         }
         guard Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
-        guard let photo = photos.first(where: {
-            abs($0.sourceMegapixels - 43.228848) < 0.008 &&
-                ($0.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .jpeg) == true
-                 || UTType(filenameExtension: url(for: $0).pathExtension)?.conforms(to: .jpeg) == true)
-        }) else { save(["status": "matching test dimensions not found"]); return }
+        guard let photo = galleryBenchmarkJPEGCandidate() else {
+            save(["status": "matching test dimensions not found"]); return
+        }
         let url = url(for: photo)
         let size = photo.geometry.outputSize(for: CGSize(width: photo.sourceAspect * 10000, height: 10000))
         let originalLong = sqrt(photo.sourceMegapixels * 1_000_000 * max(photo.sourceAspect, 1 / photo.sourceAspect))

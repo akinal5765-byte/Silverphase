@@ -497,7 +497,7 @@ actor MobileEngine {
     /// as decode(). Only materialise the visible native pixels: no film render,
     /// full float upload or second full-resolution host comparison image.
     func originalDetail(url: URL, recipe: [String: WireValue], geometry: MobileGeometry,
-                        viewport: CGRect, pixelLongEdge: Double) throws -> MobileDetailTile {
+                        viewport: CGRect, pixelLongEdge: Double, gallery: Bool = false) throws -> MobileDetailTile {
         try autoreleasepool {
             try Task.checkCancellation()
             guard let device else { throw MobileFailure.message(TDetached("No Metal device", "缺少 Metal 设备", "缺少 Metal 設備")) }
@@ -529,7 +529,14 @@ actor MobileEngine {
                 .intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
             let pixels = CGRect(x: rect.minX * extent.width, y: (1 - rect.maxY) * extent.height,
                                 width: rect.width * extent.width, height: rect.height * extent.height).integral.intersection(extent)
-            guard !pixels.isEmpty, Double(os_proc_available_memory()) > metadata.megapixels * 28e6 + 350e6 else {
+            let available = Double(os_proc_available_memory())
+#if DEBUG && targetEnvironment(simulator)
+            let budget = gallery && available == 0 && ProcessInfo.processInfo.arguments.contains("--gallery-native-audit")
+                ? 1_500_000_000 : available
+#else
+            let budget = available
+#endif
+            guard !pixels.isEmpty, budget > metadata.megapixels * 28e6 + 350e6 else {
                 throw MobileFailure.message(TDetached("Not enough memory to read the original detail", "当前内存不足以读取原图细节", "目前記憶體不足以讀取原圖細節"))
             }
             let context = CIContext(mtlDevice: device, options: [.cacheIntermediates: false,

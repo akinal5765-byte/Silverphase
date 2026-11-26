@@ -216,6 +216,33 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["photo-detail.original-hold"].exists)
     }
 
+    @MainActor func testPhotoDetailNativeZoomAndOriginal() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-native-audit",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let cell = app.buttons["library.photo.来源"]
+        XCTAssertTrue(cell.waitForExistence(timeout: 20))
+        cell.tap()
+        let photo = app.images["photo-detail.image"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 12))
+        let menu = app.descendants(matching: .any).matching(identifier: "photo-detail.menu").firstMatch
+        menu.tap()
+        let actualPixels = app.buttons["photo-detail.native-zoom"]
+        XCTAssertTrue(actualPixels.waitForExistence(timeout: 6))
+        actualPixels.tap()
+        let badge = app.staticTexts["photo-detail.native-status"]
+        XCTAssertTrue(badge.waitForExistence(timeout: 8))
+        let native = NSPredicate(format: "label IN %@", ["Native detail", "原生细节", "原生細節"])
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: native, object: badge)], timeout: 35), .completed)
+        let zoom = photo.value as? String
+        XCTAssertNotEqual(zoom, "100%")
+        photo.press(forDuration: 3)
+        XCTAssertFalse(app.staticTexts["photo-detail.original-hold"].exists)
+        XCTAssertEqual(photo.value as? String, zoom)
+    }
+
     @MainActor func testPhotoDetailPromotesZoomViewportWithoutMoving() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-tile-audit"]

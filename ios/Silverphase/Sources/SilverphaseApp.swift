@@ -194,7 +194,9 @@ import OSLog
 
     private func prepareLaunch() async {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--gallery-jpeg-comparison") {
+        if ProcessInfo.processInfo.arguments.contains("--gallery-native-comparison") {
+            await document.runGalleryNativeComparison()
+        } else if ProcessInfo.processInfo.arguments.contains("--gallery-jpeg-comparison") {
             await document.runGalleryJPEGComparison()
         } else if ProcessInfo.processInfo.arguments.contains("--neutral-close-regression") {
             MobileLibraryChecks.neutralPickerLifecycle()

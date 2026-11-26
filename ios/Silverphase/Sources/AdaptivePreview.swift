@@ -95,8 +95,9 @@ actor MobileDetailRenderer {
         }
         let available = Double(os_proc_available_memory())
 #if DEBUG && targetEnvironment(simulator)
-        let budget = available == 0 && ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
-            ? 1_500_000_000 : available
+        let testBudget = ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+            || ProcessInfo.processInfo.arguments.contains("--gallery-native-audit")
+        let budget = available == 0 && testBudget ? 1_500_000_000 : available
 #else
         let budget = available
 #endif
