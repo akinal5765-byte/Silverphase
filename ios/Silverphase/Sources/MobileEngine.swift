@@ -904,6 +904,10 @@ actor MobileEngine {
             let count = Self.repairPhotoPreviewEdges(buffer.contents(), width: width, height: height)
             if count > 0 { galleryTrace?.mark("repaired \(count) partially transparent perimeter samples") }
         }
+        if preview && isRaw && inputMP < inputMetadata.megapixels * 0.98 {
+            let count = Self.repairScaledRAWWhiteBorder(buffer.contents(), width: width, height: height)
+            if count > 0 { galleryTrace?.mark("repaired \(count) anomalous opaque RAW border samples") }
+        }
         galleryTrace?.mark("RAW/CI working pixel render end")
         try Task.checkCancellation()
         return (buffer, width, height, original)
@@ -934,6 +938,57 @@ actor MobileEngine {
         for y in 1..<(height - 1) {
             repair(y * width, y * width + 1, y * width + min(2, width - 2))
             repair(y * width + width - 1, y * width + width - 2, y * width + max(1, width - 3))
+        }
+        return repairs
+    }
+
+
+    /// Some scaled CIRAWFilter outputs contain a nearly uniform, fully
+    /// opaque, over-range outer row or column. Do not crop the preview:
+    /// if nearly the entire edge has the same large linear-RGB pedestal
+    /// over both neighboring rows, use pixels from the nearest valid row.
+    /// Never call this for full-resolution export or for encoded input.
+    nonisolated static func repairScaledRAWWhiteBorder(_ bytes: UnsafeMutableRawPointer, width: Int, height: Int) -> Int {
+        guard width >= 32, height >= 32 else { return 0 }
+        let pixels = bytes.assumingMemoryBound(to: SIMD4<Float>.self)
+        func luma(_ p: SIMD4<Float>) -> Float { (p.x + p.y + p.z) / 3 }
+        func offset(_ edge: Int, _ along: Int, _ depth: Int) -> Int {
+            switch edge {
+            case 0: along * width + depth
+            case 1: along * width + width - 1 - depth
+            case 2: depth * width + along
+            default: (height - 1 - depth) * width + along
+            }
+        }
+        func pedestal(_ edge: Int, _ along: Int) -> Float? {
+            let outer = pixels[offset(edge, along, 0)]
+            let inner = pixels[offset(edge, along, 1)]
+            let deeper = pixels[offset(edge, along, 3)]
+            guard abs(outer.w - 1) < 0.002, abs(inner.w - 1) < 0.002, abs(deeper.w - 1) < 0.002,
+                  min(outer.x, outer.y, outer.z) > 1.15 else { return nil }
+            let delta = luma(outer) - max(luma(inner), luma(deeper))
+            return delta.isFinite && delta > 0.85 ? delta : nil
+        }
+        let badEdges = (0..<4).filter { edge in
+            let length = edge < 2 ? height : width
+            let samples = Array(stride(from: 4, to: length - 4, by: max(1, length / 128)))
+            let deltas = samples.compactMap { pedestal(edge, $0) }.sorted()
+            guard deltas.count >= 20, deltas.count * 100 >= samples.count * 95 else { return false }
+            return deltas[deltas.count * 9 / 10] - deltas[deltas.count / 10] < 0.30
+        }
+        var repairs = 0
+        for edge in badEdges {
+            let length = edge < 2 ? height : width
+            for i in 0..<length {
+                let innerAlong = min(max(i, 1), length - 2)
+                let inner = pixels[offset(edge, innerAlong, 1)]
+                let outerIndex = offset(edge, i, 0)
+                let outer = pixels[outerIndex]
+                guard abs(inner.w - 1) < 0.002, abs(outer.w - 1) < 0.002,
+                      min(outer.x, outer.y, outer.z) > 1.15, luma(outer) - luma(inner) > 0.85 else { continue }
+                pixels[outerIndex] = inner
+                repairs += 1
+            }
         }
         return repairs
     }

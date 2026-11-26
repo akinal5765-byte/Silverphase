@@ -87,6 +87,24 @@ import UniformTypeIdentifiers
         return true
     }
 
+    private static func scaledRAWWhiteBorderIsRepaired() -> Bool {
+        let interior = SIMD4<Float>(0.20, 0.27, 0.31, 1)
+        let hot = SIMD4<Float>(3.0, 3.1, 3.0, 1)
+        for (w, h, vertical) in [(64, 96, true), (96, 64, false)] {
+            var pixels = Array(repeating: interior, count: w * h)
+            let outer = vertical ? (0..<h).map { $0 * w + w - 1 } : Array(0..<w)
+            for index in outer { pixels[index] = hot }
+            let genuineHighlight = w * 8
+            pixels[genuineHighlight] = hot
+            let repaired = pixels.withUnsafeMutableBytes {
+                MobileEngine.repairScaledRAWWhiteBorder($0.baseAddress!, width: w, height: h)
+            }
+            if repaired != outer.count || !outer.allSatisfy({ pixels[$0] == interior })
+                || pixels[genuineHighlight] != hot { return false }
+        }
+        return true
+    }
+
     static func run() {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -98,6 +116,7 @@ import UniformTypeIdentifiers
             }
             try require(galleryRasterEdgesMatchInterior(), "thumbnail and draft resampling preserve portrait and landscape edge pixels")
             try require(photoPreviewAlphaEdgesAreRepaired(), "preview raster repairs only outer partial-alpha samples before film inversion")
+            try require(scaledRAWWhiteBorderIsRepaired(), "scaled RAW preview repairs a uniform opaque white perimeter without touching local highlights")
             let doc = MobileDocument(directory: directory); doc.active = false; doc.editorVisible = false
             var portrait = MobilePhoto(name: "Portrait", filename: "portrait.jpg")
             portrait.sourceAspect = 2.0 / 3; portrait.sourceMegapixels = 12
