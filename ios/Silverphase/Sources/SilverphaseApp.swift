@@ -229,6 +229,8 @@ import OSLog
             await MobileCameraLookChecks.run()
         } else if ProcessInfo.processInfo.arguments.contains("--flat-import-regression") {
             await MobileSmokeChecks.flatImportRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--video-library-regression") {
+            await MobileVideoCaptureView.runVideoLibraryRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--video-renderer-benchmark") {
             await MobileMovieDevelopment.runRendererBenchmark()
         } else if ProcessInfo.processInfo.arguments.contains("--video-look-regression") {

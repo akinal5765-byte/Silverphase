@@ -56,7 +56,7 @@ enum MobileMovieDevelopment {
         let duration = try await asset.load(.duration)
         let video = try await asset.loadTracks(withMediaType: .video)
         let audio = try await asset.loadTracks(withMediaType: .audio)
-        guard duration.seconds.isFinite, duration.seconds > 0, let inputTrack = video.first, !audio.isEmpty else {
+        guard duration.seconds.isFinite, duration.seconds > 0, let inputTrack = video.first, expected == nil || !audio.isEmpty else {
             throw MobileFailure.message(TDetached("The recording has no playable video or audio track.", "录像没有可播放的视频或音频轨道。", "錄影沒有可播放的影片或音訊軌道。"))
         }
         let input = try await inspect(inputTrack)
@@ -98,7 +98,7 @@ enum MobileMovieDevelopment {
         let outputVideo = try await output.loadTracks(withMediaType: .video)
         let outputAudio = try await output.loadTracks(withMediaType: .audio)
         guard outputDuration.seconds.isFinite, abs(outputDuration.seconds - duration.seconds) <= 0.15,
-              let outputTrack = outputVideo.first, !outputAudio.isEmpty else {
+              let outputTrack = outputVideo.first, audio.isEmpty == outputAudio.isEmpty else {
             throw MobileFailure.message(TDetached("The exported video lost duration or an audio/video track; the original was kept.",
                                                   "导出视频时长或音视频轨道不完整，已保留原片。",
                                                   "輸出影片時長或音視訊軌道不完整，已保留原片。"))

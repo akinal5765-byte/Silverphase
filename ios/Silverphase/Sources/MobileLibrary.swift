@@ -21,6 +21,7 @@ struct MobileLibrary: View {
     @State private var importing = false
     @State private var showingCamera = false
     @State private var showingVideoCamera = false
+    @State private var videoLibraryMode = false
     @State private var cameraReturnPhotoID: UUID?
     @State private var visiblePhotoID: UUID?
     @State private var legacyPhotoDates: [UUID: (date: Date?, day: Int?)] = [:]
@@ -142,7 +143,7 @@ struct MobileLibrary: View {
         }
         .onChange(of: photos.map(\.id)) { _, ids in document.restrictPhotoSelection(to: ids) }
 #if DEBUG
-        .fullScreenCover(isPresented: $showingVideoCamera) { MobileVideoCaptureView() }
+        .fullScreenCover(isPresented: $showingVideoCamera) { MobileVideoCaptureView(libraryMode: videoLibraryMode) }
 #endif
         .fullScreenCover(isPresented: $showingCamera, onDismiss: {
             if let cameraReturnPhotoID {
@@ -523,7 +524,12 @@ struct MobileLibrary: View {
                     }
 #if DEBUG
                     Section {
+                        Button(T("Video Library", "视频图库", "影片圖庫"), systemImage: "film.stack") {
+                            videoLibraryMode = true
+                            showingVideoCamera = true
+                        }.accessibilityIdentifier("library.video-library")
                         Button(T("Record Video", "录制视频", "錄製影片"), systemImage: "video") {
+                            videoLibraryMode = false
                             showingVideoCamera = true
                         }.accessibilityIdentifier("library.video-camera")
                     }

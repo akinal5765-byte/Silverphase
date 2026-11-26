@@ -3,6 +3,9 @@
 import AVKit
 import Foundation
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
+import CoreTransferable
 
 struct MobileMovieProfile: Codable, Hashable, Sendable {
     struct Raster: Codable, Hashable, Sendable {
@@ -284,6 +287,7 @@ private struct MobileMovieTake: Codable, Identifiable, Sendable {
     let film: String
     var profile: Int? // Legacy private Debug takes used 30/60 to identify UHD.
     var captureSpec: MobileMovieProfile?
+    var importedFilename: String?
     var expectedSpec: MobileMovieProfile? { captureSpec ?? profile.flatMap(MobileMovieProfile.legacyUHD) }
 
     static func directory() -> URL {
@@ -291,8 +295,41 @@ private struct MobileMovieTake: Codable, Identifiable, Sendable {
     }
 
     var folder: URL { Self.directory().appendingPathComponent(id.uuidString, isDirectory: true) }
-    var source: URL { folder.appendingPathComponent("Silverphase-Original.mov") }
-    var developed: URL { folder.appendingPathComponent("Silverphase-Film.mov") }
+    var source: URL {
+        let ext = importedFilename.flatMap { Self.safeExtension(URL(fileURLWithPath: $0)) } ?? "mov"
+        return folder.appendingPathComponent("Silverphase-Original.\(ext)")
+    }
+    private static func safeExtension(_ source: URL) -> String? {
+        let ext = source.pathExtension.lowercased()
+        return ["mov", "mp4", "m4v"].contains(ext) ? ext : nil
+    }
+    var title: String { importedFilename ?? date.formatted(date: .abbreviated, time: .standard) }
+
+    static func importMovie(from url: URL, film: String) async throws -> Self {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard safeExtension(url) != nil else {
+            throw MobileFailure.message(TDetached("Choose a MOV, MP4 or M4V video file.", "请选择 MOV、MP4 或 M4V 视频。", "請選擇 MOV、MP4 或 M4V 影片。"))
+        }
+        let movie = AVURLAsset(url: url)
+        let duration = try await movie.load(.duration)
+        let tracks = try await movie.loadTracks(withMediaType: .video)
+        guard duration.seconds.isFinite, duration.seconds > 0, !tracks.isEmpty, try await movie.load(.isPlayable) else {
+            throw MobileFailure.message(TDetached("This file is not a playable video.", "这个文件不是可播放的视频。", "這個檔案不是可播放的影片。"))
+        }
+        let take = Self(id: UUID(), date: .now, film: film, importedFilename: url.lastPathComponent)
+        do {
+            try Task.checkCancellation()
+            try FileManager.default.createDirectory(at: take.folder, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: url, to: take.source)
+            try Task.checkCancellation()
+            try take.prepare()
+            return take
+        } catch {
+            try? FileManager.default.removeItem(at: take.folder)
+            throw error
+        }
+    }
 
     func prepare() throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -309,12 +346,60 @@ private struct MobileMovieTake: Codable, Identifiable, Sendable {
         }.sorted { $0.date > $1.date }
     }
 
-    func removeAfterSave() {
-        try? FileManager.default.removeItem(at: folder)
+    func removeFromLibrary() throws {
+        try FileManager.default.removeItem(at: folder)
+    }
+}
+
+private struct MobileVideoPickerFile: Transferable {
+    let url: URL
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(importedContentType: .movie) { received in
+            let folder = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let destination = folder.appendingPathComponent(received.file.lastPathComponent)
+            do { try FileManager.default.copyItem(at: received.file, to: destination) }
+            catch {
+                try? FileManager.default.removeItem(at: folder)
+                throw error
+            }
+            return Self(url: destination)
+        }
+    }
+}
+
+private struct MobileVideoLibraryThumbnail: View {
+    let source: URL
+    @State private var thumbnail: CGImage?
+
+    var body: some View {
+        Group {
+            if let thumbnail { Image(decorative: thumbnail, scale: 1).resizable().scaledToFill() }
+            else { Rectangle().fill(.quaternary).overlay { Image(systemName: "film") } }
+        }
+        .frame(width: 72, height: 48)
+        .clipShape(.rect(cornerRadius: 6))
+        .accessibilityHidden(true)
+        .task(id: source) {
+            thumbnail = nil
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: source))
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 144, height: 96)
+            if let generated = try? await generator.image(at: .zero), !Task.isCancelled {
+                thumbnail = generated.image
+            }
+        }
     }
 }
 
 struct MobileVideoCaptureView: View {
+    var libraryMode = false
+    @State private var choosingVideos = false
+    @State private var choosingFiles = false
+    @State private var selectedVideoItem: PhotosPickerItem?
+    @State private var importingVideo = false
+    @State private var reviewFilm = MobileCameraRecipe.defaultFilmID
+    @State private var deleteVideo: MobileMovieTake?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var camera = MobileMovieCapture()
@@ -350,6 +435,10 @@ struct MobileVideoCaptureView: View {
 
     var body: some View {
         NavigationStack {
+            Group {
+            if libraryMode && selected == nil {
+                videoLibrary
+            } else {
             VStack(spacing: 16) {
                 if let player {
                     VideoPlayer(player: player)
@@ -371,11 +460,11 @@ struct MobileVideoCaptureView: View {
                 }
                 if let notice { Text(notice).font(.footnote) }
                 if let selected {
-                    let stock = StockCatalog.shared.stock(selected.film)?.displayName ?? selected.film
                     Text(T("Original preview · no film applied", "当前预览是原片，未套用胶片", "目前預覽是原片，未套用膠片"))
                         .font(.footnote).foregroundStyle(.secondary)
-                    Text(T("Film for development: \(stock)", "显影胶片：\(stock)", "顯影膠片：\(stock)"))
-                        .font(.subheadline.weight(.medium))
+                    Picker(T("Film for development", "显影胶片", "顯影膠片"), selection: $reviewFilm) {
+                        ForEach(StockCatalog.shared.filmsForPicker) { Text($0.displayName).tag($0.id) }
+                    }.disabled(saving)
                     Text(selected.date.formatted(date: .abbreviated, time: .shortened)).font(.subheadline.monospacedDigit())
                     Button(T("Apply film and save", "套用胶片并保存", "套用膠片並儲存"), systemImage: "film") {
                         save(selected, developed: true)
@@ -383,14 +472,15 @@ struct MobileVideoCaptureView: View {
                     Button(T("Save original without film", "不套胶片，保存原片", "不套膠片，儲存原片"), systemImage: "square.and.arrow.down") {
                         save(selected, developed: false)
                     }.buttonStyle(.bordered).disabled(saving)
-                    Button(T("Back to camera", "返回相机", "返回相機")) { self.selected = nil }
+                    Button(libraryMode ? T("Back to videos", "返回视频图库", "返回影片圖庫")
+                                      : T("Back to camera", "返回相机", "返回相機")) { self.selected = nil }
                         .disabled(saving)
                     if developing {
                         Button(T("Cancel development", "取消显影", "取消顯影")) { saveTask?.cancel() }
                     }
                 } else {
                     if !takes.isEmpty && runningSince == nil {
-                        Menu(T("Recover unsaved videos", "恢复未保存的视频", "復原未儲存的影片"), systemImage: "film.stack") {
+                        Menu(T("Open recorded videos", "打开已保存到图库的视频", "開啟已儲存到圖庫的影片"), systemImage: "film.stack") {
                             ForEach(takes) { take in
                                 Button(take.date.formatted(date: .abbreviated, time: .standard)) {
                                     selected = take
@@ -459,18 +549,21 @@ struct MobileVideoCaptureView: View {
                 }
             }
             .padding()
-            .navigationTitle(T("Video", "视频", "影片"))
+            }
+            }
+            .navigationTitle(libraryMode ? T("Video Library", "视频图库", "影片圖庫") : T("Video", "视频", "影片"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(T("Close", "关闭", "關閉")) { dismiss() }
-                        .disabled(preparing || runningSince != nil || stopping || saving)
+                        .disabled(preparing || runningSince != nil || stopping || saving || importingVideo)
                 }
             }
         }
-        .interactiveDismissDisabled(preparing || runningSince != nil || stopping || saving)
+        .interactiveDismissDisabled(preparing || runningSince != nil || stopping || saving || importingVideo)
         .task {
             takes = MobileMovieTake.pending()
+            guard !libraryMode else { return }
             cameraChoices = MobileMovieProfile.cameras()
             if lensID.isEmpty, let first = cameraChoices.first {
                 lensID = first.uniqueID
@@ -487,6 +580,9 @@ struct MobileVideoCaptureView: View {
         .onChange(of: selected?.id) { _, _ in
             player?.pause()
             player = selected.map { AVPlayer(url: $0.source) }
+            if let selected {
+                reviewFilm = StockCatalog.shared.stock(selected.film) != nil ? selected.film : MobileCameraRecipe.defaultFilmID
+            }
         }
         .onDisappear {
             player?.pause()
@@ -499,10 +595,115 @@ struct MobileVideoCaptureView: View {
                 resetPreview()
             }
         }
+        .photosPicker(isPresented: $choosingVideos, selection: $selectedVideoItem,
+                      matching: .videos, preferredItemEncoding: .current)
+        .onChange(of: selectedVideoItem) { _, item in
+            guard let item, !importingVideo else { return }
+            importingVideo = true
+            Task {
+                defer { importingVideo = false; selectedVideoItem = nil }
+                do {
+                    guard let transfer = try await item.loadTransferable(type: MobileVideoPickerFile.self) else {
+                        throw MobileFailure.message(T("Couldn't load the selected video.", "无法读取所选视频。", "無法讀取所選影片。"))
+                    }
+                    defer { try? FileManager.default.removeItem(at: transfer.url.deletingLastPathComponent()) }
+                    try await addMovie(transfer.url)
+                } catch { message = error.localizedDescription }
+            }
+        }
+        .fileImporter(isPresented: $choosingFiles, allowedContentTypes: [.quickTimeMovie, .mpeg4Movie, .movie]) { result in
+            guard !importingVideo else { return }
+            importingVideo = true
+            Task {
+                defer { importingVideo = false }
+                do { try await addMovie(result.get()) }
+                catch { message = error.localizedDescription }
+            }
+        }
+        .confirmationDialog(T("Remove from the Video Library?", "从视频图库移除？", "從影片圖庫移除？"),
+                            isPresented: Binding(get: { deleteVideo != nil }, set: { if !$0 { deleteVideo = nil } }),
+                            titleVisibility: .visible, presenting: deleteVideo) { take in
+            Button(T("Remove", "移除", "移除"), role: .destructive) {
+                do { try take.removeFromLibrary(); takes = MobileMovieTake.pending() }
+                catch { message = error.localizedDescription }
+            }
+            Button(T("Cancel", "取消", "取消"), role: .cancel) {}
+        } message: { _ in
+            Text(T("This removes only the copy in Silverphase, not your Photos or Files.", "只移除 Silverphase 保存的副本，不会删除系统相册或文件里的原件。", "只移除 Silverphase 儲存的副本，不會刪除系統相簿或檔案裡的原件。"))
+        }
         .alert(T("Video", "视频", "影片"), isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button(T("OK", "好", "好")) { message = nil }
         } message: { Text(message ?? "") }
     }
+
+    private var videoLibrary: some View {
+        List {
+            Section {
+                Button(T("Import from Photos", "从照片导入视频", "從照片匯入影片"), systemImage: "photo.on.rectangle") {
+                    choosingVideos = true
+                }.accessibilityIdentifier("video-library.import-photos")
+                Button(T("Import from Files", "从文件导入视频", "從檔案匯入影片"), systemImage: "folder") {
+                    choosingFiles = true
+                }.accessibilityIdentifier("video-library.import-files")
+                if importingVideo { ProgressView(T("Importing video…", "正在导入视频…", "正在匯入影片…")) }
+            }
+            .disabled(importingVideo)
+            Section(T("Videos", "视频", "影片")) {
+                if takes.isEmpty {
+                    Text(T("No videos yet.", "还没有视频。", "還沒有影片。")).foregroundStyle(.secondary)
+                }
+                ForEach(takes) { take in
+                    Button {
+                        notice = nil
+                        selected = take
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading) {
+                                Text(take.title).lineLimit(1)
+                                let details = StockCatalog.shared.stock(take.film)?.displayName ?? take.film
+                                Text(take.expectedSpec.map { "\($0.title) · \(details)" } ?? details)
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        } icon: { MobileVideoLibraryThumbnail(source: take.source) }
+                    }
+                    .swipeActions(allowsFullSwipe: false) {
+                        Button(role: .destructive) { deleteVideo = take } label: { Label(T("Remove", "移除", "移除"), systemImage: "trash") }
+                    }
+                }
+            }
+            .disabled(importingVideo)
+        }
+        .accessibilityIdentifier("video-library.list")
+    }
+
+    private func addMovie(_ source: URL) async throws {
+        let take = try await MobileMovieTake.importMovie(from: source, film: film)
+        takes = MobileMovieTake.pending()
+        notice = nil
+        selected = take
+    }
+
+#if DEBUG
+    static func runVideoLibraryRegression() async {
+        let fixture = URL.documentsDirectory.appending(path: "video-library-regression.mp4")
+        let report = URL.documentsDirectory.appending(path: "video-library-report.json")
+        let values: [String: Bool]
+        do {
+            let baseline = Set(MobileMovieTake.pending().map(\.id))
+            let take = try await MobileMovieTake.importMovie(from: fixture, film: "kodak_tri_x_400")
+            defer { try? take.removeFromLibrary() }
+            let bytes = try Data(contentsOf: take.source)
+            values = [
+                "preservedBytes": try bytes == Data(contentsOf: fixture),
+                "persisted": MobileMovieTake.pending().contains { $0.id == take.id && $0.film == "kodak_tri_x_400" },
+                "keptFilenameAndType": take.importedFilename == fixture.lastPathComponent && take.source.pathExtension == "mp4",
+                "keptPreviousVideos": baseline.isSubset(of: Set(MobileMovieTake.pending().map(\.id))),
+                "notCaptureLocked": take.expectedSpec == nil,
+            ]
+        } catch { values = ["importSucceeded": false] }
+        if let data = try? JSONEncoder().encode(values) { try? data.write(to: report, options: .atomic) }
+    }
+#endif
 
     private func resetPreview() {
         camera.suspend()
@@ -594,29 +795,35 @@ struct MobileVideoCaptureView: View {
         developing = developed
         player?.pause()
         exportProgress = 0
+        let stockID = reviewFilm
         saveTask = Task {
+            // The library keeps the original after either save. Never reuse
+            // a film export from another recipe or a previous failed save.
+            let output = take.folder.appendingPathComponent("export-\(UUID().uuidString).mov")
+            defer {
+#if DEBUG
+                if !ProcessInfo.processInfo.arguments.contains("--video-check-keep-files") {
+                    try? FileManager.default.removeItem(at: output)
+                }
+#else
+                try? FileManager.default.removeItem(at: output)
+#endif
+            }
             defer { saving = false; developing = false; saveTask = nil }
             do {
                 try await PhotoLibraryWriter.authorize()
                 let file: URL
                 if developed {
-                    try await MobileMovieDevelopment.export(source: take.source, destination: take.developed,
-                                                            film: take.film, expected: take.expectedSpec) { value in
+                    try await MobileMovieDevelopment.export(source: take.source, destination: output,
+                                                            film: stockID, expected: take.expectedSpec) { value in
                         Task { @MainActor in exportProgress = value }
                     }
-                    file = take.developed
+                    file = output
                 } else { file = take.source }
                 try Task.checkCancellation()
                 developing = false
                 try await PhotoLibraryWriter.saveVideo(file, creationDate: take.date)
-#if DEBUG
-                if !ProcessInfo.processInfo.arguments.contains("--video-check-keep-files") { take.removeAfterSave() }
-#else
-                take.removeAfterSave()
-#endif
-                takes = MobileMovieTake.pending()
-                selected = nil
-                let stock = StockCatalog.shared.stock(take.film)?.displayName ?? take.film
+                let stock = StockCatalog.shared.stock(stockID)?.displayName ?? stockID
                 notice = developed
                     ? T("Saved to Photos with \(stock).", "已套用 \(stock) 并保存到相册。", "已套用 \(stock) 並儲存到相簿。")
                     : T("Original saved to Photos without film.", "原片已保存到相册，未套用胶片。", "原片已儲存到相簿，未套用膠片。")

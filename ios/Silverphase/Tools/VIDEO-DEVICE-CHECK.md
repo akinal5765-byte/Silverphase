@@ -23,6 +23,22 @@ auto-metering are intentionally off in this first version. The still, Portrait,
 camera shortcut and lock-screen routes keep their own camera configuration. Live
 Photo and real-time graded recording are not part of this change.
 
+## Video library
+
+In Debug open Library → ⋯ → Video Library. Existing recorded clips are
+listed, and the Photos or Files picker can import a video without starting
+the camera. The app retains its local copy after either kind of export; select
+a different film and export the same clip again. Only the explicit Remove
+action deletes that local copy. It never deletes the Photos or Files source.
+Imports are not tied to a camera capture profile. Silent imports are allowed.
+Current development targets SDR and keeps the same display raster and cadence.
+
+For a storage regression, put a synthetic playable MP4 named
+`video-library-regression.mp4` in a dedicated simulator's Documents and run
+`--video-library-regression`. Check `video-library-report.json` for byte identity,
+preserved type/name, persisted entries and previous clips unchanged. This check
+does not write to Photos and deletes its own imported test copy.
+
 ## Build
 
 ```sh
@@ -137,7 +153,7 @@ to Photos. Simulator timings do not predict iPhone throughput.
    salvage of finalized footage before calling interruption support verified.
    Verify footage is not silently lost if the disk-space reserve is reached.
 5. Run the optional ffprobe comparison on source and developed files (e.g.
-   launch Debug with `--video-check-keep-files` to retain both in the app container after saving to Photos; remove the argument after testing):
+   launch Debug with `--video-check-keep-files` to retain the developed export alongside the already-retained original in the app container; remove the argument after testing):
    `python3 ios/Silverphase/Tools/check-video-pair.py original.mov developed.mov --min-seconds 120 --require-uhd-fps 30`.
    For the five-minute warm run at 60 fps, use `--min-seconds 300 --require-uhd-fps 60`.
    With `--require-uhd-fps`, this decodes the video frames from both files to check
