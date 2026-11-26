@@ -9,6 +9,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / 'modern_UI/Spektrafilm'
@@ -64,6 +65,7 @@ assert info['CFBundleShortVersionString'] == version, 'Tag and application versi
 public = json.loads((DESKTOP / 'Spektrafilm/Resources/StockCatalog.json').read_text())['stocks']
 shipped = json.loads((resources / 'StockCatalog.json').read_text())['stocks']
 assert shipped == public and not any(s['id'].endswith('_experimental') for s in shipped)
+run([sys.executable, ROOT / 'tools/stock-artwork.py', '--resources', resources])
 assert not (resources / 'LocalMaterials').exists(), 'Private local catalog was packaged'
 assert not list((resources / 'engine/profiles').glob('*_experimental.json'))
 assert len(list((resources / 'engine/profiles').glob('*.json'))) == len(public)

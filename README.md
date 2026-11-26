@@ -87,7 +87,7 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 构图（裁切）和片边是独立工具，不是扫描的一步。成片可导出为 JPEG、8 位 PNG 或 16 位 TIFF；Cineon DI 提供 16 位对数 TIFF 和配套的 ProPhoto RGB／Rec.709 视图 LUT，便于后续调色。具体控件与输出条件因平台而异。[输出与 DI 说明](modern_UI/Spektrafilm/README.md#图像与输出边界)
 
-公开目录含 25 款常规胶片、9 款相纸和 29 款实验胶片。[材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [实验配置的来源与范围](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
+公开目录含 25 款常规胶片、9 款相纸和 29 款实验胶片。[材料目录](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [实验配置的来源与范围](license/DATA-SOURCES.md#experimental-fotufilm-profiles) · [封面提示词和出处](modern_UI/design/film-artwork/README.md)
 
 ## 各平台功能
 

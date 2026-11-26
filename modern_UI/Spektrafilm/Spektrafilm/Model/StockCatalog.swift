@@ -85,7 +85,7 @@ enum MaterialBrowserFilter: CaseIterable {
     }
     /// Entity packaging and virtual workflow labels share the same renderer.
     var artworkURL: URL? {
-        if let stock { return stock.packagingArtworkURL ?? stock.coverURL }
+        if let stock { return stock.packagingArtworkURL }
         let filename: String
         switch id {
         case Self.scanID: filename = "workflow_film_scan-v1"

@@ -15,7 +15,6 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
     let targetPrint: String?
     let hasPreviewLUT: Bool
     let pairedFilm: String?
-    let cover: String?
     let nominalSpeed: Int?
     let speedUnit: String?
     let speedSource: String?
@@ -47,23 +46,16 @@ struct Stock: Codable, Identifiable, Hashable, Sendable {
         return isFotufilm && name.hasSuffix(suffix) ? String(name.dropLast(suffix.count)) : name
     }
     var brand: String { name.split(separator: " ").first.map(String.init) ?? "" }
-    /// Generated packaging artwork, separate from legacy catalog cover metadata.
+    /// Bundled artwork is keyed by catalog ID, independent of material parameters.
     var packagingArtworkURL: URL? {
-        let baseID: String
-        switch id {
-        case "kodak_portra_800_push1", "kodak_portra_800_push2": baseID = "kodak_portra_800"
-        case "cinestill_800t_fotufilm": baseID = "cinestill_800t"
-        case "fujifilm_acros_100_ii_fotufilm": baseID = "fujifilm_neopan_acros_100_ii"
-        case "ilford_hp5_plus_fotufilm": baseID = "ilford_hp5_plus_400"
-        case "kodak_tmax_100_fotufilm": baseID = "kodak_tmax_100"
-        default: baseID = id
+        // Development-only overlays are never allowed to supply public artwork.
+        if isLocalExperimental {
+            return StockCatalog.bundle.url(forResource: id + "-packaging-v1", withExtension: "png",
+                                           subdirectory: StockCatalog.resourceDirectory + "/LocalMaterials/FilmCovers")
         }
-        let version = baseID == "kodak_portra_400" ? "v2" : "v1"
-        return StockCatalog.bundle.url(forResource: baseID + "-packaging-" + version,
-                                       withExtension: "png", subdirectory: StockCatalog.resourceDirectory + (isLocalExperimental ? "/LocalMaterials/FilmCovers" : "/FilmCovers"))
-    }
-    var coverURL: URL? {
-        cover.flatMap { StockCatalog.bundle.url(forResource: $0, withExtension: nil, subdirectory: StockCatalog.resourceDirectory + "/FilmCovers") }
+        guard let file = StockCatalog.artworkFiles[id] else { return nil }
+        return StockCatalog.bundle.url(forResource: file, withExtension: nil,
+                                       subdirectory: StockCatalog.resourceDirectory + "/FilmCovers")
     }
 }
 
@@ -97,6 +89,20 @@ struct StockCatalog: Sendable {
             })
         }
         return StockCatalog(stocks: [])
+    }()
+
+    private struct Artwork: Decodable {
+        let version: Int
+        let files: [String: String]
+    }
+    fileprivate static let artworkFiles: [String: String] = {
+        guard let url = bundle.url(forResource: "StockArtwork", withExtension: "json",
+                                   subdirectory: resourceDirectory + "/FilmCovers"),
+              let data = try? Data(contentsOf: url),
+              let manifest = try? JSONDecoder().decode(Artwork.self, from: data),
+              manifest.version == 1
+        else { return [:] }
+        return manifest.files
     }()
 
     private struct Wrapper: Decodable { let stocks: [Stock] }

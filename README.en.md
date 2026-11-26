@@ -87,7 +87,7 @@ Open a rendered image or an original RAW file supported by the Apple system deco
 
 Crop (Geometry on Mac) and Film Edge are separate tools, not part of Scan. Export a JPEG, 8-bit PNG or 16-bit TIFF, or save a Cineon DI package with a 16-bit log TIFF and ProPhoto RGB / Rec.709 viewing LUTs. Exact controls and output limits depend on platform. [Export and DI guide](modern_UI/Spektrafilm/README.md#图像与输出边界)
 
-The public catalog includes 25 standard film profiles, 9 papers and 29 experimental film profiles. [Material catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [Experimental profile provenance and scope](license/DATA-SOURCES.md#experimental-fotufilm-profiles)
+The public catalog includes 25 standard film profiles, 9 papers and 29 experimental film profiles. [Material catalog](modern_UI/Spektrafilm/Spektrafilm/Resources/StockCatalog.json) · [Experimental profile provenance and scope](license/DATA-SOURCES.md#experimental-fotufilm-profiles) · [Cover prompts and provenance](modern_UI/design/film-artwork/README.md)
 
 ## Platform features
 

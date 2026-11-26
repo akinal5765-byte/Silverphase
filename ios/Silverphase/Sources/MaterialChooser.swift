@@ -147,7 +147,7 @@ struct MaterialChooser: View {
     }
     private func artwork(_ stock: Stock) -> some View {
         ZStack(alignment: .topTrailing) {
-            if let url = stock.packagingArtworkURL ?? stock.coverURL {
+            if let url = stock.packagingArtworkURL {
                 FilmstripThumbnail(url: url, fillsFrame: true).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Image(systemName: paper ? "photo" : "film").font(.system(size: EditorDesign.glyphSize)).frame(maxWidth: .infinity, maxHeight: .infinity).background(MobileStyle.well)
@@ -157,7 +157,7 @@ struct MaterialChooser: View {
     }
     private func materialRow<Artwork: View>(_ title: String, subtitle: String, selected: Bool, stock: Stock? = nil, @ViewBuilder artwork: () -> Artwork) -> some View {
         HStack(spacing: 12) {
-            artwork().frame(width: 72, height: 40).clipped().clipShape(RoundedRectangle(cornerRadius: 6))
+            artwork().frame(width: 72, height: 72 / EditorDesign.materialArtworkAspect).clipped().clipShape(RoundedRectangle(cornerRadius: 6))
                 .fotufilmBadge(for: stock)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(EditorDesign.selectedValue).foregroundStyle(.primary).lineLimit(2)
@@ -243,14 +243,14 @@ struct PhoneMaterialModule: View {
         } label: {
             HStack(spacing: 12) {
                 Group {
-                    if !bypassesPaper, let url = stock?.packagingArtworkURL ?? stock?.coverURL {
+                    if !bypassesPaper, let url = stock?.packagingArtworkURL {
                         FilmstripThumbnail(url: url, fillsFrame: true)
                     } else {
                         Image(systemName: paper ? "photo" : "film")
                             .frame(maxWidth: .infinity, maxHeight: .infinity).background(MobileStyle.well)
                     }
                 }
-                .frame(width: 64, height: 48).clipped()
+                .frame(width: 64, height: 64 / EditorDesign.materialArtworkAspect).clipped()
                 .fotufilmBadge(for: stock)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 VStack(alignment: .leading, spacing: 4) {

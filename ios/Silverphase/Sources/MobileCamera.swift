@@ -793,7 +793,7 @@ struct MobileCameraView: View {
                                     setFilmPicker(false)
                                 } label: {
                                     BrowserCard(title: stock.displayName, subtitle: stock.speedLabel ?? "", width: 96, selected: stock.id == film?.id, stock: stock) {
-                                        if let artwork = stock.packagingArtworkURL ?? stock.coverURL {
+                                        if let artwork = stock.packagingArtworkURL {
                                             FilmstripThumbnail(url: artwork, fillsFrame: true)
                                         } else {
                                             Image(systemName: "film").frame(maxWidth: .infinity, maxHeight: .infinity)

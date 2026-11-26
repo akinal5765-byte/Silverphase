@@ -413,9 +413,21 @@ enum MobileSmokeChecks {
             }
             try require(cineStill.speedLabel == "ISO 800" && cineStill.isFilm && !cineStill.isCine,
                         "800T 的感光度或材料分类错误")
-            guard let cover = cineStill.packagingArtworkURL, UIImage(contentsOfFile: cover.path) != nil else {
-                throw MobileFailure.message("800T 封面未打包或无法读取")
+            let publicStocks = StockCatalog.shared.stocks.filter { !$0.isLocalExperimental }
+            try require(publicStocks.count == 63, "公开材料目录缺少条目")
+            var stockCovers = Set<URL>()
+            for stock in publicStocks {
+                guard let cover = stock.packagingArtworkURL,
+                      let image = CGImageSourceCreateWithURL(cover as CFURL, nil),
+                      let properties = CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any],
+                      let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                      let height = properties[kCGImagePropertyPixelHeight] as? Int,
+                      width == 1440, height == 810, width * 9 == height * 16
+                else { throw MobileFailure.message("材料封面未打包或尺寸不是 16:9：\(stock.id)") }
+                stockCovers.insert(cover)
             }
+            try require(stockCovers.count == 57, "材料封面的公共别名不正确")
+            checks.append("all 63 bundled stock IDs resolve to 57 exact 16:9 covers")
             var cineRecipe = base
             cineRecipe["film_stock"] = .string("cinestill_800t")
             let cine = try await engine.render(url: source, recipe: cineRecipe)

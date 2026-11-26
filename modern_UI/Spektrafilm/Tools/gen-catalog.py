@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Resources/StockCatalog.json and Resources/FilmCovers/ from the engine's
+"""Build Resources/StockCatalog.json from the engine's
 profile library, so the app never parses the 5.6 MB of sensitometric JSON.
 
     Tools/gen-catalog.py
@@ -7,7 +7,6 @@ profile library, so the app never parses the 5.6 MB of sensitometric JSON.
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
@@ -22,26 +21,7 @@ REPO = HERE.parents[1]
 # disagree with what the engine will actually load.
 PROFILES = REPO / "engine/resources/profiles"
 PRINT_LUTS = REPO / "engine/resources/print_luts.json"
-COVERS_SRC = REPO / "modern_UI/film_covers"
 OUT = HERE / "Spektrafilm/Resources"
-
-# stock id -> substring of the cover filename
-COVERS = {
-    "cinestill_400d_fotufilm": "CineStill_400D",
-    "kodak_portra_400": "Kodak_Portra_400",
-    "kodak_portra_160": "Kodak_Portra_160",
-    "kodak_portra_800": "Kodak_Portra_800",
-    "kodak_portra_800_push1": "Kodak_Portra_800",
-    "kodak_portra_800_push2": "Kodak_Portra_800",
-    "kodak_gold_200": "Kodak_Gold_200",
-    "kodak_ektachrome_100": "Kodak_Ektachrome_100",
-    "kodak_ultramax_400": "Kodak_UltraMax_400",
-    "fujifilm_provia_100f": "Fujifilm_Provia_100F",
-    "fujifilm_velvia_100": "Fujifilm_Velvia_100",
-    "fujifilm_velvia_50_fotufilm": "Fujifilm_Velvia_50",
-    "fujifilm_xtra_400": "Fujifilm_Color_400",
-}
-
 
 # Manufacturer nominal speeds are display metadata, not measured sensitometry.
 # Push profiles retain the underlying stock's nominal ISO; processing is in name.
@@ -75,7 +55,6 @@ STOCK_SPEED_SOURCES = {
 
 
 def main() -> None:
-    (OUT / "FilmCovers").mkdir(parents=True, exist_ok=True)
     luts = json.loads(PRINT_LUTS.read_text())
     stocks = []
     paths = list(PROFILES.glob("*.json")) + list((REPO / "engine/resources_product/profiles").glob("*.json"))
@@ -85,15 +64,6 @@ def main() -> None:
         if "derived_from" in doc:
             info = {**json.loads((PROFILES / f"{doc['derived_from']}.json").read_text())["info"], **info}
         sid = path.stem
-        cover = None
-        if sid in COVERS:
-            src = next(COVERS_SRC.glob(f"*{COVERS[sid]}*"), None)
-            if src:
-                cover = f"{sid}.jpg"
-                dst = OUT / "FilmCovers" / cover
-                if not dst.exists():
-                    subprocess.run(["sips", "-s", "format", "jpeg", "-Z", "160", str(src), "--out", str(dst)],
-                                   check=True, capture_output=True)
         stocks.append({
             "id": sid,
             "name": info.get("name", sid),
@@ -104,7 +74,6 @@ def main() -> None:
             "targetPrint": ("ilford_multigrade_iv_rc" if info.get("stage") == "filming" and info.get("channel_model") in ("bw", "monochrome", "chromogenic_monochrome") else info.get("target_print")),
             "hasPreviewLUT": sid in luts,
             "pairedFilm": luts[sid]["paired_film"] if sid in luts else None,
-            "cover": cover,
             "nominalSpeed": NOMINAL_SPEEDS.get(sid) if info.get("stage") == "filming" else None,
             "speedUnit": ("EI" if info.get("use") == "cine" else "ISO") if sid in NOMINAL_SPEEDS else None,
             "speedSource": (STOCK_SPEED_SOURCES[sid] if sid in STOCK_SPEED_SOURCES else
