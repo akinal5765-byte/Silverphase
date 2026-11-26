@@ -117,6 +117,9 @@ enum MobileSmokeChecks {
                 throw MobileFailure.message("RAW 请求被静默替换成 JPEG")
             }
             checks.append("RAW representation preferred; rendered substitute rejected")
+            checks += try await LibraryPhotoPicker.Coordinator.auditRepresentationFallback(
+                jpeg: workspace.appendingPathComponent("source-0").appendingPathExtension(UTType.jpeg.preferredFilenameExtension!),
+                invalid: invalid)
             await engine.close()
             try JSONSerialization.data(withJSONObject: ["passed": true, "exportsValidated": exportsValidated, "checks": checks], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
         } catch {
