@@ -175,6 +175,58 @@ final class PhotoImportTests: XCTestCase {
         }
     }
 
+    @MainActor func testDuoLandscapeFilmFanSelectsWithoutMovingFinder() {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--camera-layout-check", "--camera-duo-layout-check"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+
+        let wheel = app.descendants(matching: .any)["camera.fan-film-wheel"]
+        let top = app.buttons["camera.fan-film.-1"]
+        let center = app.buttons["camera.fan-film.0"]
+        let bottom = app.buttons["camera.fan-film.1"]
+        let grip = app.otherElements["camera.side-grip"]
+        let shutter = app.buttons["camera.shutter"]
+        XCTAssertTrue(wheel.waitForExistence(timeout: 8))
+        XCTAssertTrue(top.exists && center.exists && bottom.exists)
+        assertDuoGrip(app)
+        XCTAssertLessThan(wheel.frame.maxX, shutter.frame.minX)
+        XCTAssertLessThan(top.frame.midY, center.frame.midY)
+        XCTAssertLessThan(center.frame.midY, bottom.frame.midY)
+        let finderBefore = duoFinderBounds(grip)
+        let shutterBefore = shutter.frame
+        XCTAssertNotNil(finderBefore)
+
+        let startStock = center.label
+        let start = center.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: -wheel.frame.height * 0.39))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            center.exists && center.label != startStock && (wheel.value as? String) == center.label
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        XCTAssertEqual(duoFinderBounds(grip), finderBefore)
+        XCTAssertEqual(shutter.frame, shutterBefore)
+
+        let next = bottom.label
+        bottom.tap()
+        let tapped = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in center.label == next && (wheel.value as? String) == next },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [tapped], timeout: 5), .completed)
+        XCTAssertEqual(duoFinderBounds(grip), finderBefore)
+
+        XCUIDevice.shared.orientation = .portrait
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: wheel)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+    }
+
     @MainActor func testDuoWaistCameraControlLayout() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
