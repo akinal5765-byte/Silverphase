@@ -192,6 +192,16 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(item.exists)
             XCTAssertGreaterThanOrEqual(item.frame.minY, lower.minY - 2)
         }
+        let grip = app.otherElements["camera.side-grip"].frame
+        for id in ["camera.format", "camera.flash", "camera.metering", "camera.options"] {
+            let setting = app.buttons[id]
+            if setting.exists {
+                XCTAssertLessThanOrEqual(setting.frame.maxX, grip.minX - 4,
+                                         "\(id) must stay left of the grip on the shorter tabletop panel")
+            }
+        }
+        XCTAssertLessThanOrEqual(app.buttons["camera.options"].frame.maxX,
+                                 app.buttons["camera.diffusion"].frame.minX - 4)
         let centerFilm = app.buttons["camera.waist-film.0"]
         let leftFilm = app.buttons["camera.waist-film.-1"]
         let rightFilm = app.buttons["camera.waist-film.1"]

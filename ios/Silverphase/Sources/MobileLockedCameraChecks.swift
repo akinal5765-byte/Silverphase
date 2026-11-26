@@ -77,6 +77,21 @@ enum MobileLockedCameraChecks {
                         "Flat posture must not enter tabletop camera")
             checks.append("unfolded Duo orientation selection and system division geometry for tabletop vs book/flat")
 
+            let captureAspect: CGFloat = 4.0 / 3.0
+            for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
+                           CGSize(width: 402, height: 778)] {
+                for turn in [CGFloat(0), 90, 180, 270] {
+                    let expected = turn == 90 || turn == 270 ? 1 / captureAspect : captureAspect
+                    let aspect = MobileCameraViewfinderGeometry.orientedAspect(captureAspect, angle: turn)
+                    let image = MobileCameraViewfinderGeometry.imageSize(in: canvas, aspect: aspect, fillsPanel: false)
+                    try require(abs(image.width / image.height - expected) < 0.001 &&
+                                    image.width <= canvas.width + 0.001 && image.height <= canvas.height + 0.001 &&
+                                    (abs(image.width - canvas.width) < 0.001 || abs(image.height - canvas.height) < 0.001),
+                                "The viewfinder should fit the entire oriented capture, not crop it to the panel")
+                }
+            }
+            checks.append("Duo inner, outer, and tabletop preview sizing keeps the full oriented still-photo aspect")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")

@@ -111,6 +111,7 @@ struct MobileCameraConfiguration: @unchecked Sendable {
     let device: AVCaptureDevice
     let format: MobileCaptureFormat
     let aspect: CGFloat
+    let photoAspect: CGFloat
     let frontFraming: MobileFrontFraming?
     let availableFrontFramings: [MobileFrontFraming]
     let rearLenses: [MobileCameraLens]
@@ -496,7 +497,6 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
 
     private func currentConfiguration(device: AVCaptureDevice) -> MobileCameraConfiguration {
         let dimensions = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
-        let aspect = CGFloat(max(dimensions.width, dimensions.height)) / CGFloat(min(dimensions.width, dimensions.height))
         let lenses: [MobileCameraLens] = [.ultraWide, .wide, .wideCrop, .telephoto]
         let titles = lensTitles()
         var alternates: [MobileCameraLens: MobileCameraLens] = [:]
@@ -507,6 +507,16 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
         let format = captureFormat()
         prepareHighResolutionCapture(on: device, format: format)
+        // The camera shows the still frame, not the dimensions of the active
+        // video stream. Bayer/depth keep their existing format fallback.
+        let stillDimensions = format != .bayer
+            ? requestedPhotoDimensions(for: device, lowResolution: prefers12MP, portrait: portraitCapture) : nil
+        let framingDimensions = stillDimensions ?? dimensions
+        func landscapeAspect(_ dimensions: CMVideoDimensions) -> CGFloat {
+            CGFloat(max(dimensions.width, dimensions.height)) / CGFloat(max(1, min(dimensions.width, dimensions.height)))
+        }
+        let aspect = landscapeAspect(dimensions)
+        let photoAspect = landscapeAspect(framingDimensions)
         var availableFrontFramings: [MobileFrontFraming] = []
         var frontFraming: MobileFrontFraming?
         if #available(iOS 26, *), activeLens == .front, !portraitCapture {
@@ -517,7 +527,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             }
             frontFraming = availableFrontFramings.first { $0.deviceAspect == device.dynamicAspectRatio }
         }
-        return MobileCameraConfiguration(device: device, format: format, aspect: aspect,
+        return MobileCameraConfiguration(device: device, format: format, aspect: aspect, photoAspect: photoAspect,
             frontFraming: frontFraming, availableFrontFramings: availableFrontFramings,
             rearLenses: lenses.filter { $0 == .wideCrop ? supportsWideCrop : devices[$0] != nil },
             lensTitles: titles,
@@ -783,7 +793,7 @@ private final class StillCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
 struct MobileCameraPreview: UIViewRepresentable {
     let camera: MobileStillCamera
     let device: AVCaptureDevice
-    @Binding var portrait: Bool
+    @Binding var previewAngle: CGFloat
     @Binding var previewing: Bool
     let mirrored: Bool
     let hardwareShutterEnabled: Bool
@@ -809,15 +819,15 @@ struct MobileCameraPreview: UIViewRepresentable {
         view.rotation = rotation
         view.mirrored = mirrored
         view.rearSelfieChanged = rearSelfieChanged
-        view.updateConnectionOrientation()
 #if SILVERPHASE_APP
         if #available(iOS 27.1, *) {
             view.observeRearCameraDirection(device)
         }
 #endif
-        view.orientationChanged = { isPortrait in
-            if portrait != isPortrait { portrait = isPortrait }
+        view.orientationChanged = { angle in
+            if previewAngle != angle { previewAngle = angle }
         }
+        view.updateConnectionOrientation()
         view.previewObservation = view.previewLayer.observe(\.isPreviewing, options: [.initial, .new]) { [weak view] _, change in
             guard let value = change.newValue else { return }
             Task { @MainActor in
@@ -857,7 +867,8 @@ struct MobileCameraPreview: UIViewRepresentable {
         var rotationObservation: NSKeyValueObservation?
         var previewObservation: NSKeyValueObservation?
         var rotation: AVCaptureDevice.RotationCoordinator?
-        var orientationChanged: ((Bool) -> Void)?
+        var orientationChanged: ((CGFloat) -> Void)?
+        private var reportedPreviewAngle: CGFloat?
         var mirrored = false
         var captureInteraction: AVCaptureEventInteraction?
         var shutter: (() -> Void)?
@@ -959,9 +970,10 @@ struct MobileCameraPreview: UIViewRepresentable {
                 connection.automaticallyAdjustsVideoMirroring = false
                 if connection.isVideoMirrored != mirrored { connection.isVideoMirrored = mirrored }
             }
-            let radians = angle * .pi / 180
-            let portrait = abs(sin(radians)) > abs(cos(radians))
-            Task { @MainActor [weak self] in self?.orientationChanged?(portrait) }
+            let applied = connection.videoRotationAngle
+            guard reportedPreviewAngle != applied else { return }
+            reportedPreviewAngle = applied
+            Task { @MainActor [weak self] in self?.orientationChanged?(applied) }
         }
     }
 }

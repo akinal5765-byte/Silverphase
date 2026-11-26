@@ -92,7 +92,7 @@ struct MobileCameraView: View {
     @State private var focusLocked = false
     @State private var focusFeedbackID = 0
     @State private var draggingExposure = false
-    @State private var portraitPreview = true
+    @State private var previewAngle: CGFloat = 90
     @State private var frontFraming: MobileFrontFraming = .portrait
     @State private var portraitMode = false
     @State private var levelRoll: Double?
@@ -303,7 +303,7 @@ struct MobileCameraView: View {
             let waist = waistGeometry(geometry)
             let panel = waist?.lower ?? CGRect(origin: .zero, size: geometry.size)
             ZStack {
-                cameraPanelContent(panel.size)
+                cameraPanelContent(panel.size, tabletop: waist != nil)
                     .position(x: panel.midX, y: panel.midY)
 
                 if let waist {
@@ -318,10 +318,10 @@ struct MobileCameraView: View {
         }
     }
 
-    private func cameraPanelContent(_ size: CGSize) -> some View {
+    private func cameraPanelContent(_ size: CGSize, tabletop: Bool) -> some View {
         // Keep one live preview at a stable identity during display handoff.
         // Like folded mode, the chrome floats above it without shifting its center.
-        viewfinder(fillsPanel: usesInnerCameraLayout || fillsPanel)
+        viewfinder(fillsPanel: fillsPanel && !followsInterface)
             .ignoresSafeArea(.container, edges: !usesInnerCameraLayout && fillsPanel ? .all : [])
             .frame(width: size.width, height: size.height)
 #if DEBUG
@@ -330,11 +330,31 @@ struct MobileCameraView: View {
             }
 #endif
             .overlay(alignment: .top) {
-                if usesInnerCameraLayout { cameraHeader } else { standardCameraControls }
+                if !usesInnerCameraLayout {
+                    standardCameraControls
+                } else if !tabletop {
+                    cameraHeader
+                }
             }
             .overlay(alignment: .trailing) {
                 if usesInnerCameraLayout {
-                    innerCameraGrip(span: min(size.height, Self.dockContentWidth + 2 * Self.dockHorizontalInset))
+                    let span = min(size.height, Self.dockContentWidth + 2 * Self.dockHorizontalInset)
+                    if tabletop {
+                        // The short lower panel brings the first grip buttons
+                        // up to header height. Keep the header's setting strip
+                        // left of the measured grip instead of laying two
+                        // independent, overlapping toolbars on top of the finder.
+                        HStack(spacing: 8) {
+                            VStack(spacing: 0) {
+                                cameraHeader
+                                Spacer(minLength: 0)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            innerCameraGrip(span: span)
+                        }
+                    } else {
+                        innerCameraGrip(span: span)
+                    }
                 }
             }
     }
@@ -601,7 +621,7 @@ struct MobileCameraView: View {
                         ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue
                     let budget = MobileCameraLookBudget(reducedPower: reduced)
                     let geometry = camera.lookGeometry()
-                    let result: MobileCameraLookResult
+                    var result: MobileCameraLookResult
                     if mode == .approximate {
                         result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
                                                                 recipe: recipe, longEdge: reduced ? 640 : 960)
@@ -612,6 +632,10 @@ struct MobileCameraView: View {
                     try Task.checkCancellation()
                     guard lookRequest == request, previewMode == mode else { return }
                     guard result.sourceGeneration == camera.lookFrames.currentGeneration() else { continue }
+                    // Discard in-flight look frames made for the previous display angle.
+                    // The native preview stays underneath during the transition.
+                    guard camera.lookGeometry().angle == geometry.angle else { continue }
+                    result.previewAngle = geometry.angle
                     lookFrame = result
                     previousSerial = frame.serial
                     previousRecipe = recipe
@@ -1176,17 +1200,17 @@ struct MobileCameraView: View {
                 let previewDevice = configuration?.device ?? lens.physicalLens.findDevice()
 #endif
                 if let previewDevice {
-                    let aspect = configuration?.aspect ?? 4.0 / 3.0
                     let framing = configuration?.frontFraming
-                    let ratio = framing?.aspect ?? (portraitPreview ? 1 / aspect : aspect)
-                    let fillsPanel = fillsPanel && framing == nil
-                    let width = fillsPanel ? proxy.size.width : min(proxy.size.width, proxy.size.height * ratio)
-                    let height = fillsPanel ? proxy.size.height : width / ratio
+                    let captureAspect = (followsInterface ? configuration?.photoAspect : configuration?.aspect) ?? 4.0 / 3.0
+                    let ratio = framing?.aspect ?? MobileCameraViewfinderGeometry.orientedAspect(captureAspect, angle: previewAngle)
+                    let imageSize = MobileCameraViewfinderGeometry.imageSize(in: proxy.size, aspect: ratio,
+                                                                             fillsPanel: fillsPanel && framing == nil)
+                    let width = imageSize.width, height = imageSize.height
                     ZStack {
                         MobileStyle.canvas
                         if !changingPhysicalLens {
                             MobileCameraPreview(camera: camera, device: previewDevice,
-                                                portrait: $portraitPreview, previewing: $previewing,
+                                                previewAngle: $previewAngle, previewing: $previewing,
                                                 mirrored: lens == .front && mirrorsFrontCamera,
                                                 hardwareShutterEnabled: previewHardwareShutterEnabled, shutter: takePhoto,
                                                 canAdjustExposure: ready && focusPoint != nil && !focusLocked,
@@ -1197,6 +1221,7 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
                                 .overlay {
                                     if let lookFrame, lookFrame.recipe.withoutExposureCompensation == lookRequest, !lookUnavailable,
+                                       lookFrame.previewAngle == previewAngle,
                                        !shotInProgress, canRunCamera {
                                         Image(decorative: lookFrame.image, scale: 1).resizable().scaledToFill()
                                             .frame(width: width, height: height).clipped()
@@ -1852,7 +1877,8 @@ struct MobileCameraView: View {
         let selectedFilm = film
         shotQuarterTurn = followsInterface ? interfaceQuarterTurn
             : (shutterPose.map { Double($0.rawValue) } ?? deviceQuarterTurn)
-        frozenShot = showsFilmPreview && !lookUnavailable ? lookFrame?.snapshot(for: captureRecipe) : nil
+        frozenShot = showsFilmPreview && !lookUnavailable && lookFrame?.previewAngle == previewAngle
+            ? lookFrame?.snapshot(for: captureRecipe) : nil
 #else
         lockedDevelopment = nil
 #endif

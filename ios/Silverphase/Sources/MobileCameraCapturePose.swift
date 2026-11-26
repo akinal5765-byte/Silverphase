@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Core Motion's quarter-turn, independent of the host window/interface.
@@ -29,5 +30,24 @@ struct MobileWaistCameraGeometry {
         }) else { return nil }
         upper = CGRect(x: 0, y: 0, width: bounds.width, height: hinge.minY)
         lower = CGRect(x: 0, y: hinge.maxY, width: bounds.width, height: bounds.maxY - hinge.maxY)
+    }
+}
+
+
+/// The still photo ratio is fitted inside the canvas, independent of where
+/// controls are overlaid. Rotating the connection switches its axes.
+enum MobileCameraViewfinderGeometry {
+    static func orientedAspect(_ landscapeAspect: CGFloat, angle: CGFloat) -> CGFloat {
+        let aspect = landscapeAspect.isFinite && landscapeAspect > 0 ? landscapeAspect : 4.0 / 3.0
+        guard angle.isFinite else { return aspect }
+        let radians = angle * .pi / 180
+        return abs(sin(radians)) > abs(cos(radians)) ? 1 / aspect : aspect
+    }
+
+    static func imageSize(in canvas: CGSize, aspect: CGFloat, fillsPanel: Bool) -> CGSize {
+        guard canvas.width > 0, canvas.height > 0 else { return .zero }
+        if fillsPanel { return canvas }
+        let width = min(canvas.width, canvas.height * aspect)
+        return CGSize(width: width, height: width / aspect)
     }
 }
