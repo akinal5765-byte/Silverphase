@@ -19,7 +19,8 @@ struct DetailFilmstrip: UIViewRepresentable {
     let onScrubbing: (Bool) -> Void
     let onSelect: (UUID, CGImage?) -> Void
 
-    private static let itemWidth: CGFloat = 36
+    private static let itemWidth: CGFloat = 26
+    private static let expandedWidth: CGFloat = 36
     private static let itemHeight: CGFloat = 54
     private static let spacing: CGFloat = 2
     private static let cellIdentifier = "gallery-filmstrip"
@@ -45,6 +46,10 @@ struct DetailFilmstrip: UIViewRepresentable {
             view.bottomEdgeEffect.isHidden = true
         }
         view.register(ThumbnailCell.self, forCellWithReuseIdentifier: Self.cellIdentifier)
+        view.allowsSelection = false
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapThumbnail(_:)))
+        tap.require(toFail: view.panGestureRecognizer)
+        view.addGestureRecognizer(tap)
         view.dataSource = context.coordinator
         view.delegate = context.coordinator
         view.accessibilityIdentifier = "photo-detail.filmstrip"
@@ -99,6 +104,7 @@ struct DetailFilmstrip: UIViewRepresentable {
                     view.reloadData()
                     viewportChanged()
                     layoutUpdate = old
+                    if isScrubbing { finishScrubbing() }
                 }
             }
             // User-driven scrubbing is the source of truth until UIKit
@@ -154,6 +160,7 @@ struct DetailFilmstrip: UIViewRepresentable {
                 return
             }
             programmatic = animated && !reduceMotion && view.window != nil
+            updateVisibleEffects(animated: programmatic)
             view.setContentOffset(CGPoint(x: x, y: view.contentOffset.y), animated: programmatic)
             updateVisibleEffects()
         }
@@ -189,9 +196,16 @@ struct DetailFilmstrip: UIViewRepresentable {
             applyEffects(to: cell, at: indexPath)
         }
 
-        func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-            guard items.indices.contains(indexPath.item) else { return }
-            choose(items[indexPath.item].id)
+        @objc func tapThumbnail(_ tap: UITapGestureRecognizer) {
+            guard let view, tap.state == .ended else { return }
+            let point = tap.location(in: view)
+            for case let cell as ThumbnailCell in view.visibleCells {
+                let art = cell.convert(cell.artworkFrame, to: view)
+                guard art.insetBy(dx: -DetailFilmstrip.spacing / 2, dy: -4).contains(point),
+                      let index = view.indexPath(for: cell), items.indices.contains(index.item) else { continue }
+                choose(items[index.item].id)
+                break
+            }
         }
 
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -200,6 +214,7 @@ struct DetailFilmstrip: UIViewRepresentable {
                 isScrubbing = true
                 onScrubbing?(true)
             }
+            updateVisibleEffects(animated: true)
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -226,8 +241,9 @@ struct DetailFilmstrip: UIViewRepresentable {
         }
 
         func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+            guard programmatic, !scrollView.isDragging else { return }
             programmatic = false
-            updateVisibleEffects()
+            finishScrubbing()
         }
 
         private func settle(_ scrollView: UIScrollView) {
@@ -237,27 +253,42 @@ struct DetailFilmstrip: UIViewRepresentable {
                 select(id)
                 align(id, animated: true)
             }
+            if !programmatic { finishScrubbing() }
+        }
+
+        private func finishScrubbing() {
             if isScrubbing {
                 isScrubbing = false
                 onScrubbing?(false)
             }
+            updateVisibleEffects(animated: true)
         }
 
-        private func updateVisibleEffects() {
+        private func updateVisibleEffects(animated: Bool = false) {
             guard let view else { return }
             for cell in view.visibleCells {
                 if let cell = cell as? ThumbnailCell, let index = view.indexPath(for: cell) {
-                    applyEffects(to: cell, at: index)
+                    applyEffects(to: cell, at: index, animated: animated)
                 }
             }
         }
 
-        private func applyEffects(to cell: ThumbnailCell, at index: IndexPath) {
-            guard let view, items.indices.contains(index.item) else { return }
-            let center = view.contentOffset.x + view.bounds.width / 2
-            let itemCenter = cell.center.x
-            let distance = min(1, abs(itemCenter - center) / DetailFilmstrip.itemWidth)
-            cell.apply(emphasis: reduceMotion ? 0 : (1 - distance), selected: items[index.item].id == selected)
+        private func applyEffects(to cell: ThumbnailCell, at index: IndexPath, animated: Bool = false) {
+            guard items.indices.contains(index.item) else { return }
+            let anchor = selected.flatMap { itemIndexes[$0] }
+            let isSelected = index.item == anchor
+            let moving = isScrubbing || programmatic
+            // Keep UIKit's scroll geometry fixed. At rest the chosen picture
+            // widens around its center; neighbors make room without overlap.
+            let extra = DetailFilmstrip.expandedWidth - DetailFilmstrip.itemWidth
+            let offset: CGFloat
+            if !moving, let anchor, index.item != anchor {
+                offset = (index.item < anchor ? -1 : 1) * extra / 2
+            } else {
+                offset = 0
+            }
+            cell.apply(width: DetailFilmstrip.itemWidth + (isSelected && !moving ? extra : 0),
+                       offset: offset, selected: isSelected, animated: animated && !reduceMotion)
         }
     }
 
@@ -276,6 +307,13 @@ struct DetailFilmstrip: UIViewRepresentable {
     private final class ThumbnailCell: UICollectionViewCell {
         private let artwork = UIView()
         private let selectionMark = UIView()
+        private var artWidth = DetailFilmstrip.itemWidth
+        private var artOffset: CGFloat = 0
+        var artworkFrame: CGRect {
+            // Use the visible frame while an expansion is still in flight.
+            let frame = artwork.layer.presentation()?.frame ?? artwork.frame
+            return contentView.convert(frame, to: self)
+        }
         private let imageView = UIImageView()
         private var item: Item?
         private var load: Task<Void, Never>?
@@ -304,11 +342,15 @@ struct DetailFilmstrip: UIViewRepresentable {
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            artwork.bounds = CGRect(origin: .zero, size: CGSize(width: contentView.bounds.width, height: contentView.bounds.height - 8))
-            artwork.center = CGPoint(x: contentView.bounds.midX, y: artwork.bounds.height / 2 + 1)
-            imageView.frame = artwork.bounds
+            layoutArtwork()
             selectionMark.frame = CGRect(x: contentView.bounds.midX - 6, y: contentView.bounds.maxY - 3,
                                          width: 12, height: 2)
+        }
+
+        private func layoutArtwork() {
+            artwork.frame = CGRect(x: contentView.bounds.midX + artOffset - artWidth / 2, y: 1,
+                                   width: artWidth, height: max(0, contentView.bounds.height - 8))
+            imageView.frame = artwork.bounds
         }
 
         override func prepareForReuse() {
@@ -318,6 +360,12 @@ struct DetailFilmstrip: UIViewRepresentable {
             item = nil
             activate = nil
             imageView.image = nil
+            artwork.layer.removeAllAnimations()
+            imageView.layer.removeAllAnimations()
+            artWidth = DetailFilmstrip.itemWidth
+            artOffset = 0
+            layoutArtwork()
+            selectionMark.isHidden = true
         }
 
         func configure(_ item: Item) {
@@ -335,15 +383,28 @@ struct DetailFilmstrip: UIViewRepresentable {
             }
         }
 
-        func apply(emphasis: CGFloat, selected: Bool) {
-            let scale = selected ? 1 : 0.94 + 0.02 * emphasis
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            artwork.transform = CGAffineTransform(scaleX: scale, y: scale)
+        func apply(width: CGFloat, offset: CGFloat, selected: Bool, animated: Bool) {
+            if artWidth != width || artOffset != offset {
+                artWidth = width
+                artOffset = offset
+                if animated && window != nil {
+                    UIView.animate(withDuration: 0.17, delay: 0,
+                                   options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction]) {
+                        self.layoutArtwork()
+                    }
+                } else {
+                    layoutArtwork()
+                }
+            }
             selectionMark.isHidden = !selected
-            CATransaction.commit()
             let traits: UIAccessibilityTraits = selected ? [.button, .selected] : .button
             if traits != accessibilityTraits { accessibilityTraits = traits }
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--photo-detail-strip-audit") {
+                let value = "\(Int(width))pt"
+                if accessibilityValue != value { accessibilityValue = value }
+            }
+#endif
         }
 
         override func accessibilityActivate() -> Bool {

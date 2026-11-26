@@ -327,15 +327,15 @@ struct MobilePhotoDetail: View {
         }
         .overlay(alignment: .top) {
             // Unlike the canvas, this overlay starts below the navigation
-            // bar. Keep the cover date out of the compressed toolbar lane.
+            // bar. Date and preview status have their own layout; neither
+            // competes with Back or the native toolbar for width.
             VStack(spacing: 5) {
-                if isDuoCover && showsControls {
+                if showsControls {
                     dateLabel(photo)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .foregroundStyle(reduceTransparency ? Color.white : Color.primary)
                         .modifier(ChromeSurface())
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 previewStatus(photo)
             }
@@ -414,15 +414,10 @@ struct MobilePhotoDetail: View {
             backItem
         }
         if #available(iOS 27.1, *) {
-            if !isDuoCover {
-                dateItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.low).sharedBackgroundVisibility(.hidden)
-            }
             metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
         } else if #available(iOS 26.0, *) {
-            dateItem(photo).sharedBackgroundVisibility(.hidden)
             metadataItem(photo).sharedBackgroundVisibility(.hidden)
         } else {
-            dateItem(photo)
             metadataItem(photo)
         }
         if placement == .top {
@@ -469,15 +464,8 @@ struct MobilePhotoDetail: View {
         }
     }
 
-    private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
-        ToolbarItem(id: "photo-detail.native-date", placement: .topBarLeading) {
-            dateLabel(photo)
-                .frame(maxWidth: detailWindowSize.width >= 620 ? 148 : 108, alignment: .leading)
-        }
-    }
-
     private func dateLabel(_ photo: MobilePhoto) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(spacing: 1) {
             if let date = photo.libraryDate {
                 ViewThatFits(in: .horizontal) {
                     Text(date.formatted(date: .abbreviated, time: .omitted))

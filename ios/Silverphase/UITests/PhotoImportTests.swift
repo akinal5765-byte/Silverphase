@@ -135,7 +135,8 @@ final class PhotoImportTests: XCTestCase {
 
     @MainActor func testPhotoDetailFilmstripDragUpdatesCanvas() {
         let app = XCUIApplication()
-        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures"]
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--documentation-captures",
+                               "--photo-detail-strip-audit"]
         app.launch()
         defer { app.terminate() }
         let source = app.buttons["library.photo.来源"]
@@ -146,6 +147,11 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertEqual(photo.label, "来源")
         let strip = app.descendants(matching: .any).matching(identifier: "photo-detail.filmstrip").firstMatch
         XCTAssertTrue(strip.waitForExistence(timeout: 6))
+        let tiles = strip.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "photo-detail.thumb."))
+        let first = tiles.matching(NSPredicate(format: "label == %@", "来源")).firstMatch
+        XCTAssertTrue(first.exists)
+        XCTAssertEqual(first.value as? String, "36pt")
+        XCTAssertTrue(tiles.matching(NSPredicate(format: "value == %@", "26pt")).firstMatch.exists)
         let right = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.66, dy: 0.50))
         let left = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.33, dy: 0.50))
         right.press(forDuration: 0.08, thenDragTo: left, withVelocity: .slow, thenHoldForDuration: 0.18)
@@ -154,6 +160,8 @@ final class PhotoImportTests: XCTestCase {
         left.press(forDuration: 0.08, thenDragTo: right, withVelocity: .slow, thenHoldForDuration: 0.18)
         let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "来源"), object: photo)
         XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 5), .completed)
+        let expanded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "36pt"), object: first)
+        XCTAssertEqual(XCTWaiter.wait(for: [expanded], timeout: 5), .completed)
     }
 
     @MainActor func testPhotoDetailDiagonalPagingAndPullDown() throws {
@@ -167,7 +175,10 @@ final class PhotoImportTests: XCTestCase {
         source.tap()
         let photo = app.images["photo-detail.image"]
         XCTAssertTrue(photo.waitForExistence(timeout: 8))
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "photo-detail.date").firstMatch.exists)
+        let date = app.descendants(matching: .any).matching(identifier: "photo-detail.date").firstMatch
+        XCTAssertTrue(date.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(date.frame.minY, app.buttons["photo-detail.back"].frame.maxY - 1,
+                                    "The date has its own row below Back")
         let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.79, dy: 0.42))
         let diagonal = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.55))
         start.press(forDuration: 0.06, thenDragTo: diagonal)
