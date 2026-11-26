@@ -5,6 +5,7 @@ import CoreMotion
 import ImageIO
 import OSLog
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 #if SILVERPHASE_APP
@@ -289,10 +290,10 @@ struct MobileCameraView: View {
 
     // This is the one source of control order, spacing and control sizes,
     // including the lens row. The flat and tabletop grips re-use it as a unit.
-    private var captureControls: some View {
+    private func captureControls(tabletop: Bool = false) -> some View {
         VStack(spacing: 8) {
             if let configuration { finderControls(configuration) }
-            captureDock()
+            captureDock(tabletop: tabletop)
         }
     }
 
@@ -309,7 +310,7 @@ struct MobileCameraView: View {
         VStack(spacing: 8) {
             cameraHeader
             Spacer(minLength: 0)
-            captureControls
+            captureControls()
         }
     }
 
@@ -342,6 +343,9 @@ struct MobileCameraView: View {
                     // The upper panel is exclusively the quick film wheel. The
                     // lower grip keeps the full catalogue button in its usual spot.
                     let aperture = waist.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing)
+                    MobileTabletopCameraPanel()
+                        .frame(width: aperture.width, height: aperture.height)
+                        .position(x: aperture.midX, y: aperture.midY)
                     waistFilmWheel
                         .frame(width: aperture.width, height: aperture.height)
                         .position(x: aperture.midX, y: aperture.midY)
@@ -362,6 +366,9 @@ struct MobileCameraView: View {
             // Pin the photographic canvas to the same top edge so it can
             // extend behind the bottom system area without moving the chrome.
             .frame(width: size.width, height: size.height, alignment: outer == nil ? .top : .center)
+            .background {
+                if tabletop { MobileTabletopCameraPanel() }
+            }
 #if DEBUG
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                 if isLayoutCheck { cameraFinderTestBounds = $0 }
@@ -388,7 +395,7 @@ struct MobileCameraView: View {
                                 Spacer(minLength: 0)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            innerCameraGrip(span: span)
+                            innerCameraGrip(span: span, tabletop: true)
                         }
                     } else {
                         innerCameraGrip(span: span)
@@ -397,9 +404,9 @@ struct MobileCameraView: View {
             }
     }
 
-    private func innerCameraGrip(span: CGFloat) -> some View {
+    private func innerCameraGrip(span: CGFloat, tabletop: Bool = false) -> some View {
         SidewaysCaptureBank(span: span) {
-            captureControls
+            captureControls(tabletop: tabletop)
                 .environment(\.captureBankQuarterTurn, 90)
                 .rotationEffect(.degrees(-90))
         }
@@ -910,10 +917,10 @@ struct MobileCameraView: View {
 #endif
     }
 
-    private func captureDock() -> some View {
+    private func captureDock(tabletop: Bool) -> some View {
         HStack(spacing: 8) {
             galleryButton.frame(maxWidth: .infinity)
-            shutterButton
+            shutterButton(tabletop: tabletop)
             filmControls.frame(maxWidth: .infinity)
         }
         .padding(8)
@@ -1012,10 +1019,20 @@ struct MobileCameraView: View {
         .disabled(shotInProgress)
     }
 #endif
-    private var shutterButton: some View {
-        Button(action: takePhoto) {
+    private func shutterButton(tabletop: Bool) -> some View {
+        let shutter = Button(action: takePhoto) {
             Circle().strokeBorder(.white.opacity(0.75), lineWidth: 1.5)
-                .overlay { Circle().fill(.white).padding(5) }
+                .overlay {
+                    if tabletop {
+                        Circle()
+                            .fill(LinearGradient(colors: [Color(white: 0.87), Color(white: 0.62), Color(white: 0.36)],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .overlay { Circle().strokeBorder(.black.opacity(0.8), lineWidth: 1) }
+                            .padding(5)
+                    } else {
+                        Circle().fill(.white).padding(5)
+                    }
+                }
                 .overlay {
                     if capturing {
                         ProgressView().tint(.black)
@@ -1023,7 +1040,13 @@ struct MobileCameraView: View {
                 }
                 .frame(width: 68, height: 68)
         }
-        .buttonStyle(.plain)
+        return Group {
+            if tabletop {
+                shutter.buttonStyle(MobileTabletopShutterPress(reduceMotion: reduceMotion))
+            } else {
+                shutter.buttonStyle(.plain)
+            }
+        }
         .modifier(ChromeSurface(radius: 34, interactive: true))
         .disabled(!ready)
         .opacity(ready || capturing ? 1 : 0.45)
@@ -1335,6 +1358,17 @@ struct MobileCameraView: View {
 #endif
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+#if SILVERPHASE_APP
+            .overlay {
+                if tabletop {
+                    MobileTabletopFinderBezel(fullBleed: fill)
+                        .frame(width: min(imageSize.width, proxy.size.width),
+                               height: min(imageSize.height, proxy.size.height))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
+#endif
         }
     }
 
@@ -2020,6 +2054,60 @@ private struct CameraDiffusionFilterGlyph: View {
 #if SILVERPHASE_APP
 /// All covers share one floating-point slot coordinate. The selected integer
 /// slot is on the aperture's midpoint, not on a scroll proxy's center.
+private struct MobileTabletopCameraPanel: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 17)
+            .fill(Color(white: 0.075))
+            .overlay {
+                if let leather = Self.leather {
+                    Image(uiImage: leather)
+                        .resizable(resizingMode: .tile)
+                        .opacity(0.42)
+                        .clipShape(.rect(cornerRadius: 17))
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 17)
+                    .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private static let leather: UIImage? = {
+        guard let url = Bundle.main.url(forResource: "tabletop-leather", withExtension: "jpg") else { return nil }
+        return UIImage(contentsOfFile: url.path)
+    }()
+}
+
+private struct MobileTabletopFinderBezel: View {
+    let fullBleed: Bool
+
+    var body: some View {
+        let radius: CGFloat = fullBleed ? 4 : 20
+        RoundedRectangle(cornerRadius: radius)
+            .strokeBorder(.black.opacity(0.76), lineWidth: 3)
+            .overlay {
+                RoundedRectangle(cornerRadius: radius)
+                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+            }
+    }
+}
+
+private struct MobileTabletopFilmRail: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(LinearGradient(colors: [Color(white: 0.035), Color(white: 0.11), Color(white: 0.025)],
+                                 startPoint: .top, endPoint: .bottom))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
 private struct MobileWaistFilmWheel: View {
     let stocks: [Stock]
     let selectedID: String
@@ -2127,6 +2215,7 @@ private struct MobileWaistFilmWheel: View {
                 }
             }
             .frame(width: aperture.size.width, height: aperture.laneHeight)
+            .background { MobileTabletopFilmRail() }
             .clipped()
             .overlay {
                 // The visible buttons retain AX actions; a single hit surface
@@ -2137,11 +2226,20 @@ private struct MobileWaistFilmWheel: View {
                     .gesture(wheelTouch(in: aperture))
                     .accessibilityHidden(true)
             }
-            Text(stocks[track.index(at: focused)].displayName)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .accessibilityHidden(true)
+            HStack(spacing: 6) {
+                Image(systemName: "triangle.fill")
+                    .font(.system(size: 6, weight: .bold))
+                    .rotationEffect(.degrees(180))
+                    .foregroundStyle(MobileStyle.accent)
+                Text(stocks[track.index(at: focused)].displayName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .background(.black.opacity(0.65), in: Capsule())
+            .overlay { Capsule().strokeBorder(.white.opacity(0.16), lineWidth: 1) }
+            .accessibilityHidden(true)
         }
         .frame(width: aperture.size.width, height: aperture.size.height)
         .transaction { $0.animation = nil }
@@ -2294,6 +2392,17 @@ private extension MobileWaistFilmTrack.CoverPose {
     }
 }
 #endif
+
+private struct MobileTabletopShutterPress: ButtonStyle {
+    let reduceMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.93 : 1)
+            .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78),
+                       value: configuration.isPressed)
+    }
+}
 
 // A transformed View still advertises its unrotated bounds to its parent.
 // Measure the real folded bank with its ordinary horizontal proposal, then
