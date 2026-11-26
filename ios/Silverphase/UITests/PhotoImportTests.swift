@@ -73,9 +73,12 @@ final class PhotoImportTests: XCTestCase {
         source.tap()
         let film = app.buttons["photo-detail.film"]
         XCTAssertTrue(film.waitForExistence(timeout: 8))
-        if app.frame.width < 620 {
-            XCTAssertLessThanOrEqual(film.frame.width, 47, "Compact toolbar must show only the film icon")
+        let initialWidth = film.frame.width
+        if app.frame.width < 440 {
+            XCTAssertEqual(initialWidth, 44, accuracy: 3, "A tight toolbar uses the icon-only chip")
         }
+        XCTAssertTrue(abs(initialWidth - 44) <= 3 || abs(initialWidth - 160) <= 3,
+                      "Toolbar should use one complete chip rather than squeeze the name")
         film.tap()
         let search = app.textFields["photo-detail.film-search"]
         XCTAssertTrue(search.waitForExistence(timeout: 6))
@@ -86,6 +89,7 @@ final class PhotoImportTests: XCTestCase {
         stock.tap()
         XCTAssertTrue(search.waitForNonExistence(timeout: 6))
         XCTAssertTrue((film.value as? String)?.contains("HP5") == true)
+        XCTAssertEqual(film.frame.width, initialWidth, accuracy: 3, "Film name changes must not resize the chip")
         film.tap()
         XCTAssertTrue(stock.waitForExistence(timeout: 6))
         XCTAssertTrue(stock.isSelected)

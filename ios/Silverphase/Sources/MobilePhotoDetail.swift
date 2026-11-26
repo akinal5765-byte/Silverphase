@@ -55,8 +55,7 @@ struct MobilePhotoDetail: View {
     @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
-    @ScaledMetric(relativeTo: .caption) private var filmTitlePointSize: CGFloat = 12
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private static let titledFilmButtonWidth: CGFloat = 160
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -355,8 +354,8 @@ struct MobilePhotoDetail: View {
 
     private func metadata(_ photo: MobilePhoto) -> some View {
         HStack(spacing: 8) {
-            rating(photo).frame(width: 44, height: 44)
-            flag(photo).frame(width: 44, height: 44)
+            rating(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
+            flag(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
             filmButton(photo)
         }
     }
@@ -365,14 +364,12 @@ struct MobilePhotoDetail: View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
         return Button { showingFilm = true } label: {
-            if let name, !dynamicTypeSize.isAccessibilitySize, filmTitleFits(name) {
-                ViewThatFits(in: .horizontal) {
-                    chip(name, symbol: "film", filmTitle: true)
-                        .fixedSize(horizontal: true, vertical: false)
-                    chip(nil, symbol: "film").fixedSize()
-                }
-            } else {
-                chip(nil, symbol: "film")
+            // Evaluate the toolbar's actual proposal after its other items
+            // take their space. Both candidates have a fixed width, so a
+            // different stock name cannot make the control switch modes.
+            ViewThatFits(in: .horizontal) {
+                titledFilmChip(name ?? T("Film", "胶片", "膠片"))
+                chip(nil, symbol: "film").frame(width: 44).fixedSize()
             }
         }
         .buttonStyle(.plain)
@@ -389,21 +386,29 @@ struct MobilePhotoDetail: View {
         }
     }
 
-    private func filmTitleFits(_ title: String) -> Bool {
-        let font = UIFont.systemFont(ofSize: filmTitlePointSize, weight: .semibold)
-        let titleWidth = (title as NSString).size(withAttributes: [.font: font]).width
-        // Include both glyphs, their gaps, and the chip's horizontal insets.
-        return ceil(titleWidth) + 56 <= filmLabelBudget
+    private func titledFilmChip(_ fullTitle: String) -> some View {
+        let title = shortFilmTitle(fullTitle)
+        return HStack(spacing: 5) {
+            Image(systemName: "film").fixedSize()
+            ViewThatFits(in: .horizontal) {
+                Text(fullTitle).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                Text(title).lineLimit(1).truncationMode(.head)
+            }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.down").font(.system(size: 8)).fixedSize()
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 10)
+        .frame(width: Self.titledFilmButtonWidth, height: 44)
+        .contentShape(Rectangle())
+        .modifier(ChromeSurface(radius: 22, interactive: true))
+        .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var filmLabelBudget: CGFloat {
-        let width = fitMode.window.width
-        guard width >= 620 else { return 44 }
-        // Leave room for the date, back, star and flag. The top placement
-        // also shares the horizontal lane with export, info, edit and menu.
-        // A native system-side lane still needs space for the system chrome.
-        let reserved: CGFloat = placement == .top ? 520 : 448
-        return min(240, max(44, width - reserved))
+    private func shortFilmTitle(_ name: String) -> String {
+        for brand in ["Kodak Professional ", "Kodak ", "Fujifilm ", "Fuji ", "Ilford ", "CineStill ", "Agfa "]
+            where name.hasPrefix(brand) { return String(name.dropFirst(brand.count)) }
+        return name
     }
 
     @ToolbarContentBuilder
@@ -827,16 +832,14 @@ struct MobilePhotoDetail: View {
             .accessibilityIdentifier(id)
     }
 
-    private func chip(_ title: String?, symbol: String, filmTitle: Bool = false) -> some View {
+    private func chip(_ title: String?, symbol: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
             if let title {
                 Text(title).lineLimit(1)
-                if filmTitle { Image(systemName: "chevron.down").font(.system(size: 8)) }
             }
         }
         .font(.caption.weight(.semibold))
-        .padding(.horizontal, filmTitle ? 10 : 0)
         .frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
         .modifier(ChromeSurface(radius: 22, interactive: true))
