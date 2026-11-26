@@ -136,7 +136,7 @@ struct MobileCameraView: View {
     }
     private var controlRotationTarget: Double {
 #if SILVERPHASE_APP
-        if rearSelfieOnHostDisplay {
+        if usesFullOuterAperture {
             // iOS may keep the outer window portrait while the user rolls
             // the device. Rotate the existing glyphs, not the control frames.
             let device = Double(measuredCapturePose?.rawValue ?? Int(deviceQuarterTurn))
@@ -146,6 +146,15 @@ struct MobileCameraView: View {
         return followsInterface ? 0 : -Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn))
     }
     @State private var controlRotation = 0.0
+    private var finderToolRotation: Double {
+#if SILVERPHASE_APP
+        // The folded change is visual only; keep the existing drag axis and
+        // level indicator behavior rather than coupling them to glyph motion.
+        if usesFullOuterAperture && !rearSelfieOnHostDisplay { return 0 }
+#endif
+        return controlRotation
+    }
+
     @State private var filmLabelHeight: CGFloat = 60
 #if SILVERPHASE_APP
     @State private var showingFilms = false
@@ -831,6 +840,10 @@ struct MobileCameraView: View {
         } message: { Text(failure ?? "") }
     }
 
+    private var finderToolOrientation: CameraControlOrientation {
+        CameraControlOrientation(rotation: finderToolRotation, animated: !reduceMotion)
+    }
+
     private var controlOrientation: CameraControlOrientation {
         CameraControlOrientation(rotation: controlRotation, animated: !reduceMotion)
     }
@@ -1250,7 +1263,7 @@ struct MobileCameraView: View {
                                                 mirrored: lens == .front && mirrorsFrontCamera,
                                                 hardwareShutterEnabled: previewHardwareShutterEnabled, shutter: takePhoto,
                                                 canAdjustExposure: ready && focusPoint != nil && !focusLocked,
-                                                exposureRotation: controlRotation,
+                                                exposureRotation: finderToolRotation,
                                                 rearSelfieChanged: rearSelfieChanged,
                                                 focus: focus, adjustExposure: dragExposure)
                                 .id(previewDevice.uniqueID)
@@ -1280,7 +1293,7 @@ struct MobileCameraView: View {
                         if showsLensPlaceholder && switchFrame == nil {
                             Text(lens.title).font(.headline).foregroundStyle(.secondary)
                                 .modifier(AdjustmentNumberTransition(value: nil, label: lens.title))
-                                .modifier(controlOrientation)
+                                .modifier(finderToolOrientation)
                         }
                     }
                     .frame(width: width, height: height)
@@ -1349,7 +1362,7 @@ struct MobileCameraView: View {
                     }.padding().background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
                 } else if configuration == nil {
                     if !shotInProgress && !isLayoutCheck {
-                        ProgressView(T("Opening the camera", "正在打开相机", "正在開啟相機")).modifier(controlOrientation)
+                        ProgressView(T("Opening the camera", "正在打开相机", "正在開啟相機")).modifier(finderToolOrientation)
                     }
                 }
 #if SILVERPHASE_APP
@@ -1361,7 +1374,7 @@ struct MobileCameraView: View {
                         ProgressView().tint(.primary)
                         Text(developing ? T("Developing…", "显影中…", "顯影中…") : T("Saving to Photos…", "保存到相册…", "儲存到相簿…")).font(EditorDesign.noticeTitle)
                     }
-                    .modifier(controlOrientation)
+                    .modifier(finderToolOrientation)
                     .frame(width: 104, height: 104)
                     .modifier(ChromeSurface(radius: 20))
                     .accessibilityElement(children: .combine)
@@ -1531,7 +1544,7 @@ struct MobileCameraView: View {
             }
             if showsLevel, let levelRoll {
                 let levelAngle = -levelRoll.remainder(dividingBy: 90)
-                let vertical = abs(controlRotation.remainder(dividingBy: 180)) > 45
+                let vertical = abs(finderToolRotation.remainder(dividingBy: 180)) > 45
                 let aligned = abs(levelAngle) < 1.5
                 HStack(spacing: 4) {
                     Capsule().fill(.white.opacity(0.60)).frame(width: 18, height: 2)
@@ -1667,8 +1680,8 @@ struct MobileCameraView: View {
     }
 
     private var focusIndicator: some View {
-        let orientation = controlOrientation
-        let swapsAxes = abs(controlRotation.remainder(dividingBy: 180)) == 90
+        let orientation = finderToolOrientation
+        let swapsAxes = abs(finderToolRotation.remainder(dividingBy: 180)) == 90
         return GeometryReader { geometry in
             let size = geometry.size
             Color.clear.keyframeAnimator(initialValue: CGFloat(1), trigger: focusFeedbackID) { content, scale in
