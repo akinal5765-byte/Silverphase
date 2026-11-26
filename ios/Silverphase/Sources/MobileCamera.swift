@@ -345,7 +345,7 @@ struct MobileCameraView: View {
                     waistFilmWheel
                         .frame(width: aperture.width, height: aperture.height)
                         .position(x: aperture.midX, y: aperture.midY)
-                } else if usesInnerCameraLayout,
+                } else if usesInnerCameraLayout, duoDivisions(geometry).isEmpty,
                           let frame = MobileDuoFilmFanGeometry.frame(in: panel) {
                     quickFilmWheel(.landscapeFan)
                         .frame(width: frame.width, height: frame.height)
