@@ -84,7 +84,11 @@ dedicated renderer owns only frame color processing. Its Core Graphics provider
 retains the engine's own output storage until Core Image finishes consuming that
 frame, rather than making a second full RGBA16 copy. This is not a fully
 zero-copy pipeline: decoding, color conversion, and GPU access may still
-introduce buffers. Compare peak memory, wall time, and thermal behavior on a
+introduce buffers. Video opens a transient render session so each frame
+does not create the still editor's memory-mapped source and negative caches.
+This holds the streaming planes in memory, so do not remove the device
+headroom guard or assume the whole phone's RAM is available to the app.
+Compare peak memory, wall time, and thermal behavior on a
 physical device using the same 2- and 5-minute footage before drawing a
 throughput conclusion.
 

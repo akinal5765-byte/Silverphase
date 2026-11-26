@@ -436,7 +436,7 @@ private final class MobileMovieFrameRenderer: @unchecked Sendable {
                 guard spk_replace_device_frame(session, &pixels) == SPK_OK else { throw failure() }
             } else {
                 let json = try recipe(aspect: Double(width) / Double(height))
-                guard let opened = spk_open_device(engine, &pixels, json, nil) else { throw failure() }
+                guard let opened = spk_open_device_stream(engine, &pixels, json, nil) else { throw failure() }
                 session = opened
             }
             guard let session else { throw failure() }

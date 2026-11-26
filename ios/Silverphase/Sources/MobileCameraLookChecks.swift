@@ -43,7 +43,7 @@ enum MobileCameraLookChecks {
             checks.append("colour sample layout/permutation invariance for negative/B&W/slide/CineStill; old photo-render lattice mixing reproduced (max16bit=\(sampleMixing)); saved params/results preserved")
 
             try checkReplacementContract()
-            checks.append("native replacement rejects invalid inputs transactionally, copies borrowed pixels and retains old results")
+            checks.append("transient stream stays off mapped files; replacement rejects invalid inputs transactionally, copies borrowed pixels and retains old results")
             let small = try makeFrame(width: 48, height: 32, serial: 1)
             let mailbox = MobileCameraLookFrames()
             for _ in 0..<20 { mailbox.store(small.buffer, rotation: 0) }
@@ -477,7 +477,7 @@ enum MobileCameraLookChecks {
         else { throw MobileFailure.message("Cannot create streaming contract buffers") }
         let json = #"{"input_color_space":"ProPhoto RGB","input_cctf_decoding":false,"grain_active":false,"glare_active":false,"product_defaults":true}"#
         var input = spk_device_image(buffer: Unmanaged.passUnretained(buffer as AnyObject).toOpaque(), width: UInt32(width), height: UInt32(height), channels: 4)
-        guard let session = spk_open_device(engine, &input, json, nil) else { throw MobileFailure.message("Cannot open contract frame") }
+        guard let session = spk_open_device_stream(engine, &input, json, nil) else { throw MobileFailure.message("Cannot open contract frame") }
         defer { spk_session_release(session) }
         func render(_ session: OpaquePointer) throws -> spk_result {
             var out = spk_result()
@@ -485,12 +485,23 @@ enum MobileCameraLookChecks {
             return out
         }
         func bytes(_ result: spk_result) -> Data { Data(bytes: result.rgba16!, count: Int(result.row_stride_px * result.height) * 8) }
+        func noMappedPlanes() throws {
+            guard let report = spk_memory_report(engine),
+                  let json = try JSONSerialization.jsonObject(with: Data(String(cString: report).utf8)) as? [String: Any],
+                  let persistent = json["persistent"] as? [String: Any],
+                  let mapped = persistent["file_backed_bytes"] as? NSNumber else {
+                throw MobileFailure.message("Missing GPU storage metrics")
+            }
+            try require(mapped.int64Value == 0, "Stream created a file-backed plane")
+        }
+        try noMappedPlanes()
         var invalid = spk_result()
         try require(spk_render_viewfinder(session, 0, &invalid) == SPK_ERR_INVALID_ARG &&
                     spk_render_viewfinder(session, 1601, &invalid) == SPK_ERR_INVALID_ARG, "Invalid viewfinder size accepted")
         var first = try render(session)
         defer { spk_result_free(&first) }
         let before = bytes(first)
+        try noMappedPlanes()
         try require(spk_replace_device_frame(session, nil) == SPK_ERR_INVALID_ARG, "Null replacement accepted")
         input.width += 1
         try require(spk_replace_device_frame(session, &input) == SPK_ERR_INVALID_ARG, "Wrong dimensions accepted")
@@ -503,10 +514,13 @@ enum MobileCameraLookChecks {
         try require(spk_replace_device_frame(session, &input) == SPK_OK, "Valid replacement failed")
         memset(replacement.contents(), 0, replacement.length)
         input.buffer = Unmanaged.passUnretained(reference as AnyObject).toOpaque()
+        var actual = try render(session)
+        defer { spk_result_free(&actual) }
+        try noMappedPlanes()
         guard let expectedSession = spk_open_device(engine, &input, json, nil) else { throw MobileFailure.message("Cannot open independent stream reference") }
         defer { spk_session_release(expectedSession) }
-        var actual = try render(session), expected = try render(expectedSession)
-        defer { spk_result_free(&actual); spk_result_free(&expected) }
+        var expected = try render(expectedSession)
+        defer { spk_result_free(&expected) }
         try require(bytes(actual) == bytes(expected) && bytes(actual) != before, "Replacement retained borrowed input or stale exposure/source")
         try require(bytes(first) == before, "Source replacement mutated a retained result")
     }
