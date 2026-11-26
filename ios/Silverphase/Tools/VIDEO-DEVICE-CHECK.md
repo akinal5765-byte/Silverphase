@@ -27,6 +27,23 @@ DEVELOPER_DIR=/Applications/Xcode-27.1.app/Contents/Developer \
 Use the installed Apple SDK/Metal toolchain and a signed physical iPhone build
 for the rest, ideally an older supported device and a current one.
 
+## Repeatable export smoke check (Debug)
+
+Use a dedicated test app container. Put a short BT.709 HEVC MOV with audio in
+its Documents directory under one or more of these names:
+
+- `video-check-uhd30-landscape.mov` and `video-check-uhd30-portrait.mov`
+- `video-check-uhd60-landscape.mov` and `video-check-uhd60-portrait.mov`
+- `video-check-legacy-small.mov` for a smaller historical input (no UHD claim)
+
+Launch with `--video-export-regression`. The app writes
+`video-export-report.json` and, for each successful conversion, a
+`video-check-…-developed.mov` beside its source without saving to Photos.
+Run the pair checker on the files to check real presentation timestamps and
+SDR tags. Use portrait display metadata as well as a landscape fixture.
+The production export memory guard remains active. This check does not test
+camera recording, hardware thermals, sustained AV cadence, or playback sync.
+
 ## Required acceptance
 
 1. Open the entry from the Library menu, grant camera and microphone

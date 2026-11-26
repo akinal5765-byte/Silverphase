@@ -47,7 +47,7 @@ enum MobileMovieDevelopment {
         try validateCapture(await inspect(track), frameRate: frameRate)
     }
 
-    static func export(source: URL, destination: URL, film: String, frameRate: Int?,
+    @MainActor static func export(source: URL, destination: URL, film: String, frameRate: Int?,
                        progress: @escaping @Sendable (Double) -> Void) async throws {
         let asset = AVURLAsset(url: source)
         let duration = try await asset.load(.duration)
@@ -73,6 +73,8 @@ enum MobileMovieDevelopment {
                 do { request.finish(with: try renderer.render(request.sourceImage), context: renderer.context) }
                 catch { request.finish(with: error) }
             })
+        // Keep the source's sample timing rather than forcing a synthetic 30 fps grid.
+        composition.sourceTrackIDForFrameTiming = inputTrack.trackID
         composition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
         composition.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
         composition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
@@ -112,9 +114,44 @@ enum MobileMovieDevelopment {
                                                   "显影后的文件未保持原片画幅或帧率，已保留原片。",
                                                   "顯影後的檔案未保留原始畫幅或影格率，已保留原片。"))
         }
+        try Task.checkCancellation()
         try FileManager.default.moveItem(at: partial, to: destination)
     }
 }
+
+#if DEBUG
+extension MobileMovieDevelopment {
+    /// Explicit Debug-only launch check. Fixtures are injected into a test
+    /// container by the developer; nothing is bundled or added to Photos.
+    @MainActor static func runExportRegression() async {
+        let directory = URL.documentsDirectory
+        let report = directory.appending(path: "video-export-report.json")
+        try? FileManager.default.removeItem(at: report)
+        var results: [[String: String]] = []
+        for variant in ["uhd30-landscape", "uhd30-portrait", "uhd60-landscape", "uhd60-portrait", "legacy-small"] {
+            let source = directory.appending(path: "video-check-\(variant).mov")
+            guard FileManager.default.fileExists(atPath: source.path) else { continue }
+            let destination = directory.appending(path: "video-check-\(variant)-developed.mov")
+            let rate: Int? = variant.hasPrefix("uhd30") ? 30 : (variant.hasPrefix("uhd60") ? 60 : nil)
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try await checkCapture(source: source, frameRate: rate)
+                try await export(source: source, destination: destination,
+                                 film: MobileCameraRecipe.defaultFilmID, frameRate: rate) { _ in }
+                results.append(["fixture": variant, "status": "passed"])
+            } catch {
+                results.append(["fixture": variant, "status": "failed", "error": error.localizedDescription])
+            }
+        }
+        let data = ["results": results, "freeMemoryBytes": Int(os_proc_available_memory())] as [String: Any]
+        if let encoded = try? JSONSerialization.data(withJSONObject: data, options: [.prettyPrinted, .sortedKeys]) {
+            try? encoded.write(to: report, options: .atomic)
+        }
+    }
+}
+#endif
 
 // The composition can request frames concurrently. Serialize each engine
 // session and use AVFoundation's source timestamps, not wall-clock preview
