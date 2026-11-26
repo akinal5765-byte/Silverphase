@@ -77,6 +77,9 @@ struct MobilePhotoDetail: View {
     }
 
     private var placement: Placement {
+#if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--gallery-duo-portrait-layout") { return .duoPortrait }
+#endif
         if UIDevice.current.userInterfaceIdiom == .pad { return .top }
         let closed = hingeClosed
         if #available(iOS 27.1, *), let closed {
@@ -124,7 +127,7 @@ struct MobilePhotoDetail: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { navigationItems(photo) }
                     .toolbar(showsControls ? .visible : .hidden, for: .navigationBar)
-                    .toolbar(showsControls && (placement == .bottom || placement == .systemSide) ? .visible : .hidden, for: .bottomBar)
+                    .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailNoScrollMask())
                     .modifier(DetailToolbarAxis(usesTop: placement == .top || placement == .duoPortrait))
@@ -322,47 +325,43 @@ struct MobilePhotoDetail: View {
                 Spacer(minLength: 0)
                 filmstrip.frame(height: Self.stripBand)
             }
-            // Duo's controls live in the side lane. The strip tracks the
-            // bottom of the canvas, not a second, empty bottom toolbar lane.
-            .padding(.bottom, isDuo ? EditorDesign.contentInset : 0)
-            .ignoresSafeArea(.container, edges: isDuo ? .bottom : [])
+            // The strip may go to the bottom edge only when the actions
+            // are in the system side lane, not above a real bottom toolbar.
+            .padding(.bottom, placement == .systemSide ? EditorDesign.contentInset : 0)
+            .ignoresSafeArea(.container, edges: placement == .systemSide ? .bottom : [])
             .opacity(showsControls ? 1 : 0)
             .allowsHitTesting(showsControls)
             .accessibilityHidden(!showsControls)
         }
-        .overlay(alignment: .trailing) {
+        .overlay(alignment: .topTrailing) {
             if placement == .duoPortrait && showsControls {
-                portraitDuoActions(photo)
+                Button { backCommand += 1 } label: {
+                    Image(systemName: "chevron.left").font(EditorDesign.panelTitle)
+                        .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .modifier(ChromeSurface(radius: 22, interactive: true))
+                .accessibilityLabel(backLabel)
+                .accessibilityIdentifier("photo-detail.back")
+                .padding(.trailing, EditorDesign.gutter)
+                .padding(.top, EditorDesign.hitSize + 2 * EditorDesign.unit)
             }
         }
         .overlay(alignment: .top) {
-            // The overlay starts below the navigation bar, not at the
-            // window edge like the photo itself.
-            previewStatus(photo)
-                .padding(.horizontal, EditorDesign.gutter)
-                .padding(.top, 6)
-                .allowsHitTesting(false)
+            // In unfolded portrait the date and More have the top bar to
+            // themselves. A compact second row holds only photo metadata.
+            VStack(spacing: EditorDesign.unit) {
+                if placement == .duoPortrait && showsControls {
+                    metadata(photo)
+                }
+                previewStatus(photo)
+            }
+            .padding(.horizontal, EditorDesign.gutter)
+            .padding(.top, 6)
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: photoID)
-    }
-
-    // In unfolded portrait the system may give us only a horizontal
-    // toolbar. Keep actions at the right like Photos without shrinking the canvas.
-    private func portraitDuoActions(_ photo: MobilePhoto) -> some View {
-        VStack(spacing: EditorDesign.unit * 2) {
-            tool(backLabel, "chevron.left", id: "photo-detail.back") { backCommand += 1 }
-                .modifier(DetailRailButton())
-            VStack(spacing: 0) {
-                exportTool(photo).modifier(DetailRailButton(single: false))
-                infoTool(photo).modifier(DetailRailButton(single: false))
-                editTool(photo).modifier(DetailRailButton(single: false))
-                more(photo).modifier(DetailRailButton(single: false))
-            }
-            .modifier(ChromeSurface(radius: 22))
-            deleteTool(photo).modifier(DetailRailButton())
-        }
-        .padding(.trailing, EditorDesign.gutter)
     }
 
     private func metadata(_ photo: MobilePhoto) -> some View {
@@ -386,9 +385,16 @@ struct MobilePhotoDetail: View {
                     .frame(width: 30, height: 30)
             }
         }
-        .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: nil) {
-            filmPicker(photo)
-                .presentationCompactAdaptation(.none)
+        .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            if isDuo && hingeClosed == true {
+                // Leave room for the system side lane and its popover margins.
+                // Oversized content otherwise overlaps the trigger on the cover.
+                let room = detailWindowSize.width - 56 - 2 * EditorDesign.contentInset
+                filmPicker(photo).frame(idealHeight: 318).frame(width: min(308, max(210, room)))
+                    .presentationCompactAdaptation(.none)
+            } else {
+                filmPicker(photo).presentationCompactAdaptation(.none)
+            }
         }
     }
 
@@ -452,14 +458,21 @@ struct MobilePhotoDetail: View {
             dateItem(photo).axisBehavior(.horizontalOnly)
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
-            metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
+            if placement != .duoPortrait {
+                metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
+            }
         } else if #available(iOS 26.0, *) {
             dateItem(photo).sharedBackgroundVisibility(.hidden)
-            metadataItem(photo).sharedBackgroundVisibility(.hidden)
+            if placement != .duoPortrait { metadataItem(photo).sharedBackgroundVisibility(.hidden) }
         } else {
             dateItem(photo)
-            metadataItem(photo)
+            if placement != .duoPortrait { metadataItem(photo) }
         }
+        actionToolbar(photo)
+    }
+
+    @ToolbarContentBuilder
+    private func actionToolbar(_ photo: MobilePhoto) -> some ToolbarContent {
         if placement == .top {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 exportTool(photo)
@@ -486,13 +499,14 @@ struct MobilePhotoDetail: View {
             ToolbarItem(id: "photo-detail.native-delete", placement: .bottomBar) {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
-        } else if placement == .bottom {
+        } else {
             ToolbarItem(placement: .topBarTrailing) { more(photo) }
             ToolbarItemGroup(placement: .bottomBar) {
                 exportTool(photo)
                 Spacer()
                 infoTool(photo)
                 editTool(photo)
+                if placement == .duoPortrait { Spacer() }
                 deleteTool(photo)
             }
         }
@@ -911,17 +925,6 @@ struct MobilePhotoDetail: View {
     }
 }
 
-private struct DetailRailButton: ViewModifier {
-    var single = true
-    func body(content: Content) -> some View {
-        let icon = content.labelStyle(.iconOnly).buttonStyle(.plain)
-            .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
-            .contentShape(Rectangle())
-        if single { icon.modifier(ChromeSurface(radius: 22, interactive: true)) }
-        else { icon }
-    }
-}
-
 struct MobileFilmPickerGrid: View {
     let stocks: [Stock]
     let selectedID: String?
@@ -974,16 +977,16 @@ struct MobileFilmPickerGrid: View {
                             .font(EditorDesign.sectionTitle)
                             .foregroundStyle(filter == .all ? Color.primary : MobileStyle.accent)
                             .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
-                            .modifier(ChromeSurface(radius: 22, interactive: true))
+                            .modifier(ChromeSurface(radius: MobileStyle.radius, interactive: true))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(T("Filter films", "筛选胶片", "篩選膠片"))
                     .accessibilityValue(filter.title)
                     .accessibilityIdentifier(identifier + "-filter")
                     Button(action: cancel) {
-                        Image(systemName: "xmark").font(.caption.weight(.semibold))
-                            .frame(width: 44, height: 44)
-                            .modifier(ChromeSurface(radius: 22, interactive: true))
+                        Image(systemName: "xmark").font(EditorDesign.sectionTitle)
+                            .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                            .modifier(ChromeSurface(radius: MobileStyle.radius, interactive: true))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(T("Close", "关闭", "關閉"))
@@ -1010,7 +1013,7 @@ struct MobileFilmPickerGrid: View {
                 .frame(minHeight: 44)
                 .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12))
             }
-            .padding(.horizontal, inset).padding(.top, EditorDesign.unit).padding(.bottom, EditorDesign.unit * 2)
+            .padding(.horizontal, inset).padding(.top, EditorDesign.gutter).padding(.bottom, EditorDesign.unit * 2)
             if matches.isEmpty {
                 ContentUnavailableView(T("No matching film", "没有匹配的胶片", "沒有符合的膠片"), systemImage: "film")
                     .frame(maxHeight: .infinity)

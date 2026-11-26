@@ -64,6 +64,31 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertEqual(preview.label, "目标 A")
     }
 
+    #if targetEnvironment(simulator)
+    @MainActor func testDuoPortraitPhotoDetailDistributesControls() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-duo-portrait-layout"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18)); source.tap()
+        let actions = ["back", "menu", "film", "export", "info", "edit", "delete"].map { app.buttons["photo-detail." + $0] }
+        for action in actions { XCTAssertTrue(action.waitForExistence(timeout: 5)) }
+        let back = actions[0], menu = actions[1], film = actions[2], export = actions[3], delete = actions[6]
+        let window = app.frame
+        XCTAssertGreaterThan(back.frame.midX, window.minX + window.width * 0.75)
+        XCTAssertLessThan(menu.frame.midY, film.frame.midY)
+        for action in actions[3...] {
+            XCTAssertGreaterThan(action.frame.midY, window.minY + window.height * 0.75)
+        }
+        XCTAssertLessThan(export.frame.midX, delete.frame.midX)
+        let strip = app.descendants(matching: .any).matching(identifier: "photo-detail.filmstrip").firstMatch
+        XCTAssertTrue(strip.exists)
+        XCTAssertLessThanOrEqual(strip.frame.maxY, export.frame.minY + 3)
+    }
+    #endif
+
     @MainActor func testPhotoDetailFilmPickerSearchAndSelection() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
