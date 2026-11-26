@@ -58,6 +58,34 @@ enum MobileLockedCameraChecks {
             }
             checks.append("camera-only orientation policies and real UIView attachment/removal restore the workspace policy")
 
+            for turn in [90.0, -90] {
+                let viewport = CGSize(width: 720, height: 560)
+                let layout = MobileCameraCanvasGeometry(viewport: viewport, interfaceQuarterTurn: turn, followsInterface: true)
+                try require(layout.contentSize == viewport && layout.rotation == 0, "Unfolded camera must not counter-rotate the UIKit scene")
+                let scene = MobileCameraCapturePose(quarterTurn: turn)
+                try require(MobileCameraCapturePose.shutterPose(measured: .portrait, unfoldedScene: scene) == scene,
+                            "Unfolded landscape finder and capture disagree")
+                try require(MobileCameraCapturePose.shutterPose(measured: nil, unfoldedScene: scene) == scene,
+                            "Tabletop should not require a stable gravity sample")
+            }
+            try require(MobileCameraCapturePose.shutterPose(measured: .landscapeLeft, unfoldedScene: nil) == .landscapeLeft,
+                        "Camera outside the unfolded scene must keep the physical pose")
+            try require(MobileCameraCapturePose.shutterPose(measured: nil, unfoldedScene: nil) == nil,
+                        "Missing pose must preserve the native fallback")
+            try require(MobileDeviceLayout.supportedOrientations(isPhone: true, detectsHinge: true,
+                            hasHinge: true, cameraPresented: true, cameraFollowsInterface: true) == .all,
+                        "Unfolded camera must allow UIKit landscape")
+            let tabletop = MobileWaistCameraGeometry(viewport: CGSize(width: 720, height: 560),
+                divisionFrames: [CGRect(x: 0, y: 263, width: 720, height: 14)])
+            try require(tabletop?.upper.maxY == 263 && tabletop?.lower.minY == 277,
+                        "Tabletop layout must keep the two panels out of the hinge")
+            try require(MobileWaistCameraGeometry(viewport: CGSize(width: 720, height: 560),
+                            divisionFrames: [CGRect(x: 354, y: 0, width: 12, height: 560)]) == nil,
+                        "Book posture must not enter tabletop camera")
+            try require(MobileWaistCameraGeometry(viewport: CGSize(width: 720, height: 560), divisionFrames: []) == nil,
+                        "Flat posture must not enter tabletop camera")
+            checks.append("unfolded Duo orientation selection and system division geometry for tabletop vs book/flat")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")

@@ -4,16 +4,17 @@ import UIKit
 @MainActor final class MobileDeviceLayout: NSObject, UIApplicationDelegate {
     private static var hasHinge: Bool?
     private static var cameraPresented = false
+    private static var cameraFollowsInterface = false
     static var orientations: UIInterfaceOrientationMask {
         let detectsHinge: Bool
         if #available(iOS 27.1, *) { detectsHinge = true } else { detectsHinge = false }
         return supportedOrientations(isPhone: UIDevice.current.userInterfaceIdiom == .phone,
                                      detectsHinge: detectsHinge, hasHinge: hasHinge,
-                                     cameraPresented: cameraPresented)
+                                     cameraPresented: cameraPresented, cameraFollowsInterface: cameraFollowsInterface)
     }
     static func supportedOrientations(isPhone: Bool, detectsHinge: Bool, hasHinge: Bool?,
-                                      cameraPresented: Bool) -> UIInterfaceOrientationMask {
-        if cameraPresented { return .portrait }
+                                      cameraPresented: Bool, cameraFollowsInterface: Bool = false) -> UIInterfaceOrientationMask {
+        if cameraPresented { return detectsHinge && cameraFollowsInterface ? .all : .portrait }
         guard isPhone else { return .all }
         if detectsHinge, hasHinge == nil { return .all }
         return hasHinge == true ? .all : .portrait
@@ -29,9 +30,11 @@ import UIKit
         Self.hasHinge = hasHinge
         refreshOrientations(in: window)
     }
-    static func setCameraPresented(_ presented: Bool, window: UIWindow) {
-        guard cameraPresented != presented else { return }
+    static func setCameraPresented(_ presented: Bool, window: UIWindow, followsInterface: Bool = false) {
+        let followsInterface = presented && followsInterface
+        guard cameraPresented != presented || cameraFollowsInterface != followsInterface else { return }
         cameraPresented = presented
+        cameraFollowsInterface = followsInterface
         refreshOrientations(in: window)
     }
     private static func refreshOrientations(in window: UIWindow) {
@@ -72,12 +75,21 @@ struct MobileOrientationObserver: UIViewRepresentable {
 /// MobileCameraCanvas also compensates hosts that ignore this preference.
 /// Library/editor pages recover their original orientation policy on dismissal.
 struct MobileCameraOrientationObserver: UIViewRepresentable {
-    func makeUIView(context: Context) -> Probe { Probe() }
-    func updateUIView(_ view: Probe, context: Context) { view.applyOrientation() }
+    var followsInterface = false
+    func makeUIView(context: Context) -> Probe {
+        let probe = Probe()
+        probe.followsInterface = followsInterface
+        return probe
+    }
+    func updateUIView(_ view: Probe, context: Context) {
+        view.followsInterface = followsInterface
+        view.applyOrientation()
+    }
     static func dismantleUIView(_ view: Probe, coordinator: ()) { view.releaseOrientation() }
 
     final class Probe: UIView {
         private weak var cameraWindow: UIWindow?
+        var followsInterface = false
 
         init() {
             super.init(frame: .zero)
@@ -93,7 +105,7 @@ struct MobileCameraOrientationObserver: UIViewRepresentable {
         }
         func applyOrientation() {
             guard let window else { return }
-            MobileDeviceLayout.setCameraPresented(true, window: window)
+            MobileDeviceLayout.setCameraPresented(true, window: window, followsInterface: followsInterface)
         }
         func releaseOrientation() {
             guard let cameraWindow else { return }

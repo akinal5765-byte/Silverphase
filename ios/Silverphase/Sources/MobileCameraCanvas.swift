@@ -9,7 +9,12 @@ struct MobileCameraCanvasGeometry: Equatable {
     let contentSize: CGSize
     let rotation: Double
 
-    init(viewport: CGSize, interfaceQuarterTurn: Double) {
+    init(viewport: CGSize, interfaceQuarterTurn: Double, followsInterface: Bool = false) {
+        if followsInterface {
+            contentSize = viewport
+            rotation = 0
+            return
+        }
         let quarterTurn = interfaceQuarterTurn.isFinite ? (interfaceQuarterTurn / 90).rounded() * 90 : 0
         rotation = quarterTurn.remainder(dividingBy: 360)
         let swapsAxes = abs(rotation.remainder(dividingBy: 180)) == 90
@@ -20,12 +25,20 @@ struct MobileCameraCanvasGeometry: Equatable {
 struct MobileCameraCanvas<Content: View>: View {
     let content: Content
     @State private var interfaceQuarterTurn = 0.0
+    let followsInterface: Bool
+    let interfaceChanged: ((Double) -> Void)?
 
-    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    init(followsInterface: Bool = false, interfaceChanged: ((Double) -> Void)? = nil,
+         @ViewBuilder content: () -> Content) {
+        self.followsInterface = followsInterface
+        self.interfaceChanged = interfaceChanged
+        self.content = content()
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            let layout = MobileCameraCanvasGeometry(viewport: geometry.size, interfaceQuarterTurn: interfaceQuarterTurn)
+            let layout = MobileCameraCanvasGeometry(viewport: geometry.size, interfaceQuarterTurn: interfaceQuarterTurn,
+                                                    followsInterface: followsInterface)
             content
                 .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .rotationEffect(.degrees(layout.rotation))
@@ -38,7 +51,10 @@ struct MobileCameraCanvas<Content: View>: View {
                             ? String(Int(interfaceQuarterTurn)) : "")
 #endif
         .background {
-            CameraCanvasOrientationProbe { interfaceQuarterTurn = $0 }
+            CameraCanvasOrientationProbe {
+                interfaceQuarterTurn = $0
+                interfaceChanged?($0)
+            }
                 .allowsHitTesting(false)
         }
     }

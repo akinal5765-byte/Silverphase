@@ -111,6 +111,31 @@ final class PhotoImportTests: XCTestCase {
                        "Ordinary-phone library retains its portrait policy after camera dismissal")
     }
 
+    @MainActor func testDuoWaistCameraControlLayout() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--camera-layout-check", "--camera-waist-layout-check"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15))
+        camera.tap()
+        let shutter = app.buttons["camera.shutter"]
+        XCTAssertTrue(shutter.waitForExistence(timeout: 10))
+        let current = app.buttons["camera.waist-film.0"]
+        XCTAssertTrue(current.waitForExistence(timeout: 6))
+        let left = app.buttons["camera.waist-film.-1"], right = app.buttons["camera.waist-film.1"]
+        XCTAssertTrue(left.exists && right.exists)
+        XCTAssertLessThan(left.frame.midX, current.frame.midX)
+        XCTAssertLessThan(current.frame.midX, right.frame.midX)
+        XCTAssertGreaterThan(current.frame.width, right.frame.width)
+        XCTAssertGreaterThan(shutter.frame.midY, current.frame.midY)
+        XCTAssertGreaterThan(shutter.frame.midX, app.frame.midX)
+        let selected = current.label
+        right.tap()
+        XCTAssertNotEqual(current.label, selected)
+    }
+
     @MainActor func testTabletCameraCanvasAndWorkspaceRotation() throws {
         guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Run on an iPad simulator") }
         XCUIDevice.shared.orientation = .portrait

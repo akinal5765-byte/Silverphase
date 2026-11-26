@@ -779,6 +779,7 @@ struct MobileCameraPreview: UIViewRepresentable {
     let shutter: () -> Void
     let canAdjustExposure: Bool
     let exposureRotation: Double
+    let interfacePose: MobileCameraCapturePose?
     let focus: (CGPoint, CGPoint, Bool) -> Void
     let adjustExposure: (CGFloat?) -> Void
 
@@ -795,6 +796,7 @@ struct MobileCameraPreview: UIViewRepresentable {
         view.previewLayer.videoGravity = .resizeAspectFill
         let rotation = camera.attachPreview(view.previewLayer, device: device)
         view.rotation = rotation
+        view.interfacePose = interfacePose
         view.mirrored = mirrored
         view.updateConnectionOrientation()
         view.orientationChanged = { isPortrait in
@@ -816,6 +818,7 @@ struct MobileCameraPreview: UIViewRepresentable {
     func updateUIView(_ view: Preview, context: Context) {
         view.shutter = shutter
         view.captureInteraction?.isEnabled = hardwareShutterEnabled
+        view.interfacePose = interfacePose
         view.mirrored = mirrored
         view.updateConnectionOrientation()
         view.canAdjustExposure = canAdjustExposure
@@ -844,6 +847,7 @@ struct MobileCameraPreview: UIViewRepresentable {
         var shutter: (() -> Void)?
         var canAdjustExposure = false
         var exposureRotation = 0.0
+        var interfacePose: MobileCameraCapturePose?
         private var dragRotation: Double?
         var focus: ((CGPoint, CGPoint, Bool) -> Void)?
         var adjustExposure: ((CGFloat?) -> Void)?
@@ -904,7 +908,12 @@ struct MobileCameraPreview: UIViewRepresentable {
 
         func updateConnectionOrientation() {
             guard let rotation, let connection = previewLayer.connection else { return }
-            let angle = rotation.videoRotationAngleForHorizonLevelPreview
+            let horizon = rotation.videoRotationAngleForHorizonLevelPreview
+            var angle = horizon
+            if #available(iOS 27, *), let interfacePose {
+                let sceneAngle = rotation.videoRotationAngleRelative(toDeviceOrientation: interfacePose.videoOrientation)
+                if connection.isVideoRotationAngleSupported(sceneAngle) { angle = sceneAngle }
+            }
             if connection.isVideoRotationAngleSupported(angle), connection.videoRotationAngle != angle {
                 connection.videoRotationAngle = angle
             }

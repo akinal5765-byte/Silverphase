@@ -145,7 +145,25 @@ full-bleed viewfinder treatment. Camera pages request portrait orientation;
 hosts that ignore orientation restrictions. This is scoped to capture: leaving
 the camera restores the library/editor's existing direction policy.
 
-At shutter press, both cameras latch physical device pose. On iOS27+
+On iPhone Duo with the inner display open, Silverphase uses the native scene
+layout rather than rotating a portrait camera canvas. In landscape, finder and
+capture use the scene orientation; on other devices (and in the lock-screen
+extension), the existing physical-pose policy remains in place.
+
+An active horizontal fold selects the tabletop camera layout on iOS 27.1:
+the lower panel contains the finder and right-side shutter, and the upper
+panel contains a swipeable film wheel with a large current cover and smaller
+neighbors. A vertical book fold or fully flat display does not select this
+layout. **Outer display print** is an opt-in, session-only switch on the inner
+display. When the system offers the outer camera accessory, a new developed
+photo appears on a small framed sheet with the existing development animation
+(or a still with Reduce Motion). Nothing is mirrored. The preview clears after
+12 seconds, on the next shot, or when the switch, posture, or camera session
+changes. The normal camera controls and capture still work when the accessory
+is unavailable.
+
+For the folded camera and the secure capture extension, the shutter latches
+physical device pose. On iOS27+
 AVFoundation resolves the sensor's rotation for that explicit pose independently
 of the fixed camera canvas or host window. Earlier systems retain the capture
 rotation coordinator. No captured pixels receive an ad-hoc import rotation.
