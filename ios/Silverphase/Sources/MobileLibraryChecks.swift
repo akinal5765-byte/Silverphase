@@ -144,6 +144,24 @@ import UniformTypeIdentifiers
             landscape.geometry.value.angle = -7; landscape.geometry.value.flipH = true
             let original = Data("original bytes".utf8)
             for photo in [portrait, landscape] { try original.write(to: doc.url(for: photo)) }
+            // Reproduce an upgrade with a cache entry from the old RAW raster.
+            let legacyPreview = MobileLibraryPreview.url(photo: portrait,
+                cropRemapsEffects: doc.preferences.values.cropRemapsEffects,
+                diBlueCompensation: doc.preferences.values.diBlueCompensation, rasterVersion: 2)
+            let currentPreview = doc.libraryPreviewURL(portrait)
+            defer { MobileLibraryPreview.remove(portrait.id) }
+            try FileManager.default.createDirectory(at: legacyPreview.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("old raster".utf8).write(to: legacyPreview)
+            try require(currentPreview != legacyPreview && !FileManager.default.fileExists(atPath: currentPreview.path),
+                        "legacy RAW raster cache cannot seed the detail or grid")
+            let fixture = CIImage(color: CIColor(red: 0.4, green: 0.5, blue: 0.6)).cropped(to: CGRect(x: 0, y: 0, width: 12, height: 16))
+            guard let raster = CIContext().createCGImage(fixture, from: fixture.extent) else {
+                throw MobileFailure.message("library thumbnail fixture unavailable")
+            }
+            try require(MobileLibraryPreview.write(raster, to: currentPreview, source: doc.url(for: portrait))
+                        && CGImageSourceCreateWithURL(currentPreview as CFURL, nil) != nil
+                        && !FileManager.default.fileExists(atPath: legacyPreview.path),
+                        "new RAW raster thumbnail replaces the old entry and is ready for a warm launch")
             doc.photos = [portrait, landscape]; doc.selection = landscape.id
             doc.mark(landscape.id, rating: 4, flag: "pick")
             doc.copySettings(portrait, groups: [.geometry]); doc.pasteSettings(to: [landscape.id])
