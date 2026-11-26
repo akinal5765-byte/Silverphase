@@ -73,16 +73,25 @@ final class PhotoImportTests: XCTestCase {
         defer { app.terminate() }
         let source = app.buttons["library.photo.来源"]
         XCTAssertTrue(source.waitForExistence(timeout: 18)); source.tap()
-        let actions = ["back", "menu", "film", "export", "info", "edit", "delete"].map { app.buttons["photo-detail." + $0] }
-        for action in actions { XCTAssertTrue(action.waitForExistence(timeout: 5)) }
-        let back = actions[0], menu = actions[1], film = actions[2], export = actions[3], delete = actions[6]
+        func button(_ id: String) -> XCUIElement { app.buttons["photo-detail." + id] }
+        let back = button("back")
+        let metadata = ["rating", "flag", "film"].map(button)
+        let actions = ["export", "menu", "info", "edit", "delete"].map(button)
+        for element in [back] + metadata + actions { XCTAssertTrue(element.waitForExistence(timeout: 5)) }
         let window = app.frame
-        XCTAssertGreaterThan(back.frame.midX, window.minX + window.width * 0.75)
-        XCTAssertLessThan(menu.frame.midY, film.frame.midY)
-        for action in actions[3...] {
+        XCTAssertLessThan(back.frame.midX, window.minX + window.width * 0.25)
+        for element in metadata {
+            XCTAssertGreaterThan(element.frame.midX, window.midX - 20)
+            XCTAssertEqual(element.frame.midY, back.frame.midY, accuracy: 8)
+        }
+        for (left, right) in zip(actions, actions.dropFirst()) {
+            XCTAssertLessThan(left.frame.midX, right.frame.midX)
+            XCTAssertEqual(left.frame.midY, right.frame.midY, accuracy: 8)
+        }
+        for action in actions {
             XCTAssertGreaterThan(action.frame.midY, window.minY + window.height * 0.75)
         }
-        XCTAssertLessThan(export.frame.midX, delete.frame.midX)
+        let export = actions[0]
         let strip = app.descendants(matching: .any).matching(identifier: "photo-detail.filmstrip").firstMatch
         XCTAssertTrue(strip.exists)
         XCTAssertLessThanOrEqual(strip.frame.maxY, export.frame.minY + 3)

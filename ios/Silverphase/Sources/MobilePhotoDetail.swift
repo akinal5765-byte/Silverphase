@@ -333,32 +333,11 @@ struct MobilePhotoDetail: View {
             .allowsHitTesting(showsControls)
             .accessibilityHidden(!showsControls)
         }
-        .overlay(alignment: .topTrailing) {
-            if placement == .duoPortrait && showsControls {
-                Button { backCommand += 1 } label: {
-                    Image(systemName: "chevron.left").font(EditorDesign.panelTitle)
-                        .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .modifier(ChromeSurface(radius: 22, interactive: true))
-                .accessibilityLabel(backLabel)
-                .accessibilityIdentifier("photo-detail.back")
-                .padding(.trailing, EditorDesign.gutter)
-                .padding(.top, EditorDesign.hitSize + 2 * EditorDesign.unit)
-            }
-        }
         .overlay(alignment: .top) {
-            // In unfolded portrait the date and More have the top bar to
-            // themselves. A compact second row holds only photo metadata.
-            VStack(spacing: EditorDesign.unit) {
-                if placement == .duoPortrait && showsControls {
-                    metadata(photo)
-                }
-                previewStatus(photo)
-            }
-            .padding(.horizontal, EditorDesign.gutter)
-            .padding(.top, 6)
+            previewStatus(photo)
+                .padding(.horizontal, EditorDesign.gutter)
+                .padding(.top, 6)
+                .allowsHitTesting(false)
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: photoID)
@@ -451,22 +430,20 @@ struct MobilePhotoDetail: View {
     private func navigationItems(_ photo: MobilePhoto) -> some ToolbarContent {
         if #available(iOS 27.1, *), placement == .systemSide {
             backItem.axisBehavior(.verticalPreferred).visibilityPriority(.init(higherThan: .high))
-        } else if placement != .duoPortrait {
+        } else {
             backItem
         }
         if #available(iOS 27.1, *) {
             dateItem(photo).axisBehavior(.horizontalOnly)
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
-            if placement != .duoPortrait {
-                metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
-            }
+            metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
         } else if #available(iOS 26.0, *) {
             dateItem(photo).sharedBackgroundVisibility(.hidden)
-            if placement != .duoPortrait { metadataItem(photo).sharedBackgroundVisibility(.hidden) }
+            metadataItem(photo).sharedBackgroundVisibility(.hidden)
         } else {
             dateItem(photo)
-            if placement != .duoPortrait { metadataItem(photo) }
+            metadataItem(photo)
         }
         actionToolbar(photo)
     }
@@ -500,10 +477,13 @@ struct MobilePhotoDetail: View {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
         } else {
-            ToolbarItem(placement: .topBarTrailing) { more(photo) }
+            if placement != .duoPortrait {
+                ToolbarItem(placement: .topBarTrailing) { more(photo) }
+            }
             ToolbarItemGroup(placement: .bottomBar) {
                 exportTool(photo)
                 Spacer()
+                if placement == .duoPortrait { more(photo) }
                 infoTool(photo)
                 editTool(photo)
                 if placement == .duoPortrait { Spacer() }
