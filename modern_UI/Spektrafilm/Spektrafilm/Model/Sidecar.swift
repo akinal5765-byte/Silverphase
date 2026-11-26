@@ -193,7 +193,7 @@ struct Sidecar: Codable, Equatable, Sendable {
 
     // MARK: - where a frame's settings live
 
-    /// `~/Library/Application Support/SpektraLab/Sidecars/`.
+    /// `~/Library/Application Support/Silverphase/Sidecars/`.
     ///
     /// **Not beside the image**, which is where these used to go and which
     /// the user objected to in plain terms: opening a folder of RAWs littered
@@ -213,9 +213,7 @@ struct Sidecar: Codable, Equatable, Sendable {
 
     /// The real store, ignoring any override. Tests assert on this.
     static let defaultStoreDirectory: URL =
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "SpektraLab")
-            .appending(path: "Sidecars")
+        DesktopIdentity.supportDirectory.appending(path: "Sidecars", directoryHint: .isDirectory)
 
     /// Where the store actually is. Nil means the real one.
     ///
@@ -231,7 +229,7 @@ struct Sidecar: Codable, Equatable, Sendable {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
             ? nil
             : FileManager.default.temporaryDirectory
-                .appending(path: "spektralab-test-sidecars-\(ProcessInfo.processInfo.processIdentifier)"))
+                .appending(path: "silverphase-test-sidecars-\(ProcessInfo.processInfo.processIdentifier)"))
 
     /// Point the store somewhere else. For tests that want to inspect it.
     static func useStore(at url: URL?) {
@@ -402,11 +400,9 @@ struct Sidecar: Codable, Equatable, Sendable {
 
     // MARK: - the two names that lived beside the image
 
-    /// The old home: `<original>.spektra.json` beside the image. Read for
-    /// migration, and **moved** rather than copied — leaving it would leave
-    /// the mess the user asked to be rid of. The name is unambiguous (it
-    /// carries the full file name), so deleting it cannot destroy a sibling's
-    /// settings.
+    /// The old portable name: `<original>.spektra.json` beside the image.
+    /// It is a read-only fallback. Both apps may use it, so importing edits
+    /// into Silverphase must not remove or change it.
     static func neighbourURL(for image: URL) -> URL {
         image.deletingLastPathComponent()
             .appending(path: image.lastPathComponent + ".spektra.json")
@@ -460,13 +456,7 @@ struct Sidecar: Codable, Equatable, Sendable {
         let neighbour = neighbourURL(for: image)
         if let data = try? Data(contentsOf: neighbour),
            let sidecar = try? JSONDecoder().decode(Sidecar.self, from: data) {
-            // Move, not copy — but only once the new copy is on disk and
-            // readable. A failed write must leave the user's only copy of
-            // their edits exactly where it was.
-            if (try? sidecar.save(for: image)) != nil,
-               (try? Data(contentsOf: url(for: image))) != nil {
-                try? FileManager.default.removeItem(at: neighbour)
-            }
+            try? sidecar.save(for: image)
             return sidecar
         }
         guard let data = try? Data(contentsOf: legacyURL(for: image)),
@@ -475,12 +465,17 @@ struct Sidecar: Codable, Equatable, Sendable {
         return sidecar
     }
 
-    /// Remove every name — "reset to defaults" must not leave an older file
-    /// that would be re-adopted on the next open. The ambiguous stem name is
-    /// the one exception, for the reason `legacyURL` gives.
+    /// Reset our edit without modifying a portable sidecar that another app
+    /// may still read. Persist defaults to shadow an on-disk fallback so the
+    /// reset cannot silently re-import the old grade on the next open.
     static func remove(for image: URL) {
-        try? FileManager.default.removeItem(at: url(for: image))
-        try? FileManager.default.removeItem(at: neighbourURL(for: image))
+        let fm = FileManager.default
+        if fm.fileExists(atPath: neighbourURL(for: image).path)
+            || fm.fileExists(atPath: legacyURL(for: image).path) {
+            try? Sidecar().save(for: image)
+            return
+        }
+        try? fm.removeItem(at: url(for: image))
         noteRemoval(of: url(for: image))
     }
 

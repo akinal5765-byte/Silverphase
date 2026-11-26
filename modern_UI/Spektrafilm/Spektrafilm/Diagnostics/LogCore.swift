@@ -463,8 +463,8 @@ final class Log: @unchecked Sendable {
 
     // MARK: the session
 
-    /// Start a session: clean up, then open `spektralab-<stamp>-<pid>.jsonl` in
-    /// `directory` with `latest.jsonl` beside it.
+    /// Start a session: clean up, then open `silverphase-<stamp>-<pid>.jsonl` in
+    /// `directory` with `latest-silverphase.jsonl` beside it.
     ///
     /// Cleaning is enqueued on the file sink's own queue **before** anything
     /// can be written, which is what §4 asks for — it runs at launch, off the
@@ -473,7 +473,7 @@ final class Log: @unchecked Sendable {
     /// the first record has landed.
     @discardableResult
     func startSession(destination: URL, retention: LogRetention, level: LogLevel,
-                      subsystem: String = "com.hanze.filmify",
+                      subsystem: String = DesktopIdentity.bundleIdentifier,
                       previousSessionCheck: Bool = true,
                       onPreviousSession: (@Sendable (PreviousSessionReport?) -> Void)? = nil) -> URL {
         endSession()   // a second start in one process replaces the first
