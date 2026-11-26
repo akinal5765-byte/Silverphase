@@ -101,15 +101,19 @@ actor MobileDetailRenderer {
 #else
         let budget = available
 #endif
+        // Gallery can still hold its fitted film and original comparison textures
+        // while the next film tier decodes and renders. Leave additional headroom
+        // for that overlap; do not change the editor's existing budget.
+        let usableBudget = galleryFitEdge == nil ? budget : budget * 0.72
         var mp = requiredMP(for: tier)
-        trace?.mark("requested tier \(tier) px; source \(nativeMP) MP; available \(Int(budget / 1e6)) MB")
-        if let galleryFitEdge, budget <= (mp * 70 + 600) * 1e6 {
+        trace?.mark("requested tier \(tier) px; source \(nativeMP) MP; available \(Int(budget / 1e6)) MB; usable \(Int(usableBudget / 1e6)) MB")
+        if let galleryFitEdge, usableBudget <= (mp * 70 + 600) * 1e6 {
             // Keep the editor's memory reserve. Gallery can still show an
             // intermediate tier that is measurably sharper than the fit image.
             let alternatives = [7168, 5120, 3840, 3200, 2560, 1920, 1600].filter {
                 $0 < tier && Double($0) > Double(galleryFitEdge) * 1.15
             }
-            if let safe = alternatives.map(requiredMP(for:)).first(where: { budget > ($0 * 70 + 600) * 1e6 }) {
+            if let safe = alternatives.map(requiredMP(for:)).first(where: { usableBudget > ($0 * 70 + 600) * 1e6 }) {
                 mp = safe
             } else if sameSource, let source, Double(max(source.width, source.height)) > Double(galleryFitEdge) * 1.08 {
                 mp = sourceMP
@@ -117,7 +121,7 @@ actor MobileDetailRenderer {
         }
         trace?.mark("selected work \(mp) MP")
         if !sameSource || source == nil || sourceMP < mp * 0.9999 {
-            guard budget > (mp * 70 + 600) * 1e6 else {
+            guard usableBudget > (mp * 70 + 600) * 1e6 else {
                 throw MobileFailure.message(TDetached("Not enough memory to load the original detail; keeping the current preview", "当前内存不足以载入原始细节，保留现有预览", "目前記憶體不足以載入原始細節，保留現有預覽"))
             }
             source = nil

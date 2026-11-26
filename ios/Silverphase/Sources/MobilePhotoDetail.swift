@@ -32,6 +32,8 @@ struct MobilePhotoDetail: View {
     @State private var tileWork: Task<Void, Never>?
     @State private var tileGeneration = 0
     @State private var originalHoldID: UUID?
+    @State private var originalFitWork: UUID?
+    @State private var originalDetailWork: UUID?
     @State private var originalProxy: (id: UUID, image: CGImage, requestedEdge: Int)?
     @State private var memoryDrop = 0
     @State private var preview: CGImage?
@@ -226,6 +228,10 @@ struct MobilePhotoDetail: View {
             let url = document.url(for: photo)
             let geometry = photo.geometry
             let screenEdge = min(2560, fitEdge ?? 1920)
+            guard originalProxy?.id != id || (originalProxy?.requestedEdge ?? 0) < screenEdge else { return }
+            let work = UUID()
+            originalFitWork = work
+            defer { if originalFitWork == work { originalFitWork = nil } }
             let trace = GalleryRenderTrace("original-hold")
             if originalProxy?.id != id {
                 trace.mark("embedded preview start")
@@ -602,6 +608,9 @@ struct MobilePhotoDetail: View {
         if let originalTile, originalTile.key == request.key,
            Self.tile(originalTile.tile, satisfies: request.viewport) { return }
         originalUnavailable = false
+        let work = UUID()
+        originalDetailWork = work
+        defer { if originalDetailWork == work { originalDetailWork = nil } }
         do {
             let result = try await document.renderLibraryOriginalTile(photo, viewport: request.viewport,
                                                                        using: originalDetailRenderer)
@@ -632,7 +641,11 @@ struct MobilePhotoDetail: View {
                              nativeOutput: document.galleryNativeOutput(photo, original: false),
                              nativeZoomCommand: nativeZoomCommand,
                              comparisonImage: originalHoldID == photo.id && originalProxy?.id == photo.id ? originalProxy?.image : nil,
-                             onCompare: { hold in originalHoldID = hold ? photo.id : nil },
+                             onCompare: { hold in
+                                 originalFitWork = nil
+                                 originalDetailWork = nil
+                                 originalHoldID = hold ? photo.id : nil
+                             },
                              onDemand: { demand in
                 if demand.photoID == photoID, canvasDemand != demand {
                     canvasDemand = demand
@@ -659,15 +672,25 @@ struct MobilePhotoDetail: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .overlay(alignment: .top) {
-            if originalHoldID == photo.id && originalProxy?.id == photo.id {
-                Text(originalLabel(photo))
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(.black.opacity(0.68), in: Capsule())
-                    .foregroundStyle(.white)
-                    .accessibilityIdentifier("photo-detail.original-hold")
-                    .padding(.top, 6)
-                    .allowsHitTesting(false)
+            if originalHoldID == photo.id {
+                let loading = originalFitWork != nil || originalDetailWork != nil
+                HStack(spacing: 5) {
+                    Text(originalLabel(photo))
+                        .font(.caption.weight(.semibold))
+                        .accessibilityIdentifier("photo-detail.original-hold")
+                        .accessibilityValue(loading ? T("Loading", "正在加载", "正在載入") : "")
+                    if loading {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(.black.opacity(0.68), in: Capsule())
+                .foregroundStyle(.white)
+                .padding(.top, 6)
+                .allowsHitTesting(false)
             } else if canvasDemand?.nativeZoom == true, showsControls {
                 let result = visibleTile(galleryTile, photo: photo, viewport: canvasDemand?.viewport)
                 let output = document.galleryNativeOutput(photo, original: false)
