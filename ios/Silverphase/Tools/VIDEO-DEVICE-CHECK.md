@@ -44,6 +44,8 @@ its Documents directory under one or more of these names:
 - `video-check-uhd30-landscape.mov` and `video-check-uhd30-portrait.mov`
 - `video-check-uhd60-landscape.mov` and `video-check-uhd60-portrait.mov`
 - `video-check-legacy-small.mov` for a smaller historical input (no UHD claim)
+- `video-check-open-gate-portrait.mov` for a 3024×4032 / 60 fps open-gate frame
+- `video-check-high-rate-portrait.mov` for 1080×1440 / 120 fps
 
 Launch with `--video-format-regression` for ranking, rational frame rates,
 legacy metadata and rotation-normalized dimensions. It writes `video-format-report.json`.
@@ -64,6 +66,13 @@ audio under the same legacy fixture name and launch with
 Vision3 500T without writing to Photos. Run `python3
 ios/Silverphase/Tools/check-video-look.py <Documents directory>` to compare RGB
 pixels against the source and across film stocks, not just the track metadata.
+
+Above a 3840-pixel long edge, the export uses an explicit HEVC writer at
+the original displayed dimensions rather than the standard quality preset,
+which scaled a 3024×4032 test to 2880×3840. Check exact display size/frame
+counts, retained sample timing and audio with the open-gate fixture. Errors
+show source and encoded specifications. Do not relax validation or save a
+scaled output under the original-spec claim.
 
 The production export memory guard remains active. This check does not test
 camera recording, hardware thermals, sustained AV cadence, or playback sync.

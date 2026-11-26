@@ -10,6 +10,9 @@ enum MobileMovieDevelopment {
         let size: CGSize
         let frameRate: Float
         let hevc: Bool
+        var summary: String {
+            "\(Int(size.width))×\(Int(size.height)) / \(frameRate.formatted()) fps / \(hevc ? "HEVC" : "non-HEVC")"
+        }
     }
 
     private static func inspect(_ track: AVAssetTrack) async throws -> VideoTrack {
@@ -78,25 +81,18 @@ enum MobileMovieDevelopment {
         composition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
         composition.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
         composition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
-        // Don't prescribe a landscape size. Verify the actual resulting
-        // orientation, raster and rate after encoding, before saving.
-        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality),
-              exporter.supportedFileTypes.contains(.mov) else {
-            throw MobileFailure.message(TDetached("The video exporter could not be configured.", "无法配置视频导出器。", "無法設定影片輸出器。"))
-        }
-        exporter.videoComposition = composition
         let partial = destination.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".mov")
-        let progressTask = Task {
-            for await state in exporter.states(updateInterval: 0.5) {
-                if Task.isCancelled { break }
-                if case .exporting(let value) = state { progress(value.fractionCompleted) }
-            }
+        defer { try? FileManager.default.removeItem(at: partial) }
+        if max(input.size.width, input.size.height) > 3840 {
+            // The preset caps the long edge at 3840 on iOS, even with a
+            // larger composition. Encode open-gate footage at its actual size.
+            composition.renderSize = input.size
+            try await writeNativeRaster(asset: asset, composition: composition, video: inputTrack,
+                                        audio: audio, size: input.size, fps: input.frameRate,
+                                        duration: duration, destination: partial, progress: progress)
+        } else {
+            try await exportPreset(asset: asset, composition: composition, destination: partial, progress: progress)
         }
-        defer {
-            progressTask.cancel()
-            try? FileManager.default.removeItem(at: partial)
-        }
-        try await exporter.export(to: partial, as: .mov)
         let output = AVURLAsset(url: partial)
         let outputDuration = try await output.load(.duration)
         let outputVideo = try await output.loadTracks(withMediaType: .video)
@@ -110,13 +106,129 @@ enum MobileMovieDevelopment {
         let result = try await inspect(outputTrack)
         guard result.size == input.size, result.frameRate.isFinite, result.frameRate > 0,
               abs(result.frameRate - input.frameRate) <= 0.5, result.hevc else {
-            throw MobileFailure.message(TDetached("The rendered movie did not preserve the source dimensions or frame rate. The original was kept.",
-                                                  "显影后的文件未保持原片画幅或帧率，已保留原片。",
-                                                  "顯影後的檔案未保留原始畫幅或影格率，已保留原片。"))
+            throw MobileFailure.message(TDetached("Export changed the video format. Original kept.\nSource: \(input.summary)\nExport: \(result.summary)",
+                                                  "显影后的视频规格发生变化，已保留原片。\n原片：\(input.summary)\n成片：\(result.summary)",
+                                                  "顯影後的影片規格發生變化，已保留原片。\n原片：\(input.summary)\n成片：\(result.summary)"))
         }
         try Task.checkCancellation()
         try FileManager.default.moveItem(at: partial, to: destination)
     }
+
+    @MainActor private static func exportPreset(asset: AVAsset, composition: AVVideoComposition, destination: URL,
+                                     progress: @escaping @Sendable (Double) -> Void) async throws {
+        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality),
+              exporter.supportedFileTypes.contains(.mov) else { throw writerFailure() }
+        exporter.videoComposition = composition
+        let progressTask = Task {
+            for await state in exporter.states(updateInterval: 0.5) {
+                if Task.isCancelled { break }
+                if case .exporting(let value) = state { progress(value.fractionCompleted) }
+            }
+        }
+        defer { progressTask.cancel() }
+        try await exporter.export(to: destination, as: .mov)
+    }
+
+    private static func writerFailure() -> MobileFailure {
+        .message(TDetached("Could not encode the original video format. The original was kept.",
+                           "无法按原始规格编码，已保留原片。", "無法按原始規格編碼，已保留原片。"))
+    }
+
+    /// The reader applies the same film composition, baking source rotation
+    /// exactly once. Submit its timed samples and passthrough audio while
+    /// bounding the number of buffered frames by AVFoundation backpressure.
+    nonisolated private static func writeNativeRaster(asset: AVAsset, composition: AVVideoComposition,
+        video: AVAssetTrack, audio: [AVAssetTrack], size: CGSize, fps: Float,
+        duration: CMTime, destination: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
+        guard fps.isFinite, fps > 0 else { throw writerFailure() }
+        let reader = try AVAssetReader(asset: asset)
+        let writer = try AVAssetWriter(outputURL: destination, fileType: .mov)
+        var finished = false
+        defer {
+            if !finished {
+                if reader.status == .reading { reader.cancelReading() }
+                if writer.status == .writing { writer.cancelWriting() }
+            }
+        }
+
+        let picture = AVAssetReaderVideoCompositionOutput(videoTracks: [video], videoSettings: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        ])
+        picture.videoComposition = composition
+        picture.alwaysCopiesSampleData = false
+        let pixels = Double(size.width * size.height)
+        let sourceBitRate = Double(try await video.load(.estimatedDataRate))
+        let bitRate = Int(max(sourceBitRate.isFinite ? sourceBitRate : 0, pixels * Double(fps) * 0.10))
+        let settings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height),
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+            ],
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: bitRate,
+                AVVideoExpectedSourceFrameRateKey: Int(fps.rounded()),
+            ],
+        ]
+        guard writer.canApply(outputSettings: settings, forMediaType: .video) else { throw writerFailure() }
+        let pictureInput = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
+        pictureInput.expectsMediaDataInRealTime = false
+        guard reader.canAdd(picture), writer.canAdd(pictureInput) else { throw writerFailure() }
+        reader.add(picture); writer.add(pictureInput)
+        var channels: [(output: AVAssetReaderOutput, input: AVAssetWriterInput, isVideo: Bool, finished: Bool)] = [
+            (picture, pictureInput, true, false)
+        ]
+        for track in audio {
+            let sound = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+            sound.alwaysCopiesSampleData = false
+            let description = try await track.load(.formatDescriptions).first
+            let input = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: description)
+            input.expectsMediaDataInRealTime = false
+            guard reader.canAdd(sound), writer.canAdd(input) else { throw writerFailure() }
+            reader.add(sound); writer.add(input)
+            channels.append((sound, input, false, false))
+        }
+
+        try Task.checkCancellation()
+        guard reader.startReading() else { throw reader.error ?? writerFailure() }
+        guard writer.startWriting() else { throw writer.error ?? writerFailure() }
+        writer.startSession(atSourceTime: .zero)
+        var nextProgress = 0.0
+        while channels.contains(where: { !$0.finished }) {
+            try Task.checkCancellation()
+            guard reader.status != .failed, writer.status == .writing else {
+                throw reader.error ?? writer.error ?? writerFailure()
+            }
+            var advanced = false
+            for index in channels.indices where !channels[index].finished && channels[index].input.isReadyForMoreMediaData {
+                let channel = channels[index]
+                let seconds: Double? = try autoreleasepool {
+                    guard let sample = channel.output.copyNextSampleBuffer() else { return nil }
+                    guard channel.input.append(sample) else { throw writer.error ?? writerFailure() }
+                    return CMSampleBufferGetPresentationTimeStamp(sample).seconds
+                }
+                if let seconds {
+                    if channel.isVideo, seconds >= nextProgress {
+                        progress(min(0.99, max(0, seconds / duration.seconds)))
+                        nextProgress = seconds + 0.25
+                    }
+                } else {
+                    guard reader.status != .failed else { throw reader.error ?? writerFailure() }
+                    channel.input.markAsFinished()
+                    channels[index].finished = true
+                }
+                advanced = true
+            }
+            if !advanced { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        guard reader.status == .completed else { throw reader.error ?? writerFailure() }
+        await writer.finishWriting()
+        guard writer.status == .completed else { throw writer.error ?? writerFailure() }
+        finished = true
+    }
+
 }
 
 #if DEBUG
@@ -189,7 +301,7 @@ extension MobileMovieDevelopment {
         try? FileManager.default.removeItem(at: report)
         var results: [[String: String]] = []
         var cropMismatchRejected: Bool?
-        for variant in ["uhd30-landscape", "uhd30-portrait", "uhd60-landscape", "uhd60-portrait", "legacy-small"] {
+        for variant in ["uhd30-landscape", "uhd30-portrait", "uhd60-landscape", "uhd60-portrait", "legacy-small", "open-gate-portrait", "high-rate-portrait"] {
             let source = directory.appending(path: "video-check-\(variant).mov")
             guard FileManager.default.fileExists(atPath: source.path) else { continue }
             let destination = directory.appending(path: "video-check-\(variant)-developed.mov")
