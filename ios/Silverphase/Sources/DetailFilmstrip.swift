@@ -254,7 +254,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         private func applyEffects(to cell: ThumbnailCell, at index: IndexPath) {
             guard let view, items.indices.contains(index.item) else { return }
             let center = view.contentOffset.x + view.bounds.width / 2
-            let itemCenter = view.collectionViewLayout.layoutAttributesForItem(at: index)?.center.x ?? center
+            let itemCenter = cell.center.x
             let distance = min(1, abs(itemCenter - center) / (DetailFilmstrip.side * 2.15))
             cell.apply(distance: reduceMotion ? 0 : sqrt(distance), selected: items[index.item].id == selected)
         }

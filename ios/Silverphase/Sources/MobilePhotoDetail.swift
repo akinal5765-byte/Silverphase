@@ -228,12 +228,12 @@ struct MobilePhotoDetail: View {
 
     private func metadata(_ photo: MobilePhoto) -> some View {
         HStack(spacing: 8) {
-            rating(photo)
-            flag(photo)
+            rating(photo).frame(width: 44, height: 44)
+            flag(photo).frame(width: 44, height: 44)
             Button { showingFilm = true } label: {
                 let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
                 let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
-                chip(fitMode.window.width >= 620 ? name : nil, symbol: "film")
+                chip(fitMode.window.width >= 620 ? name : nil, symbol: "film", wideLabel: true)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
@@ -482,17 +482,25 @@ struct MobilePhotoDetail: View {
             .accessibilityIdentifier(id)
     }
 
-    private func chip(_ title: String?, symbol: String) -> some View {
+    private func chip(_ title: String?, symbol: String, wideLabel: Bool = false) -> some View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
             if let title {
-                Text(title).lineLimit(1)
-                    .frame(maxWidth: fitMode.window.width >= 800 ? 240 : 166)
-                Image(systemName: "chevron.down").font(.system(size: 8))
+                if wideLabel {
+                    ViewThatFits(in: .horizontal) {
+                        Text(title).fixedSize(horizontal: true, vertical: false)
+                        Text(title).lineLimit(1)
+                    }
+                    .frame(maxWidth: fitMode.window.width >= 800 ? 240 : 166, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
+                    Image(systemName: "chevron.down").font(.system(size: 8))
+                } else {
+                    Text(title).lineLimit(1)
+                }
             }
         }
         .font(.caption.weight(.semibold))
-        .padding(.horizontal, title == nil ? 0 : 8).frame(minWidth: 44, minHeight: 44)
+        .padding(.horizontal, wideLabel && title != nil ? 10 : 0).frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
         .modifier(ChromeSurface(radius: 22, interactive: true))
     }
@@ -742,6 +750,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 updateCentering()
                 centerFittedPhoto()
             }
+            if let host = transitionHost, host.superview === self, host.frame != bounds { host.frame = bounds }
             scheduleEntryIfReady()
 #if DEBUG
             updateGeometryAudit()
@@ -879,7 +888,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                     if x >= 9 && x > y * 1.16 { axis = .horizontal }
                     else if d.y >= 12 && y > x * 1.26 { axis = .pull }
                     guard let axis else { return }
-                    startTransition(in: window, showsGrid: axis == .pull)
+                    startTransition(showsGrid: axis == .pull)
                     if axis == .pull { onPull?(true) }
                 }
                 guard let axis else { return }
@@ -931,11 +940,11 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                     self.onEntryStarted?()
                     return
                 }
-                self.startTransition(in: window, showsGrid: true)
+                self.startTransition(showsGrid: true)
                 self.settling = true
                 self.transitionGrid.alpha = 1
                 self.transitionCurrent.contentMode = .scaleAspectFill
-                self.transitionCurrent.frame = tile
+                self.transitionCurrent.frame = self.transitionHost?.convert(tile, from: window) ?? tile
                 self.transitionCurrent.layer.cornerRadius = 7
                 self.onEntryStarted?()
                 UIView.animate(withDuration: 0.30, delay: 0,
@@ -954,23 +963,25 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             handledBack = command
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                guard !self.reduceMotion, let window = self.window, self.source != nil,
+                guard !self.reduceMotion, self.window != nil, self.source != nil,
                       self.transitionHost == nil else { self.onDismiss?(); return }
                 self.axis = .pull
-                self.startTransition(in: window, showsGrid: true)
+                self.startTransition(showsGrid: true)
                 self.onPull?(true)
                 self.finishPull()
             }
         }
 
-        private func startTransition(in window: UIWindow, showsGrid: Bool) {
-            let host = UIView(frame: window.bounds)
+        private func startTransition(showsGrid: Bool) {
+            let host = UIView(frame: bounds)
             host.isUserInteractionEnabled = false
             host.clipsToBounds = true
-            window.addSubview(host)
+            // Every photo animation lives inside the canvas underneath both
+            // the native toolbar and the floating thumbnail browser.
+            addSubview(host)
             transitionHost = host
-            transitionViewport = window.bounds
-            transitionStart = photoView.convert(photoView.bounds, to: window)
+            transitionViewport = host.bounds
+            transitionStart = photoView.convert(photoView.bounds, to: host)
             if showsGrid {
                 transitionGrid.frame = host.bounds
                 transitionGrid.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -998,8 +1009,8 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             photoView.alpha = 0
         }
 
-        private func neighborFrame(_ step: Int, offset: CGFloat) -> CGRect {
-            let center = CGPoint(x: transitionStart.midX + CGFloat(step) * (transitionViewport.width + 12) + offset,
+        private func neighborFrame(_ step: Int) -> CGRect {
+            let center = CGPoint(x: transitionStart.midX + CGFloat(step) * (transitionViewport.width + 12),
                                  y: transitionStart.midY)
             let size = neighbors[step]?.image.map { CGSize(width: $0.width, height: $0.height) } ?? transitionStart.size
             let fit = fitRectForCurrentWindow().size
@@ -1012,12 +1023,19 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private func showPage(step: Int, travel: CGFloat) {
             if activeStep != step {
                 activeStep = step
+                transitionNeighbor.transform = .identity
                 transitionNeighbor.image = neighbors[step]?.image.map { UIImage(cgImage: $0) }
+                transitionNeighbor.frame = neighborFrame(step)
             } else if transitionNeighbor.image == nil, let incoming = neighbors[step]?.image {
+                transitionNeighbor.transform = .identity
                 transitionNeighbor.image = UIImage(cgImage: incoming)
+                transitionNeighbor.frame = neighborFrame(step)
             }
-            transitionCurrent.frame = transitionStart.offsetBy(dx: travel, dy: 0)
-            transitionNeighbor.frame = neighborFrame(step, offset: travel)
+            // Keep both image layouts fixed while dragging. Updating two
+            // transforms avoids resizing views or recomputing fit every frame.
+            let transform = CGAffineTransform(translationX: travel, y: 0)
+            transitionCurrent.transform = transform
+            transitionNeighbor.transform = transform
         }
 
         private func finishPage(step: Int, candidate: DetailPageNeighbor) {
@@ -1038,9 +1056,10 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private func finishPull() {
             settling = true
             let target: CGRect?
-            if transitionGrid.image != nil, let gridTarget, transitionViewport.insetBy(dx: -2, dy: -2).contains(gridTarget),
-               gridTarget.width > 8, gridTarget.height > 8 {
-                target = gridTarget
+            if transitionGrid.image != nil, let gridTarget, let window, let host = transitionHost {
+                let local = host.convert(gridTarget, from: window)
+                target = transitionViewport.insetBy(dx: -2, dy: -2).contains(local)
+                    && local.width > 8 && local.height > 8 ? local : nil
             } else { target = nil }
             let duration = reduceMotion ? 0 : 0.27
             UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
@@ -1082,6 +1101,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             transitionCurrent.image = nil
             transitionCurrent.transform = .identity
             transitionNeighbor.image = nil
+            transitionNeighbor.transform = .identity
             photoView.alpha = 1
             activeStep = nil
             pendingPage = nil
