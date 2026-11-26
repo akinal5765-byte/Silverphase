@@ -140,26 +140,26 @@ unknown film IDs fail visibly while leaving the session original intact.
 Both in-app and locked cameras keep one device-relative portrait canvas on
 phones, tablets and Duo in either hinge state. The shutter and controls keep
 that layout while glyphs/labels follow gravity. The hinge selects only the
-full-bleed viewfinder treatment. Camera pages request portrait orientation;
-`MobileCameraCanvas` also compensates an actually rotated host window, including
-hosts that ignore orientation restrictions. This is scoped to capture: leaving
-the camera restores the library/editor's existing direction policy.
+full-bleed viewfinder treatment. Ordinary iPhones, iPad and the secure capture
+extension use the device-relative camera canvas. The in-app Duo camera follows
+its native scene instead. Leaving the camera restores the library/editor policy.
 
-On iPhone Duo, the camera uses native scene coordinates and leaves its inner
-display shutter, review thumbnail, film and diffusion controls on the viewer's
-right in portrait and landscape. AVFoundation supplies separate, display-aware
+On the Duo inner display, the camera reuses the folded capture controls,
+including the lens row, as one measured group on the viewer's right. It preserves
+their relative order and spacing in portrait and landscape and keeps the
+viewfinder clear. AVFoundation supplies separate, display-aware
 preview and capture angles, including after a display handoff. AVKit's
 direction coordinator identifies the physical rear camera facing an open
 Duo's outer display; the app uses that display's native layout without forcing
 a 180-degree turn or changing how saved photos are mirrored.
 [Apple's iPhone Duo camera guidance](https://developer.apple.com/videos/play/tech-talks/111465/).
 
-An active horizontal fold selects the tabletop camera layout on iOS 27.1:
-the lower panel contains the finder and right-side shutter, and the upper
-panel contains a swipeable film wheel with a large current cover and smaller
-neighbors. A vertical book fold or fully flat display does not select this
-layout. The tabletop camera does not register an outer-display print accessory.
-The system's rear-camera selfie display handoff remains supported separately.
+An active horizontal fold places the entire camera on the lower panel:
+the finder, header, film picker and right-hand grip stay below the hinge.
+The upper panel has no camera controls or film wheel. A vertical book fold
+or flat inner display uses the full scene with the same grip. No tabletop
+print accessory is registered on the outer display; the system rear-camera
+selfie handoff is separate.
 
 For ordinary iPhones and the secure capture extension, the shutter latches
 physical device pose. On iOS27+

@@ -111,63 +111,87 @@ final class PhotoImportTests: XCTestCase {
                        "Ordinary-phone library retains its portrait policy after camera dismissal")
     }
 
+    @MainActor private func duoFinderBounds(_ grip: XCUIElement) -> CGRect? {
+        guard let value = grip.value as? String else { return nil }
+        let values = value.split(separator: ",").compactMap { Double($0) }
+        guard values.count == 4, values.allSatisfy(\.isFinite), values[2] > 0, values[3] > 0 else { return nil }
+        return CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
+    }
+
+    @MainActor private func assertDuoGrip(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let shutter = app.buttons["camera.shutter"], gallery = app.buttons["camera.latest"]
+        let film = app.buttons["camera.film"], diffusion = app.buttons["camera.diffusion"]
+        let grip = app.otherElements["camera.side-grip"]
+        for control in [shutter, gallery, film, diffusion, grip] {
+            XCTAssertTrue(control.waitForExistence(timeout: 5), file: file, line: line)
+        }
+        let geometry = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.duoFinderBounds(grip) != nil
+        }, object: nil)
+        guard XCTWaiter.wait(for: [geometry], timeout: 4) == .completed,
+              let finder = duoFinderBounds(grip) else {
+            XCTFail("The empty simulator finder must still report layout bounds", file: file, line: line)
+            return
+        }
+        let b = shutter.frame
+        let snapshot = XCTAttachment(screenshot: app.screenshot())
+        snapshot.name = "Duo capture grip"
+        snapshot.lifetime = .keepAlways
+        add(snapshot)
+        print("Duo grip: finder=\(finder) bank=\(grip.frame) shutter=\(b) gallery=\(gallery.frame) film=\(film.frame) diffusion=\(diffusion.frame)")
+        // Physical right in the current scene (not merely right of a squeezed bottom row).
+        XCTAssertGreaterThanOrEqual(grip.frame.minX + 2, finder.maxX, file: file, line: line)
+        XCTAssertGreaterThan(b.minX, finder.maxX, file: file, line: line)
+        XCTAssertEqual(b.midY, finder.midY, accuracy: 3, file: file, line: line)
+        XCTAssertEqual(b.width, 68, accuracy: 2, file: file, line: line)
+        XCTAssertEqual(b.height, 68, accuracy: 2, file: file, line: line)
+        // The one quarter-turn maps folded leading to bottom, trailing to top.
+        XCTAssertGreaterThan(gallery.frame.midY, b.midY, file: file, line: line)
+        XCTAssertLessThan(film.frame.midY, b.midY, file: file, line: line)
+        XCTAssertLessThan(diffusion.frame.midY, film.frame.midY, file: file, line: line)
+        for button in [gallery, shutter, film, diffusion] {
+            XCTAssertTrue(grip.frame.insetBy(dx: -2, dy: -2).contains(button.frame), file: file, line: line)
+        }
+        for id in ["camera.flip", "camera.portrait"] where app.buttons[id].exists {
+            XCTAssertGreaterThanOrEqual(app.buttons[id].frame.minX, grip.frame.minX - 2, file: file, line: line)
+        }
+    }
+
     @MainActor func testDuoKeepsTheFoldedShutterGroupTogetherOnTheRight() {
         XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
                                "--camera-layout-check", "--camera-duo-layout-check"]
         app.launch()
         defer { app.terminate() }
         let camera = app.buttons["library.camera"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 15))
-        camera.tap()
-        let shutter = app.buttons["camera.shutter"]
-        XCTAssertTrue(shutter.waitForExistence(timeout: 10))
-        let thumbnail = app.buttons["camera.latest"]
-        let film = app.buttons["camera.film"]
-        let diffusion = app.buttons["camera.diffusion"]
-        for control in [shutter, thumbnail, film, diffusion] {
-            XCTAssertTrue(control.exists)
-            XCTAssertTrue(app.frame.intersects(control.frame))
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft, .landscapeRight] {
+            XCUIDevice.shared.orientation = orientation
+            assertDuoGrip(app)
         }
-        XCTAssertGreaterThan(shutter.frame.midX, app.frame.midX)
-        XCTAssertLessThan(thumbnail.frame.midX, shutter.frame.midX)
-        XCTAssertGreaterThan(film.frame.midX, shutter.frame.midX)
-        XCTAssertGreaterThan(diffusion.frame.midX, film.frame.midX)
-        XCTAssertLessThan(abs(thumbnail.frame.midY - shutter.frame.midY), 24)
-        XCTAssertLessThan(abs(diffusion.frame.midY - shutter.frame.midY), 24)
     }
 
     @MainActor func testDuoWaistCameraControlLayout() {
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
                                "--camera-layout-check", "--camera-waist-layout-check"]
         app.launch()
         defer { app.terminate() }
         let camera = app.buttons["library.camera"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 15))
-        camera.tap()
-        let shutter = app.buttons["camera.shutter"]
-        XCTAssertTrue(shutter.waitForExistence(timeout: 10))
-        let current = app.buttons["camera.waist-film.0"]
-        XCTAssertTrue(current.waitForExistence(timeout: 6))
-        let left = app.buttons["camera.waist-film.-1"], right = app.buttons["camera.waist-film.1"]
-        XCTAssertTrue(left.exists && right.exists)
-        XCTAssertLessThan(left.frame.midX, current.frame.midX)
-        XCTAssertLessThan(current.frame.midX, right.frame.midX)
-        XCTAssertGreaterThan(current.frame.width, right.frame.width)
-        XCTAssertGreaterThan(shutter.frame.midY, current.frame.midY)
-        XCTAssertGreaterThan(shutter.frame.midX, app.frame.midX)
-        XCTAssertFalse(app.switches["camera.waist-outer-print"].exists)
-        for id in ["camera.latest", "camera.diffusion"] {
-            let control = app.buttons[id]
-            XCTAssertTrue(control.exists)
-            XCTAssertGreaterThan(control.frame.midY, current.frame.midY)
-            XCTAssertLessThan(abs(control.frame.midY - shutter.frame.midY), 24)
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        assertDuoGrip(app)
+        let lower = duoFinderBounds(app.otherElements["camera.side-grip"]) ?? .null
+        XCTAssertGreaterThan(lower.minY, app.frame.height * 0.45)
+        for id in ["camera.back", "camera.options", "camera.latest", "camera.shutter", "camera.film", "camera.diffusion"] {
+            let item = app.buttons[id]
+            XCTAssertTrue(item.exists)
+            XCTAssertGreaterThanOrEqual(item.frame.minY, lower.minY - 2)
         }
-        let selected = current.label
-        right.tap()
-        XCTAssertNotEqual(current.label, selected)
+        XCTAssertFalse(app.buttons["camera.waist-film.0"].exists)
+        XCTAssertFalse(app.switches["camera.waist-outer-print"].exists)
     }
 
     @MainActor func testTabletCameraCanvasAndWorkspaceRotation() throws {
