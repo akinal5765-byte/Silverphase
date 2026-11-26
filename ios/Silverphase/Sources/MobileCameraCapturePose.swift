@@ -117,9 +117,18 @@ struct MobileWaistFilmTrack {
 
     func nearestSlot(to coordinate: CGFloat) -> Int { Int(coordinate.rounded()) }
 
-    func destination(from coordinate: CGFloat, prediction: CGFloat, reduceMotion: Bool) -> Int {
-        let coast = reduceMotion ? 0 : min(2.0, max(-2.0, prediction * 0.58))
-        return nearestSlot(to: coordinate + coast)
+    func release(from coordinate: CGFloat, velocity: CGFloat, startedAt: TimeInterval) -> Settle {
+        let speed = velocity.isFinite ? velocity : 0
+        let springThreshold: CGFloat = 1.1     // cover slots per second
+        // Keep the fastest throws bounded by stronger friction, not by
+        // clamping the first frame's velocity and visibly grabbing the strip.
+        let drag: CGFloat = 3.35 * max(1, abs(speed) / 12)
+        let coastDuration = log(max(1, abs(speed) / springThreshold)) / drag
+        let coastEnd = coordinate - speed * expm1(-drag * coastDuration) / drag
+        let coastVelocity = speed * exp(-drag * coastDuration)
+        let destination = nearestSlot(to: coastEnd + coastVelocity * 0.10)
+        return Settle(origin: coordinate, destination: destination, velocity: speed, startedAt: startedAt,
+                      coastDuration: coastDuration, drag: drag, springDuration: 0.31)
     }
 
     struct Aperture {
@@ -148,19 +157,43 @@ struct MobileWaistFilmTrack {
         let destination: Int
         let velocity: CGFloat
         let startedAt: TimeInterval
-        let duration: TimeInterval = 0.43
+        let coastDuration: TimeInterval
+        private let drag: CGFloat
+        private let springDuration: TimeInterval
+        var duration: TimeInterval { coastDuration + springDuration }
+
+        init(origin: CGFloat, destination: Int, velocity: CGFloat, startedAt: TimeInterval,
+             coastDuration: TimeInterval = 0, drag: CGFloat = 0, springDuration: TimeInterval = 0.43) {
+            self.origin = origin
+            self.destination = destination
+            self.velocity = velocity
+            self.startedAt = startedAt
+            self.coastDuration = coastDuration
+            self.drag = drag
+            self.springDuration = springDuration
+        }
+
+        private func coastPosition(at elapsed: TimeInterval) -> CGFloat {
+            guard drag > 0 else { return origin }
+            return origin - velocity * expm1(-drag * elapsed) / drag
+        }
 
         func position(at time: TimeInterval) -> CGFloat {
             let elapsed = max(0, time - startedAt)
             let target = CGFloat(destination)
             guard elapsed < duration else { return target }
-            // Critically damped response: joins the actual drag position,
-            // preserves a bounded flick velocity, and converges on an exact slot.
+            guard elapsed >= coastDuration else { return coastPosition(at: elapsed) }
+
+            // The spring starts at the actual end of the coast with the same
+            // velocity. Ease its residual to 0 so both position and velocity
+            // land exactly on the detent, even on a dropped final frame.
             let damping: CGFloat = 19
-            let difference = origin - target
-            let speed = min(11, max(-11, velocity))
-            let t = CGFloat(elapsed)
-            return target + (difference + (speed + damping * difference) * t) * exp(-damping * t)
+            let difference = coastPosition(at: coastDuration) - target
+            let speed = velocity * exp(-drag * coastDuration)
+            let t = CGFloat(elapsed - coastDuration)
+            let fade = min(1, max(0, (t / springDuration - 0.7) / 0.3))
+            let weight = 1 - fade * fade * (3 - 2 * fade)
+            return target + (difference + (speed + damping * difference) * t) * exp(-damping * t) * weight
         }
     }
 

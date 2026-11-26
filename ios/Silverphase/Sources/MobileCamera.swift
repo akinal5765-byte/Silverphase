@@ -2205,9 +2205,13 @@ private struct MobileWaistFilmWheel: View {
                     return
                 }
                 let position = start - event.translation.width / aperture.pitch
-                let prediction = (event.translation.width - event.predictedEndTranslation.width) / aperture.pitch
-                let destination = track.destination(from: position, prediction: prediction, reduceMotion: reduceMotion)
-                snap(to: destination, from: position, velocity: prediction / 0.20)
+                if reduceMotion {
+                    snap(to: track.nearestSlot(to: position), from: position)
+                } else {
+                    let release = track.release(from: position, velocity: -event.velocity.width / aperture.pitch,
+                                                startedAt: ProcessInfo.processInfo.systemUptime)
+                    snap(to: release.destination, from: position, release: release)
+                }
             }
     }
 
@@ -2228,19 +2232,19 @@ private struct MobileWaistFilmWheel: View {
         }
     }
 
-    private func snap(to slot: Int, from explicitPosition: CGFloat? = nil, velocity: CGFloat = 0) {
+    private func snap(to slot: Int, from explicitPosition: CGFloat? = nil, release: MobileWaistFilmTrack.Settle? = nil) {
         guard enabled else { return }
         let now = ProcessInfo.processInfo.systemUptime
         let position = explicitPosition ?? currentPosition(at: now)
         grabOrigin = nil
         grabBegan = nil
         fingerPosition = nil
-        guard !reduceMotion, abs(position - CGFloat(slot)) > 0.001 else {
+        guard !reduceMotion, abs(position - CGFloat(slot)) > 0.001 || abs(release?.velocity ?? 0) > 0.001 else {
             settle(at: slot)
             return
         }
         settleHaptic.prepare()
-        motion = MobileWaistFilmTrack.Settle(origin: position, destination: slot, velocity: velocity, startedAt: now)
+        motion = release ?? MobileWaistFilmTrack.Settle(origin: position, destination: slot, velocity: 0, startedAt: now)
     }
 
     private func settle(at slot: Int) {

@@ -95,6 +95,24 @@ enum MobileLockedCameraChecks {
             let settle = MobileWaistFilmTrack.Settle(origin: 26.42, destination: 28, velocity: 3, startedAt: 5)
             try require(abs(settle.position(at: 5) - 26.42) < 0.00001 && settle.position(at: 6) == 28,
                         "A release must begin at its dragged position and end exactly on the snapped slot")
+            let pitch = MobileWaistFilmTrack.Aperture(size: CGSize(width: 669, height: 410)).pitch
+            let smallStep: TimeInterval = 0.00001
+            let releases = [300.0, 800.0, 1500.0].map {
+                wheel.release(from: 26.21, velocity: $0 / pitch, startedAt: 5)
+            }
+            try require(zip(releases.map(\.destination), [26, 27, 28]).allSatisfy(==),
+                        "A slow drag stays near its stock; a fast flick should coast over multiple slots")
+            for motion in releases {
+                let seam = motion.startedAt + motion.coastDuration
+                let initialSlope = (motion.position(at: 5 + smallStep) - motion.origin) / smallStep
+                let coastSlope = (motion.position(at: seam) - motion.position(at: seam - smallStep)) / smallStep
+                let springSlope = (motion.position(at: seam + smallStep) - motion.position(at: seam)) / smallStep
+                let finish = motion.startedAt + motion.duration
+                try require(abs(initialSlope - motion.velocity) < 0.001 && abs(coastSlope - springSlope) < 0.001 &&
+                            motion.position(at: finish + smallStep) == CGFloat(motion.destination) &&
+                            abs(motion.position(at: finish - smallStep) - CGFloat(motion.destination)) < 0.000001,
+                            "Inertia, detent spring and final rest must share continuous position and speed")
+            }
             for width: CGFloat in [390, 627, 669, 820] {
                 let aperture = MobileWaistFilmTrack.Aperture(size: CGSize(width: width, height: 410))
                 let center = aperture.centerX(of: 28, at: settle.position(at: 6))
