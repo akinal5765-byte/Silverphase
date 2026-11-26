@@ -28,7 +28,7 @@ Silverphase 是一间在设备上运行的**开源数字暗房**，适用于 **m
 | 平台 | 下载入口 | 系统要求 |
 |---|---|---|
 | macOS | [1.4.0（构建 7）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.4.0) · Apple Silicon DMG | macOS 15 或更高 |
-| iPhone／iPad | [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
+| iPhone／iPad | [App Store](https://apps.apple.com/cn/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
 
 macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.md)
 

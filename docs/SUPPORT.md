@@ -1,6 +1,6 @@
 # Silverphase 支持 / Support
 
-Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
+Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 [App Store](https://apps.apple.com/cn/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
 
 ## 联系维护者
 
