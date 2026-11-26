@@ -10,6 +10,45 @@ import Darwin
 // Explicit launch-only diagnostics. Synthetic input is generated inside the
 // app container; no personal photos are copied into the repository or bundle.
 enum MobileSmokeChecks {
+    @MainActor static func tetheredImportRegression() async {
+        let report = URL.documentsDirectory.appending(path: "tethered-import-report.json")
+        let root = URL.temporaryDirectory.appending(path: "TetheredImport-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        var result: [String: String] = [:]
+        do {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let source = root.appending(path: "Test shot.jpg")
+            let space = CGColorSpace(name: CGColorSpace.sRGB)!
+            let bytes = Data(repeating: 145, count: 128 * 96 * 3)
+            guard let provider = CGDataProvider(data: bytes as CFData),
+                  let image = CGImage(width: 128, height: 96, bitsPerComponent: 8, bitsPerPixel: 24,
+                    bytesPerRow: 128 * 3, space: space, bitmapInfo: CGBitmapInfo(rawValue: 0),
+                    provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
+                  let writer = CGImageDestinationCreateWithURL(source as CFURL, UTType.jpeg.identifier as CFString, 1, nil),
+                  let film = StockCatalog.shared.stock("kodak_vision3_500t") ?? StockCatalog.shared.filmsForPicker.first
+            else { throw MobileFailure.message("Cannot create the tether fixture") }
+            CGImageDestinationAddImage(writer, image, nil)
+            guard CGImageDestinationFinalize(writer) else { throw MobileFailure.message("Cannot write the tether fixture") }
+            let doc = MobileDocument(directory: root.appending(path: "library"))
+            let original = try Data(contentsOf: source)
+            await doc.importFiles([source], displayNames: [source: "Tether test.jpg"],
+                                  capturedFilm: film, announceSuccess: false).value
+            guard let photo = doc.photos.last, doc.photos.count == 1, photo.recipe["film_stock"]?.stringValue == film.id,
+                  photo.name == "Tether test.jpg", try Data(contentsOf: source) == original,
+                  try Data(contentsOf: doc.url(for: photo)) == original else {
+                throw MobileFailure.message(doc.error ?? "Tether import did not preserve its original and film recipe")
+            }
+            let developed = try await doc.developCameraPhoto(photo, animate: false)
+            guard developed.image.width > 0, developed.image.height > 0 else {
+                throw MobileFailure.message("No developed tether preview")
+            }
+            result = ["status": "passed", "film": film.id, "original": "byte-identical", "preview": "rendered"]
+        } catch { result = ["status": "failed", "error": error.localizedDescription] }
+        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+            try? data.write(to: report, options: .atomic)
+        }
+    }
+
     @MainActor static func flatImportRegression() async {
         let report = URL.documentsDirectory.appendingPathComponent("flat-import-report.json")
         let workspace = URL.temporaryDirectory.appendingPathComponent("Flat-Regression-" + UUID().uuidString)
