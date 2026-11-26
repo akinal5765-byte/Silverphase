@@ -1072,8 +1072,8 @@ struct MobilePhoto: Codable, Identifiable {
                     let changesDecode = ["_temperature", "_tint", "_lens"].contains { photo.recipe[$0] != interactionStart?.recipe[$0] }
                     let inputMP = changesDecode || activeInteractionSourceMP <= 0 ? MobilePreviewPolicy.megapixels(edge: activeInteractionEdge, aspect: photo.sourceAspect) : activeInteractionSourceMP
                     let began = ContinuousClock.now
-                    let result = try await engine.render(url: url(for: photo), recipe: settings,
-                        megapixels: inputMP, geometry: photo.geometry)
+                    let result = try await engine.renderEditorPreview(url: url(for: photo), recipe: settings,
+                        geometry: photo.geometry, megapixels: inputMP)
                     let working = try MobileFilmGate.presents(photo.recipe) ? result.image : photo.geometry.apply(to: result.image)
                     let display = try await engine.canvasImage(working)
                     try Task.checkCancellation()
@@ -1296,7 +1296,8 @@ struct MobilePhoto: Codable, Identifiable {
                 try Task.checkCancellation()
                 let photo = try await resolveCameraBrightness(photo, using: engine)
                 let settings = cameraRenderRecipe(photo)
-                let result = try await engine.render(url: url, recipe: settings, megapixels: targetMP, geometry: photo.geometry)
+                let result = try await engine.renderEditorPreview(url: url, recipe: settings,
+                    geometry: photo.geometry, megapixels: targetMP)
                 guard !Task.isCancelled, generation == revision, active else { return }
                 let working = try MobileFilmGate.presents(photo.recipe) ? result.image : photo.geometry.apply(to: result.image)
                 let before = try MobileFilmGate.presents(photo.recipe) ? result.original : photo.geometry.apply(to: result.original)

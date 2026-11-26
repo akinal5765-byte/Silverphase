@@ -102,8 +102,10 @@ import UniformTypeIdentifiers
             let data = original.withUnsafeBytes { Data($0) }
             let size = CGSize(width: w, height: h)
             let image = CIImage(bitmapData: data, bytesPerRow: w * 16, size: size, format: .RGBAf, colorSpace: space)
-            let output = MobileEngine.stabilizeScaledRAWPreview(image)
-            guard output.extent == image.extent else { return false }
+            let output = MobileEngine.stabilizeScaledRAWPreview(image, scale: 0.5, enabled: true)
+            guard output.extent == image.extent,
+                  MobileEngine.stabilizeScaledRAWPreview(image, scale: 1, enabled: true) === image,
+                  MobileEngine.stabilizeScaledRAWPreview(image, scale: 0.5, enabled: false) === image else { return false }
             var raster = Array(repeating: SIMD4<Float>.zero, count: w * h)
             raster.withUnsafeMutableBytes {
                 context.render(output, toBitmap: $0.baseAddress!, rowBytes: w * 16,
@@ -120,7 +122,34 @@ import UniformTypeIdentifiers
         return true
     }
 
-    static func run() {
+    private static func editorRAWGuardLeavesEncodedPreviewAlone(in directory: URL) async throws -> Bool {
+        // A JPEG with a fractional downscale distinguishes the editor's
+        // established 241-column raster from the gallery's 240-column resize.
+        // The new RAW-only policy must not start resizing JPEGs as gallery does.
+        let size = CGSize(width: 501, height: 800)
+        let input = CIImage(color: CIColor(red: 0.4, green: 0.5, blue: 0.6))
+            .cropped(to: CGRect(origin: .zero, size: size))
+        let url = directory.appendingPathComponent("editor-edge-fixture.jpg")
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB) else { return false }
+        try CIContext().writeJPEGRepresentation(of: input, to: url, colorSpace: space)
+        let engine = MobileEngine()
+        let mp = Double(size.width * size.height) * pow(384 / Double(size.height), 2) / 1_000_000
+        do {
+            let ordinary = try await engine.render(url: url, recipe: [:], megapixels: mp)
+            let preview = try await engine.renderEditorPreview(url: url, recipe: [:],
+                                                               geometry: MobileGeometry(), megapixels: mp)
+            await engine.close()
+            // For encoded input the before image is made from the same decoded
+            // raster fed to the film engine, without stochastic film effects.
+            return ordinary.original.width == 241 && preview.original.width == ordinary.original.width
+                && preview.original.height == ordinary.original.height
+        } catch {
+            await engine.close()
+            throw error
+        }
+    }
+
+    static func run() async {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         var checks: [String] = []
@@ -144,16 +173,16 @@ import UniformTypeIdentifiers
             landscape.geometry.value.angle = -7; landscape.geometry.value.flipH = true
             let original = Data("original bytes".utf8)
             for photo in [portrait, landscape] { try original.write(to: doc.url(for: photo)) }
-            // Reproduce an upgrade with a cache entry from the old RAW raster.
+            // Reproduce an upgrade with a cache entry from the old editor raster.
             let legacyPreview = MobileLibraryPreview.url(photo: portrait,
                 cropRemapsEffects: doc.preferences.values.cropRemapsEffects,
-                diBlueCompensation: doc.preferences.values.diBlueCompensation, rasterVersion: 2)
+                diBlueCompensation: doc.preferences.values.diBlueCompensation, rasterVersion: 3)
             let currentPreview = doc.libraryPreviewURL(portrait)
             defer { MobileLibraryPreview.remove(portrait.id) }
             try FileManager.default.createDirectory(at: legacyPreview.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data("old raster".utf8).write(to: legacyPreview)
             try require(currentPreview != legacyPreview && !FileManager.default.fileExists(atPath: currentPreview.path),
-                        "legacy RAW raster cache cannot seed the detail or grid")
+                        "legacy editor raster cache cannot seed the detail or grid")
             let fixture = CIImage(color: CIColor(red: 0.4, green: 0.5, blue: 0.6)).cropped(to: CGRect(x: 0, y: 0, width: 12, height: 16))
             guard let raster = CIContext().createCGImage(fixture, from: fixture.extent) else {
                 throw MobileFailure.message("library thumbnail fixture unavailable")
@@ -161,7 +190,9 @@ import UniformTypeIdentifiers
             try require(MobileLibraryPreview.write(raster, to: currentPreview, source: doc.url(for: portrait))
                         && CGImageSourceCreateWithURL(currentPreview as CFURL, nil) != nil
                         && !FileManager.default.fileExists(atPath: legacyPreview.path),
-                        "new RAW raster thumbnail replaces the old entry and is ready for a warm launch")
+                        "new editor raster thumbnail replaces the old entry and is ready for a warm launch")
+            let encodedPreviewUnchanged = try await editorRAWGuardLeavesEncodedPreviewAlone(in: directory)
+            try require(encodedPreviewUnchanged, "the editor's scaled RAW guard leaves ordinary JPEG input unchanged")
             doc.photos = [portrait, landscape]; doc.selection = landscape.id
             doc.mark(landscape.id, rating: 4, flag: "pick")
             doc.copySettings(portrait, groups: [.geometry]); doc.pasteSettings(to: [landscape.id])
