@@ -111,7 +111,7 @@ final class PhotoImportTests: XCTestCase {
                        "Ordinary-phone library retains its portrait policy after camera dismissal")
     }
 
-    @MainActor func testDuoShutterRailSeparatesThumbnailShutterAndFilmControls() {
+    @MainActor func testDuoKeepsTheFoldedShutterGroupTogetherOnTheRight() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
@@ -128,11 +128,14 @@ final class PhotoImportTests: XCTestCase {
         let diffusion = app.buttons["camera.diffusion"]
         for control in [shutter, thumbnail, film, diffusion] {
             XCTAssertTrue(control.exists)
-            XCTAssertGreaterThan(control.frame.midX, app.frame.midX)
             XCTAssertTrue(app.frame.intersects(control.frame))
         }
-        XCTAssertLessThan(thumbnail.frame.maxY, shutter.frame.minY)
-        XCTAssertGreaterThan(diffusion.frame.minY, shutter.frame.maxY)
+        XCTAssertGreaterThan(shutter.frame.midX, app.frame.midX)
+        XCTAssertLessThan(thumbnail.frame.midX, shutter.frame.midX)
+        XCTAssertGreaterThan(film.frame.midX, shutter.frame.midX)
+        XCTAssertGreaterThan(diffusion.frame.midX, film.frame.midX)
+        XCTAssertLessThan(abs(thumbnail.frame.midY - shutter.frame.midY), 24)
+        XCTAssertLessThan(abs(diffusion.frame.midY - shutter.frame.midY), 24)
     }
 
     @MainActor func testDuoWaistCameraControlLayout() {
@@ -159,8 +162,8 @@ final class PhotoImportTests: XCTestCase {
         for id in ["camera.latest", "camera.diffusion"] {
             let control = app.buttons[id]
             XCTAssertTrue(control.exists)
-            XCTAssertGreaterThan(control.frame.midX, app.frame.midX)
             XCTAssertGreaterThan(control.frame.midY, current.frame.midY)
+            XCTAssertLessThan(abs(control.frame.midY - shutter.frame.midY), 24)
         }
         let selected = current.label
         right.tap()

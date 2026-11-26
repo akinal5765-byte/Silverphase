@@ -74,6 +74,9 @@ struct MobileCameraView: View {
 #endif
 #if SILVERPHASE_APP
     @State private var hingeClosed: Bool?
+    @State private var hasObservedHinge = false
+    @State private var nativeSceneInterrupted = false
+    @State private var nativeScenePausedCapture = false
 #endif
     @State private var camera = MobileStillCamera()
     @State private var configuration: MobileCameraConfiguration?
@@ -100,7 +103,7 @@ struct MobileCameraView: View {
     private var followsInterface: Bool {
         // Duo can move the same camera window to the other display while
         // open. In both cases UIKit already puts the controls upright.
-        isDuoLayoutCheck || rearSelfieOnHostDisplay || (hingeClosed ?? initialHingeClosed) != nil
+        isDuoLayoutCheck || rearSelfieOnHostDisplay || hasObservedHinge || initialHingeClosed != nil
     }
     private var usesInnerCameraLayout: Bool {
         isDuoLayoutCheck || (!rearSelfieOnHostDisplay && (hingeClosed ?? initialHingeClosed) == false)
@@ -210,7 +213,9 @@ struct MobileCameraView: View {
 #endif
     }
     private var ready: Bool {
-#if !SILVERPHASE_APP
+#if SILVERPHASE_APP
+        guard !nativeSceneInterrupted && !nativeScenePausedCapture else { return false }
+#else
         guard !sessionInterrupted else { return false }
 #endif
         return configuration != nil && previewing && !switching && !updatingCaptureMode && switchFrame == nil && !shotInProgress && canRunCamera
@@ -235,8 +240,9 @@ struct MobileCameraView: View {
 
     @ViewBuilder private var cameraLayout: some View {
 #if SILVERPHASE_APP
-        if followsInterface { duoCameraLayout }
-        else { standardCameraLayout }
+        // The live preview stays at the same SwiftUI identity even when
+        // UIKit temporarily takes the scene off one display and onto another.
+        sceneCameraLayout
 #else
         standardCameraLayout
 #endif
@@ -258,25 +264,25 @@ struct MobileCameraView: View {
 #endif
             Spacer(minLength: 0)
             if let configuration { finderControls(configuration) }
-            captureDock
+            captureDock()
         }
     }
 
 #if SILVERPHASE_APP
-    private var duoCameraLayout: some View {
+    private var sceneCameraLayout: some View {
         GeometryReader { geometry in
             let viewport = geometry.size
             let waist = usesInnerCameraLayout
                 ? MobileWaistCameraGeometry(viewport: viewport, divisionFrames: duoDivisions(geometry)) : nil
             let lower = waist?.lower ?? CGRect(origin: .zero, size: viewport)
-            let dockWidth: CGFloat = usesInnerCameraLayout ? 92 : 0
-            let finderWidth = max(1, lower.width - dockWidth)
+            let dockWidth = min(lower.width, min(420, max(248, lower.width * 0.46)))
             ZStack(alignment: .topLeading) {
-                // Keep one preview representable across flat/tabletop changes so
-                // a posture change doesn't tear down the live camera session.
+                // One finder stays attached as the camera moves between
+                // the flat scene, tabletop panel and outer display.
                 viewfinder(fillsPanel: !usesInnerCameraLayout && fillsPanel)
-                    .frame(width: finderWidth, height: lower.height)
-                    .position(x: lower.minX + finderWidth / 2, y: lower.midY)
+                    .ignoresSafeArea(.container, edges: !usesInnerCameraLayout && fillsPanel ? .all : [])
+                    .frame(width: lower.width, height: lower.height)
+                    .position(x: lower.midX, y: lower.midY)
                 if let waist {
                     VStack(spacing: 0) {
                         topControls
@@ -288,17 +294,20 @@ struct MobileCameraView: View {
                     VStack { topControls; Spacer(minLength: 0) }
                 }
                 if usesInnerCameraLayout {
-                    VStack(spacing: 0) {
-                        if waist == nil { Color.clear.frame(height: 52).accessibilityHidden(true) }
+                    VStack(spacing: 8) {
+                        if waist == nil { Color.clear.frame(height: 52).allowsHitTesting(false).accessibilityHidden(true) }
                         previewStatus
                         Spacer(minLength: 0)
-                        if let configuration { finderControls(configuration).padding(.bottom, 8) }
+                        if let configuration { finderControls(configuration) }
+                        HStack {
+                            Spacer(minLength: 0)
+                            // The folded-screen control group keeps its
+                            // original order/gaps; only its dock moves right.
+                            captureDock(showsFilmPicker: waist == nil).frame(width: dockWidth)
+                        }
                     }
-                    .frame(width: finderWidth, height: lower.height)
-                    .position(x: lower.minX + finderWidth / 2, y: lower.midY)
-                    duoShutterRail(tabletop: waist != nil)
-                        .frame(width: dockWidth, height: max(1, lower.height - (waist == nil ? 52 : 0)))
-                        .position(x: lower.maxX - dockWidth / 2, y: lower.midY + (waist == nil ? 26 : 0))
+                    .frame(width: lower.width, height: lower.height)
+                    .position(x: lower.midX, y: lower.midY)
                 } else {
                     standardCameraControls
                 }
@@ -306,25 +315,6 @@ struct MobileCameraView: View {
             .frame(width: viewport.width, height: viewport.height)
         }
         .environment(\.layoutDirection, .leftToRight) // The shutter stays on the physical right.
-    }
-
-    private func duoShutterRail(tabletop: Bool) -> some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            let edgeInset = min(42, height * 0.20)
-            ZStack {
-                galleryButton.position(x: width / 2, y: edgeInset)
-                shutterButton.position(x: width / 2, y: height / 2)
-                HStack(alignment: .top, spacing: 2) {
-                    if !tabletop { filmButton }
-                    diffusionMenu
-                }
-                .position(x: width / 2, y: height - edgeInset)
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("camera.duo-shutter-rail")
     }
 
     private func duoDivisions(_ geometry: GeometryProxy) -> [CGRect] {
@@ -440,11 +430,16 @@ struct MobileCameraView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #if SILVERPHASE_APP
         .background {
-            MobileCameraOrientationObserver(followsInterface: followsInterface,
-                                            rearSelfieOnOuterDisplay: rearSelfieOnHostDisplay)
+            MobileCameraOrientationObserver(followsInterface: followsInterface)
                 .allowsHitTesting(false)
             if #available(iOS 27.1, *), UIDevice.current.userInterfaceIdiom == .phone {
-                ProcessBarGeometryProbe(hingeChanged: { hingeClosed = $0 })
+                ProcessBarGeometryProbe(hingeChanged: { closed in
+                    // UIKit sends nil when a view leaves a display
+                    // hierarchy; nil does not mean the hardware changed.
+                    guard let closed else { return }
+                    hingeClosed = closed
+                    hasObservedHinge = true
+                })
                     .allowsHitTesting(false)
             }
         }
@@ -659,18 +654,32 @@ struct MobileCameraView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { measuredCapturePose = nil }
-            if phase == .active { retry += 1 }
-            else if phase == .background {
+            if phase == .active {
+                if !followsInterface || nativeScenePausedCapture || configuration == nil || !camera.session.isRunning {
+                    nativeScenePausedCapture = false
+                    retry += 1
+                } else {
+                    previewing = camera.hasLivePreview
+                }
+            } else if phase == .background {
                 finishReveal()
-                stopCamera()
+                // Pause the capture graph, but keep the preview layer bound.
+                // Reattaching a new layer to a running graph on a scene
+                // update blocked UIKit during the outer→inner handoff.
+                nativeScenePausedCapture = followsInterface
+                stopCamera(keepingPreview: followsInterface)
             }
         }
 #endif
         .onDisappear { stopCamera() }
         .onReceive(NotificationCenter.default.publisher(for: AVCaptureSession.wasInterruptedNotification, object: camera.session).receive(on: DispatchQueue.main)) { notification in
 #if SILVERPHASE_APP
-            camera.detachPreview()
-            configuration = nil
+            if followsInterface {
+                nativeSceneInterrupted = true
+            } else {
+                camera.detachPreview()
+                configuration = nil
+            }
             previewing = false
             issue = T("The camera is unavailable right now", "相机暂时不可用", "相機暫時不可用")
 #else
@@ -686,7 +695,13 @@ struct MobileCameraView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: AVCaptureSession.interruptionEndedNotification, object: camera.session).receive(on: DispatchQueue.main)) { _ in
 #if SILVERPHASE_APP
-            if canRunCamera { retry += 1 }
+            nativeSceneInterrupted = false
+            if canRunCamera {
+                if followsInterface && configuration != nil && camera.session.isRunning {
+                    issue = nil
+                    previewing = camera.hasLivePreview
+                } else { retry += 1 }
+            }
 #else
             sessionInterrupted = false
             issue = nil
@@ -861,11 +876,11 @@ struct MobileCameraView: View {
 #endif
     }
 
-    private var captureDock: some View {
+    private func captureDock(showsFilmPicker: Bool = true) -> some View {
         HStack(spacing: 8) {
             galleryButton.frame(maxWidth: .infinity)
             shutterButton
-            filmControls.frame(maxWidth: .infinity)
+            filmControls(showsFilmPicker: showsFilmPicker).frame(maxWidth: .infinity)
         }
         .padding(8)
         .frame(maxWidth: 420)
@@ -873,10 +888,10 @@ struct MobileCameraView: View {
         .padding(.bottom, 8)
     }
 
-    private var filmControls: some View {
+    private func filmControls(showsFilmPicker: Bool) -> some View {
         HStack(alignment: .top, spacing: 4) {
 #if SILVERPHASE_APP
-            filmButton
+            if showsFilmPicker { filmButton }
 #endif
             diffusionMenu
         }
@@ -1716,7 +1731,7 @@ struct MobileCameraView: View {
         }
     }
 
-    private func stopCamera() {
+    private func stopCamera(keepingPreview: Bool = false) {
         measuredCapturePose = nil
 #if SILVERPHASE_APP
         if !isLayoutCheck { MobileCameraLocation.shared.setCameraActive(false, enabled: recordsLocation) }
@@ -1730,11 +1745,12 @@ struct MobileCameraView: View {
         focusLocked = false
         switchFrame = nil
 #if SILVERPHASE_APP
-        camera.detachPreview()
+        nativeSceneInterrupted = false
+        if !keepingPreview { camera.detachPreview() }
 #else
         lockedDevelopment = nil
 #endif
-        configuration = nil
+        if !keepingPreview { configuration = nil }
         previewing = false
         camera.stop()
     }

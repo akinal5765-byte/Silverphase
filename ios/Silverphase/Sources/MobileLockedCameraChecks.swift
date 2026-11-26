@@ -66,10 +66,6 @@ enum MobileLockedCameraChecks {
             try require(MobileDeviceLayout.supportedOrientations(isPhone: true, detectsHinge: true,
                             hasHinge: true, cameraPresented: true, cameraFollowsInterface: true) == .all,
                         "Unfolded camera must allow UIKit landscape")
-            try require(MobileDeviceLayout.supportedOrientations(isPhone: true, detectsHinge: true,
-                            hasHinge: true, cameraPresented: true, cameraFollowsInterface: true,
-                            cameraRearSelfieOnOuterDisplay: true) == .allButUpsideDown,
-                        "Only outer rear selfie should exclude upside-down portrait")
             let tabletop = MobileWaistCameraGeometry(viewport: CGSize(width: 720, height: 560),
                 divisionFrames: [CGRect(x: 0, y: 263, width: 720, height: 14)])
             try require(tabletop?.upper.maxY == 263 && tabletop?.lower.minY == 277,

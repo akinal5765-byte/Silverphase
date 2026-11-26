@@ -5,30 +5,16 @@ import UIKit
     private static var hasHinge: Bool?
     private static var cameraPresented = false
     private static var cameraFollowsInterface = false
-    private static var cameraRearSelfieOnOuterDisplay = false
     static var orientations: UIInterfaceOrientationMask {
         let detectsHinge: Bool
         if #available(iOS 27.1, *) { detectsHinge = true } else { detectsHinge = false }
-#if DEBUG
-        let testingDuo = ProcessInfo.processInfo.arguments.contains("--camera-duo-layout-check")
-#else
-        let testingDuo = false
-#endif
         return supportedOrientations(isPhone: UIDevice.current.userInterfaceIdiom == .phone,
-                                     detectsHinge: detectsHinge || testingDuo, hasHinge: hasHinge,
-                                     cameraPresented: cameraPresented, cameraFollowsInterface: cameraFollowsInterface,
-                                     cameraRearSelfieOnOuterDisplay: cameraRearSelfieOnOuterDisplay)
+                                     detectsHinge: detectsHinge, hasHinge: hasHinge,
+                                     cameraPresented: cameraPresented, cameraFollowsInterface: cameraFollowsInterface)
     }
     static func supportedOrientations(isPhone: Bool, detectsHinge: Bool, hasHinge: Bool?,
-                                      cameraPresented: Bool, cameraFollowsInterface: Bool = false,
-                                      cameraRearSelfieOnOuterDisplay: Bool = false) -> UIInterfaceOrientationMask {
-        if cameraPresented {
-            guard detectsHinge && cameraFollowsInterface else { return .portrait }
-            // The outer display honors the iPhone orientation policy;
-            // the inner display changes with the physical posture. Avoid
-            // carrying an upside-down portrait orientation into rear selfie.
-            return cameraRearSelfieOnOuterDisplay ? .allButUpsideDown : .all
-        }
+                                      cameraPresented: Bool, cameraFollowsInterface: Bool = false) -> UIInterfaceOrientationMask {
+        if cameraPresented { return detectsHinge && cameraFollowsInterface ? .all : .portrait }
         guard isPhone else { return .all }
         if detectsHinge, hasHinge == nil { return .all }
         return hasHinge == true ? .all : .portrait
@@ -44,15 +30,11 @@ import UIKit
         Self.hasHinge = hasHinge
         refreshOrientations(in: window)
     }
-    static func setCameraPresented(_ presented: Bool, window: UIWindow, followsInterface: Bool = false,
-                                   rearSelfieOnOuterDisplay: Bool = false) {
+    static func setCameraPresented(_ presented: Bool, window: UIWindow, followsInterface: Bool = false) {
         let followsInterface = presented && followsInterface
-        let outerSelfie = followsInterface && rearSelfieOnOuterDisplay
-        guard cameraPresented != presented || cameraFollowsInterface != followsInterface
-                || cameraRearSelfieOnOuterDisplay != outerSelfie else { return }
+        guard cameraPresented != presented || cameraFollowsInterface != followsInterface else { return }
         cameraPresented = presented
         cameraFollowsInterface = followsInterface
-        cameraRearSelfieOnOuterDisplay = outerSelfie
         refreshOrientations(in: window)
     }
     private static func refreshOrientations(in window: UIWindow) {
@@ -63,15 +45,10 @@ import UIKit
             current.setNeedsUpdateOfSupportedInterfaceOrientations()
             controller = current.presentedViewController
         }
-        guard let scene = window.windowScene else { return }
-        if #available(iOS 27.1, *), cameraRearSelfieOnOuterDisplay,
-           scene.effectiveGeometry.interfaceOrientation == .portraitUpsideDown {
-            // Prefer upright portrait only for an already-inverted outer
-            // portrait scene. Keep landscape legal for normal rotation.
-            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
-        } else {
-            scene.requestGeometryUpdate(.iOS(interfaceOrientations: orientations))
-        }
+        // A native Duo camera already follows its current scene/display.
+        // Do not issue a competing orientation request during screen handoff.
+        if cameraPresented && cameraFollowsInterface { return }
+        window.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: orientations))
     }
 }
 
@@ -102,16 +79,13 @@ struct MobileOrientationObserver: UIViewRepresentable {
 /// Library/editor pages recover their original orientation policy on dismissal.
 struct MobileCameraOrientationObserver: UIViewRepresentable {
     var followsInterface = false
-    var rearSelfieOnOuterDisplay = false
     func makeUIView(context: Context) -> Probe {
         let probe = Probe()
         probe.followsInterface = followsInterface
-        probe.rearSelfieOnOuterDisplay = rearSelfieOnOuterDisplay
         return probe
     }
     func updateUIView(_ view: Probe, context: Context) {
         view.followsInterface = followsInterface
-        view.rearSelfieOnOuterDisplay = rearSelfieOnOuterDisplay
         view.applyOrientation()
     }
     static func dismantleUIView(_ view: Probe, coordinator: ()) { view.releaseOrientation() }
@@ -119,7 +93,6 @@ struct MobileCameraOrientationObserver: UIViewRepresentable {
     final class Probe: UIView {
         private weak var cameraWindow: UIWindow?
         var followsInterface = false
-        var rearSelfieOnOuterDisplay = false
 
         init() {
             super.init(frame: .zero)
@@ -135,8 +108,7 @@ struct MobileCameraOrientationObserver: UIViewRepresentable {
         }
         func applyOrientation() {
             guard let window else { return }
-            MobileDeviceLayout.setCameraPresented(true, window: window, followsInterface: followsInterface,
-                                                  rearSelfieOnOuterDisplay: rearSelfieOnOuterDisplay)
+            MobileDeviceLayout.setCameraPresented(true, window: window, followsInterface: followsInterface)
         }
         func releaseOrientation() {
             guard let cameraWindow else { return }

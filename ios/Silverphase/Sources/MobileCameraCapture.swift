@@ -133,6 +133,7 @@ final class MobileStillCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     }
 #endif
     @MainActor var horizonCaptureAngle: CGFloat? { rotation?.videoRotationAngleForHorizonLevelCapture }
+    @MainActor var hasLivePreview: Bool { previewLayer?.isPreviewing == true }
     @MainActor private var rotation: AVCaptureDevice.RotationCoordinator?
     @MainActor private weak var previewLayer: AVCaptureVideoPreviewLayer?
     private let queue = DispatchQueue(label: "silverphase.camera")
