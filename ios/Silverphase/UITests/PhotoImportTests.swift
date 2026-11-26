@@ -63,6 +63,35 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertEqual(preview.label, "目标 A")
     }
 
+    @MainActor func testPhotoDetailFilmPickerSearchAndSelection() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 16))
+        source.tap()
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(film.waitForExistence(timeout: 8))
+        if app.frame.width < 620 {
+            XCTAssertLessThanOrEqual(film.frame.width, 47, "Compact toolbar must show only the film icon")
+        }
+        film.tap()
+        let search = app.textFields["photo-detail.film-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 6))
+        search.tap()
+        search.typeText("HP5")
+        let stock = app.buttons["photo-detail.film-stock.ilford_hp5_plus_400"]
+        XCTAssertTrue(stock.waitForExistence(timeout: 6))
+        stock.tap()
+        XCTAssertTrue(search.waitForNonExistence(timeout: 6))
+        XCTAssertTrue((film.value as? String)?.contains("HP5") == true)
+        film.tap()
+        XCTAssertTrue(stock.waitForExistence(timeout: 6))
+        XCTAssertTrue(stock.isSelected)
+        app.buttons["photo-detail.film-close"].tap()
+    }
+
     @MainActor func testPhotoDetailZoomPanPagingAndChrome() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",

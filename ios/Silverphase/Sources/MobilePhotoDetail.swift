@@ -55,6 +55,8 @@ struct MobilePhotoDetail: View {
     @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
+    @ScaledMetric(relativeTo: .caption) private var filmTitlePointSize: CGFloat = 12
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -308,23 +310,7 @@ struct MobilePhotoDetail: View {
             let beforeEngine = originalDetailRenderer
             Task { await detailEngine.clear(); await fitEngine.close(); await beforeEngine.close() }
         }
-        .sheet(isPresented: $showingFilm) {
-            NavigationStack {
-                List(StockCatalog.shared.filmsForPicker) { film in
-                    Button(film.displayName) {
-                        if let photo { document.setLibraryFilm(film, for: photo.id) }
-                        showingFilm = false
-                    }
-                }
-                .navigationTitle(T("Choose Film", "切换胶片", "切換膠片"))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(T("Cancel", "取消", "取消")) { showingFilm = false }
-                    }
-                }
-            }
-        }
+        .onChange(of: photoID) { _, _ in showingFilm = false }
         .background {
             ProcessBarGeometryProbe(windowSizeChanged: { windowSize = $0 },
                                         hingeChanged: { hinge = .measured($0) })
@@ -371,15 +357,53 @@ struct MobilePhotoDetail: View {
         HStack(spacing: 8) {
             rating(photo).frame(width: 44, height: 44)
             flag(photo).frame(width: 44, height: 44)
-            Button { showingFilm = true } label: {
-                let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
-                let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
-                chip(fitMode.window.width >= 620 ? name : nil, symbol: "film", wideLabel: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
-            .accessibilityIdentifier("photo-detail.film")
+            filmButton(photo)
         }
+    }
+
+    private func filmButton(_ photo: MobilePhoto) -> some View {
+        let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
+        let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
+        return Button { showingFilm = true } label: {
+            if let name, !dynamicTypeSize.isAccessibilitySize, filmTitleFits(name) {
+                ViewThatFits(in: .horizontal) {
+                    chip(name, symbol: "film", filmTitle: true)
+                        .fixedSize(horizontal: true, vertical: false)
+                    chip(nil, symbol: "film").fixedSize()
+                }
+            } else {
+                chip(nil, symbol: "film")
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
+        .accessibilityValue(name ?? "")
+        .accessibilityIdentifier("photo-detail.film")
+        .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            DetailFilmPicker(selectedID: id, cancel: { showingFilm = false }) { film in
+                guard photoID == photo.id else { showingFilm = false; return }
+                document.setLibraryFilm(film, for: photo.id)
+                showingFilm = false
+            }
+            .presentationCompactAdaptation(.sheet)
+        }
+    }
+
+    private func filmTitleFits(_ title: String) -> Bool {
+        let font = UIFont.systemFont(ofSize: filmTitlePointSize, weight: .semibold)
+        let titleWidth = (title as NSString).size(withAttributes: [.font: font]).width
+        // Include both glyphs, their gaps, and the chip's horizontal insets.
+        return ceil(titleWidth) + 56 <= filmLabelBudget
+    }
+
+    private var filmLabelBudget: CGFloat {
+        let width = fitMode.window.width
+        guard width >= 620 else { return 44 }
+        // Leave room for the date, back, star and flag. The top placement
+        // also shares the horizontal lane with export, info, edit and menu.
+        // A native system-side lane still needs space for the system chrome.
+        let reserved: CGFloat = placement == .top ? 520 : 448
+        return min(240, max(44, width - reserved))
     }
 
     @ToolbarContentBuilder
@@ -803,27 +827,157 @@ struct MobilePhotoDetail: View {
             .accessibilityIdentifier(id)
     }
 
-    private func chip(_ title: String?, symbol: String, wideLabel: Bool = false) -> some View {
+    private func chip(_ title: String?, symbol: String, filmTitle: Bool = false) -> some View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
             if let title {
-                if wideLabel {
-                    ViewThatFits(in: .horizontal) {
-                        Text(title).fixedSize(horizontal: true, vertical: false)
-                        Text(title).lineLimit(1)
-                    }
-                    .frame(maxWidth: fitMode.window.width >= 800 ? 240 : 166, alignment: .leading)
-                    .fixedSize(horizontal: true, vertical: false)
-                    Image(systemName: "chevron.down").font(.system(size: 8))
-                } else {
-                    Text(title).lineLimit(1)
-                }
+                Text(title).lineLimit(1)
+                if filmTitle { Image(systemName: "chevron.down").font(.system(size: 8)) }
             }
         }
         .font(.caption.weight(.semibold))
-        .padding(.horizontal, wideLabel && title != nil ? 10 : 0).frame(minWidth: 44, minHeight: 44)
+        .padding(.horizontal, filmTitle ? 10 : 0)
+        .frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
         .modifier(ChromeSurface(radius: 22, interactive: true))
+    }
+}
+
+private struct DetailFilmPicker: View {
+    let selectedID: String?
+    let cancel: () -> Void
+    let select: (Stock) -> Void
+    @State private var query = ""
+    @State private var detent = PresentationDetent.medium
+    @FocusState private var searchFocused: Bool
+
+    private var matches: [Stock] {
+        let stocks = StockCatalog.shared.filmsForPicker
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            return stocks.filter {
+                $0.name.localizedStandardContains(query)
+                    || $0.displayName.localizedStandardContains(query)
+                    || ($0.speedLabel?.localizedStandardContains(query) ?? false)
+            }
+        }
+        // The current cover is immediately visible without interrupting the
+        // catalog order of the remaining films.
+        guard let selected = stocks.first(where: { $0.id == selectedID }) else { return stocks }
+        return [selected] + stocks.filter { $0.id != selectedID }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(T("Choose Film", "切换胶片", "切換膠片"))
+                        .font(.headline).accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    Button(action: cancel) {
+                        Image(systemName: "xmark").font(.caption.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                            .modifier(ChromeSurface(radius: 22, interactive: true))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(T("Close", "关闭", "關閉"))
+                    .accessibilityIdentifier("photo-detail.film-close")
+                }
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField(T("Search films", "搜索胶片", "搜尋膠片"), text: $query)
+                        .textFieldStyle(.plain)
+                        .focused($searchFocused)
+                        .submitLabel(.search)
+                        .accessibilityIdentifier("photo-detail.film-search")
+                    if !query.isEmpty {
+                        Button { query = "" } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                .frame(minWidth: 36, minHeight: 40)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(T("Clear search", "清除搜索", "清除搜尋"))
+                    }
+                }
+                .font(.subheadline)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(.primary.opacity(0.07), in: .rect(cornerRadius: 12))
+            }
+            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
+            if matches.isEmpty {
+                ContentUnavailableView(T("No matching film", "没有匹配的胶片", "沒有符合的膠片"), systemImage: "film")
+                    .frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 106), spacing: 10)], spacing: 10) {
+                        ForEach(matches) { stock in card(stock) }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .accessibilityIdentifier("photo-detail.film-grid")
+            }
+        }
+        .frame(idealWidth: 420, idealHeight: 470)
+        .presentationDetents([.medium, .large], selection: $detent)
+        .onChange(of: searchFocused) { _, focused in
+            if focused { detent = .large }
+        }
+        .accessibilityAction(.escape) { cancel() }
+    }
+
+    private func card(_ stock: Stock) -> some View {
+        let selected = stock.id == selectedID
+        return Button { select(stock) } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                Color.clear.aspectRatio(16.0 / 9.0, contentMode: .fit)
+                    .overlay {
+                        if let artwork = stock.packagingArtworkURL {
+                            FilmstripThumbnail(url: artwork, fillsFrame: true)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            Image(systemName: "film")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .background(.primary.opacity(0.07))
+                    .clipShape(.rect(cornerRadius: 7))
+                    .overlay(alignment: .topTrailing) {
+                        if selected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, MobileStyle.accent)
+                                .padding(5)
+                        }
+                    }
+                    .accessibilityHidden(true)
+                Text(stock.displayName).font(.caption.weight(.semibold))
+                    .lineLimit(2, reservesSpace: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(variant(stock)).font(.caption2)
+                    .foregroundStyle(.secondary).lineLimit(1)
+            }
+            .padding(6)
+            .background(.primary.opacity(0.045), in: .rect(cornerRadius: 11))
+            .overlay {
+                RoundedRectangle(cornerRadius: 11)
+                    .strokeBorder(selected ? MobileStyle.accent : Color.clear, lineWidth: 1.5)
+            }
+            .contentShape(.rect(cornerRadius: 11))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(stock.displayName)
+        .accessibilityValue(variant(stock))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("photo-detail.film-stock." + stock.id)
+    }
+
+    private func variant(_ stock: Stock) -> String {
+        if stock.isFotufilm { return "Fotufilm" }
+        if stock.isLocalExperimental { return T("Experimental", "实验", "實驗") }
+        return stock.speedLabel ?? (stock.isMonochrome ? T("B&W", "黑白", "黑白") : "")
     }
 }
 
