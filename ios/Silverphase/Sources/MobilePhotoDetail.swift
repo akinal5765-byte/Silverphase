@@ -11,7 +11,7 @@ struct MobilePhotoDetail: View {
     @Binding var photoID: UUID
     let gridBackdrop: UIImage?
     let gridTarget: CGRect?
-    let onBack: () -> Void
+    let entryTarget: CGRect?
     let onPullDismiss: () -> Void
     let onEdit: (MobilePhoto) -> Void
     let onExport: (MobilePhoto) -> Void
@@ -29,11 +29,12 @@ struct MobilePhotoDetail: View {
     @State private var windowSize: CGSize = .zero
     @State private var chromeVisible = true
     @State private var pulling = false
+    @State private var entryCurtain = true
+    @State private var backCommand = 0
     @State private var neighbors: [Int: DetailPageNeighbor] = [:]
     @State private var filmstripItems: [DetailFilmstrip.Item] = []
     @State private var stableFit: FitSample?
     @State private var recentRenditions: [(key: URL, image: CGImage)] = []
-    private static let ratingsBand: CGFloat = 52
     private static let stripBand: CGFloat = 58
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -80,17 +81,33 @@ struct MobilePhotoDetail: View {
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailToolbarAxis(usesTop: placement == .top))
             } else {
-                Button(T("Back to Library", "返回图库", "返回圖庫"), action: onBack)
+                Button(T("Back to Library", "返回图库", "返回圖庫"), action: onPullDismiss)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .tint(.primary)
+        .overlay {
+            if entryCurtain, !reduceMotion, entryTarget != nil, let gridBackdrop {
+                GeometryReader { geometry in
+                    Image(uiImage: gridBackdrop).resizable().scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height).clipped()
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
         .background(MobileStyle.canvas.ignoresSafeArea())
         .task(id: photo.map { document.libraryPreviewURL($0) }) {
             if previewID != photoID { preview = nil; previewID = nil }
             developedPreview = false
             previewLoading = true
-            defer { if !Task.isCancelled { previewLoading = false } }
+            defer {
+                if !Task.isCancelled {
+                    previewLoading = false
+                    if preview == nil { entryCurtain = false }
+                }
+            }
             guard let photo else { return }
             let cached = document.libraryPreviewURL(photo)
             if let ready = recentRenditions.first(where: { $0.key == cached }) {
@@ -162,16 +179,14 @@ struct MobilePhotoDetail: View {
         GeometryReader { safe in
             let safeFrame = safe.frame(in: .global)
             let sample = FitSample(mode: fitMode, frame: CGRect(
-                x: safeFrame.minX + EditorDesign.gutter, y: safeFrame.minY + Self.ratingsBand,
+                x: safeFrame.minX + EditorDesign.gutter, y: safeFrame.minY + EditorDesign.gutter,
                 width: max(1, safeFrame.width - 2 * EditorDesign.gutter),
-                height: max(1, safeFrame.height - Self.ratingsBand - Self.stripBand)))
+                height: max(1, safeFrame.height - EditorDesign.gutter - Self.stripBand)))
             ZStack {
                 // Like the editor, the canvas bleeds to the window edges.
                 // Its framed-to-fit pose is a separate, stable safe rectangle.
                 picture(photo).ignoresSafeArea(.container, edges: .all)
                 VStack(spacing: 0) {
-                    metadata(photo)
-                        .frame(height: Self.ratingsBand)
                     Spacer(minLength: 0)
                     filmstrip
                         .frame(height: Self.stripBand)
@@ -196,18 +211,18 @@ struct MobilePhotoDetail: View {
     }
 
     private func metadata(_ photo: MobilePhoto) -> some View {
-        HStack(spacing: EditorDesign.gutter) {
+        HStack(spacing: 5) {
             rating(photo)
             flag(photo)
             Button { showingFilm = true } label: {
                 let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
-                chip(id.flatMap { StockCatalog.shared.stock($0)?.displayName }, symbol: "film")
+                chip(fitMode.window.width >= 620
+                     ? id.flatMap { StockCatalog.shared.stock($0)?.displayName } : nil, symbol: "film")
             }
             .buttonStyle(.plain)
             .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
             .accessibilityIdentifier("photo-detail.film")
         }
-        .padding(.horizontal, EditorDesign.gutter)
         .modifier(WorkspaceGlassGroup())
     }
 
@@ -219,9 +234,14 @@ struct MobilePhotoDetail: View {
             backItem
         }
         if #available(iOS 27.1, *) {
-            dateItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.low)
+            dateItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.low).sharedBackgroundVisibility(.hidden)
+            metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
+        } else if #available(iOS 26.0, *) {
+            dateItem(photo).sharedBackgroundVisibility(.hidden)
+            metadataItem(photo).sharedBackgroundVisibility(.hidden)
         } else {
             dateItem(photo)
+            metadataItem(photo)
         }
         if placement == .top {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -256,6 +276,12 @@ struct MobilePhotoDetail: View {
         }
     }
 
+    private func metadataItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-metadata", placement: .topBarTrailing) {
+            metadata(photo)
+        }
+    }
+
     private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
         ToolbarItem(id: "photo-detail.native-date", placement: .topBarLeading) {
             VStack(alignment: .leading, spacing: 1) {
@@ -266,7 +292,7 @@ struct MobilePhotoDetail: View {
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
-            .frame(maxWidth: placement == .bottom ? 158 : 186, alignment: .leading)
+            .frame(maxWidth: fitMode.window.width >= 620 ? 148 : 108, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("photo-detail.date")
         }
@@ -274,7 +300,7 @@ struct MobilePhotoDetail: View {
 
     private var backItem: ToolbarItem<String, some View> {
         ToolbarItem(id: "photo-detail.native-back", placement: .topBarLeading) {
-            tool(T("Back to Library", "返回图库", "返回圖庫"), "chevron.left", id: "photo-detail.back", action: onBack)
+            tool(T("Back to Library", "返回图库", "返回圖庫"), "chevron.left", id: "photo-detail.back") { backCommand += 1 }
         }
     }
 
@@ -332,8 +358,8 @@ struct MobilePhotoDetail: View {
             DetailZoomCanvas(photoID: photo.id, name: photo.name, image: previewID == photo.id ? preview : nil,
                              reduceMotion: reduceMotion, developed: developedPreview,
                              fitFrame: fittedFrame, neighbors: neighbors,
-                             gridBackdrop: gridBackdrop, gridTarget: gridTarget,
-                             onPage: page, onPull: { active in
+                             gridBackdrop: gridBackdrop, gridTarget: gridTarget, entryTarget: entryTarget, backCommand: backCommand,
+                             onEntryStarted: { entryCurtain = false }, onPage: page, onPull: { active in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { pulling = active }
             }, onDismiss: onPullDismiss, onTap: {
                 guard !voiceOver else { return }
@@ -424,11 +450,13 @@ struct MobilePhotoDetail: View {
     private func chip(_ title: String?, symbol: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
-            if let title { Text(title).lineLimit(1) }
-            Image(systemName: "chevron.down").font(.system(size: 8))
+            if let title {
+                Text(title).lineLimit(1).frame(maxWidth: 100)
+                Image(systemName: "chevron.down").font(.system(size: 8))
+            }
         }
         .font(.caption.weight(.semibold))
-        .padding(.horizontal, 12).frame(minWidth: 44, minHeight: 44)
+        .padding(.horizontal, title == nil ? 0 : 8).frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
         .modifier(ChromeSurface(radius: 22, interactive: true))
     }
@@ -460,6 +488,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
     let neighbors: [Int: DetailPageNeighbor]
     let gridBackdrop: UIImage?
     let gridTarget: CGRect?
+    let entryTarget: CGRect?
+    let backCommand: Int
+    let onEntryStarted: () -> Void
     let onPage: (Int) -> Void
     let onPull: (Bool) -> Void
     let onDismiss: () -> Void
@@ -475,7 +506,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         view.onPage = onPage; view.onTap = onTap; view.reduceMotion = reduceMotion
         view.neighbors = neighbors; view.gridBackdrop = gridBackdrop; view.gridTarget = gridTarget
         view.onPull = onPull; view.onDismiss = onDismiss
+        view.entryTarget = entryTarget; view.onEntryStarted = onEntryStarted
         view.update(photoID: photoID, name: name, image: image, developed: developed, fitFrame: fitFrame)
+        view.requestBack(backCommand)
     }
 
     final class ZoomView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
@@ -500,6 +533,11 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private var pendingPage: UUID?
         private var activeStep: Int?
         private var settling = false
+        private var entered = false
+        private var scheduledEntry = false
+        private var handledBack = 0
+        var entryTarget: CGRect?
+        var onEntryStarted: (() -> Void)?
         var neighbors: [Int: DetailPageNeighbor] = [:]
         var gridBackdrop: UIImage?
         var gridTarget: CGRect?
@@ -584,6 +622,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             }
 #endif
             if needsFit { setNeedsLayout() }
+            else { scheduleEntryIfReady() }
             if pendingPage == photoID, source != nil {
                 layoutIfNeeded()
                 removeTransition()
@@ -644,6 +683,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 updateCentering()
                 centerFittedPhoto()
             }
+            scheduleEntryIfReady()
 #if DEBUG
             updateGeometryAudit()
 #endif
@@ -740,9 +780,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                    (viewport.width * 0.33...viewport.width * 0.67).contains(local.midX) { return local }
             }
             let insets = window.safeAreaInsets
-            return CGRect(x: insets.left + 8, y: insets.top + 52,
+            return CGRect(x: insets.left + 8, y: insets.top + 8,
                           width: max(1, viewport.width - insets.left - insets.right - 16),
-                          height: max(1, viewport.height - insets.top - insets.bottom - 110))
+                          height: max(1, viewport.height - insets.top - insets.bottom - 66))
         }
 
         private func updateCentering() {
@@ -809,6 +849,53 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             case .cancelled, .failed:
                 if let axis { restoreTransition(pulling: axis == .pull) }
             default: break
+            }
+        }
+
+        private func scheduleEntryIfReady() {
+            guard !entered, !scheduledEntry, source != nil, !needsFit,
+                  let window, !photoView.bounds.isEmpty else { return }
+            if !reduceMotion, entryTarget != nil, gridBackdrop != nil, fitFrame == nil { return }
+            scheduledEntry = true
+            DispatchQueue.main.async { [weak self, weak window] in
+                guard let self, let window, self.window === window, !self.entered else { return }
+                self.scheduledEntry = false
+                self.entered = true
+                guard !self.reduceMotion, self.transitionHost == nil, let tile = self.entryTarget,
+                      !tile.isEmpty, window.bounds.insetBy(dx: -2, dy: -2).contains(tile),
+                      self.gridBackdrop != nil else {
+                    self.onEntryStarted?()
+                    return
+                }
+                self.startTransition(in: window, showsGrid: true)
+                self.settling = true
+                self.transitionGrid.alpha = 1
+                self.transitionCurrent.contentMode = .scaleAspectFill
+                self.transitionCurrent.frame = tile
+                self.transitionCurrent.layer.cornerRadius = 7
+                self.onEntryStarted?()
+                UIView.animate(withDuration: 0.30, delay: 0,
+                               options: [.curveEaseInOut, .beginFromCurrentState]) {
+                    self.transitionCurrent.frame = self.transitionStart
+                    self.transitionCurrent.layer.cornerRadius = 0
+                    self.transitionGrid.alpha = 0
+                } completion: { [weak self] _ in
+                    self?.removeTransition()
+                }
+            }
+        }
+
+        func requestBack(_ command: Int) {
+            guard command != handledBack else { return }
+            handledBack = command
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard !self.reduceMotion, let window = self.window, self.source != nil,
+                      self.transitionHost == nil else { self.onDismiss?(); return }
+                self.axis = .pull
+                self.startTransition(in: window, showsGrid: true)
+                self.onPull?(true)
+                self.finishPull()
             }
         }
 

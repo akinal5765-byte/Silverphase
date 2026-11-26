@@ -280,7 +280,11 @@ struct MobileLibrary: View {
             }
         }
         let ids = filtered.map(\.id)
-        detail = LibraryPhotoDetailRequest(id: photo.id, ids: ids.contains(photo.id) ? ids : [photo.id])
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            detail = LibraryPhotoDetailRequest(id: photo.id, ids: ids.contains(photo.id) ? ids : [photo.id])
+        }
     }
 
     private func returnToDetailPhoto() {
@@ -316,7 +320,7 @@ struct MobileLibrary: View {
         MobilePhotoDetail(document: document, photoIDs: request.ids, initialHingeClosed: phoneHingeClosed,
                           initialWindowSize: phoneWindowSize, photoID: $detailID,
                           gridBackdrop: detailGridBackdrop, gridTarget: capturedGridTiles[detailID],
-                          onBack: closeDetail, onPullDismiss: finishPhotoPull,
+                          entryTarget: capturedGridTiles[request.id], onPullDismiss: finishPhotoPull,
                           onEdit: { detailEditor = LibraryEditorRequest(firstID: $0.id, ids: nil) },
                           onExport: { detailExport = LibraryExportRequest(ids: [$0.id]) },
                           onInfo: { detailInfo = $0 },

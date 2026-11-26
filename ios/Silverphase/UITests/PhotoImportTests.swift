@@ -17,6 +17,18 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(control.waitForExistence(timeout: 5), id + "\n" + app.debugDescription)
         }
         XCTAssertFalse(app.buttons["editor.menu"].exists)
+        func control(_ id: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "photo-detail." + id).firstMatch
+        }
+        let date = control("date")
+        XCTAssertTrue(date.exists)
+        let back = control("back").frame
+        let tools = ["rating", "flag", "film"].map { control($0).frame }
+        XCTAssertLessThan(back.minX, date.frame.minX)
+        XCTAssertLessThan(date.frame.midX, tools[0].midX)
+        for tool in tools {
+            XCTAssertEqual(tool.midY, back.midY, accuracy: 8)
+        }
         let layout = app.buttons["photo-detail.edit"].frame.midY
         let film = app.descendants(matching: .any).matching(identifier: "photo-detail.film").firstMatch
         if UIDevice.current.userInterfaceIdiom == .pad {
