@@ -343,6 +343,61 @@ struct MobilePhoto: Codable, Identifiable {
                                 galleryFitEdge: viewport.previewLongEdge, trace: GalleryRenderTrace("detail"))
     }
 
+#if DEBUG
+    /// QA-only device benchmark. Reuse the already on-device asset by its
+    /// measured dimensions without copying pixels or recording its identity.
+    func runGalleryJPEGComparison() async {
+        let output = URL.documentsDirectory.appendingPathComponent("gallery-jpeg-comparison.json")
+        func save(_ report: [String: Any]) {
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: output, options: .atomic)
+            }
+        }
+        guard Bundle.main.bundleIdentifier?.hasSuffix(".galleryqa") == true else { return }
+        guard let photo = photos.first(where: {
+            abs($0.sourceMegapixels - 43.228848) < 0.008 &&
+                ($0.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .jpeg) == true
+                 || UTType(filenameExtension: url(for: $0).pathExtension)?.conforms(to: .jpeg) == true)
+        }) else { save(["status": "matching test dimensions not found"]); return }
+        let url = url(for: photo)
+        let size = photo.geometry.outputSize(for: CGSize(width: photo.sourceAspect * 10000, height: 10000))
+        let originalLong = sqrt(photo.sourceMegapixels * 1_000_000 * max(photo.sourceAspect, 1 / photo.sourceAspect))
+        let outputLong = originalLong * max(size.width, size.height) / max(photo.sourceAspect * 10000, 10000)
+        let mp = min(3.3, MobilePreviewPolicy.fitInputMegapixels(edge: 1920, sourceAspect: photo.sourceAspect,
+                                    sourceMP: photo.sourceMegapixels, outputLongEdge: outputLong))
+        let recipe = cameraRenderRecipe(photo)
+        var rows: [[String: Any]] = []
+        for mode in ["previous-gallery", "imageio-gallery", "editor-reference", "imageio-gallery", "previous-gallery"] {
+            let engine = MobileEngine()
+            let trace = GalleryRenderTrace("benchmark " + mode)
+            let start = ProcessInfo.processInfo.systemUptime
+            do {
+                let image: CGImage
+                if mode == "editor-reference" {
+                    let result = try await engine.render(url: url, recipe: recipe, megapixels: mp,
+                                                         geometry: photo.geometry, galleryTrace: trace)
+                    let working = try MobileFilmGate.presents(recipe) ? result.image : photo.geometry.apply(to: result.image)
+                    let before = try MobileFilmGate.presents(recipe) ? result.original : photo.geometry.apply(to: result.original)
+                    image = try await engine.canvasImage(working)
+                    _ = try await engine.canvasImage(before)
+                } else {
+                    var settings = recipe
+                    if mode == "previous-gallery" { settings["_galleryLegacyJPEG"] = .bool(true) }
+                    image = try await engine.renderGalleryFrame(url: url, recipe: settings, geometry: photo.geometry,
+                                                                megapixels: mp, trace: trace)
+                }
+                let ms = Int((ProcessInfo.processInfo.systemUptime - start) * 1000)
+                rows.append(["mode": mode, "ms": ms, "width": image.width, "height": image.height])
+            } catch {
+                rows.append(["mode": mode, "error": String(describing: type(of: error))])
+            }
+            await engine.close()
+            save(["status": "running", "sourceMP": photo.sourceMegapixels, "samples": rows])
+        }
+        save(["status": "complete", "sourceMP": photo.sourceMegapixels, "samples": rows])
+    }
+#endif
+
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {
         let source = url(for: photo)
         let isRAW = photo.sourceTypeIdentifier.flatMap(UTType.init)?.conforms(to: .rawImage) == true

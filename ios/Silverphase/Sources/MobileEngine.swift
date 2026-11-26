@@ -740,6 +740,33 @@ actor MobileEngine {
                        provider: provider, decode: nil, shouldInterpolate: false, intent: .relativeColorimetric)
     }()
 
+    /// Decode ordinary SDR JPEG at its working pixel size before sending it
+    /// through the shared ICC/linear-ProPhoto conversion. Do not use this path
+    /// for RAW, gain maps, high-bit-depth files, or multi-image containers.
+    private static func galleryJPEGPreview(_ url: URL, metadata: MobileImageMetadata, megapixels: Double) -> CGImage? {
+        guard metadata.typeIdentifier.flatMap(UTType.init)?.conforms(to: .jpeg) == true,
+              metadata.megapixels > megapixels * 1.05,
+              metadata.aspect.isFinite, metadata.aspect > 0,
+              let source = CGImageSourceCreateWithURL(url as CFURL,
+                  [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) == 1,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              (properties[kCGImagePropertyDepth] as? NSNumber)?.intValue == 8,
+              CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap) == nil,
+              CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap) == nil else { return nil }
+        let aspect = max(metadata.aspect, 1 / metadata.aspect)
+        let edge = Int((sqrt(megapixels * 1_000_000 * aspect)).rounded(.down))
+        guard edge > 0, edge <= 16384,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: edge
+              ] as CFDictionary),
+              image.bitsPerComponent == 8, let color = image.colorSpace, color.model == .rgb else { return nil }
+        return image
+    }
+
     private func decode(url: URL, megapixels: Double, device: MTLDevice, recipe: [String: WireValue], geometry: MobileGeometry, metadata: MobileImageMetadata? = nil, galleryTrace: GalleryRenderTrace? = nil) throws -> (buffer: MTLBuffer, width: Int, height: Int, original: CGImage) {
         try autoreleasepool {
         var image: CIImage
@@ -784,8 +811,18 @@ actor MobileEngine {
             decodeInfo = ["_raw": .bool(false), "_lensSupported": .bool(false)]
             let badge = MobileImageMetadata.formatBadge(for: inputMetadata.typeIdentifier) ?? "unknown"
             galleryTrace?.mark("encoded input open start; format=\(badge)")
-            guard let input = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
-                throw MobileFailure.message(TDetached("The image could not be read", "无法读取图像", "無法讀取影像"))
+            let input: CIImage
+            if gallery, recipe["_galleryLegacyJPEG"]?.boolValue != true,
+               let thumb = Self.galleryJPEGPreview(url, metadata: inputMetadata, megapixels: inputMP),
+               let color = thumb.colorSpace {
+                try Task.checkCancellation()
+                input = CIImage(cgImage: thumb, options: [.colorSpace: color])
+                galleryTrace?.mark("ImageIO JPEG working image \(thumb.width)x\(thumb.height)")
+            } else {
+                guard let full = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
+                    throw MobileFailure.message(TDetached("The image could not be read", "无法读取图像", "無法讀取影像"))
+                }
+                input = full
             }
             galleryTrace?.mark("encoded input open end")
             let scale = min(1, sqrt(inputMP * 1_000_000 / (input.extent.width * input.extent.height)))
