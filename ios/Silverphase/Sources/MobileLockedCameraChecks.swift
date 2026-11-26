@@ -135,6 +135,29 @@ enum MobileLockedCameraChecks {
                         rightCover.verticalScale > farCover.verticalScale && flatCover.perspective == 0 &&
                         rightCover.contains(rightCorner, width: wheelAperture.width, height: wheelAperture.height),
                         "Keep the center cover flat, mirror peers about a common horizon, and hit-test the actual projection")
+            for size in [CGSize(width: 390, height: 410), CGSize(width: 627, height: 410),
+                         CGSize(width: 669, height: 410), CGSize(width: 820, height: 125)] {
+                let aperture = MobileWaistFilmTrack.Aperture(size: size)
+                func edge(_ slot: Int, at position: CGFloat, side: CGFloat, flat: Bool) -> CGFloat {
+                    let center = aperture.centerX(of: slot, at: position)
+                    let pose = aperture.coverPose(of: slot, at: position, reduceMotion: flat)
+                    return center + pose.project(CGPoint(x: side * aperture.width / 2, y: 0)).x
+                }
+                for step in -32...32 {
+                    let position = CGFloat(step) / 32
+                    for slot in -3..<3 {
+                        for flat in [false, true] {
+                            let gap = edge(slot + 1, at: position, side: -1, flat: flat)
+                                - edge(slot, at: position, side: 1, flat: flat)
+                            try require(gap > 5.9, "Tabletop covers must not touch while sliding or at rest")
+                        }
+                    }
+                }
+            }
+            try require(wheelAperture.centerX(of: 2, at: 0)
+                            + farCover.project(CGPoint(x: -wheelAperture.width / 2, y: 0)).x
+                            < wheelAperture.size.width - 12,
+                        "Keep the next cover peeking at the Duo edge")
             checks.append("tabletop film wheel wraps continuously and chooses the nearest centered stock")
 
             let captureAspect: CGFloat = 4.0 / 3.0
