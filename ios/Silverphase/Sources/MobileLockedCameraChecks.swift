@@ -78,16 +78,30 @@ enum MobileLockedCameraChecks {
             checks.append("unfolded Duo orientation selection and system division geometry for tabletop vs book/flat")
 
             let wheel = MobileWaistFilmTrack(count: 27)
-            let last = wheel.interiorSlot(of: 26)
+            let last = 26
             try require(wheel.index(at: last + 1) == 0 && wheel.index(at: last + 2) == 1 &&
-                        wheel.index(at: wheel.interiorSlot(of: 0) - 1) == 26,
+                        wheel.index(at: -1) == 26,
                         "The film track must wrap through adjoining physical slots in both directions")
             try require(wheel.closestSlot(of: 0, to: last) == last + 1 &&
                         wheel.closestSlot(of: 26, to: last + 1) == last,
                         "Film choices from the lower picker should travel the shortest path around the track")
-            try require(wheel.slot(offset: 130 * CGFloat(last) - 80 + 14, inset: 80, pitch: 130) == last &&
-                        wheel.slot(offset: 130 * CGFloat(last) - 80 + 75, inset: 80, pitch: 130) == last + 1,
-                        "Scroll offsets must choose the centered cell after accounting for the margins")
+            let asymmetricPanel = MobileWaistCameraGeometry(
+                viewport: CGSize(width: 627, height: 820),
+                divisionFrames: [CGRect(x: -42, y: 410, width: 669, height: 12)]
+            )
+            let upperWheel = asymmetricPanel?.upperWheelFrame(leading: 42, trailing: 0) ?? .null
+            try require(upperWheel.midX + 42 == 334.5,
+                        "The upper wheel must share the physical screen axis with asymmetric safe insets")
+            let settle = MobileWaistFilmTrack.Settle(origin: 26.42, destination: 28, velocity: 3, startedAt: 5)
+            try require(abs(settle.position(at: 5) - 26.42) < 0.00001 && settle.position(at: 6) == 28,
+                        "A release must begin at its dragged position and end exactly on the snapped slot")
+            for width: CGFloat in [390, 627, 669, 820] {
+                let aperture = MobileWaistFilmTrack.Aperture(size: CGSize(width: width, height: 410))
+                let center = aperture.centerX(of: 28, at: settle.position(at: 6))
+                let left = aperture.centerX(of: 27, at: 28), right = aperture.centerX(of: 29, at: 28)
+                try require(center == width / 2 && abs((left + right) / 2 - center) < 0.00001,
+                            "Resizing the aperture must preserve the center of the settled group")
+            }
             let centeredCover = MobileWaistFilmTrack.pose(at: 0, reduceMotion: false)
             let nextCover = MobileWaistFilmTrack.pose(at: 1, reduceMotion: false)
             let flatCover = MobileWaistFilmTrack.pose(at: 1, reduceMotion: true)

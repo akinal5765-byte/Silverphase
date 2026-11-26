@@ -341,9 +341,10 @@ struct MobileCameraView: View {
                 if let waist {
                     // The upper panel is exclusively the quick film wheel. The
                     // lower grip keeps the full catalogue button in its usual spot.
+                    let aperture = waist.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing)
                     waistFilmWheel
-                        .frame(width: waist.upper.width, height: waist.upper.height)
-                        .position(x: waist.upper.midX, y: waist.upper.midY)
+                        .frame(width: aperture.width, height: aperture.height)
+                        .position(x: aperture.midX, y: aperture.midY)
                 }
             }
             .environment(\.layoutDirection, .leftToRight)
@@ -2011,157 +2012,134 @@ private struct CameraDiffusionFilterGlyph: View {
 }
 
 #if SILVERPHASE_APP
-/// The tabletop wheel scrolls independent of the capture recipe. Only a settled
-/// selection reaches the camera, so looking through films never queues 25 previews.
+/// All covers share one floating-point slot coordinate. The selected integer
+/// slot is on the aperture's midpoint, not on a scroll proxy's center.
 private struct MobileWaistFilmWheel: View {
     let stocks: [Stock]
     let selectedID: String
     let enabled: Bool
     let select: (String) -> Void
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var position: ScrollPosition
-    @State private var focusedSlot: Int
-    @State private var phase: ScrollPhase = .idle
-    @State private var lastSettledSlot: Int
-    @State private var correctedForThisScroll = false
-    @State private var measuredPitch: CGFloat = 0
+    @GestureState private var tracking = false
+    @State private var restingSlot: Int
+    @State private var grabOrigin: CGFloat?
+    @State private var grabBegan: TimeInterval?
+    @State private var fingerPosition: CGFloat?
+    @State private var motion: MobileWaistFilmTrack.Settle?
+    @State private var lastDetent: Int?
     @State private var lastTickTime: TimeInterval = -.infinity
     @State private var detentHaptic = UIImpactFeedbackGenerator(style: .medium)
     @State private var settleHaptic = UIImpactFeedbackGenerator(style: .rigid)
 
     private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
-    private var centeredStock: Stock { stocks[track.index(at: focusedSlot)] }
+    private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
 
     init(stocks: [Stock], selectedID: String, enabled: Bool, select: @escaping (String) -> Void) {
         self.stocks = stocks
         self.selectedID = selectedID
         self.enabled = enabled
         self.select = select
-        let track = MobileWaistFilmTrack(count: stocks.count)
-        let initial = track.interiorSlot(of: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
-        _position = State(initialValue: ScrollPosition(id: initial, anchor: .center))
-        _focusedSlot = State(initialValue: initial)
-        _lastSettledSlot = State(initialValue: initial)
+        _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let width = min(242, geometry.size.width * 0.42, max(1, geometry.size.height - 40) * 16 / 9)
-            let height = width * 9 / 16
-            let pitch = min(width * 0.90, geometry.size.width * 0.282)
-            let sideInset = max(0, (geometry.size.width - width) / 2)
-            let motionReduced = reduceMotion
-            VStack(spacing: 8) {
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: pitch - width) {
-                        ForEach(0..<track.slotCount, id: \.self) { slot in
-                            let stock = stocks[track.index(at: slot)]
-                            let relative = slot - focusedSlot
-                            Button { snap(to: slot) } label: {
-                                cover(stock, width: width, height: height)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(stock.displayName)
-                            .accessibilityAddTraits(relative == 0 && stock.id == selectedID ? .isSelected : [])
-                            .accessibilityIdentifier("camera.waist-film.\(relative)")
-                            .accessibilityHidden(abs(relative) > 2)
-                            .visualEffect { [flatAtRest = phase == .idle && !correctedForThisScroll && relative == 0] content, proxy in
-                                let center = proxy.size.width / 2
-                                let middle = proxy.bounds(of: .scrollView(axis: .horizontal))?.midX ?? center
-                                let distance = flatAtRest ? 0 : (center - middle) / max(1, pitch)
-                                let pose = MobileWaistFilmTrack.pose(at: distance, reduceMotion: motionReduced)
-                                let spacing = MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
-                                return content
-                                    .scaleEffect(pose.scale)
-                                    .rotation3DEffect(.degrees(pose.angle), axis: (0, 1, 0), perspective: 0.42)
-                                    .offset(x: spacing, y: pose.depth)
-                                    .opacity(pose.opacity)
-                            }
-                            .zIndex(Double(max(0, 4 - abs(relative))))
-                        }
-                    }
-                    .scrollTargetLayout()
-                    // Use real padding in the scroll content. Slot n now has
-                    // a well-defined centered offset of n times pitch.
-                    .padding(.horizontal, sideInset)
-                }
-                .scrollIndicators(.hidden)
-                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-                .scrollTargetBehavior(MobileWaistFilmSnap(track: track, pitch: pitch, reduceMotion: motionReduced))
-                .scrollPosition($position, anchor: .center)
-                .scrollDisabled(!enabled || stocks.count == 1)
-                .frame(height: height + 12)
-                .onChange(of: pitch, initial: true) { _, value in
-                    guard value > 0 else { return }
-                    measuredPitch = value
-                    jump(to: focusedSlot)
-                }
-                .onScrollGeometryChange(for: Int.self) { scroll in
-                    track.slot(offset: scroll.contentOffset.x, inset: scroll.contentInsets.leading, pitch: pitch)
-                } action: { _, slot in
-                    guard phase != .idle, slot != focusedSlot else { return }
-                    focusedSlot = slot
-                    if phase == .interacting && enabled {
-                        let now = ProcessInfo.processInfo.systemUptime
-                        if now - lastTickTime >= 0.070 {
-                            detentHaptic.impactOccurred(intensity: 0.85)
-                            detentHaptic.prepare()
-                            lastTickTime = now
-                        }
-                    }
-                }
-                .onScrollPhaseChange { _, new, context in
-                    phase = new
-                    if new == .interacting {
-                        correctedForThisScroll = false
-                        lastTickTime = -.infinity
-                        detentHaptic.prepare()
-                        settleHaptic.prepare()
-                    }
-                    guard new == .idle else { return }
-                    let offset = context.geometry.contentOffset.x
-                    let inset = context.geometry.contentInsets.leading
-                    let slot = track.slot(offset: offset, inset: inset, pitch: pitch)
-                    if enabled && abs(track.centerError(at: slot, offset: offset, inset: inset, pitch: pitch)) > 0.5 {
-                        if motionReduced || correctedForThisScroll {
-                            jump(to: slot)
-                            settle(at: slot)
-                        } else {
-                            correctedForThisScroll = true
-                            focusedSlot = slot
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                scroll(to: slot)
-                            }
-                        }
-                        return
-                    }
-                    settle(at: slot)
-                }
-
-                Text(centeredStock.displayName)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .padding(.horizontal, 12)
-                    .accessibilityHidden(true)
+            let aperture = MobileWaistFilmTrack.Aperture(size: geometry.size)
+            TimelineView(.animation(paused: motion == nil)) { _ in
+                strip(aperture, coordinate: currentPosition(at: ProcessInfo.processInfo.systemUptime))
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(T("Film wheel", "胶片轮盘", "膠片輪盤"))
-        .accessibilityValue(stocks.first { $0.id == selectedID }?.displayName ?? centeredStock.displayName)
+        .accessibilityValue(committedStock.displayName)
         .accessibilityAdjustableAction { direction in
+            let from = track.nearestSlot(to: currentPosition(at: ProcessInfo.processInfo.systemUptime))
             switch direction {
-            case .increment: snap(to: focusedSlot + 1)
-            case .decrement: snap(to: focusedSlot - 1)
+            case .increment: snap(to: from + 1)
+            case .decrement: snap(to: from - 1)
             @unknown default: break
             }
         }
         .accessibilityIdentifier("camera.waist-film-wheel")
         .disabled(!enabled)
+        .task(id: motion) { @MainActor in
+            guard let sample = motion else { return }
+            try? await Task.sleep(for: .seconds(sample.duration))
+            guard !Task.isCancelled, motion == sample else { return }
+            settle(at: sample.destination)
+        }
         .onChange(of: selectedID) { _, _ in synchronizeSelection() }
         .onChange(of: enabled) { _, active in
-            if active { synchronizeSelection() }
+            if !active {
+                grabOrigin = nil
+                grabBegan = nil
+                fingerPosition = nil
+                motion = nil
+            }
+            synchronizeSelection()
         }
+        .onChange(of: tracking) { _, active in
+            // SwiftUI may cancel a gesture on a system rotation or modal
+            // handoff without calling onEnded. Return to the committed stock.
+            guard !active, let interrupted = grabBegan else { return }
+            Task { @MainActor in
+                // GestureState can reset before SwiftUI dispatches onEnded.
+                // Only recover a genuinely abandoned, unchanged drag.
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !tracking, grabBegan == interrupted else { return }
+                snap(to: restingSlot)
+            }
+        }
+    }
+
+    private func strip(_ aperture: MobileWaistFilmTrack.Aperture, coordinate: CGFloat) -> some View {
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = stocks.count == 1 ? focused...focused : aperture.slots(around: focused)
+        return VStack(spacing: 8) {
+            ZStack {
+                ForEach(slots, id: \.self) { slot in
+                    let stock = stocks[track.index(at: slot)]
+                    let relative = slot - focused
+                    let distance = CGFloat(slot) - coordinate
+                    let pose = MobileWaistFilmTrack.pose(at: distance, reduceMotion: reduceMotion)
+                    // Absolute placement is deliberately outside the transforms.
+                    // Scale, turn and depth can never alter the shared x axis.
+                    Button { snap(to: slot) } label: {
+                        cover(stock, width: aperture.width, height: aperture.height)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(stock.displayName)
+                    .accessibilityAddTraits(relative == 0 && slot == restingSlot && motion == nil ? .isSelected : [])
+                    .accessibilityIdentifier("camera.waist-film.\(relative)")
+                    .accessibilityHidden(abs(relative) > 2)
+                    .scaleEffect(pose.scale)
+                    .rotation3DEffect(.degrees(pose.angle), axis: (0, 1, 0), perspective: 0.42)
+                    .opacity(pose.opacity)
+                    .position(x: aperture.centerX(of: slot, at: coordinate),
+                              y: aperture.laneHeight / 2 + pose.depth)
+                    .zIndex(4 - Double(abs(distance)))
+                }
+            }
+            .frame(width: aperture.size.width, height: aperture.laneHeight)
+            .clipped()
+            .overlay {
+                // The visible buttons retain AX actions; a single hit surface
+                // owns finger taps and pans to avoid competing recognizers.
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .gesture(wheelTouch(in: aperture))
+                    .accessibilityHidden(true)
+            }
+            Text(stocks[track.index(at: focused)].displayName)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .accessibilityHidden(true)
+        }
+        .frame(width: aperture.size.width, height: aperture.size.height)
+        .transaction { $0.animation = nil }
     }
 
     private func cover(_ stock: Stock, width: CGFloat, height: CGFloat) -> some View {
@@ -2183,87 +2161,111 @@ private struct MobileWaistFilmWheel: View {
         .contentShape(.rect(cornerRadius: 8))
     }
 
-    private func snap(to target: Int) {
-        guard enabled, stocks.count > 1 else { return }
-        let slot = min(track.slotCount - 1, max(0, target))
-        correctedForThisScroll = false
-        settleHaptic.prepare()
-        if reduceMotion || slot == focusedSlot {
-            jump(to: slot)
-            settle(at: slot)
-        } else {
-            withAnimation(.smooth(duration: 0.32)) { scroll(to: slot) }
+    private func currentPosition(at now: TimeInterval) -> CGFloat {
+        fingerPosition ?? motion?.position(at: now) ?? CGFloat(restingSlot)
+    }
+
+    private func wheelTouch(in aperture: MobileWaistFilmTrack.Aperture) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .updating($tracking) { _, active, _ in active = true }
+            .onChanged { event in
+                guard enabled, stocks.count > 1 else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                if grabOrigin == nil {
+                    guard abs(event.translation.width) >= 6,
+                          abs(event.translation.width) > abs(event.translation.height) else { return }
+                    let current = currentPosition(at: now)
+                    grabOrigin = current
+                    grabBegan = now
+                    lastDetent = track.nearestSlot(to: current)
+                    lastTickTime = -.infinity
+                    motion = nil
+                    detentHaptic.prepare()
+                    settleHaptic.prepare()
+                }
+                guard let start = grabOrigin else { return }
+                let coordinate = start - event.translation.width / aperture.pitch
+                fingerPosition = coordinate
+                let detent = track.nearestSlot(to: coordinate)
+                if detent != lastDetent {
+                    lastDetent = detent
+                    if now - lastTickTime >= 0.070 {
+                        detentHaptic.impactOccurred(intensity: 0.85)
+                        detentHaptic.prepare()
+                        lastTickTime = now
+                    }
+                }
+            }
+            .onEnded { event in
+                guard enabled else { return }
+                guard let start = grabOrigin else {
+                    if hypot(event.translation.width, event.translation.height) < 6 {
+                        tapCover(at: event.location, in: aperture)
+                    }
+                    return
+                }
+                let position = start - event.translation.width / aperture.pitch
+                let prediction = (event.translation.width - event.predictedEndTranslation.width) / aperture.pitch
+                let destination = track.destination(from: position, prediction: prediction, reduceMotion: reduceMotion)
+                snap(to: destination, from: position, velocity: prediction / 0.20)
+            }
+    }
+
+    private func tapCover(at point: CGPoint, in aperture: MobileWaistFilmTrack.Aperture) {
+        let coordinate = currentPosition(at: ProcessInfo.processInfo.systemUptime)
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = stocks.count == 1 ? [focused] : Array(aperture.slots(around: focused))
+        // Check front-to-back, the same order used to render the cards.
+        for slot in slots.sorted(by: { abs(CGFloat($0) - coordinate) < abs(CGFloat($1) - coordinate) }) {
+            let pose = MobileWaistFilmTrack.pose(at: CGFloat(slot) - coordinate, reduceMotion: reduceMotion)
+            let x = aperture.centerX(of: slot, at: coordinate)
+            let y = aperture.laneHeight / 2 + pose.depth
+            if abs(point.x - x) <= aperture.width * pose.scale / 2,
+               abs(point.y - y) <= aperture.height * pose.scale / 2 {
+                snap(to: slot, from: coordinate)
+                return
+            }
         }
+    }
+
+    private func snap(to slot: Int, from explicitPosition: CGFloat? = nil, velocity: CGFloat = 0) {
+        guard enabled else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let position = explicitPosition ?? currentPosition(at: now)
+        grabOrigin = nil
+        grabBegan = nil
+        fingerPosition = nil
+        guard !reduceMotion, abs(position - CGFloat(slot)) > 0.001 else {
+            settle(at: slot)
+            return
+        }
+        settleHaptic.prepare()
+        motion = MobileWaistFilmTrack.Settle(origin: position, destination: slot, velocity: velocity, startedAt: now)
     }
 
     private func settle(at slot: Int) {
-        focusedSlot = slot
-        correctedForThisScroll = false
+        let changed = track.index(at: restingSlot) != track.index(at: slot)
+        restingSlot = slot
+        motion = nil
         guard enabled else { return }
         let id = stocks[track.index(at: slot)].id
-        if track.index(at: lastSettledSlot) != track.index(at: slot) {
-            lastSettledSlot = slot
-            settleHaptic.impactOccurred()
-        }
+        if changed { settleHaptic.impactOccurred() }
         if id != selectedID { select(id) }
-        if track.isNearPhysicalEnd(slot) {
-            // Normal last→first movement stays on adjacent physical cells.
-            // Only recenter if a user has traversed several laps.
-            let interior = track.interiorSlot(of: track.index(at: slot))
-            lastSettledSlot = interior
-            jump(to: interior)
-        }
     }
 
     private func synchronizeSelection() {
-        guard centeredStock.id != selectedID, let index = stocks.firstIndex(where: { $0.id == selectedID }) else { return }
-        let slot = track.closestSlot(of: index, to: focusedSlot)
-        correctedForThisScroll = false
-        settleHaptic.prepare()
-        if reduceMotion {
-            jump(to: slot)
-            settle(at: slot)
-        } else {
-            // A lower-panel picker choice still moves the same upper track.
-            // Take the shortest route, including across a catalog boundary.
-            withAnimation(.smooth(duration: 0.38)) { scroll(to: slot) }
+        guard let index = stocks.firstIndex(where: { $0.id == selectedID }),
+              track.index(at: restingSlot) != index else { return }
+        guard enabled else {
+            restingSlot = track.closestSlot(of: index, to: restingSlot)
+            return
         }
-    }
-
-    private func scroll(to slot: Int) {
-        if measuredPitch > 0 {
-            position.scrollTo(x: track.centerOffset(at: slot, pitch: measuredPitch))
-        } else {
-            position.scrollTo(id: slot, anchor: .center)
-        }
-    }
-
-    private func jump(to slot: Int) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            focusedSlot = slot
-            scroll(to: slot)
-        }
+        let now = ProcessInfo.processInfo.systemUptime
+        let current = currentPosition(at: now)
+        let nearest = track.closestSlot(of: index, to: track.nearestSlot(to: current))
+        snap(to: nearest, from: current)
     }
 }
-
-/// Native scrolling handles the flick. Leave the final few points of actual
-/// strip travel for the shared center spring after deceleration; no cover
-/// animates independently from the others.
-private struct MobileWaistFilmSnap: ScrollTargetBehavior {
-    let track: MobileWaistFilmTrack
-    let pitch: CGFloat
-    let reduceMotion: Bool
-
-    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
-        guard pitch > 0, context.axes.contains(.horizontal) else { return }
-        target.rect.origin.x = track.coastOffset(projected: target.rect.minX, pitch: pitch, reduceMotion: reduceMotion)
-        target.rect.size.width = context.containerSize.width
-        target.anchor = .topLeading
-    }
-}
-
 #endif
 
 // A transformed View still advertises its unrotated bounds to its parent.

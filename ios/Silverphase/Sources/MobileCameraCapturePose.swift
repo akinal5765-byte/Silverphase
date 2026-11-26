@@ -31,6 +31,14 @@ struct MobileWaistCameraGeometry {
         upper = CGRect(x: 0, y: 0, width: bounds.width, height: hinge.minY)
         lower = CGRect(x: 0, y: hinge.maxY, width: bounds.width, height: bounds.maxY - hinge.maxY)
     }
+
+    /// Divider frames above are already in GeometryReader-local points.
+    /// The reader's origin is the safe edge, so restore the omitted sides
+    /// for the wheel only. The lower camera stays inside its existing layout.
+    func upperWheelFrame(leading: CGFloat, trailing: CGFloat) -> CGRect {
+        CGRect(x: upper.minX - leading, y: upper.minY,
+               width: upper.width + leading + trailing, height: upper.height)
+    }
 }
 
 
@@ -94,46 +102,66 @@ enum MobileCameraViewfinderGeometry {
     }
 }
 
-/// Physical repeat cells give a stable identity to each loaded view, including
-/// when passing through the last/first stock in the catalog.
+/// A logical track in units of covers, independent of aperture width and
+/// screen origin. Crossing either catalog end only wraps the artwork index.
 struct MobileWaistFilmTrack {
     let count: Int
-    var slotCount: Int { count > 1 ? count * 9 : 1 }
 
     func index(at slot: Int) -> Int { ((slot % count) + count) % count }
-    func interiorSlot(of index: Int) -> Int { count > 1 ? 4 * count + index : 0 }
-    func isNearPhysicalEnd(_ slot: Int) -> Bool {
-        count > 1 && (slot < count || slot >= slotCount - count)
-    }
 
     func closestSlot(of index: Int, to slot: Int) -> Int {
-        let sameLap = (slot / count) * count + index
+        let sameLap = slot - self.index(at: slot) + index
         return [sameLap, sameLap - count, sameLap + count]
-            .filter { (0..<slotCount).contains($0) }
-            .min { abs($0 - slot) < abs($1 - slot) } ?? interiorSlot(of: index)
+            .min { abs($0 - slot) < abs($1 - slot) } ?? sameLap
     }
 
-    func slot(offset: CGFloat, inset: CGFloat, pitch: CGFloat) -> Int {
-        guard pitch > 0, offset.isFinite, inset.isFinite else { return interiorSlot(of: 0) }
-        let steps = ((offset + inset) / pitch).rounded()
-        return Int(min(CGFloat(slotCount - 1), max(0, steps)))
+    func nearestSlot(to coordinate: CGFloat) -> Int { Int(coordinate.rounded()) }
+
+    func destination(from coordinate: CGFloat, prediction: CGFloat, reduceMotion: Bool) -> Int {
+        let coast = reduceMotion ? 0 : min(2.0, max(-2.0, prediction * 0.58))
+        return nearestSlot(to: coordinate + coast)
     }
 
-    func centerOffset(at slot: Int, pitch: CGFloat) -> CGFloat {
-        CGFloat(slot) * pitch
+    struct Aperture {
+        let size: CGSize
+        var width: CGFloat {
+            min(242, max(1, size.width * 0.42), max(1, size.height - 40) * 16 / 9)
+        }
+        var height: CGFloat { width * 9 / 16 }
+        var pitch: CGFloat { max(1, min(width * 0.90, size.width * 0.282)) }
+        var laneHeight: CGFloat { height + 12 }
+
+        func centerX(of slot: Int, at coordinate: CGFloat) -> CGFloat {
+            let distance = CGFloat(slot) - coordinate
+            return size.width / 2 + distance * pitch
+                + MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
+        }
+
+        func slots(around center: Int) -> ClosedRange<Int> {
+            let radius = min(6, max(3, Int(ceil((size.width + width) / (2 * pitch))) + 1))
+            return (center - radius)...(center + radius)
+        }
     }
 
-    func coastOffset(projected: CGFloat, pitch: CGFloat, reduceMotion: Bool) -> CGFloat {
-        let slot = slot(offset: projected, inset: 0, pitch: pitch)
-        let center = centerOffset(at: slot, pitch: pitch)
-        guard !reduceMotion, projected.isFinite else { return center }
-        let slack = min(pitch * 0.10, 11)
-        let coast = center + min(slack, max(-slack, projected - center))
-        return min(centerOffset(at: slotCount - 1, pitch: pitch), max(0, coast))
-    }
+    struct Settle: Equatable {
+        let origin: CGFloat
+        let destination: Int
+        let velocity: CGFloat
+        let startedAt: TimeInterval
+        let duration: TimeInterval = 0.43
 
-    func centerError(at slot: Int, offset: CGFloat, inset: CGFloat, pitch: CGFloat) -> CGFloat {
-        offset + inset - centerOffset(at: slot, pitch: pitch)
+        func position(at time: TimeInterval) -> CGFloat {
+            let elapsed = max(0, time - startedAt)
+            let target = CGFloat(destination)
+            guard elapsed < duration else { return target }
+            // Critically damped response: joins the actual drag position,
+            // preserves a bounded flick velocity, and converges on an exact slot.
+            let damping: CGFloat = 19
+            let difference = origin - target
+            let speed = min(11, max(-11, velocity))
+            let t = CGFloat(elapsed)
+            return target + (difference + (speed + damping * difference) * t) * exp(-damping * t)
+        }
     }
 
     private static let neighborScale: CGFloat = 0.64
