@@ -10,7 +10,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -25,7 +24,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -40,7 +38,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -55,7 +52,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "cinestill_400d_fotufilm.jpg",
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -70,7 +66,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 800,
    "speedUnit": "ISO",
    "speedSource": "https://cinestillfilm.com/products/800tungsten-c41-135-36"
@@ -85,7 +80,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -100,7 +94,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -115,7 +108,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -130,7 +122,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -145,7 +136,6 @@
    "targetPrint": "fujifilm_crystal_archive_typeii",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 200,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
@@ -160,7 +150,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "fujifilm_pro_400h",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -175,7 +164,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -190,7 +178,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -205,7 +192,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -220,7 +206,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
@@ -235,7 +220,6 @@
    "targetPrint": "fujifilm_crystal_archive_typeii",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -250,7 +234,6 @@
    "targetPrint": "fujifilm_crystal_archive_typeii",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 400,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
@@ -265,7 +248,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "fujifilm_provia_100f.jpg",
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
@@ -280,7 +262,6 @@
    "targetPrint": "fujifilm_crystal_archive_typeii",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -295,7 +276,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -310,7 +290,6 @@
    "targetPrint": "fujifilm_crystal_archive_typeii",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -325,7 +304,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "fujifilm_velvia_100.jpg",
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
@@ -340,7 +318,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "fujifilm_velvia_50_fotufilm.jpg",
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -355,7 +332,6 @@
    "targetPrint": "fujifilm_crystal_archive_typeii",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "fujifilm_xtra_400.jpg",
    "nominalSpeed": 400,
    "speedUnit": "ISO",
    "speedSource": "https://asset.fujifilm.com/www/us/files/2020-04/9cdee030ab7fc76bbcfddbcd38650038/ProfessionalFilmDataGuide.pdf"
@@ -370,7 +346,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -385,7 +360,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -400,7 +374,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -415,7 +388,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 400,
    "speedUnit": "ISO",
    "speedSource": "https://www.ilfordphoto.com/amfile/file/download/file/1903/product/691/"
@@ -430,7 +402,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -445,7 +416,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -460,7 +430,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_vision3_250d",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -475,7 +444,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_vision3_250d",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -490,7 +458,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -505,7 +472,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -520,7 +486,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_ektachrome_100.jpg",
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -535,7 +500,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_portra_400",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -550,7 +514,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -565,7 +528,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_portra_400",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -580,7 +542,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_gold_200.jpg",
    "nominalSpeed": 200,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -595,7 +556,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -610,7 +570,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -625,7 +584,6 @@
    "targetPrint": null,
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 64,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -640,7 +598,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -655,7 +612,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_portra_160.jpg",
    "nominalSpeed": 160,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -670,7 +626,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_portra_400.jpg",
    "nominalSpeed": 400,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -685,7 +640,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_portra_800.jpg",
    "nominalSpeed": 800,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -700,7 +654,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_portra_800_push1.jpg",
    "nominalSpeed": 800,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -715,7 +668,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_portra_800_push2.jpg",
    "nominalSpeed": 800,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -730,7 +682,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_portra_400",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -745,7 +696,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_portra_400",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -760,7 +710,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 100,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/sites/default/files/wysiwyg/film/f4016.pdf"
@@ -775,7 +724,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -790,7 +738,6 @@
    "targetPrint": "ilford_multigrade_iv_rc",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 400,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/sites/default/files/wysiwyg/film/f4017_trix_320400.pdf"
@@ -805,7 +752,6 @@
    "targetPrint": null,
    "hasPreviewLUT": true,
    "pairedFilm": "kodak_portra_400",
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -820,7 +766,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": "kodak_ultramax_400.jpg",
    "nominalSpeed": 400,
    "speedUnit": "ISO",
    "speedSource": "https://www.kodakprofessional.com/en-gb/node/133"
@@ -835,7 +780,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 200,
    "speedUnit": "EI",
    "speedSource": "https://www.kodak.com/en/motion/products/camera-films/"
@@ -850,7 +794,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 200,
    "speedUnit": "EI",
    "speedSource": "https://www.kodak.com/en/motion/products/camera-films/"
@@ -865,7 +808,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 250,
    "speedUnit": "EI",
    "speedSource": "https://www.kodak.com/en/motion/products/camera-films/"
@@ -880,7 +822,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 500,
    "speedUnit": "EI",
    "speedSource": "https://www.kodak.com/en/motion/products/camera-films/"
@@ -895,7 +836,6 @@
    "targetPrint": "kodak_2383",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": 50,
    "speedUnit": "EI",
    "speedSource": "https://www.kodak.com/en/motion/products/camera-films/"
@@ -910,7 +850,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -925,7 +864,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null
@@ -940,7 +878,6 @@
    "targetPrint": "kodak_portra_endura",
    "hasPreviewLUT": false,
    "pairedFilm": null,
-   "cover": null,
    "nominalSpeed": null,
    "speedUnit": null,
    "speedSource": null

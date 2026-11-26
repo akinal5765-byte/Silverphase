@@ -634,6 +634,8 @@ enum Theme {
         static let browserToolbarCompactWidth: CGFloat = 600
         static let browserListWidth: CGFloat = 224
         static let browserListRowHeight: CGFloat = 44
+        static var browserListCoverHeight: CGFloat { browserListRowHeight - space8 * 2 }
+        static var browserListCoverWidth: CGFloat { browserListCoverHeight * browserCoverAspectRatio }
         /// The chooser's own card, tab and glyph geometry.
         static let modernChooserCard = CGSize(width: 106, height: 70)
         static let modernChooserTab = CGSize(width: 52, height: 30)

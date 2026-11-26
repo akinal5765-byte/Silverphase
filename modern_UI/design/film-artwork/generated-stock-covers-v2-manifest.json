@@ -1,0 +1,685 @@
+{
+  "version": 2,
+  "generator": "built-in imagegen",
+  "references": false,
+  "native_derivative": {
+    "width": 1440,
+    "height": 810,
+    "encoding": "sRGB JPEG quality 93, 4:4:4, optimize"
+  },
+  "web_derivative": {
+    "width": 800,
+    "height": 450,
+    "encoding": "sRGB WebP quality 90, method 6"
+  },
+  "transform": "Centered minimal crop to 16:9 from reviewed PNG, Lanczos resize; no stretching, text overlays, or upscaling.",
+  "aliases": {
+    "cinestill_800t_fotufilm": "cinestill_800t",
+    "fujifilm_acros_100_ii_fotufilm": "fujifilm_neopan_acros_100_ii",
+    "ilford_hp5_plus_fotufilm": "ilford_hp5_plus_400",
+    "kodak_portra_800_push1": "kodak_portra_800",
+    "kodak_portra_800_push2": "kodak_portra_800",
+    "kodak_tmax_100_fotufilm": "kodak_tmax_100"
+  },
+  "items": [
+    {
+      "id": "agfa_agfachrome_100_fotufilm",
+      "file": "agfa_agfachrome_100_fotufilm.jpg",
+      "sha256": "755ee548d642e80188b769ef5eaab1560a7c60d00a16acea79ed1b4c29c39db8",
+      "source_sha256": "f39b3279105322221a987c6f1e5cbe41759fc6ec10feab87377f315673a6348b",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Agfachrome 100。以 Agfa Agfachrome 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Agfachrome 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "agfa_agfachrome_200_fotufilm",
+      "file": "agfa_agfachrome_200_fotufilm.jpg",
+      "sha256": "12ac7d5a1aee715dc32420ac9b7d3a8cd1e0310b4fca346439b4d76b027711e3",
+      "source_sha256": "43568b1d5646338a72ef475c44e46d7af73400f97b00074132b30495b10e9136",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Agfachrome 200。以 Agfa Agfachrome 200 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Agfachrome 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "agfa_agfachrome_50_fotufilm",
+      "file": "agfa_agfachrome_50_fotufilm.jpg",
+      "sha256": "e7d8108a75d98f8235378a1ad12ea69c4acf295ff3af92fa29c45c86860fbb81",
+      "source_sha256": "ab324851b7caa6fe0ab497aa6761661425faa91ae406fe1ea681b48df57077ea",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Agfachrome 50。以 Agfa Agfachrome 50 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Agfachrome 50」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "cinestill_400d_fotufilm",
+      "file": "cinestill_400d_fotufilm.jpg",
+      "sha256": "4749d61011d7a7c1af34192c5c66fc95d87018c1fe997003daabeee658a7acf3",
+      "source_sha256": "38ec43ae425fe3f78cb7393ba1dfdb7e1def91ab2df17efc6cf4da8583826705",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 CineStill 400D。以 CineStill 400D 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「CineStill 400D」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "cinestill_800t",
+      "file": "cinestill_800t.jpg",
+      "sha256": "2b742cbd5b5f9aede0e82aaf68ae10c2fa8f425d0085ecfe7a037a96b75eeb1e",
+      "source_sha256": "56fc3cdd567e813ed9719f737f2783ef281ac7e21ed68b8b7ad3cf1680f4a532",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 CineStill 800T，标称感光度为 ISO 800。以 CineStill 800T 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「CineStill 800T」和「ISO 800」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/cinestill-800t.webp",
+        "sha256": "5248b38a102bc5988585ae05ee84a75c34c8caf9142c7eca33eb2d7c8a70bcd0"
+      }
+    },
+    {
+      "id": "fotufilm_infrared_color_fotufilm",
+      "file": "fotufilm_infrared_color_fotufilm.jpg",
+      "sha256": "c6e8605763a2cd7aa1686726ca412c0e3d1cb8f45dcf69fbe35af54a9441f9e9",
+      "source_sha256": "c14e6fc08a88dde6a097431ed5c0ba6baa2f2bf9b00b7ac0982656ed2c0b7fa8",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Infrared Color。为虚构的创意红外模拟设计原创配色，无需对应真实包装。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Infrared Color」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_astia_100f_fotufilm",
+      "file": "fujifilm_astia_100f_fotufilm.jpg",
+      "sha256": "859e15a6f2b0de2c3d0a5707d36b6ab5d9ad022f2d6ea42168c0c556bb6ddf52",
+      "source_sha256": "c67d6861196000ef139151e4b2338c04120a03e569330093b08b59ec1d55ff33",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Astia 100F。以 Fujifilm Astia 100F 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Astia 100F」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_c200",
+      "file": "fujifilm_c200.jpg",
+      "sha256": "e35ed5912d133e4b3fa33b4177e5493c1231e9894bf4cb408c98cfb0782f8a9e",
+      "source_sha256": "9589903080ff0187a45af97f0551afbab532d40145a18cef20632772a4bc0729",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 C200，标称感光度为 ISO 200。以 Fujifilm C200 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「C200」和「ISO 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_crystal_archive_typeii",
+      "file": "fujifilm_crystal_archive_typeii.jpg",
+      "sha256": "97ad07c0f6af7a2d0c43078285c8c9c8db84e27f2e8240094bd965ae2b1be753",
+      "source_sha256": "f696ed0af6be5773fbf2fc2b1f5c9705c4cce211791d4a06955893960355a282",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Crystal Archive Type II。以 Fujifilm Crystal Archive Type II 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Crystal Archive Type II」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_eterna_500_fotufilm",
+      "file": "fujifilm_eterna_500_fotufilm.jpg",
+      "sha256": "ebc7ae3cfda8fabe8c6c909bd21155dbe41d0c4add48ae62a9aa1e48eca0be6c",
+      "source_sha256": "0855799e3c94bdeeee57ebbfeceda9d7d9a12b85f6cc7326fb43e06846f13658",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Eterna 500。以 Fujifilm Eterna 500 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Eterna 500」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/eterna-500.webp",
+        "sha256": "fc904795c8b671e022b783d513a664793d1031895eac6bd1ef413f332b133cba"
+      }
+    },
+    {
+      "id": "fujifilm_eterna_vivid_500_fotufilm",
+      "file": "fujifilm_eterna_vivid_500_fotufilm.jpg",
+      "sha256": "c8f1d7a9fadc63570fd6a59de6413c17850ba59e22591e645d9b549bfcc84795",
+      "source_sha256": "21632aac334550b16d166447d1df93ef21b2743aa67e46abf53f05117205c067",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Eterna Vivid 500。以 Fujifilm Eterna Vivid 500 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Eterna Vivid 500」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_f64d_fotufilm",
+      "file": "fujifilm_f64d_fotufilm.jpg",
+      "sha256": "6568864563fb2616bbb9ebe93e7c4d7ef3000abd584eb3ace365ef08bb932224",
+      "source_sha256": "5e6968b194085eba0a47574409b3baac5febd2c477a5e71d3509599de1a661c8",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 F-64D。以 Fujifilm F-64D 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「F-64D」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_neopan_acros_100_ii",
+      "file": "fujifilm_neopan_acros_100_ii.jpg",
+      "sha256": "1c5e86377a93e3796336bd1fb91a410dda8c6d53d4ca6f84b1304290b515fdb6",
+      "source_sha256": "edd63582d160be4ee9ba4b9c2853d489cb3f7417f733f54bba4950bd8570b674",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Neopan Acros II，标称感光度为 ISO 100。以 Fujifilm Neopan 100 Acros II 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Neopan Acros II」和「ISO 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/acros-ii.webp",
+        "sha256": "5948620fe0bad52c6683024beba052e197fbbbdf708528728b7c1a027ea7865a"
+      }
+    },
+    {
+      "id": "fujifilm_pro_160ns_fotufilm",
+      "file": "fujifilm_pro_160ns_fotufilm.jpg",
+      "sha256": "defaa42714ea371cf3ed0d0768b7b8c4f33f69aa8cb1823ee57a24d21971bf8d",
+      "source_sha256": "32d0edf815df1edcfdac5f396d885dbdbdfd22c3a31bc2c1374953638a3fb10a",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Pro 160NS。以 Fujifilm Pro 160NS 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Pro 160NS」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/pro-160ns.webp",
+        "sha256": "87cbbb366ef75fd9d30f11d420f364f94aa69d9b957e0ee47af110c84d6207b4"
+      }
+    },
+    {
+      "id": "fujifilm_pro_400h",
+      "file": "fujifilm_pro_400h.jpg",
+      "sha256": "15e1d13f2a6decabfaeb633e587048af54ed642fd831eabfc14d4a23a680e890",
+      "source_sha256": "d44374a6208e8a93ae6c5229117f125a44647fac8d21aa543aacb86a93b1e9ff",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Pro 400H，标称感光度为 ISO 400。以 Fujifilm Pro 400H 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Pro 400H」和「ISO 400」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_provia_100f",
+      "file": "fujifilm_provia_100f.jpg",
+      "sha256": "9701f737676ad42fc062eb42cb2e23f9c092e2198757eb5c4acf7a59edd1c585",
+      "source_sha256": "d12c95e12c283c773ad218a47573d739843590b2907b0745a4171059b5b39a6d",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Provia 100F，标称感光度为 ISO 100。以 Fujifilm Provia 100F 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Provia 100F」和「ISO 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_reala_100_fotufilm",
+      "file": "fujifilm_reala_100_fotufilm.jpg",
+      "sha256": "e331519d74832a315dc23bd0baadd991c81ba21ecba335b9e1025053365ce809",
+      "source_sha256": "100d800768d7be51acd809d5e96813ec3229b8dc258dc4ff6bea8f944b8f1435",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Superia Reala 100。以 Fujifilm Superia Reala 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Superia Reala 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/reala-100.webp",
+        "sha256": "80edda15b0efb450f8db4b65f739e32373c0e717fc8edc81ca13ef8a9363655f"
+      }
+    },
+    {
+      "id": "fujifilm_reala_500d_fotufilm",
+      "file": "fujifilm_reala_500d_fotufilm.jpg",
+      "sha256": "cee139a52446b6b1f65712c3388493d0a837bf8f40e983af22a47cfc274ccf84",
+      "source_sha256": "33a8ecdce8eed88d3ead413f88f4288e53805d39307746a9be3b762a0d9635b3",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Reala 500D。以 Fujifilm Reala 500D 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Reala 500D」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_superia_200_fotufilm",
+      "file": "fujifilm_superia_200_fotufilm.jpg",
+      "sha256": "616b341960a8851165c7478fbff5ca7804f4c75b3569f498677a366ed78d5a21",
+      "source_sha256": "0db6ee090128c1eea2580131d3faae7f48689a7f72ee6216836e8a70f7f00a46",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Superia 200。以 Fujifilm Superia 200 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Superia 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_velvia_100",
+      "file": "fujifilm_velvia_100.jpg",
+      "sha256": "3d26f786e35ae8adbe514ddeb1de728b72484469e8055ae87a90b9cc916ce813",
+      "source_sha256": "6029063c707b2688980027a57873dc9b6d20f79126fc274fb6950b0c842075e5",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Velvia 100，标称感光度为 ISO 100。以这款胶片经典包装的标志性配色为依据，重新设计一张有独立视觉风格的胶片封面；字型、色块比例、构图和抽象图形由你自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切。保留轻微印刷纸质感，缩小后仍能辨识。画面文字用型号 Velvia 100 和 ISO 100，不增加卷长或制式等商品规格。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_velvia_50_fotufilm",
+      "file": "fujifilm_velvia_50_fotufilm.jpg",
+      "sha256": "e5a14dbcbbd6a5cfe2cb32bbc097c6780d016fcb491e6c9eb196745fe61724b8",
+      "source_sha256": "c91e6fdfa7345a07b52453edfcc33027784ac5ba498bfe2852bc24187b1ffd34",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Velvia 50。以 Fujifilm Velvia 50 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Velvia 50」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "fujifilm_xtra_400",
+      "file": "fujifilm_xtra_400.jpg",
+      "sha256": "9ddeab6ca2fcb469b77a02c83a1f01487236a8808f30322d8941a99fd2913f24",
+      "source_sha256": "bd7495b50e678ddd63b9308865b769381f2db2a7a3d84feb87d83bd31fc749d6",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 X-Tra 400，标称感光度为 ISO 400。以 Fujifilm X-Tra 400 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「X-Tra 400」和「ISO 400」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "harman_phoenix_200_fotufilm",
+      "file": "harman_phoenix_200_fotufilm.jpg",
+      "sha256": "9d78e29cd9396bd83dff1cd9c4b62cac865a885a6bc5692b6e062727b0cfdf0e",
+      "source_sha256": "529cf4c5c96087ae5d302e3a7d867d108e1347a85aece034d1352ba93376a056",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Phoenix 200。以 Harman Phoenix 200 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。图形请用抽象的折面或光谱线，不绘制鸟或品牌标志性图案。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Phoenix 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "ilford_delta_3200_fotufilm",
+      "file": "ilford_delta_3200_fotufilm.jpg",
+      "sha256": "9b7ac4357fd3c81879331dd0cf7fb798ee6dd80916b190112df7f13b313fe3c3",
+      "source_sha256": "e0f7350ed04d88b8c0a88bd1af3baa43732c804e79369133b902519ccc424bab",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Delta 3200 Professional。以 Ilford Delta 3200 Professional 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Delta 3200 Professional」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "ilford_fp4_plus_fotufilm",
+      "file": "ilford_fp4_plus_fotufilm.jpg",
+      "sha256": "100ad7e4c1fdd91da39426ddc0b27daf68cc66f2ab70c39b1618bc8a367123b5",
+      "source_sha256": "d6535fe912d7e9d2c97e09d1978c66b40f8fe2611b3cc302a6f9382dfd7f0fdd",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 FP4 Plus。以 Ilford FP4 Plus 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「FP4 Plus」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "ilford_hp5_plus_400",
+      "file": "ilford_hp5_plus_400.jpg",
+      "sha256": "988c850cc230652d84f269bed93ffba4ea8450a733704782b5c41f7628249afd",
+      "source_sha256": "b05826314e7a8e7ebbacb1d51c82b8a79fe18ecbad5b7fae95d8f8cf04abe7c5",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张胶片卡片封面，胶片型号为 HP5 Plus，标称感光度为 ISO 400。以这款胶片经典包装的标志性配色为依据，重新设计一张有独立视觉风格的胶片封面；字型、色块比例、构图和抽象图形由你自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切。保留轻微印刷纸质感，缩小后仍能辨识。画面文字用型号 HP5 Plus 和 ISO 400，不增加卷长或制式等商品规格。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/hp5-plus.webp",
+        "sha256": "4cf128a40b805f89523e51813cd3a40733454d7f69593c4adceb97b5fdfd9567"
+      }
+    },
+    {
+      "id": "ilford_multigrade_iv_rc",
+      "file": "ilford_multigrade_iv_rc.jpg",
+      "sha256": "0c5fd4a6302a1beb99c2f965763ca1726012a27d6fe76f2906171f14d9f5b0a0",
+      "source_sha256": "e0c806fc9ce6d11bb8b893ee837294157a37805c556395cde850d4c0e160794e",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Multigrade IV RC。以 Ilford Multigrade IV RC 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Multigrade IV RC」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_2383",
+      "file": "kodak_2383.jpg",
+      "sha256": "6979e01681fb3db034037f8017a9e5a83d0bfe56056b6cb56efeb0825ffebc0e",
+      "source_sha256": "0fb9f5b16db344a1aae2997ec4505d4daa4f726d114216f41bc15a678ac7e2ee",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Vision 2383。以 Kodak Vision 2383 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Vision 2383」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_2393",
+      "file": "kodak_2393.jpg",
+      "sha256": "7abc44e884b67471cbbaabdb1e0efd1ad22a3f6e317c637194eb8662e99d852f",
+      "source_sha256": "9e223df9fb5d3fd23a588fb393b81e6ebd2be9ca59159d305a3b0e2968dcb113",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Vision Premier 2393。以 Kodak Vision Premier 2393 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Vision Premier 2393」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_aerochrome_1443_fotufilm",
+      "file": "kodak_aerochrome_1443_fotufilm.jpg",
+      "sha256": "022740e9d806c86a0c33ba7d5b97e140054a40c48959bae2de4b964d60c14853",
+      "source_sha256": "4df1e12db451647b84ca246b0c6d1a6fe6d27303689495db459a3f7a8a05f288",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Aerochrome III 1443。以 Kodak Aerochrome III 1443 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Aerochrome III 1443」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_aerocolor_2460_fotufilm",
+      "file": "kodak_aerocolor_2460_fotufilm.jpg",
+      "sha256": "c46ab1118455e030a0dc54cffb415875477df6eba69bb2f7265614b319199cb3",
+      "source_sha256": "443b5ae704dfdb77d1efaa10785f1072aca1ebadf7572dd8bbd841eae0ae197a",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Aerocolor IV 2460。以 Kodak Aerocolor IV 2460 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Aerocolor IV 2460」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_ektachrome_100",
+      "file": "kodak_ektachrome_100.jpg",
+      "sha256": "e6a635c6e0256290c37d8cf7c812fc97478643684b1ecde602af116b13cde407",
+      "source_sha256": "7ea250520a45826fc6d86c6683701e1c30e01997f09e6a1ecdf5e9801ea8a82a",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Ektachrome 100，标称感光度为 ISO 100。以 Kodak Ektachrome 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Ektachrome 100」和「ISO 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_ektacolor_edge",
+      "file": "kodak_ektacolor_edge.jpg",
+      "sha256": "e06d0eef127bf59075b82fe16bfc4c23d12f06be97e9f42c51b61402668bb3f5",
+      "source_sha256": "8e01e1ffa6a237cf52eec2254c6b5590232c2169c6ee01482a8233ff2224c151",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Ektacolor Edge。以 Kodak Ektacolor Edge 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Ektacolor Edge」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_ektar_100",
+      "file": "kodak_ektar_100.jpg",
+      "sha256": "8e2689de3c13ff36d9b22608a130655294613ac3c7995e2d1b41c2ca8deb2456",
+      "source_sha256": "7a54ed1742f61d1a6f270580cbd6a6d0578e261cd9888bcd277a78f6d03dfc40",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Ektar 100，标称感光度为 ISO 100。以 Kodak Ektar 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Ektar 100」和「ISO 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_endura_premier",
+      "file": "kodak_endura_premier.jpg",
+      "sha256": "533e357936e4ed7f914656551f8091e5b069b9a6b8e5e29d3cd743bd6a43ab93",
+      "source_sha256": "b48992bcfb69f5365c769eb9ab82f5e6c1163286dd51270e1859518fb49692ad",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Endura Premier。以 Kodak Professional Endura Premier 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Endura Premier」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_gold_200",
+      "file": "kodak_gold_200.jpg",
+      "sha256": "f4d6a0b905bd994fd1025084775c941ba43e56649702ab20ca0260a963723e13",
+      "source_sha256": "3c9d60c61b76e9c77e573ba96bdfec59c740a9df2a17845fd19405dac7e561f3",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Gold 200，标称感光度为 ISO 200。以 Kodak Gold 200 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Gold 200」和「ISO 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodachrome_200_fotufilm",
+      "file": "kodak_kodachrome_200_fotufilm.jpg",
+      "sha256": "089619ab4659b38189694258c8b9db7600d75e007940120a43e3ef11aeaef890",
+      "source_sha256": "1c782167cfd9171f34f9f7ffcac08d86ed7afece55f9c2aa9ecb2c57f566bdcb",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Kodachrome 200。以 Kodak Kodachrome 200 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Kodachrome 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodachrome_25_fotufilm",
+      "file": "kodak_kodachrome_25_fotufilm.jpg",
+      "sha256": "5ee9a1d263e13548457c5c6b08cd4248a7519d4ca2edb25cfd4c6a3eb4b9c341",
+      "source_sha256": "508b3cbe90fa32ed7e86d3088502ddd98d7a1dcde1c457fe12242c7dddf767f9",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Kodachrome 25。以 Kodak Kodachrome 25 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Kodachrome 25」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodachrome_64",
+      "file": "kodak_kodachrome_64.jpg",
+      "sha256": "7bc5e2b81c700a451c3e884b189cfd46e69248e7150f31eaa204c7d23868bed3",
+      "source_sha256": "bb8b6a4f0df015d33cf5bd4a8383cc12f38fb233884ec61c01adfc758acfbee9",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Kodachrome 64，标称感光度为 ISO 64。以 Kodak Kodachrome 64 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Kodachrome 64」和「ISO 64」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_kodacolor_100_fotufilm",
+      "file": "kodak_kodacolor_100_fotufilm.jpg",
+      "sha256": "342c8245f130a0953ed6fb56d9846e7b956e89165581c234a7e4bbfdce451d3c",
+      "source_sha256": "f555ca73f410c498ecb38767026d197e04b3483d956e814d8160e6273fa41c38",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Kodacolor 100。以 Kodak Kodacolor 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Kodacolor 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_portra_160",
+      "file": "kodak_portra_160.jpg",
+      "sha256": "380f93f38289ef15c339a29b03107cea1f7971680fd158eaad56dfce26e6cbe9",
+      "source_sha256": "129cc102a4c22a1d2514145af2de7ce16c5a74e67a4afe73eb9bbe55ec6f0d29",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Portra 160，标称感光度为 ISO 160。以 Kodak Portra 160 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Portra 160」和「ISO 160」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_portra_400",
+      "file": "kodak_portra_400.jpg",
+      "sha256": "eee2f281c94e21029793c5299f9ce91e3b59e911fac7477bf0f63feadca669e8",
+      "source_sha256": "d3b27f1f6f30f73ab448e273f72e9519095a7db1ee6212a64988c4049ab8831d",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Portra 400，标称感光度为 ISO 400。\n以这款胶片经典包装的紫、洋红和金黄色系为依据，重新设计一张有独立视觉风格的胶片封面。字型、色块、构图和图形由你自由发挥。不要出现厂商 Logo 和版权文字。\n画面为 16:9 横向，平面正视满版，直角边缘，由应用负责圆角裁切。保留轻微印刷纸质感，文字清晰，型号准确，缩小后仍能辨识。仅文本提示，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/portra-400.webp",
+        "sha256": "52c62b6809b3bc89d3bc49a1664db0039993be45113ea0820931a9befda7533e"
+      }
+    },
+    {
+      "id": "kodak_portra_800",
+      "file": "kodak_portra_800.jpg",
+      "sha256": "11b159e1d8abd9ff5bf3baa0ca0cef752dd95d35bbfd6df953c9fef3a5f70be8",
+      "source_sha256": "28dc66597c2001d44280e29b0bdc4c2dd460d6a8187d231326a22da93026eac3",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Portra 800，标称感光度为 ISO 800。以 Kodak Portra 800 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Portra 800」和「ISO 800」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_portra_endura",
+      "file": "kodak_portra_endura.jpg",
+      "sha256": "4c7d3399e56faaf9f50622cb2251b694e32ff3196f9765b0174d98b38b42c14e",
+      "source_sha256": "6efde140d9f78d1a35d51a552d077074c27e31a8cc98af7946e92efc107b3d48",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Portra Endura。以 Kodak Professional Portra Endura 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Portra Endura」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_supra_endura",
+      "file": "kodak_supra_endura.jpg",
+      "sha256": "10ce43219f3884044e415ba4db698911a8e05be473bf01f7637f0c00c46b3e9e",
+      "source_sha256": "5405979869c160e6a26750fff839ff309cba1e495810aaba61b4c556bace15f3",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Supra Endura。以 Kodak Professional Supra Endura 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Supra Endura」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_tmax_100",
+      "file": "kodak_tmax_100.jpg",
+      "sha256": "ec4205fc5c16afdba8f79e581239e047a773b5437f1ebce548b59abac78f1a4a",
+      "source_sha256": "d4bf062c4f37c2a03ff6ec8ce89ef0fc9d1e1838bcaa45f48d585916613d5c95",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 T-Max 100，标称感光度为 ISO 100。以 Kodak T-Max 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「T-Max 100」和「ISO 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_tri_x_400",
+      "file": "kodak_tri_x_400.jpg",
+      "sha256": "4ac8a5b7e9290398ccc791b89ce76d08dcdd340d039e4b58982c479d111a528e",
+      "source_sha256": "e5c878d9b5c017d503d9703fd7d76bea03702af0e65f65b35df4c3c0fd3427f0",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Tri-X 400，标称感光度为 ISO 400。以 Kodak Tri-X 400 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Tri-X 400」和「ISO 400」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_ultra_endura",
+      "file": "kodak_ultra_endura.jpg",
+      "sha256": "31e70bcd151597f69f5ed8f98bd0a3d5609da5d0c8d07d2da1a0332a1096ce91",
+      "source_sha256": "659c7d09cce89cd0061ad4af81e2817e07666cc1f794395779808196f95e3b75",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 印片材料 卡片封面，型号为 Ultra Endura。以 Kodak Professional Ultra Endura 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Ultra Endura」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_ultramax_400",
+      "file": "kodak_ultramax_400.jpg",
+      "sha256": "5bb67da03248fe4ef2f10015d841a4e6b9a91004be03e4b8c5236dcd017b2e98",
+      "source_sha256": "647c4f0d3d3636a4f972de768457c8439f6476a4b75447b911bbf37003010c31",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Ultramax 400，标称感光度为 ISO 400。以 Kodak Ultramax 400 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Ultramax 400」和「ISO 400」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_verita_200d",
+      "file": "kodak_verita_200d.jpg",
+      "sha256": "3ef23c2b0bb6aa9ac5260de7edec1d3c99abedddf590715809ac660b76586420",
+      "source_sha256": "cc546d4143fa8a809c143780d0c7ee2a4befbb0ad29b5828cd7d3e923b19ad0b",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Verita 200D，标称感光度为 EI 200。以 Kodak Verita 200D 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Verita 200D」和「EI 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_vision3_200t",
+      "file": "kodak_vision3_200t.jpg",
+      "sha256": "f826e89527086ed3799ba8093ac6979a887d264424093f67f6fd9f592ed124a7",
+      "source_sha256": "a0bab0575d21095fe1668c6d2355e3fa0745b3569de91315bf994f38b2eb6c3c",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Vision3 200T，标称感光度为 EI 200。以 Kodak Vision3 200T 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Vision3 200T」和「EI 200」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_vision3_250d",
+      "file": "kodak_vision3_250d.jpg",
+      "sha256": "b144fe2be05423548b7b1188f0907923a9af30ca677dd3e96793a2ce96e7600c",
+      "source_sha256": "f307ef5368293b1ee9ce15990d70c2e0d00005935eee353d53526a1628ebf68a",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Vision3 250D，标称感光度为 EI 250。以 Kodak Vision3 250D 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Vision3 250D」和「EI 250」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。",
+      "web": {
+        "path": "docs/site/covers/vision3-250d.webp",
+        "sha256": "7cad19a3976e01ec96d358a7ec2acbbab94cf52244373171e7e12fc7a44987cf"
+      }
+    },
+    {
+      "id": "kodak_vision3_500t",
+      "file": "kodak_vision3_500t.jpg",
+      "sha256": "1cf34efacba4fe40244067a387ab6538d88491eaf15ad7aaf8bbb3ee19736444",
+      "source_sha256": "64acab441fcc4db7dfc084bf4b0c38f1c135b731f215355bd3316ff930c0742a",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张胶片卡片封面，胶片型号为 Vision3 500T，标称感光度为 EI 500。以这款胶片经典包装的标志性配色为依据，重新设计一张有独立视觉风格的胶片封面；字型、色块比例、构图和抽象图形由你自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切。保留轻微印刷纸质感，缩小后仍能辨识。画面文字用型号 Vision3 500T 和 EI 500，不增加卷长或制式等商品规格。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "kodak_vision3_50d",
+      "file": "kodak_vision3_50d.jpg",
+      "sha256": "ebb9952674816e8f647c158edc7f9d3369af9683e61b30f66ba452047400751d",
+      "source_sha256": "6a2c7d3d6dec751744c41788fd2f0b11e7c997d0a6f97e77da89f7c14bfe0fbf",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Vision3 50D，标称感光度为 EI 50。以 Kodak Vision3 50D 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Vision3 50D」和「EI 50」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "lomography_color_100_fotufilm",
+      "file": "lomography_color_100_fotufilm.jpg",
+      "sha256": "9e68286f4654153022e6db4c2ade13007b5cf15fe0f64cc81750852835571cf0",
+      "source_sha256": "eb20d7a8ac8442caeadc392c690d7cf8f8928c293959978429b64dfd8e2c4049",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 Color Negative 100。以 Lomography Color Negative 100 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「Color Negative 100」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "lomography_lomochrome_metropolis_fotufilm",
+      "file": "lomography_lomochrome_metropolis_fotufilm.jpg",
+      "sha256": "9bba31cb3155ee3f8e7fab07ecc244c8d37b2018d1a860dc4fc0ebe27aaca469",
+      "source_sha256": "d750a5f56921fe871bb51140442a9d63270d1f1b5024ee8f46df6ff964803555",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 LomoChrome Metropolis。以 LomoChrome Metropolis 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「LomoChrome Metropolis」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    },
+    {
+      "id": "lomography_lomochrome_turquoise_fotufilm",
+      "file": "lomography_lomochrome_turquoise_fotufilm.jpg",
+      "sha256": "9fd819e2c3536038c118363be9f8d2a44fd5fe470c4b0a3e877fbe40baa2af39",
+      "source_sha256": "9372edb0d5be01befed1fb4de83000a0bd42ad055df73260a77a5fab39fe4805",
+      "source_dimensions": [
+        1672,
+        941
+      ],
+      "prompt": "生成一张 胶片 卡片封面，型号为 LomoChrome Turquoise。以 LomoChrome Turquoise 的经典包装色系为依据，重新设计一张有独立视觉风格的封面。 字型、色块比例、构图和抽象图形自由发挥。只做平面包装图形，不加照片场景。不要出现厂商 Logo 或版权文字。16:9 横向，平面正视满版，直角边缘由应用负责圆角裁切，保留轻微印刷纸质感，缩小后仍能辨识。画面文字使用准确的「LomoChrome Turquoise」，商品规格只按提供的文字排版。只输入文字，无参考图，输出一张完整图片。"
+    }
+  ]
+}
