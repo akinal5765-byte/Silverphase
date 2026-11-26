@@ -42,6 +42,13 @@ final class PhotoImportTests: XCTestCase {
         app.buttons["photo-detail.edit"].tap()
         XCTAssertTrue(app.buttons["editor.menu"].waitForExistence(timeout: 12) ||
                       app.images["editor.canvas"].waitForExistence(timeout: 6))
+        let closeEditor = app.buttons["editor.library"]
+        if !closeEditor.exists { app.buttons["editor.menu"].tap() }
+        XCTAssertTrue(closeEditor.waitForExistence(timeout: 6))
+        closeEditor.tap()
+        let preview = app.descendants(matching: .any).matching(identifier: "photo-detail.image").firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 8))
+        XCTAssertEqual(preview.label, "目标 A")
     }
 
     @MainActor func testParameterLabelsAcrossChineseLocales() throws {

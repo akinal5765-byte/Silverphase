@@ -147,7 +147,9 @@ struct MobilePhotoDetail: View {
                         }
                     }
                 } label: { chip(photo.rating > 0 ? "\(photo.rating)" : nil, symbol: photo.rating > 0 ? "star.fill" : "star") }
-                .accessibilityLabel(T("Rating", "星标", "星標")).accessibilityIdentifier("photo-detail.rating")
+                .accessibilityLabel(T("Rating", "星标", "星標"))
+                .accessibilityValue(photo.rating > 0 ? "\(photo.rating) / 5" : T("Unrated", "尚未评分", "尚未評分"))
+                .accessibilityIdentifier("photo-detail.rating")
                 Menu {
                     Button(T("Pick", "保留", "保留"), systemImage: "flag.fill") { document.markPhotos([photo.id], flag: "pick") }
                     Button(T("Reject", "淘汰", "淘汰"), systemImage: "flag.slash") { document.markPhotos([photo.id], flag: "reject") }
@@ -176,7 +178,9 @@ struct MobilePhotoDetail: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .contentShape(Rectangle())
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(photo.name)
+            .accessibilityIdentifier("photo-detail.image")
             .gesture(DragGesture(minimumDistance: 18).onEnded { value in
                 guard abs(value.translation.width) > abs(value.translation.height),
                       abs(value.translation.width) > 45,
