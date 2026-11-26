@@ -70,6 +70,9 @@ private struct CameraCanvasOrientationProbe: UIViewRepresentable {
     final class Probe: UIView {
         var changed: (Double) -> Void
         private var previous: Double?
+        private weak var observedScene: UIWindowScene?
+        private var geometryObservation: NSKeyValueObservation?
+
         init(changed: @escaping (Double) -> Void) {
             self.changed = changed
             super.init(frame: .zero)
@@ -80,7 +83,17 @@ private struct CameraCanvasOrientationProbe: UIViewRepresentable {
         override func layoutSubviews() { super.layoutSubviews(); measure() }
         override func safeAreaInsetsDidChange() { super.safeAreaInsetsDidChange(); measure() }
         func measure() {
-            guard let scene = window?.windowScene else { return }
+            let scene = window?.windowScene
+            if observedScene !== scene {
+                geometryObservation = nil
+                observedScene = scene
+                if #available(iOS 26, *), let scene {
+                    geometryObservation = scene.observe(\.effectiveGeometry, options: [.new]) { [weak self] _, _ in
+                        Task { @MainActor [weak self] in self?.measure() }
+                    }
+                }
+            }
+            guard let scene else { return }
             let orientation: UIInterfaceOrientation
             if #available(iOS 26, *) { orientation = scene.effectiveGeometry.interfaceOrientation }
             else { orientation = scene.interfaceOrientation }

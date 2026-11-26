@@ -8,21 +8,12 @@ enum MobileCameraCapturePose: Int, CaseIterable, Sendable {
 
     var isLandscape: Bool { self == .landscapeLeft || self == .landscapeRight }
 
-    /// When the unfolded camera is in a landscape scene, keep its finder and
-    /// output in the same coordinate system. The chassis gravity reading can
-    /// disagree, especially near flat or when the two panels are at an angle.
-    static func shutterPose(measured: Self?, unfoldedScene: Self?) -> Self? {
-        if let unfoldedScene, unfoldedScene.isLandscape { return unfoldedScene }
-        return measured
-    }
-
     init(quarterTurn: Double) {
         guard quarterTurn.isFinite else { self = .portrait; return }
         let turn = (quarterTurn.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
         self = Self(rawValue: (Int((turn / 90).rounded()) * 90) % 360) ?? .portrait
     }
 }
-
 
 /// Camera-local coordinates. An active horizontal division is the system's
 /// tabletop signal; a book-fold division or a flat display is not tabletop.

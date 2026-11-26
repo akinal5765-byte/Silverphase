@@ -145,24 +145,23 @@ full-bleed viewfinder treatment. Camera pages request portrait orientation;
 hosts that ignore orientation restrictions. This is scoped to capture: leaving
 the camera restores the library/editor's existing direction policy.
 
-On iPhone Duo with the inner display open, Silverphase uses the native scene
-layout rather than rotating a portrait camera canvas. In landscape, finder and
-capture use the scene orientation; on other devices (and in the lock-screen
-extension), the existing physical-pose policy remains in place.
+On iPhone Duo, the camera uses native scene coordinates and leaves its inner
+display shutter, review thumbnail, film and diffusion controls on the viewer's
+right in portrait and landscape. AVFoundation supplies separate, display-aware
+preview and capture angles, including after a display handoff. AVKit's
+direction coordinator identifies the physical rear camera facing an open
+Duo's outer display; the app uses that display's native layout without forcing
+a 180-degree turn or changing how saved photos are mirrored.
+[Apple's iPhone Duo camera guidance](https://developer.apple.com/videos/play/tech-talks/111465/).
 
 An active horizontal fold selects the tabletop camera layout on iOS 27.1:
 the lower panel contains the finder and right-side shutter, and the upper
 panel contains a swipeable film wheel with a large current cover and smaller
 neighbors. A vertical book fold or fully flat display does not select this
-layout. **Outer display print** is an opt-in, session-only switch on the inner
-display. When the system offers the outer camera accessory, a new developed
-photo appears on a small framed sheet with the existing development animation
-(or a still with Reduce Motion). Nothing is mirrored. The preview clears after
-12 seconds, on the next shot, or when the switch, posture, or camera session
-changes. The normal camera controls and capture still work when the accessory
-is unavailable.
+layout. The tabletop camera does not register an outer-display print accessory.
+The system's rear-camera selfie display handoff remains supported separately.
 
-For the folded camera and the secure capture extension, the shutter latches
+For ordinary iPhones and the secure capture extension, the shutter latches
 physical device pose. On iOS27+
 AVFoundation resolves the sensor's rotation for that explicit pose independently
 of the fixed camera canvas or host window. Earlier systems retain the capture

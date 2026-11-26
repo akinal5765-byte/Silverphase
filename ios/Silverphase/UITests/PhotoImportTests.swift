@@ -111,6 +111,30 @@ final class PhotoImportTests: XCTestCase {
                        "Ordinary-phone library retains its portrait policy after camera dismissal")
     }
 
+    @MainActor func testDuoShutterRailSeparatesThumbnailShutterAndFilmControls() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--camera-layout-check", "--camera-duo-layout-check"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15))
+        camera.tap()
+        let shutter = app.buttons["camera.shutter"]
+        XCTAssertTrue(shutter.waitForExistence(timeout: 10))
+        let thumbnail = app.buttons["camera.latest"]
+        let film = app.buttons["camera.film"]
+        let diffusion = app.buttons["camera.diffusion"]
+        for control in [shutter, thumbnail, film, diffusion] {
+            XCTAssertTrue(control.exists)
+            XCTAssertGreaterThan(control.frame.midX, app.frame.midX)
+            XCTAssertTrue(app.frame.intersects(control.frame))
+        }
+        XCTAssertLessThan(thumbnail.frame.maxY, shutter.frame.minY)
+        XCTAssertGreaterThan(diffusion.frame.minY, shutter.frame.maxY)
+    }
+
     @MainActor func testDuoWaistCameraControlLayout() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
@@ -131,6 +155,13 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertGreaterThan(current.frame.width, right.frame.width)
         XCTAssertGreaterThan(shutter.frame.midY, current.frame.midY)
         XCTAssertGreaterThan(shutter.frame.midX, app.frame.midX)
+        XCTAssertFalse(app.switches["camera.waist-outer-print"].exists)
+        for id in ["camera.latest", "camera.diffusion"] {
+            let control = app.buttons[id]
+            XCTAssertTrue(control.exists)
+            XCTAssertGreaterThan(control.frame.midX, app.frame.midX)
+            XCTAssertGreaterThan(control.frame.midY, current.frame.midY)
+        }
         let selected = current.label
         right.tap()
         XCTAssertNotEqual(current.label, selected)

@@ -4,7 +4,6 @@ import CoreImage
 import CoreMotion
 import ImageIO
 import OSLog
-import Observation
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -12,84 +11,6 @@ import UniformTypeIdentifiers
 struct MobileCameraDevelopment: Sendable {
     let image: CGImage
     let animation: MobileDevelopmentAssets?
-}
-
-@MainActor @Observable private final class CameraOuterPrint {
-    struct Print: Identifiable {
-        let id = UUID()
-        let development: MobileCameraDevelopment
-    }
-
-    var tabletop = false {
-        didSet { if !tabletop { disable() } }
-    }
-    var available = false {
-        didSet { if !available { disable() } }
-    }
-    var enabled = false {
-        didSet { if !enabled { clear() } }
-    }
-    private(set) var print: Print?
-    private var generation = UUID()
-
-    func beginShot() -> UUID? {
-        clear()
-        return tabletop && available && enabled ? generation : nil
-    }
-
-    func present(_ development: MobileCameraDevelopment, for token: UUID?) {
-        guard tabletop, available, enabled, token == generation else { return }
-        print = Print(development: development)
-    }
-
-    func clear() {
-        generation = UUID()
-        print = nil
-    }
-
-    func disable() {
-        enabled = false
-    }
-}
-
-private struct CameraOuterPrintView: View {
-    var model: CameraOuterPrint
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                Color(red: 0.08, green: 0.069, blue: 0.06).ignoresSafeArea()
-                if let print = model.print {
-                    paper(print, in: geometry.size).id(print.id)
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private func paper(_ print: CameraOuterPrint.Print, in available: CGSize) -> some View {
-        let image = print.development.image
-        let aspect = CGFloat(image.width) / CGFloat(image.height)
-        let border: CGFloat = 10
-        let width = max(1, min(available.width * 0.80 - border * 2,
-                               (available.height * 0.78 - border * 3) * aspect))
-        let height = width / aspect
-        return ZStack {
-            Image(decorative: image, scale: 1).resizable().scaledToFit()
-            if !reduceMotion, let animation = print.development.animation {
-                MobileDevelopmentView(assets: animation, running: true) {}
-            }
-        }
-        .frame(width: width, height: height)
-        .clipped()
-        .padding([.top, .leading, .trailing], border)
-        .padding(.bottom, border * 2)
-        .background(Color(red: 0.96, green: 0.935, blue: 0.88), in: .rect(cornerRadius: 2))
-        .shadow(color: .black.opacity(0.55), radius: 16, x: 0, y: 8)
-        .accessibilityLabel(T("Developed print", "冲印相纸", "沖印相紙"))
-        .allowsHitTesting(false)
-    }
 }
 
 private struct CameraPhotoBounds: PreferenceKey {
@@ -175,8 +96,22 @@ struct MobileCameraView: View {
     @State private var measuredCapturePose: MobileCameraCapturePose?
 #if SILVERPHASE_APP
     @State private var sceneQuarterTurn = 0.0
+    @State private var rearSelfieOnHostDisplay = false
     private var followsInterface: Bool {
-        isWaistLayoutCheck || (hingeClosed ?? initialHingeClosed) == false
+        // Duo can move the same camera window to the other display while
+        // open. In both cases UIKit already puts the controls upright.
+        isDuoLayoutCheck || rearSelfieOnHostDisplay || (hingeClosed ?? initialHingeClosed) != nil
+    }
+    private var usesInnerCameraLayout: Bool {
+        isDuoLayoutCheck || (!rearSelfieOnHostDisplay && (hingeClosed ?? initialHingeClosed) == false)
+    }
+
+    private var isDuoLayoutCheck: Bool {
+#if DEBUG
+        isWaistLayoutCheck || ProcessInfo.processInfo.arguments.contains("--camera-duo-layout-check")
+#else
+        false
+#endif
     }
     private var isWaistLayoutCheck: Bool {
 #if DEBUG
@@ -186,17 +121,16 @@ struct MobileCameraView: View {
 #endif
     }
     @GestureState private var filmWheelDrag: CGFloat = 0
-    @State private var outerPrint = CameraOuterPrint()
     private var interfaceQuarterTurn: Double { followsInterface ? sceneQuarterTurn : 0 }
-    private var previewScenePose: MobileCameraCapturePose? {
-        followsInterface ? MobileCameraCapturePose(quarterTurn: sceneQuarterTurn) : nil
-    }
 #else
     private let interfaceQuarterTurn = 0.0
-    private let previewScenePose: MobileCameraCapturePose? = nil
+    private let followsInterface = false
 #endif
     private var shutterPose: MobileCameraCapturePose? {
-        MobileCameraCapturePose.shutterPose(measured: measuredCapturePose, unfoldedScene: previewScenePose)
+        followsInterface ? nil : measuredCapturePose
+    }
+    private var controlRotationTarget: Double {
+        followsInterface ? 0 : -Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn))
     }
     @State private var controlRotation = 0.0
     @State private var filmLabelHeight: CGFloat = 60
@@ -332,73 +266,65 @@ struct MobileCameraView: View {
     private var duoCameraLayout: some View {
         GeometryReader { geometry in
             let viewport = geometry.size
-            let waist = MobileWaistCameraGeometry(viewport: viewport, divisionFrames: duoDivisions(geometry))
+            let waist = usesInnerCameraLayout
+                ? MobileWaistCameraGeometry(viewport: viewport, divisionFrames: duoDivisions(geometry)) : nil
             let lower = waist?.lower ?? CGRect(origin: .zero, size: viewport)
-            let dockWidth: CGFloat = waist == nil ? 0 : 76
+            let dockWidth: CGFloat = usesInnerCameraLayout ? 92 : 0
             let finderWidth = max(1, lower.width - dockWidth)
             ZStack(alignment: .topLeading) {
                 // Keep one preview representable across flat/tabletop changes so
                 // a posture change doesn't tear down the live camera session.
-                viewfinder(fillsPanel: false)
+                viewfinder(fillsPanel: !usesInnerCameraLayout && fillsPanel)
                     .frame(width: finderWidth, height: lower.height)
                     .position(x: lower.minX + finderWidth / 2, y: lower.midY)
                 if let waist {
                     VStack(spacing: 0) {
                         topControls
                         waistFilmWheel.frame(maxHeight: .infinity)
-                        if #available(iOS 27.1, *) {
-                            Toggle(T("Outer display print", "外屏冲印", "外螢幕沖印"),
-                                   isOn: outerPrintBinding)
-                                .font(.caption)
-                                .tint(MobileStyle.accent)
-                                .disabled(!outerPrint.available)
-                                .accessibilityIdentifier("camera.waist-outer-print")
-                                .frame(maxWidth: 260)
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, 4)
-                        }
                     }
                     .frame(width: waist.upper.width, height: waist.upper.height)
                     .position(x: waist.upper.midX, y: waist.upper.midY)
+                } else if usesInnerCameraLayout {
+                    VStack { topControls; Spacer(minLength: 0) }
+                }
+                if usesInnerCameraLayout {
                     VStack(spacing: 0) {
+                        if waist == nil { Color.clear.frame(height: 52).accessibilityHidden(true) }
                         previewStatus
                         Spacer(minLength: 0)
-                        if let configuration { finderControls(configuration) }
+                        if let configuration { finderControls(configuration).padding(.bottom, 8) }
                     }
                     .frame(width: finderWidth, height: lower.height)
                     .position(x: lower.minX + finderWidth / 2, y: lower.midY)
-                    shutterButton
-                        .position(x: lower.maxX - dockWidth / 2, y: lower.midY)
+                    duoShutterRail(tabletop: waist != nil)
+                        .frame(width: dockWidth, height: max(1, lower.height - (waist == nil ? 52 : 0)))
+                        .position(x: lower.maxX - dockWidth / 2, y: lower.midY + (waist == nil ? 26 : 0))
                 } else {
                     standardCameraControls
                 }
             }
             .frame(width: viewport.width, height: viewport.height)
-            .onChange(of: waist != nil, initial: true) { _, tabletop in
-                outerPrint.tabletop = tabletop
-            }
         }
-        .onDisappear { outerPrint.tabletop = false }
         .environment(\.layoutDirection, .leftToRight) // The shutter stays on the physical right.
     }
 
-    private var outerPrintBinding: Binding<Bool> {
-        Binding(get: { outerPrint.enabled && outerPrint.tabletop && outerPrint.available },
-                set: { outerPrint.enabled = $0 && outerPrint.tabletop && outerPrint.available })
-    }
-
-    @ViewBuilder private func withOuterDisplay<Content: View>(_ content: Content) -> some View {
-        if #available(iOS 27.1, *) {
-            content.sceneAccessory {
-                CameraCaptureAccessory(isEnabled: outerPrintBinding) {
-                    CameraOuterPrintView(model: outerPrint)
-                        .onDisappear { outerPrint.clear() }
+    private func duoShutterRail(tabletop: Bool) -> some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            let edgeInset = min(42, height * 0.20)
+            ZStack {
+                galleryButton.position(x: width / 2, y: edgeInset)
+                shutterButton.position(x: width / 2, y: height / 2)
+                HStack(alignment: .top, spacing: 2) {
+                    if !tabletop { filmButton }
+                    diffusionMenu
                 }
-                .onAvailabilityChange { available in outerPrint.available = available }
+                .position(x: width / 2, y: height - edgeInset)
             }
-        } else {
-            content
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("camera.duo-shutter-rail")
     }
 
     private func duoDivisions(_ geometry: GeometryProxy) -> [CGRect] {
@@ -503,18 +429,7 @@ struct MobileCameraView: View {
 
     var body: some View {
 #if SILVERPHASE_APP
-        withOuterDisplay(
-            MobileCameraCanvas(followsInterface: followsInterface, interfaceChanged: { sceneQuarterTurn = $0 }) { cameraBody }
-        )
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { outerPrint.disable() }
-        }
-        .onDisappear { outerPrint.disable() }
-        .task(id: outerPrint.print?.id) {
-            guard let id = outerPrint.print?.id else { return }
-            do { try await Task.sleep(for: .seconds(12)) } catch { return }
-            if outerPrint.print?.id == id { outerPrint.clear() }
-        }
+        MobileCameraCanvas(followsInterface: followsInterface, interfaceChanged: { sceneQuarterTurn = $0 }) { cameraBody }
 #else
         MobileCameraCanvas { cameraBody }
 #endif
@@ -525,7 +440,8 @@ struct MobileCameraView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #if SILVERPHASE_APP
         .background {
-            MobileCameraOrientationObserver(followsInterface: followsInterface)
+            MobileCameraOrientationObserver(followsInterface: followsInterface,
+                                            rearSelfieOnOuterDisplay: rearSelfieOnHostDisplay)
                 .allowsHitTesting(false)
             if #available(iOS 27.1, *), UIDevice.current.userInterfaceIdiom == .phone {
                 ProcessBarGeometryProbe(hingeChanged: { hingeClosed = $0 })
@@ -696,7 +612,7 @@ struct MobileCameraView: View {
         .task(id: canRunCamera) {
             if canRunCamera && !isLayoutCheck { await trackDeviceOrientation() }
         }
-        .onChange(of: interfaceQuarterTurn - Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn)), initial: true) { _, target in
+        .onChange(of: controlRotationTarget, initial: true) { _, target in
             controlRotation += (target - controlRotation).remainder(dividingBy: 360)
         }
 #if SILVERPHASE_APP
@@ -995,24 +911,28 @@ struct MobileCameraView: View {
             lensControls(configuration)
             Spacer(minLength: 0)
             if configuration.hasPortraitCamera || portraitMode {
-                Button { setPortraitMode(!portraitMode) } label: {
-                    Image(systemName: "f.cursive")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(portraitMode ? MobileStyle.accent : .white)
-                        .modifier(controlOrientation)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .modifier(ChromeSurface(radius: 22, interactive: true))
-                .disabled(!ready)
-                .accessibilityLabel(T("Portrait mode", "人像模式", "人像模式"))
-                .accessibilityAddTraits(portraitMode ? .isSelected : [])
-                .accessibilityIdentifier("camera.portrait")
+                portraitButton
             } else {
                 Color.clear.frame(width: 44, height: 44)
             }
         }
         .padding(.horizontal, 12)
+    }
+
+    private var portraitButton: some View {
+        Button { setPortraitMode(!portraitMode) } label: {
+            Image(systemName: "f.cursive")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(portraitMode ? MobileStyle.accent : .white)
+                .modifier(controlOrientation)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .modifier(ChromeSurface(radius: 22, interactive: true))
+        .disabled(!ready)
+        .accessibilityLabel(T("Portrait mode", "人像模式", "人像模式"))
+        .accessibilityAddTraits(portraitMode ? .isSelected : [])
+        .accessibilityIdentifier("camera.portrait")
     }
 
 #if SILVERPHASE_APP
@@ -1180,6 +1100,12 @@ struct MobileCameraView: View {
 #endif
     }
 
+    private func rearSelfieChanged(_ value: Bool) {
+#if SILVERPHASE_APP
+        rearSelfieOnHostDisplay = value
+#endif
+    }
+
     private func viewfinder(fillsPanel: Bool) -> some View {
         GeometryReader { proxy in
             ZStack {
@@ -1204,7 +1130,8 @@ struct MobileCameraView: View {
                                                 mirrored: lens == .front && mirrorsFrontCamera,
                                                 hardwareShutterEnabled: previewHardwareShutterEnabled, shutter: takePhoto,
                                                 canAdjustExposure: ready && focusPoint != nil && !focusLocked,
-                                                exposureRotation: controlRotation, interfacePose: previewScenePose,
+                                                exposureRotation: controlRotation,
+                                                rearSelfieChanged: rearSelfieChanged,
                                                 focus: focus, adjustExposure: dragExposure)
                                 .id(previewDevice.uniqueID)
 #if SILVERPHASE_APP
@@ -1862,8 +1789,8 @@ struct MobileCameraView: View {
         guard ready else { return }
 #if SILVERPHASE_APP
         let selectedFilm = film
-        let outerPrintToken = outerPrint.beginShot()
-        shotQuarterTurn = shutterPose.map { Double($0.rawValue) } ?? deviceQuarterTurn
+        shotQuarterTurn = followsInterface ? interfaceQuarterTurn
+            : (shutterPose.map { Double($0.rawValue) } ?? deviceQuarterTurn)
         frozenShot = showsFilmPreview && !lookUnavailable ? lookFrame?.snapshot(for: captureRecipe) : nil
 #else
         lockedDevelopment = nil
@@ -1879,10 +1806,11 @@ struct MobileCameraView: View {
         let shutterUptime = ProcessInfo.processInfo.systemUptime
 #endif
         let selectedRecipe = captureRecipe
-        // Latch before any async work. A native Duo landscape scene can
-        // resolve the pose even when a gravity sample is inconclusive.
-        // On other devices, missing motion keeps the AVFoundation fallback.
+        // For Duo, latch AVFoundation's display-aware capture angle before
+        // freezing the finder. For the ordinary and locked cameras, retain
+        // the pose-based path and its existing fallback.
         let selectedPose = shutterPose
+        let captureAngle = followsInterface ? camera.horizonCaptureAngle : nil
         let selectedFlash = flash
         let selectedLens = lens
         let usesDepth = portraitMode
@@ -1908,7 +1836,8 @@ struct MobileCameraView: View {
             }
             do {
                 let (data, format) = try await camera.capture(lens: selectedLens, flash: selectedFlash, portrait: usesDepth,
-                                                              mirrored: mirrored, pose: selectedPose, location: selectedLocation)
+                                                              mirrored: mirrored, pose: selectedPose,
+                                                              displayCaptureAngle: captureAngle, location: selectedLocation)
 #if DEBUG && SILVERPHASE_APP
                 if selectedRecipe.metering == .custom, selectedFlash == .off, !usesDepth,
                    format == .proRAW || format == .bayer, let exposureFrame {
@@ -1941,7 +1870,6 @@ struct MobileCameraView: View {
                 do {
                     let result = try await developPhoto(photo, !reduceMotion)
                     latestPreview = result.image
-                    if scenePhase == .active { outerPrint.present(result, for: outerPrintToken) }
                     if !reduceMotion, scenePhase == .active {
                         revealOpacity = 0
                         reveal = result
