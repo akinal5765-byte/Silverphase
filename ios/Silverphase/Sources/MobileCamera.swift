@@ -2025,8 +2025,10 @@ private struct MobileWaistFilmWheel: View {
     @State private var lastSettledSlot: Int
     @State private var correctedForThisScroll = false
     @State private var settlePulse = 0
-    @State private var detentHaptic = UISelectionFeedbackGenerator()
-    @State private var settleHaptic = UIImpactFeedbackGenerator(style: .soft)
+    @State private var measuredPitch: CGFloat = 0
+    @State private var lastTickTime: TimeInterval = -.infinity
+    @State private var detentHaptic = UIImpactFeedbackGenerator(style: .medium)
+    @State private var settleHaptic = UIImpactFeedbackGenerator(style: .rigid)
 
     private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
     private var centeredStock: Stock { stocks[track.index(at: focusedSlot)] }
@@ -2045,9 +2047,10 @@ private struct MobileWaistFilmWheel: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let width = min(224, geometry.size.width * 0.38, max(1, geometry.size.height - 40) * 16 / 9)
+            let width = min(242, geometry.size.width * 0.42, max(1, geometry.size.height - 40) * 16 / 9)
             let height = width * 9 / 16
-            let pitch = width * 0.90
+            let pitch = min(width * 0.90, geometry.size.width * 0.282)
+            let sideInset = max(0, (geometry.size.width - width) / 2)
             let motionReduced = reduceMotion
             VStack(spacing: 8) {
                 ScrollView(.horizontal) {
@@ -2070,43 +2073,56 @@ private struct MobileWaistFilmWheel: View {
                             .accessibilityAddTraits(relative == 0 && stock.id == selectedID ? .isSelected : [])
                             .accessibilityIdentifier("camera.waist-film.\(relative)")
                             .accessibilityHidden(abs(relative) > 2)
-                            .zIndex(-Double(abs(relative)))
                             .visualEffect { [flatAtRest = phase == .idle && relative == 0] content, proxy in
                                 let center = proxy.size.width / 2
                                 let middle = proxy.bounds(of: .scrollView(axis: .horizontal))?.midX ?? center
-                                let pose = MobileWaistFilmTrack.pose(
-                                    at: flatAtRest ? 0 : (center - middle) / max(1, pitch), reduceMotion: motionReduced)
+                                let distance = flatAtRest ? 0 : (center - middle) / max(1, pitch)
+                                let pose = MobileWaistFilmTrack.pose(at: distance, reduceMotion: motionReduced)
+                                let spacing = MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
                                 return content
                                     .scaleEffect(pose.scale)
                                     .rotation3DEffect(.degrees(pose.angle), axis: (0, 1, 0), perspective: 0.42)
-                                    .offset(y: pose.depth)
+                                    .offset(x: spacing, y: pose.depth)
                                     .opacity(pose.opacity)
                             }
+                            .zIndex(Double(max(0, 4 - abs(relative))))
                         }
                     }
                     .scrollTargetLayout()
+                    // Use real padding in the scroll content. Slot n now has
+                    // a well-defined centered offset of n times pitch.
+                    .padding(.horizontal, sideInset)
                 }
-                .contentMargins(.horizontal, max(0, (geometry.size.width - width) / 2), for: .scrollContent)
                 .scrollIndicators(.hidden)
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-                .scrollTargetBehavior(MobileWaistFilmSnap())
+                .scrollTargetBehavior(MobileWaistFilmSnap(track: track, pitch: pitch))
                 .scrollPosition($position, anchor: .center)
                 .scrollDisabled(!enabled || stocks.count == 1)
                 .frame(height: height + 12)
+                .onChange(of: pitch, initial: true) { _, value in
+                    guard value > 0 else { return }
+                    measuredPitch = value
+                    jump(to: focusedSlot)
+                }
                 .onScrollGeometryChange(for: Int.self) { scroll in
                     track.slot(offset: scroll.contentOffset.x, inset: scroll.contentInsets.leading, pitch: pitch)
                 } action: { _, slot in
                     guard phase != .idle, slot != focusedSlot else { return }
                     focusedSlot = slot
                     if phase == .interacting && enabled {
-                        detentHaptic.selectionChanged()
-                        detentHaptic.prepare()
+                        let now = ProcessInfo.processInfo.systemUptime
+                        if now - lastTickTime >= 0.070 {
+                            detentHaptic.impactOccurred(intensity: 0.85)
+                            detentHaptic.prepare()
+                            lastTickTime = now
+                        }
                     }
                 }
                 .onScrollPhaseChange { _, new, context in
                     phase = new
                     if new == .interacting {
                         correctedForThisScroll = false
+                        lastTickTime = -.infinity
                         detentHaptic.prepare()
                         settleHaptic.prepare()
                     }
@@ -2114,16 +2130,15 @@ private struct MobileWaistFilmWheel: View {
                     let offset = context.geometry.contentOffset.x
                     let inset = context.geometry.contentInsets.leading
                     let slot = track.slot(offset: offset, inset: inset, pitch: pitch)
-                    if enabled && !correctedForThisScroll &&
-                        abs(track.centerError(at: slot, offset: offset, inset: inset, pitch: pitch)) > 0.5 {
-                        correctedForThisScroll = true
-                        focusedSlot = slot
-                        if motionReduced {
+                    if enabled && abs(track.centerError(at: slot, offset: offset, inset: inset, pitch: pitch)) > 0.5 {
+                        if motionReduced || correctedForThisScroll {
                             jump(to: slot)
                             settle(at: slot)
                         } else {
-                            withAnimation(.spring(response: 0.26, dampingFraction: 0.77)) {
-                                position.scrollTo(id: slot, anchor: .center)
+                            correctedForThisScroll = true
+                            focusedSlot = slot
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.78)) {
+                                scroll(to: slot)
                             }
                         }
                         return
@@ -2185,7 +2200,7 @@ private struct MobileWaistFilmWheel: View {
             jump(to: slot)
             settle(at: slot)
         } else {
-            withAnimation(.smooth(duration: 0.32)) { position.scrollTo(id: slot, anchor: .center) }
+            withAnimation(.smooth(duration: 0.32)) { scroll(to: slot) }
         }
     }
 
@@ -2195,7 +2210,7 @@ private struct MobileWaistFilmWheel: View {
         let id = stocks[track.index(at: slot)].id
         if track.index(at: lastSettledSlot) != track.index(at: slot) {
             lastSettledSlot = slot
-            settleHaptic.impactOccurred(intensity: 0.65)
+            settleHaptic.impactOccurred()
             if !reduceMotion { settlePulse &+= 1 }
         }
         if id != selectedID { select(id) }
@@ -2219,7 +2234,15 @@ private struct MobileWaistFilmWheel: View {
         } else {
             // A lower-panel picker choice still moves the same upper track.
             // Take the shortest route, including across a catalog boundary.
-            withAnimation(.smooth(duration: 0.38)) { position.scrollTo(id: slot, anchor: .center) }
+            withAnimation(.smooth(duration: 0.38)) { scroll(to: slot) }
+        }
+    }
+
+    private func scroll(to slot: Int) {
+        if measuredPitch > 0 {
+            position.scrollTo(x: track.centerOffset(at: slot, pitch: measuredPitch))
+        } else {
+            position.scrollTo(id: slot, anchor: .center)
         }
     }
 
@@ -2228,25 +2251,26 @@ private struct MobileWaistFilmWheel: View {
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             focusedSlot = slot
-            position.scrollTo(id: slot, anchor: .center)
+            scroll(to: slot)
         }
     }
 }
 
-/// Keep standard UIScrollView deceleration. The newest system supports an
-/// explicit center anchor; on older simulators, centered content margins map
-/// the default leading-anchor snap to the same point.
+/// Preserve system deceleration but make its endpoint match the exact
+/// center used by taps, lower-panel choices and resize corrections.
 private struct MobileWaistFilmSnap: ScrollTargetBehavior {
+    let track: MobileWaistFilmTrack
+    let pitch: CGFloat
+
     func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
-        if #available(iOS 26.0, *) {
-            ViewAlignedScrollTargetBehavior(limitBehavior: .alwaysByFew, anchor: .center)
-                .updateTarget(&target, context: context)
-        } else {
-            ViewAlignedScrollTargetBehavior(limitBehavior: .alwaysByFew)
-                .updateTarget(&target, context: context)
-        }
+        guard pitch > 0, context.axes.contains(.horizontal) else { return }
+        let slot = track.slot(offset: target.rect.minX, inset: 0, pitch: pitch)
+        target.rect.origin.x = track.centerOffset(at: slot, pitch: pitch)
+        target.rect.size.width = context.containerSize.width
+        target.anchor = .topLeading
     }
 }
+
 #endif
 
 // A transformed View still advertises its unrotated bounds to its parent.

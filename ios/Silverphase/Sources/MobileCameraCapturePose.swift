@@ -119,8 +119,23 @@ struct MobileWaistFilmTrack {
         return Int(min(CGFloat(slotCount - 1), max(0, steps)))
     }
 
+    func centerOffset(at slot: Int, pitch: CGFloat) -> CGFloat {
+        CGFloat(slot) * pitch
+    }
+
     func centerError(at slot: Int, offset: CGFloat, inset: CGFloat, pitch: CGFloat) -> CGFloat {
-        offset + inset - CGFloat(slot) * pitch
+        offset + inset - centerOffset(at: slot, pitch: pitch)
+    }
+
+    private static let neighborScale: CGFloat = 0.64
+
+    static func coverSeparation(at position: CGFloat, width: CGFloat, pitch: CGFloat) -> CGFloat {
+        let distance = min(2, abs(position))
+        let separation = max(0, width * (1 + neighborScale) / 2 - pitch + 2)
+        // Keep the hero cover clear. The second neighbor only needs enough
+        // separation to peek out at the rim, not to become another full card.
+        let weight = distance <= 1 ? distance : 1 - 0.70 * (distance - 1)
+        return separation * weight * (position < 0 ? -1 : 1)
     }
 
     static func pose(at position: CGFloat, reduceMotion: Bool)
@@ -130,7 +145,7 @@ struct MobileWaistFilmTrack {
         let focus = 1 - min(1, distance)
         let easedFocus = focus * focus * (3 - 2 * focus)
         return (
-            scale: 0.77 + easedFocus * 0.23 - max(0, distance - 1) * 0.10,
+            scale: neighborScale + easedFocus * (1 - neighborScale) - max(0, distance - 1) * 0.10,
             angle: reduceMotion ? 0 : Double(max(-1.22, min(1.22, position))) * -17,
             depth: reduceMotion ? 0 : min(8, distance * distance * 4),
             opacity: max(0.42, 1 - Double(distance) * 0.23)
