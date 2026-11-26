@@ -229,6 +229,8 @@ import OSLog
             await MobileCameraLookChecks.run()
         } else if ProcessInfo.processInfo.arguments.contains("--flat-import-regression") {
             await MobileSmokeChecks.flatImportRegression()
+        } else if ProcessInfo.processInfo.arguments.contains("--tethered-import-regression") {
+            await MobileSmokeChecks.tetheredImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--raw-import-regression") {
             await MobileSmokeChecks.rawImportRegression()
         } else if ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--cinestill-regression") || ProcessInfo.processInfo.arguments.contains("--camera-prep-regression") {

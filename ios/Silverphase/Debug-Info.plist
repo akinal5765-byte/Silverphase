@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleName</key>
+	<string>Silverphase</string>
+	<key>CFBundleDisplayName</key>
+	<string>Silverphase</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3.1</string>
+	<key>CFBundleVersion</key>
+	<string>11</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>拍摄照片或在联机拍摄时接收外接相机原片，以所选胶片显影。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>在你开启“记录拍摄位置”后，为应用内拍摄的照片记录位置。</string>
+	<key>NSMotionUsageDescription</key>
+	<string>读取设备倾斜角度，在相机取景框中显示水平仪。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>读取你选中的照片的原始资源，以便优先导入 RAW 原片。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>将你选择的胶片成片保存到照片图库。</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Silverphase receives original photos directly from your camera on your local network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ftp._tcp.</string>
+	</array>
+</dict>
+</plist>

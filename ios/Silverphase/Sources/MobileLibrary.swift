@@ -20,6 +20,12 @@ struct MobileLibrary: View {
     @State private var pickingPhotos = false
     @State private var importing = false
     @State private var showingCamera = false
+#if DEBUG
+    @State private var showingTether = false
+    @State private var tetherEditPhoto: MobilePhoto?
+#else
+    private let showingTether = false
+#endif
     @State private var cameraReturnPhotoID: UUID?
     @State private var visiblePhotoID: UUID?
     @State private var legacyPhotoDates: [UUID: (date: Date?, day: Int?)] = [:]
@@ -52,7 +58,7 @@ struct MobileLibrary: View {
     private var canHandleCameraShortcut: Bool {
         MobileCameraLaunch.shared.pending && scenePhase == .active && !document.isInteractionLocked &&
             document.libraryReadError == nil && (editor != nil || !document.editorVisible) &&
-            !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
+            !showingTether && !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
             copyRequest == nil && photoInfo == nil && deleting.isEmpty
     }
     private var newestPhoto: MobilePhoto? {
@@ -177,6 +183,16 @@ struct MobileLibrary: View {
                 showingCamera = false
             })
         }
+#if DEBUG
+        .fullScreenCover(isPresented: $showingTether, onDismiss: {
+            if let photo = tetherEditPhoto {
+                tetherEditPhoto = nil
+                open([photo])
+            }
+        }) {
+            MobileTetherCaptureView(document: document, openEditor: { tetherEditPhoto = $0 })
+        }
+#endif
         .fullScreenCover(item: $editor, onDismiss: { document.closeEditor() }) { request in
             MobileEditor(document: document, batchIDs: request.ids, returnToLibrary: { editor = nil })
                 .task {
@@ -241,7 +257,7 @@ struct MobileLibrary: View {
         } message: { ids in
             Text(T("This deletes the in-app originals and edit records for \(ids.count) photos. It cannot be undone; Photos and the sources you imported from are not affected.", "将删除 \(ids.count) 张照片的应用内原文件和编辑记录。此操作无法撤销，系统相册和导入来源不受影响。", "將刪除 \(ids.count) 張照片的應用內原檔案和編輯記錄。此操作無法還原，系統相簿和導入來源不受影響。"))
         }
-        .overlay { notification(covered: showingCamera || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
+        .overlay { notification(covered: showingCamera || showingTether || editor != nil || exportRequest != nil || pickingPhotos || importing || settings != nil || about != nil || copyRequest != nil || photoInfo != nil) }
     }
     @ViewBuilder private var libraryTopBar: some View {
         if !document.isSelectingPhotos {
@@ -517,6 +533,13 @@ struct MobileLibrary: View {
                             }
                         }
                     }
+#if DEBUG
+                    Section {
+                        Button(T("Tethered Shooting", "联机拍摄", "連線拍攝"), systemImage: "cable.connector") { showingTether = true }
+                            .disabled(document.isInteractionLocked)
+                            .accessibilityIdentifier("library.tether")
+                    }
+#endif
                     Section {
                         Button(T("Settings", "设置", "設定"), systemImage: "gearshape") { settings = .init(folded: phoneHingeClosed == true) }
                         Button(T("About Silverphase", "关于 Silverphase", "關於 Silverphase"), systemImage: "info.circle") { about = .init(folded: phoneHingeClosed == true) }
