@@ -43,8 +43,6 @@ struct MobilePhotoDetail: View {
     @State private var developedPreview = false
     @State private var displayedFilmKey: URL?
     @State private var showingFilm = false
-    @Namespace private var filmPickerTransition
-    private static let filmPickerSource = "gallery-film-picker"
     @State private var hinge: HingeReading = .pending
     @State private var windowSize: CGSize = .zero
     @State private var chromeVisible = true
@@ -136,16 +134,6 @@ struct MobilePhotoDetail: View {
             }
         }
         .tint(.primary)
-        .sheet(isPresented: $showingFilm) {
-            if let photo {
-                if #available(iOS 18.0, *), !reduceMotion {
-                    filmPicker(photo)
-                        .navigationTransition(.zoom(sourceID: Self.filmPickerSource, in: filmPickerTransition))
-                } else {
-                    filmPicker(photo)
-                }
-            }
-        }
         .overlay {
             if entryCurtain, !reduceMotion, entryTarget != nil, let gridBackdrop {
                 GeometryReader { geometry in
@@ -365,28 +353,38 @@ struct MobilePhotoDetail: View {
     private func filmButton(_ photo: MobilePhoto) -> some View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
-        return Button { showingFilm = true } label: {
-            // Evaluate the toolbar's actual proposal after its other items
-            // take their space. Both candidates have a fixed width, so a
-            // different stock name cannot make the control switch modes.
-            if #available(iOS 18.0, *) {
-                filmButtonLabel(name)
-                    .matchedTransitionSource(id: Self.filmPickerSource, in: filmPickerTransition)
-            } else {
-                filmButtonLabel(name)
+        return ViewThatFits(in: .horizontal) {
+            filmTrigger(width: Self.titledFilmButtonWidth, name: name) {
+                titledFilmChip(name ?? T("Film", "胶片", "膠片"))
+                    .frame(maxWidth: .infinity)
+            }
+            filmTrigger(width: EditorDesign.hitSize, name: name) {
+                Image(systemName: "film").font(EditorDesign.sectionTitle)
             }
         }
-        .buttonStyle(.plain)
+        .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: nil) {
+            filmPicker(photo)
+                .presentationCompactAdaptation(.none)
+        }
+    }
+
+    private func filmTrigger<Label: View>(width: CGFloat, name: String?, @ViewBuilder label: () -> Label) -> some View {
+        let button = Button { showingFilm = true } label: { label() }
+        return Group {
+            if #available(iOS 26.0, *) {
+                button.buttonStyle(.glass).buttonBorderShape(.capsule)
+            } else {
+                button.buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: EditorDesign.hitSize)
+                    .modifier(ChromeSurface(radius: 22, interactive: true))
+            }
+        }
+        .controlSize(width == EditorDesign.hitSize ? .regular : .large)
+        .frame(width: width, height: EditorDesign.hitSize)
+        .fixedSize()
         .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
         .accessibilityValue(name ?? "")
         .accessibilityIdentifier("photo-detail.film")
-    }
-
-    private func filmButtonLabel(_ name: String?) -> some View {
-        ViewThatFits(in: .horizontal) {
-            titledFilmChip(name ?? T("Film", "胶片", "膠片"))
-            chip(nil, symbol: "film").frame(width: 44).fixedSize()
-        }
     }
 
     private func filmPicker(_ photo: MobilePhoto) -> some View {
@@ -404,17 +402,13 @@ struct MobilePhotoDetail: View {
             Image(systemName: "film").fixedSize()
             ViewThatFits(in: .horizontal) {
                 Text(fullTitle).lineLimit(1).fixedSize(horizontal: true, vertical: false)
-                Text(title).lineLimit(1).truncationMode(.head)
+                Text(title).lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.down").font(.system(size: 8)).fixedSize()
         }
-        .font(.caption.weight(.semibold))
-        .padding(.horizontal, 10)
-        .frame(width: Self.titledFilmButtonWidth, height: 44)
-        .contentShape(Rectangle())
-        .modifier(ChromeSurface(radius: 22, interactive: true))
-        .fixedSize(horizontal: true, vertical: false)
+        .font(EditorDesign.cardTitle)
     }
 
     private func shortFilmTitle(_ name: String) -> String {
@@ -898,8 +892,6 @@ private struct DetailFilmPicker: View {
     let cancel: () -> Void
     let select: (Stock) -> Void
     @State private var query = ""
-    @State private var detent: PresentationDetent = .fraction(0.62)
-    @FocusState private var searchFocused: Bool
 
     private var matches: [Stock] {
         let stocks = StockCatalog.shared.filmsForPicker
@@ -923,6 +915,7 @@ private struct DetailFilmPicker: View {
                 HStack {
                     Text(T("Choose Film", "切换胶片", "切換膠片"))
                         .font(.headline).accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("photo-detail.film-title")
                     Spacer()
                     Button(action: cancel) {
                         Image(systemName: "xmark").font(.caption.weight(.semibold))
@@ -937,7 +930,6 @@ private struct DetailFilmPicker: View {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(T("Search films", "搜索胶片", "搜尋膠片"), text: $query)
                         .textFieldStyle(.plain)
-                        .focused($searchFocused)
                         .submitLabel(.search)
                         .accessibilityIdentifier("photo-detail.film-search")
                     if !query.isEmpty {
@@ -971,12 +963,7 @@ private struct DetailFilmPicker: View {
                 .accessibilityIdentifier("photo-detail.film-grid")
             }
         }
-        // Keep the system's native, inset Liquid Glass background at the
-        // starting detent; the full-height detent has room for the keyboard.
-        .presentationDetents([.fraction(0.62), .large], selection: $detent)
-        .onChange(of: searchFocused) { _, focused in
-            if focused { detent = .large }
-        }
+        .frame(idealWidth: 340, idealHeight: 370)
         .accessibilityAction(.escape) { cancel() }
     }
 

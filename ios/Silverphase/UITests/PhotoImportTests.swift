@@ -80,7 +80,16 @@ final class PhotoImportTests: XCTestCase {
         }
         XCTAssertTrue(abs(initialWidth - 44) <= 3 || abs(initialWidth - 160) <= 3,
                       "Toolbar should use one complete chip rather than squeeze the name")
+        let buttonFrame = film.frame
         film.tap()
+        let title = app.staticTexts["photo-detail.film-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 6))
+        XCTAssertLessThan(abs(title.frame.midY - buttonFrame.midY), 170,
+                          "The film picker should open near its top toolbar button, not as a bottom sheet")
+        let presentation = XCTAttachment(screenshot: app.screenshot())
+        presentation.name = "Film picker anchored to toolbar"
+        presentation.lifetime = .keepAlways
+        add(presentation)
         let search = app.textFields["photo-detail.film-search"]
         XCTAssertTrue(search.waitForExistence(timeout: 6))
         search.tap()
