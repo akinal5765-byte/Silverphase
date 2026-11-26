@@ -155,7 +155,6 @@ struct MobileCameraView: View {
         return controlRotation
     }
 
-    @State private var filmLabelHeight: CGFloat = 60
 #if SILVERPHASE_APP
     @State private var showingFilms = false
     @GestureState private var filmWheelDrag: CGFloat = 0
@@ -1181,24 +1180,12 @@ struct MobileCameraView: View {
     }
 
     private var filmButtonLabel: some View {
-        ZStack(alignment: .top) {
-            Color.clear.frame(width: 44, height: 44)
-                .modifier(ChromeSurface(radius: 22, interactive: true))
-            VStack(spacing: 3) {
-                Image(systemName: "film").font(.title3)
-                    .frame(width: 44, height: 44)
-                let title = film?.name ?? T("Film", "胶片", "膠片")
-                Text(title).font(.caption2).lineLimit(1)
-                    .modifier(AdjustmentNumberTransition(value: nil, label: title))
-                    .frame(maxWidth: 88)
-            }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { filmLabelHeight = $0 }
-            .modifier(CameraControlOrientation(
-                rotation: controlRotation, animated: !reduceMotion,
-                anchor: UnitPoint(x: 0.5, y: 22 / max(44, filmLabelHeight))
-            ))
-        }
-        .foregroundStyle(.white)
+        Image(systemName: "film")
+            .font(.title3)
+            .foregroundStyle(.white)
+            .modifier(controlOrientation)
+            .frame(width: 44, height: 44)
+            .modifier(ChromeSurface(radius: 22, interactive: true))
     }
 
     private var latestThumbnail: some View {
