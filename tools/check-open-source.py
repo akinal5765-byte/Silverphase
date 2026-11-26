@@ -109,6 +109,7 @@ approved_import = {f'engine/resources_product/{name}' for name in adopted} | ado
     'engine/src/core/curves.cpp', 'engine/src/core/curves.hpp', 'engine/src/core/params.cpp',
     'engine/src/pipeline/pipeline.cpp',
     'engine/tests/fotufilm_dir_edges.py',
+    'engine/tests/test_fotufilm_dir_edges.py',
     'modern_UI/design/film-artwork/generated-fotufilm-packaging-manifest.json',
     str(BUNDLE / notice),
     str(BUNDLE / 'Runtime-Data-SOURCES.md'),
