@@ -55,6 +55,11 @@ actor MobileDetailRenderer {
         source = nil; sourceURL = nil; recipe = [:]; sourceMP = 0; metadata = nil
         await engine.close()
     }
+    func discardGallerySource(except url: URL?) async {
+        guard sourceURL != url else { return }
+        await clear()
+    }
+
     func tile(url: URL, recipe: [String: WireValue], geometry: MobileGeometry, viewport: CGRect, pixelLongEdge: Double) async throws -> MobileDetailTile {
         let metadata = sourceURL == url ? self.metadata ?? MobileImageMetadata.read(url) : MobileImageMetadata.read(url)
         let tier = [2560, 3840, 5120, 7168, 10240].first { Double($0) >= pixelLongEdge } ?? Int(ceil(pixelLongEdge))
@@ -73,7 +78,16 @@ actor MobileDetailRenderer {
         }
         if source == nil || sourceURL != url || self.recipe != recipe || self.geometry != geometry || sourceMP < mp * 0.9999 {
             source = nil
-            guard Double(os_proc_available_memory()) > (mp * 70 + 600) * 1e6 else {
+            let available = Double(os_proc_available_memory())
+            #if DEBUG && targetEnvironment(simulator)
+            // CoreSimulator reports zero when there is no per-process jetsam
+            // limit. Use a bounded synthetic-test budget, never on device.
+            let budget = available == 0 && ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+                ? 1_500_000_000 : available
+            #else
+            let budget = available
+            #endif
+            guard budget > (mp * 70 + 600) * 1e6 else {
                 throw MobileFailure.message(TDetached("Not enough memory to load the original detail; keeping the current preview", "当前内存不足以载入原始细节，保留现有预览", "目前記憶體不足以載入原始細節，保留現有預覽"))
             }
             var settings = recipe

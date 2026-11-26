@@ -21,6 +21,10 @@ struct MobilePhotoDetail: View {
     let onDelete: (MobilePhoto) -> Void
 
     @State private var renderer = MobileEngine()
+    @State private var galleryDetailRenderer = MobileDetailRenderer()
+    @State private var canvasDemand: GalleryCanvasDemand?
+    @State private var galleryTile: (key: URL, tile: MobileDetailTile)?
+    @State private var memoryDrop = 0
     @State private var preview: CGImage?
     @State private var previewLoading = true
     @State private var previewID: UUID?
@@ -37,7 +41,7 @@ struct MobilePhotoDetail: View {
     @State private var stripProxyID: UUID?
     @State private var filmstripItems: [DetailFilmstrip.Item] = []
     @State private var stableFit: FitSample?
-    @State private var recentRenditions: [(key: URL, image: CGImage)] = []
+    @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -75,6 +79,21 @@ struct MobilePhotoDetail: View {
     private struct PreviewRequest: Equatable {
         let source: URL?
         let scrubbing: Bool
+        let edge: Int?
+    }
+
+    private struct TileRequest: Equatable {
+        let key: URL
+        let viewport: MobileViewport
+        let memoryDrop: Int
+    }
+
+    private var fitEdge: Int? { canvasDemand?.photoID == photoID ? canvasDemand?.fitEdge : nil }
+    private var tileRequest: TileRequest? {
+        guard !stripScrubbing, developedPreview, previewID == photoID,
+              let photo, let demand = canvasDemand, demand.photoID == photo.id,
+              let viewport = demand.viewport, viewport.needsDetail else { return nil }
+        return TileRequest(key: document.libraryPreviewURL(photo), viewport: viewport, memoryDrop: memoryDrop)
     }
 
     private var photo: MobilePhoto? { document.photos.first { $0.id == photoID } }
@@ -107,7 +126,7 @@ struct MobilePhotoDetail: View {
             }
         }
         .background(MobileStyle.canvas.ignoresSafeArea())
-        .task(id: PreviewRequest(source: photo.map { document.libraryPreviewURL($0) }, scrubbing: stripScrubbing)) {
+        .task(id: PreviewRequest(source: photo.map { document.libraryPreviewURL($0) }, scrubbing: stripScrubbing, edge: fitEdge)) {
             if previewID != photoID { preview = nil; previewID = nil }
             developedPreview = false
             previewLoading = true
@@ -119,7 +138,8 @@ struct MobilePhotoDetail: View {
             }
             guard let photo else { return }
             let cached = document.libraryPreviewURL(photo)
-            if let ready = recentRenditions.first(where: { $0.key == cached }) {
+            let edge = fitEdge ?? 1600
+            if let ready = recentRenditions.first(where: { $0.key == cached && $0.edge >= edge }) {
                 preview = ready.image; previewID = photo.id; developedPreview = true
                 return
             }
@@ -134,23 +154,30 @@ struct MobilePhotoDetail: View {
                 guard !Task.isCancelled else { return }
                 if let original { preview = original; previewID = photo.id; stripProxyID = nil }
             }
-            guard !stripScrubbing else { return }
+            // Once a seed exists, wait for its real fit size instead of
+            // rendering a default tier and then immediately superseding it.
+            guard !stripScrubbing, fitEdge != nil || preview == nil else { return }
             // Rapid swipes get a first frame immediately, without queueing
             // a full render for each photograph the user passes over.
             do {
                 if photo.id != entryPhotoID { try await Task.sleep(for: .milliseconds(110)) }
                 let renderEngine = renderer
                 let result = try await withTaskCancellationHandler {
-                    try await document.renderLibraryDetail(photo, using: renderEngine)
+                    try await document.renderLibraryDetail(photo, fitEdge: edge, using: renderEngine)
                 } onCancel: {
                     renderEngine.workGate.cancel()
                 }
                 try Task.checkCancellation()
                 recentRenditions.removeAll { $0.key == cached }
-                recentRenditions.insert((cached, result), at: 0)
+                recentRenditions.insert((cached, edge, result), at: 0)
                 if recentRenditions.count > 2 { recentRenditions.removeLast() }
                 preview = result; previewID = photo.id; developedPreview = true
             } catch { /* Keep the best already available rendition. */ }
+        }
+        .task(id: tileRequest) { await reconcileTile(tileRequest) }
+        .task(id: photoID) {
+            let url = photo.map { document.url(for: $0) }
+            await galleryDetailRenderer.discardGallerySource(except: url)
         }
         .task(id: photoID) { await prepareNeighbors() }
         .task(id: photoIDs) {
@@ -164,8 +191,19 @@ struct MobilePhotoDetail: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             recentRenditions.removeAll()
             DetailQuickPreviewCache.images.removeAllObjects()
+            galleryTile = nil
+            canvasDemand = nil
+            memoryDrop += 1
+            galleryDetailRenderer.engine.workGate.cancel()
+            let detailEngine = galleryDetailRenderer
+            Task { await detailEngine.clear() }
             let renderEngine = renderer
             Task { await renderEngine.close() }
+        }
+        .onDisappear {
+            galleryDetailRenderer.engine.workGate.cancel()
+            let detailEngine = galleryDetailRenderer
+            Task { await detailEngine.clear() }
         }
         .sheet(isPresented: $showingFilm) {
             NavigationStack {
@@ -384,11 +422,59 @@ struct MobilePhotoDetail: View {
         .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
     }
 
+    private func reconcileTile(_ request: TileRequest?) async {
+        guard let request, let photo else {
+            if canvasDemand?.viewport == nil, galleryTile != nil {
+                galleryTile = nil
+                await galleryDetailRenderer.clear()
+            }
+            return
+        }
+        if let galleryTile, galleryTile.key == request.key,
+           Self.tile(galleryTile.tile, satisfies: request.viewport) { return }
+        let detail = galleryDetailRenderer
+#if DEBUG
+        GalleryTileAudit.record("request \(request.viewport)")
+#endif
+        do {
+            // The canvas reports a stopped gesture, not every frame of a pan.
+            let result = try await withTaskCancellationHandler {
+                try await document.renderLibraryTile(photo, viewport: request.viewport, using: detail)
+            } onCancel: {
+                detail.engine.workGate.cancel()
+            }
+            try Task.checkCancellation()
+            guard tileRequest == request else { return }
+            galleryTile = (request.key, result)
+#if DEBUG
+            GalleryTileAudit.record("visible \(result.rect) \(result.image.width)x\(result.image.height)")
+#endif
+        } catch {
+#if DEBUG
+            GalleryTileAudit.record("error \(error)")
+#endif
+            // Memory pressure or quick paging leaves the usable fit image in place.
+        }
+    }
+
+    private static func tile(_ tile: MobileDetailTile, satisfies viewport: MobileViewport) -> Bool {
+        let edge = max(Double(tile.image.width) / tile.rect.width, Double(tile.image.height) / tile.rect.height)
+        return tile.rect.contains(viewport.rect) && (tile.nativeSize != nil || edge >= viewport.pixelLongEdge * 0.97)
+    }
+
     private func picture(_ photo: MobilePhoto) -> some View {
         ZStack {
             DetailZoomCanvas(photoID: photo.id, name: photo.name, image: previewID == photo.id ? preview : nil,
                              reduceMotion: reduceMotion, developed: developedPreview,
-                             fitFrame: fittedFrame, neighbors: neighbors,
+                             tile: galleryTile?.key == document.libraryPreviewURL(photo) ? galleryTile?.tile : nil,
+                             onDemand: { demand in
+                if demand.photoID == photoID, canvasDemand != demand {
+                    canvasDemand = demand
+#if DEBUG
+                    GalleryTileAudit.record("fit \(demand.fitEdge) demand \(String(describing: demand.viewport))")
+#endif
+                }
+            }, fitFrame: fittedFrame, neighbors: neighbors,
                              gridBackdrop: gridBackdrop, gridTarget: gridTarget, entryTarget: entryTarget, backCommand: backCommand,
                              onEntryStarted: { entryCurtain = false }, onPage: page, onPull: { active in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { pulling = active }
@@ -539,12 +625,31 @@ private struct DetailPageNeighbor {
     let image: CGImage?
 }
 
+#if DEBUG
+@MainActor private enum GalleryTileAudit {
+    static func record(_ line: String) {
+        guard ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit") else { return }
+        let url = URL.documentsDirectory.appendingPathComponent("gallery-tile-audit.txt")
+        let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        try? (previous + line + "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+#endif
+
+private struct GalleryCanvasDemand: Equatable {
+    let photoID: UUID
+    let fitEdge: Int
+    let viewport: MobileViewport?
+}
+
 private struct DetailZoomCanvas: UIViewRepresentable {
     let photoID: UUID
     let name: String
     let image: CGImage?
     let reduceMotion: Bool
     let developed: Bool
+    let tile: MobileDetailTile?
+    let onDemand: (GalleryCanvasDemand) -> Void
     let fitFrame: CGRect?
     let neighbors: [Int: DetailPageNeighbor]
     let gridBackdrop: UIImage?
@@ -560,6 +665,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
     func makeUIView(context: Context) -> ZoomView { ZoomView() }
 
     static func dismantleUIView(_ uiView: ZoomView, coordinator: ()) {
+        uiView.stopDemand()
         uiView.removeTransition()
     }
 
@@ -568,12 +674,19 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         view.neighbors = neighbors; view.gridBackdrop = gridBackdrop; view.gridTarget = gridTarget
         view.onPull = onPull; view.onDismiss = onDismiss
         view.entryTarget = entryTarget; view.onEntryStarted = onEntryStarted
+        view.onDemand = onDemand
         view.update(photoID: photoID, name: name, image: image, developed: developed, fitFrame: fitFrame)
+        view.updateTile(tile)
         view.requestBack(backCommand)
     }
 
     final class ZoomView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         private let photoView = UIImageView()
+        private let tileView = UIImageView()
+        private var tile: MobileDetailTile?
+        private var demandTask: Task<Void, Never>?
+        private var lastScheduledDemand: GalleryCanvasDemand?
+        var onDemand: ((GalleryCanvasDemand) -> Void)?
         private var source: CGImage?
         private var photoID: UUID?
         private var lastViewport = CGSize.zero
@@ -634,6 +747,10 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             photoView.layer.edgeAntialiasingMask = []
             photoView.layer.allowsEdgeAntialiasing = false
             addSubview(photoView)
+            tileView.isUserInteractionEnabled = false
+            tileView.contentMode = .scaleToFill
+            tileView.isHidden = true
+            photoView.addSubview(tileView)
 
             let single = UITapGestureRecognizer(target: self, action: #selector(singleTap))
             let double = UITapGestureRecognizer(target: self, action: #selector(doubleTap(_:)))
@@ -664,6 +781,8 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             accessibilityLabel = name
             if self.photoID != photoID {
                 self.photoID = photoID
+                stopDemand()
+                updateTile(nil)
                 setZoomScale(1, animated: false)
                 source = nil
                 photoView.image = nil
@@ -689,7 +808,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             }
 #endif
             if needsFit { setNeedsLayout() }
-            else { scheduleEntryIfReady() }
+            else { scheduleEntryIfReady(); scheduleDemand() }
             if pendingPage == photoID, source != nil {
                 layoutIfNeeded()
                 removeTransition()
@@ -751,7 +870,9 @@ private struct DetailZoomCanvas: UIViewRepresentable {
                 centerFittedPhoto()
             }
             if let host = transitionHost, host.superview === self, host.frame != bounds { host.frame = bounds }
+            layoutTile()
             scheduleEntryIfReady()
+            scheduleDemand()
 #if DEBUG
             updateGeometryAudit()
 #endif
@@ -763,15 +884,92 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             guard !settingGeometry else { return }
             updateCentering()
             updateZoomState()
+            layoutTile()
+            scheduleDemand()
         }
 
         func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
             centerFittedPhoto()
             updateZoomState()
+            layoutTile()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in self?.scheduleDemand() }
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { scheduleDemand() }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            if !decelerate { scheduleDemand() }
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             centerFittedPhoto()
+            if !settingGeometry, zoomScale > 1.05 { scheduleDemand() }
+        }
+
+        func stopDemand() {
+            demandTask?.cancel()
+            lastScheduledDemand = nil
+        }
+
+        func updateTile(_ replacement: MobileDetailTile?) {
+            if tile?.image !== replacement?.image || tile?.rect != replacement?.rect {
+                tile = replacement
+                tileView.image = replacement.map { UIImage(cgImage: $0.image) }
+            }
+            layoutTile()
+        }
+
+        private func layoutTile() {
+            guard let tile, zoomScale > 1.05 else {
+                tileView.isHidden = true
+#if DEBUG
+                auditTileStatus(active: false)
+#endif
+                return
+            }
+            let b = photoView.bounds
+            tileView.frame = CGRect(x: b.width * tile.rect.minX, y: b.height * tile.rect.minY,
+                                    width: b.width * tile.rect.width, height: b.height * tile.rect.height)
+            tileView.isHidden = false
+#if DEBUG
+            auditTileStatus(active: true)
+#endif
+        }
+
+        private func scheduleDemand() {
+            guard !settingGeometry, !isZooming, !isZoomAnimating, !isDragging, !isDecelerating,
+                  let id = photoID, let source,
+                  photoView.bounds.width > 1, photoView.bounds.height > 1, let window else { return }
+            let displayScale = window.traitCollection.displayScale
+            let b = photoView.bounds
+            let edge = MobilePreviewPolicy.fitEdge(pixels: Double(max(b.width, b.height) * displayScale))
+            let normalized: MobileViewport?
+            if zoomScale > 1.05 {
+                let inPhoto = photoView.convert(bounds, from: self).intersection(b)
+                if inPhoto.isNull || inPhoto.isEmpty { normalized = nil }
+                else {
+                    let rect = CGRect(x: (inPhoto.minX - b.minX) / b.width, y: (inPhoto.minY - b.minY) / b.height,
+                                      width: inPhoto.width / b.width, height: inPhoto.height / b.height)
+                    let pixels = min(10240, Double(max(b.width, b.height) * zoomScale * displayScale))
+                    normalized = MobileViewport(rect: rect, zoom: Double(zoomScale), pixelLongEdge: pixels,
+                                                previewLongEdge: max(source.width, source.height))
+                }
+            } else { normalized = nil }
+            let next = GalleryCanvasDemand(photoID: id, fitEdge: edge, viewport: normalized)
+            guard next != lastScheduledDemand else { return }
+            lastScheduledDemand = next
+            demandTask?.cancel()
+            demandTask = Task { @MainActor [weak self] in
+                if normalized != nil {
+                    do { try await Task.sleep(for: .milliseconds(135)) } catch { return }
+                } else { await Task.yield() }
+                guard let self, !Task.isCancelled, self.photoID == id else { return }
+                if self.isZooming || self.isZoomAnimating || self.isDragging || self.isDecelerating {
+                    self.lastScheduledDemand = nil
+                    return
+                }
+                self.onDemand?(next)
+            }
         }
 
         private func centerFittedPhoto() {
@@ -790,7 +988,8 @@ private struct DetailZoomCanvas: UIViewRepresentable {
             let allowPan = !isFitted
             if panGestureRecognizer.isEnabled != allowPan { panGestureRecognizer.isEnabled = allowPan }
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--photo-detail-resolution-audit") { return }
+            if ProcessInfo.processInfo.arguments.contains("--photo-detail-resolution-audit")
+                || ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit") { return }
 #endif
             let value = "\(Int((zoomScale * 100).rounded()))%"
             if accessibilityValue != value { accessibilityValue = value }
@@ -800,6 +999,14 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         }
 
 #if DEBUG
+        private func auditTileStatus(active: Bool) {
+            guard ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit"), let source else { return }
+            let pixels = max(source.width, source.height)
+            let zoom = Int((zoomScale * 100).rounded())
+            let value = "\(active ? "tile" : "fit")-\(pixels)-\(zoom)"
+            if accessibilityValue != value { accessibilityValue = value }
+        }
+
         private func updateGeometryAudit() {
             guard ProcessInfo.processInfo.arguments.contains("--photo-detail-geometry-audit"), let window else { return }
             let image = photoView.convert(photoView.bounds, to: window)

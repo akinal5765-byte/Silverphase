@@ -195,6 +195,30 @@ final class PhotoImportTests: XCTestCase {
         }
     }
 
+    @MainActor func testPhotoDetailPromotesZoomViewportWithoutMoving() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-tile-audit"]
+        app.launch()
+        defer { app.terminate() }
+        let cell = app.buttons["library.photo.来源"]
+        XCTAssertTrue(cell.waitForExistence(timeout: 20))
+        cell.tap()
+        let photo = app.images["photo-detail.image"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 12))
+        let fitted = NSPredicate { _, _ in
+            let fields = (photo.value as? String)?.split(separator: "-")
+            guard let fields, fields.count == 3, let edge = Int(fields[1]) else { return false }
+            return fields[0] == "fit" && fields[2] == "100" && edge >= 1080 && edge < 3120
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: fitted, object: nil)], timeout: 35), .completed)
+        photo.doubleTap()
+        let zoomed = NSPredicate(format: "value BEGINSWITH %@ AND value ENDSWITH %@", "tile-", "-250")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: photo)], timeout: 50), .completed)
+        XCTAssertEqual(photo.label, "来源")
+        photo.doubleTap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: fitted, object: nil)], timeout: 8), .completed)
+    }
+
     @MainActor func testPhotoDetailPromotesWarmThumbnail() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",

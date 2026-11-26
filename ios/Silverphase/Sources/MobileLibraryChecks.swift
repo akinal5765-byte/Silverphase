@@ -148,9 +148,11 @@ import UniformTypeIdentifiers
         document.active = false; document.editorVisible = false
         guard document.photos.isEmpty else { return }
         let documentation = ProcessInfo.processInfo.arguments.contains("--documentation-captures")
-        let size = documentation ? CGSize(width: 384, height: 576) : CGSize(width: 96, height: 64)
+        let tileFixture = ProcessInfo.processInfo.arguments.contains("--gallery-tile-audit")
+        let size = tileFixture ? CGSize(width: 2080, height: 3120)
+            : documentation ? CGSize(width: 384, height: 576) : CGSize(width: 96, height: 64)
         let input: CIImage
-        if documentation {
+        if documentation || tileFixture {
             input = CIFilter(name: "CILinearGradient", parameters: [
                 "inputPoint0": CIVector(x: 0, y: 0), "inputPoint1": CIVector(x: size.width, y: size.height),
                 "inputColor0": CIColor(red: 0.12, green: 0.22, blue: 0.30),

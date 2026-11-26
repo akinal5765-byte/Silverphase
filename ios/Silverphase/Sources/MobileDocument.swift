@@ -294,11 +294,24 @@ struct MobilePhoto: Codable, Identifiable {
     /// Render the current edit independently of the editor's Metal session.
     /// The library's 384px thumbnail remains a fast first frame, never the
     /// final rendition. Use a fit-tier size, bounded for older iPhones.
-    func renderLibraryDetail(_ photo: MobilePhoto, using renderer: MobileEngine) async throws -> CGImage {
+    func renderLibraryDetail(_ photo: MobilePhoto, fitEdge: Int, using renderer: MobileEngine) async throws -> CGImage {
         let resolvedPhoto = try await resolveCameraBrightness(photo, using: renderer)
-        let edge = ProcessInfo.processInfo.isLowPowerModeEnabled ? 1600 : 2560
-        let tier = MobilePreviewPolicy.megapixels(edge: edge, aspect: max(0.01, photo.sourceAspect))
-        let target = max(0.01, min(3.3, tier, photo.sourceMegapixels > 0 ? photo.sourceMegapixels : tier))
+        let edge = preferences.values.lowerPreviewInLowPower && ProcessInfo.processInfo.isLowPowerModeEnabled
+            ? min(1600, fitEdge) : fitEdge
+        let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
+        let tier = MobilePreviewPolicy.megapixels(edge: edge, aspect: aspect)
+        let requested: Double
+        if let size = try? MobileSimulationSize.workingSize(in: resolvedPhoto.recipe, geometry: resolvedPhoto.geometry, aspect: aspect),
+           let simulationEdge = MobileSimulationSize.edge(in: resolvedPhoto.recipe) {
+            let scale = min(1, Double(edge) / Double(simulationEdge))
+            requested = MobileSimulationSize.megapixels(size) * scale * scale
+        } else {
+            var fit = MobileExportRecipe()
+            fit.sizeMode = "longEdge"; fit.longEdge = edge
+            requested = fit.megapixels(sourceMP: photo.sourceMegapixels > 0 ? photo.sourceMegapixels : tier,
+                                       aspect: aspect, geometry: resolvedPhoto.geometry)
+        }
+        let target = max(0.01, min(3.3, requested))
         try Task.checkCancellation()
         let image = try await renderer.renderGalleryFrame(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
                                                           geometry: resolvedPhoto.geometry, megapixels: target)
@@ -308,6 +321,12 @@ struct MobilePhoto: Codable, Identifiable {
             cacheLibraryPreview(image, photo: resolvedPhoto)
         }
         return image
+    }
+
+    func renderLibraryTile(_ photo: MobilePhoto, viewport: MobileViewport,
+                           using renderer: MobileDetailRenderer) async throws -> MobileDetailTile {
+        try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+                                geometry: photo.geometry, viewport: viewport.rect, pixelLongEdge: viewport.pixelLongEdge)
     }
 
     func saveCameraPhotoToPhotos(_ photo: MobilePhoto) async throws {
