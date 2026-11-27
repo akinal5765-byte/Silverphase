@@ -360,7 +360,7 @@ struct MobileLibrary: View {
             ScrollView { MobileExportPanel(document: document, filteredIDs: request.ids, fixedIDs: request.ids) }
                 .mobilePageBackground()
                 .navigationTitle(T("Export Photos", "导出成片", "匯出成片")).navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成"), action: onDone).disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(T("Cancel", "取消", "取消"), action: onDone).disabled(document.isInteractionLocked).accessibilityIdentifier("library.export-done") } }
                 .disabled(document.isInteractionLocked)
                 .overlay { notification(covered: document.exported != nil) }
                 .sheet(isPresented: shareBinding) { shareSheet }
