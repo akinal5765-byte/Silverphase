@@ -497,6 +497,13 @@ struct MobileCameraView: View {
         MobileCameraCanvas(followsInterface: followsInterface, interfaceChanged: { sceneQuarterTurn = $0 }) { insets in
             cameraBody(safeInsets: insets)
         }
+        .allowsHitTesting(!pickerUsesSceneCoordinates || !showingFilms)
+        .accessibilityHidden(pickerUsesSceneCoordinates && showingFilms)
+        .overlay {
+            // Size the catalogue in the scene, then orient it the same way
+            // as the camera controls rather than inheriting the canvas transform.
+            if pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: true) }
+        }
 #else
         MobileCameraCanvas { _ in cameraBody(safeInsets: EdgeInsets()) }
 #endif
@@ -545,33 +552,7 @@ struct MobileCameraView: View {
         .allowsHitTesting(!showingFilms)
         .accessibilityHidden(showingFilms)
         .overlay {
-            ZStack {
-                if showingFilms {
-                    Rectangle()
-                        .fill(.clear)
-                        .contentShape(Rectangle())
-                        .onTapGesture { setFilmPicker(false) }
-                        .accessibilityHidden(true)
-                        .ignoresSafeArea(.container)
-                        .transition(.identity)
-                }
-                GeometryReader { geometry in
-                    let panel = activeCameraPanel(geometry)
-                    ZStack(alignment: .bottom) {
-                        if showingFilms {
-                            filmPicker(panelHeight: panel.height)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-                    }
-                    .frame(width: panel.width, height: panel.height, alignment: .bottom)
-                    .clipped()
-                    .position(x: panel.midX, y: panel.midY)
-                }
-                .ignoresSafeArea(.container, edges: fillsPanel ? .horizontal : [])
-            }
-            // During dismissal the visual transition may remain briefly, but
-            // neither the old picker nor its backdrop should accept touches.
-            .allowsHitTesting(showingFilms)
+            if !pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: false) }
         }
 #endif
 #if !SILVERPHASE_APP
@@ -1152,6 +1133,55 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
+    private var pickerUsesSceneCoordinates: Bool { !usesInnerCameraLayout }
+
+    private var pickerSceneRotation: Double {
+        // iPad's landscape scene can lay out the catalogue natively. Phones
+        // may keep the scene portrait while their camera glyphs follow roll.
+        guard UIDevice.current.userInterfaceIdiom != .pad else { return 0 }
+#if DEBUG
+        if isLayoutCheck,
+           let hint = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--camera-picker-test-angle=") }),
+           let degrees = Double(hint.split(separator: "=").last ?? "") {
+            return degrees
+        }
+#endif
+        return controlRotation + (followsInterface ? 0 : sceneQuarterTurn)
+    }
+
+    private func cameraFilmPickerOverlay(useScenePanel: Bool) -> some View {
+        ZStack {
+            if showingFilms {
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture { setFilmPicker(false) }
+                    .accessibilityHidden(true)
+                    .ignoresSafeArea(.container)
+                    .transition(.identity)
+            }
+            GeometryReader { geometry in
+                let panel = useScenePanel ? CGRect(origin: .zero, size: geometry.size) : activeCameraPanel(geometry)
+                let layout = MobileCameraCanvasGeometry(viewport: panel.size,
+                    interfaceQuarterTurn: useScenePanel ? pickerSceneRotation : 0)
+                ZStack(alignment: .bottom) {
+                    if showingFilms {
+                        filmPicker(panelHeight: layout.contentSize.height)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .frame(width: layout.contentSize.width, height: layout.contentSize.height, alignment: .bottom)
+                .clipped()
+                .rotationEffect(.degrees(layout.rotation))
+                .position(x: panel.midX, y: panel.midY)
+            }
+            .ignoresSafeArea(.container, edges: !useScenePanel && fillsPanel ? .horizontal : [])
+        }
+        // During dismissal the visual transition may remain briefly, but
+        // neither the old picker nor its backdrop should accept touches.
+        .allowsHitTesting(showingFilms)
+    }
+
     private func setFilmPicker(_ visible: Bool) {
         if visible != showingFilms { filmPreviewSelection.reset() }
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { showingFilms = visible }
@@ -1163,7 +1193,9 @@ struct MobileCameraView: View {
             setFilmPicker(false)
         }, identifier: "camera.film-picker")
         .frame(maxWidth: 470)
-        .frame(height: min(panelHeight, max(280, panelHeight * 0.64)))
+        // Keep the bottom presentation, but leave nearly the full panel
+        // available on short screens and show more rows on taller ones.
+        .frame(height: min(max(0, panelHeight - 12), max(300, panelHeight * 0.80)))
         // Only the child controls and scroll view are interactive. The glass
         // is visual chrome, and empty space inside the card is not a backdrop.
         .background {

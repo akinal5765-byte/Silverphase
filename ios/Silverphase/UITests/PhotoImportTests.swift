@@ -856,6 +856,84 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
     }
 
+    @MainActor func testPhoneCameraFilmPickerFollowsHoldingDirectionWithPortraitScene() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone only") }
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        defer { app.terminate() }
+        for angle in [-90, 90, 0] {
+            if app.state != .notRunning { app.terminate() }
+            app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                                   "--camera-layout-check", "--camera-picker-test-angle=\(angle)"]
+            app.launch()
+            let camera = app.buttons["library.camera"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 12)); camera.tap()
+            let film = app.buttons["camera.film"]
+            XCTAssertTrue(film.waitForExistence(timeout: 8)); film.tap()
+            let title = app.staticTexts["camera.film-picker-title"]
+            let close = app.buttons["camera.film-picker-close"]
+            XCTAssertTrue(close.waitForExistence(timeout: 6))
+            XCTAssertTrue(close.isHittable)
+            XCTAssertTrue(app.textFields["camera.film-picker-search"].isHittable)
+            XCTAssertFalse(app.buttons["camera.shutter"].isHittable)
+            if angle < 0 {
+                XCTAssertGreaterThan(title.frame.midY, close.frame.midY)
+                XCTAssertEqual(title.frame.midX, close.frame.midX, accuracy: 12)
+            } else if angle > 0 {
+                XCTAssertLessThan(title.frame.midY, close.frame.midY)
+                XCTAssertEqual(title.frame.midX, close.frame.midX, accuracy: 12)
+            } else {
+                XCTAssertLessThan(title.frame.midX, close.frame.midX)
+                XCTAssertEqual(title.frame.midY, close.frame.midY, accuracy: 12)
+            }
+            close.tap()
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: close)
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 6), .completed)
+        }
+    }
+
+    @MainActor func testTabletCameraFilmPickerStaysUpright() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Run on an iPad simulator") }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--camera-layout-check"]
+        defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+
+        let title = app.staticTexts["camera.film-picker-title"]
+        let close = app.buttons["camera.film-picker-close"]
+        func verifyPicker() {
+            XCTAssertTrue(title.waitForExistence(timeout: 6))
+            XCTAssertTrue(close.isHittable)
+            XCTAssertLessThan(title.frame.midX, close.frame.midX)
+            XCTAssertEqual(title.frame.midY, close.frame.midY, accuracy: 12,
+                           "In scene coordinates the title and close button are on the same row")
+            XCTAssertFalse(app.buttons["camera.shutter"].isHittable)
+            XCTAssertTrue(app.textFields["camera.film-picker-search"].isHittable)
+        }
+
+        for orientation in [UIDeviceOrientation.landscapeLeft, .landscapeRight, .portrait] {
+            if app.state != .notRunning { app.terminate() }
+            XCUIDevice.shared.orientation = orientation
+            app.launch()
+            let camera = app.buttons["library.camera"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 12)); camera.tap()
+            let film = app.buttons["camera.film"]
+            XCTAssertTrue(film.waitForExistence(timeout: 8))
+            film.tap()
+            verifyPicker()
+            let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            evidence.name = "ipad-camera-film-picker-\(orientation.rawValue)"
+            evidence.lifetime = .keepAlways
+            add(evidence)
+            if orientation == .landscapeLeft {
+                XCUIDevice.shared.orientation = .landscapeRight
+                verifyPicker()
+            }
+            close.tap()
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: close)
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 6), .completed)
+        }
+    }
+
     @MainActor func testTabletCameraCanvasAndWorkspaceRotation() throws {
         guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Run on an iPad simulator") }
         XCUIDevice.shared.orientation = .portrait

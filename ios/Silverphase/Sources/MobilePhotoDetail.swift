@@ -364,14 +364,17 @@ struct MobilePhotoDetail: View {
             }
         }
         .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            // Keep the original attachment, but use more of the window height
+            // so browsing usually shows additional rows before scrolling.
+            let height = min(550, max(260, detailWindowSize.height * 0.68))
             if isDuo && hingeClosed == true {
                 // Leave room for the system side lane and its popover margins.
                 // Oversized content otherwise overlaps the trigger on the cover.
                 let room = detailWindowSize.width - 56 - 2 * EditorDesign.contentInset
-                filmPicker(photo).frame(idealHeight: 318).frame(width: min(308, max(210, room)))
+                filmPicker(photo).frame(width: min(308, max(210, room)), height: height)
                     .presentationCompactAdaptation(.none)
             } else {
-                filmPicker(photo).presentationCompactAdaptation(.none)
+                filmPicker(photo).frame(height: height).presentationCompactAdaptation(.none)
             }
         }
     }
