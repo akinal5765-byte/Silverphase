@@ -354,22 +354,24 @@ struct MobileWaistFilmTrack {
         }
 
         func card(at relative: CGFloat, reveal: CGFloat) -> Card {
-            let progress = min(1, max(0, (relative + 5.5) / 7.8))
+            let progress = min(1, max(0, (relative + 5.0) / 5.0))
             let peak = max(0, 1 - abs(relative))
             let pop = peak * peak * reveal
-            // Depth is uniform scaling, overlap and shading, never a warp.
-            let width = fullWidth * (0.42 + 0.58 * progress + 0.05 * pop)
+            // Uniform scaling and stepped overlap give the deck depth without
+            // changing the film art's aspect ratio.
+            let width = fullWidth * (0.35 + 0.65 * pow(progress, 1.10))
             let height = width * 9 / 16
             let travel = max(0, laneHeight - fullWidth * 9 / 16 - 15)
-            let expanded = pow(progress, 1.58)
-            let compact = 0.28 + expanded * 0.56
+            let expanded = pow(progress, 1.65)
+            let compact = 0.20 + expanded * 0.51
             let upper = 8 + travel * (expanded + (compact - expanded) * reveal)
-                - min(28, travel * 0.41) * pop
-            let revealX = min(24, size.width * 0.06) * pop
-            // Only the edge slots fade in transit. At a detent the stack is opaque.
-            let edge = min(1, max(0, relative + 5), max(0, 2 - relative))
+                + min(25, travel * 0.26) * pop
+            let revealX = min(29, size.width * 0.07) * pop
+            // At a detent the selected sleeve is the foreground: the next
+            // positive-relative sleeve only appears as the track advances.
+            let edge = min(1, max(0, relative + 5), max(0, 1 - relative))
             let alpha = edge * edge * (3 - 2 * edge)
-            let shade = max(0, (1 - progress) * 0.32 - 0.12 * pop)
+            let shade = (1 - progress) * (1 - progress) * 0.52
             return Card(frame: CGRect(x: (size.width - width) / 2 + revealX, y: upper,
                                       width: width, height: height), opacity: Double(alpha), shade: Double(shade))
         }
@@ -377,7 +379,7 @@ struct MobileWaistFilmTrack {
         func slots(at coordinate: CGFloat, count: Int) -> ClosedRange<Int> {
             let focus = Int(coordinate.rounded())
             if count == 1 { return focus...focus }
-            if count < 10 { return (focus - count + 2)...(focus + 1) }
+            if count < 10 { return (focus - count + 1)...focus }
             let lower = Int(floor(coordinate))
             return (lower - 6)...(lower + 3)
         }

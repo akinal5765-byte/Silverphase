@@ -2208,7 +2208,8 @@ private struct MobileWaistFilmWheel: View {
                                     .padding(.top, 5)
                                     .accessibilityHidden(true)
                             }
-                            .shadow(color: .black.opacity(0.32), radius: 4, y: 2)
+                            .shadow(color: .black.opacity(chosen ? 0.48 : 0.31),
+                                    radius: chosen ? 8 : 4, y: chosen ? 5 : 2)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(stock.displayName)

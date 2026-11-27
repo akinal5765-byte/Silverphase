@@ -300,26 +300,27 @@ enum MobileLockedCameraChecks {
                 let stack = MobileWaistFilmTrack.Wallet(size: size)
                 let selected = stack.card(at: 0, reveal: 1).frame
                 let retracted = stack.card(at: 0, reveal: 0).frame
-                let front = stack.card(at: 1, reveal: 1).frame
-                try require(selected.midX > retracted.midX && selected.minY < retracted.minY &&
-                            selected.intersects(front) && front.minY - selected.minY > 8,
-                            "The selected film peeks out as the second sleeve without clearing the front sleeve")
+                let preceding = stack.card(at: -1, reveal: 1).frame
+                try require(selected.midX > retracted.midX && selected.minY > preceding.minY &&
+                            selected.intersects(preceding) && selected.maxY > preceding.maxY &&
+                            stack.card(at: 1, reveal: 1).opacity == 0,
+                            "The selected sleeve is the foremost opaque card and only partly leaves the stack")
                 for slot in -6...3 {
                     let card = stack.card(at: CGFloat(slot), reveal: 1)
-                    try require(card.opacity == ((-4...1).contains(slot) ? 1 : 0),
+                    try require(card.opacity == ((-4...0).contains(slot) ? 1 : 0),
                                 "Stationary sleeves show opaque faces, with no ghost in front or behind")
                 }
                 let farOpen = stack.card(at: -4, reveal: 0)
-                let frontOpen = stack.card(at: 1, reveal: 0)
+                let frontOpen = stack.card(at: -1, reveal: 0)
                 let farClosed = stack.card(at: -4, reveal: 1)
-                let frontClosed = stack.card(at: 1, reveal: 1)
+                let frontClosed = stack.card(at: -1, reveal: 1)
                 let openSpan = frontOpen.frame.minY - farOpen.frame.minY
                 let closedSpan = frontClosed.frame.minY - farClosed.frame.minY
-                let peek = front.minY - selected.minY
-                try require(abs(closedSpan / openSpan - 0.56) < 0.00001 &&
-                            farClosed.shade > frontClosed.shade && farClosed.frame.width < frontClosed.frame.width &&
-                            peek / selected.height > 0.15 && peek / selected.height < 0.52,
-                            "On settle the opaque stack gathers, leaving only a bounded section of the second card")
+                let peek = selected.maxY - preceding.maxY
+                try require(abs(closedSpan / openSpan - 0.51) < 0.00001 &&
+                            farOpen.shade > 0.30 && farOpen.frame.width < selected.width * 0.50 &&
+                            peek / selected.height > 0.14 && peek / selected.height < 0.55,
+                            "On settle the background gathers, with a stronger depth ramp and partial front-card reveal")
                 for step in -32...32 {
                     let coordinate = CGFloat(step) / 32
                     for count in [1, 2, 5, 9, 14] {
@@ -338,7 +339,7 @@ enum MobileLockedCameraChecks {
                     }
                 }
             }
-            checks.append("tabletop wallet stacked sleeves adapt to the panel and reveal the second card")
+            checks.append("tabletop wallet stacked sleeves adapt to the panel and reveal the foreground selection")
 
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
