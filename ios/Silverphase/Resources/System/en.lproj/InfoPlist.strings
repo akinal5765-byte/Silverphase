@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Take photos and develop them with your selected film in Silverphase.";
+"NSLocationWhenInUseUsageDescription" = "Geotag photos taken in Silverphase when you turn on Record Capture Location.";
+"NSMotionUsageDescription" = "Use your device’s tilt to show a level in the camera viewfinder.";
+"NSPhotoLibraryAddUsageDescription" = "Save your finished photos to Photos.";
+"NSPhotoLibraryUsageDescription" = "Read the original files for photos you select so Silverphase can import the RAW versions when available.";

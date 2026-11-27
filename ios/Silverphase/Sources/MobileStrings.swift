@@ -27,7 +27,113 @@
 
 import Foundation
 
-/// Copy in all three languages, kept where it is shown.
+/// Keeps the English fallback and a stable catalog key even when the text interpolates
+/// values. Translators may reposition {1}, {2}, … without changing the Swift expressions.
+struct MobileSourceCopy: ExpressibleByStringInterpolation, Sendable {
+    let english: String
+    let key: String
+    let arguments: [String]
+
+    init(stringLiteral value: String) {
+        english = value
+        key = value
+        arguments = []
+    }
+
+    init(stringInterpolation value: StringInterpolation) {
+        english = value.english
+        key = value.key
+        arguments = value.arguments
+    }
+
+    struct StringInterpolation: StringInterpolationProtocol, Sendable {
+        var english = ""
+        var key = ""
+        var arguments: [String] = []
+
+        init(literalCapacity: Int, interpolationCount: Int) {
+            english.reserveCapacity(literalCapacity)
+            key.reserveCapacity(literalCapacity)
+            arguments.reserveCapacity(interpolationCount)
+        }
+
+        mutating func appendLiteral(_ literal: String) {
+            english += literal
+            key += literal
+        }
+
+        mutating func appendInterpolation<Value>(_ value: Value) {
+            let rendered = "\(value)"
+            arguments.append(rendered)
+            english += rendered
+            key += "{\(arguments.count)}"
+        }
+    }
+}
+
+/// Resources are selected explicitly, so an in-app language change does not need
+/// a relaunch or a change to the system language. Each target reads its own bundle.
+enum MobileCopyCatalog {
+    private static let bundled: [String: [String: String]] = {
+        var result: [String: [String: String]] = [:]
+        for locale in ["ja", "ko", "de"] {
+            if let table = load(locale: locale), !table.isEmpty { result[locale] = table }
+        }
+        return result
+    }()
+
+    static func translations(for locale: String) -> [String: String]? {
+        bundled[locale]
+    }
+
+    static func load(locale: String, bundle: Bundle = .main) -> [String: String]? {
+        // Access the requested folder directly: Foundation's normal localized
+        // lookup may silently fall back to a different language.
+        guard let url = bundle.resourceURL?.appendingPathComponent("\(locale).lproj/MobileCopy.json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode([String: String].self, from: data)
+    }
+
+    private static let placeholder = try? NSRegularExpression(pattern: #"\{([1-9][0-9]*)\}"#)
+
+    static func resolve(_ source: MobileSourceCopy, fileID: String,
+                        translations: [String: String]) -> String {
+        let filename = fileID.split(separator: "/").last ?? ""
+        let stem = filename.hasSuffix(".swift") ? filename.dropLast(6) : filename
+        let qualified = "\(stem)|\(source.key)"
+        var selected: String?
+        // Only catalogs with grammatically distinct singular copy supply a
+        // |one:N form. N identifies the count, not e.g. the photo filename.
+        for (index, argument) in source.arguments.enumerated() where argument == "1" {
+            let suffix = "|one:\(index + 1)"
+            if let variant = translations[qualified + suffix] ?? translations[source.key + suffix] {
+                selected = variant
+                break
+            }
+        }
+        guard let value = selected ?? translations[qualified] ?? translations[source.key],
+              !value.isEmpty else { return source.english }
+        guard let placeholder else { return source.english }
+        if source.arguments.isEmpty, !value.contains("{") { return value }
+        let matches = placeholder.matches(in: value, range: NSRange(value.startIndex..., in: value))
+        var seen = Set<Int>()
+        var cursor = value.startIndex
+        var result = ""
+        for match in matches {
+            guard let range = Range(match.range, in: value),
+                  let numberRange = Range(match.range(at: 1), in: value),
+                  let number = Int(value[numberRange]),
+                  source.arguments.indices.contains(number - 1) else { return source.english }
+            seen.insert(number)
+            result += value[cursor..<range.lowerBound] + source.arguments[number - 1]
+            cursor = range.upperBound
+        }
+        guard seen.count == source.arguments.count else { return source.english }
+        return result + value[cursor...]
+    }
+}
+
+/// Existing English and Chinese copy stays next to the UI; additional languages use the catalog.
 ///
 /// Reading `Localization.shared.resolved` is not an optimisation to be hoisted —
 /// it **is** the mechanism. The property is computed from the `@Observable`
@@ -37,8 +143,9 @@ import Foundation
 /// An empty English argument is a bug rather than a fallback: English is the
 /// column everything else falls back to.
 @MainActor
-func T(_ english: String, _ simplifiedChinese: String, _ traditionalChinese: String) -> String {
-    T(english, simplifiedChinese, traditionalChinese, in: MobileLocalization.shared.resolved)
+func T(_ english: MobileSourceCopy, _ simplifiedChinese: String, _ traditionalChinese: String,
+       fileID: String = #fileID) -> String {
+    T(english, simplifiedChinese, traditionalChinese, in: MobileLocalization.shared.resolved, fileID: fileID)
 }
 
 /// The same lookup against a language passed in.
@@ -46,17 +153,22 @@ func T(_ english: String, _ simplifiedChinese: String, _ traditionalChinese: Str
 /// `nonisolated` and pure so that a `Sendable` enum's own `title` — which a
 /// `Picker` or an accessibility value reads from a view body — can call it
 /// without reaching for main-actor state.
-nonisolated func T(_ english: String, _ simplifiedChinese: String,
-                   _ traditionalChinese: String, in language: MobileLanguage) -> String {
+nonisolated func T(_ english: MobileSourceCopy, _ simplifiedChinese: String,
+                   _ traditionalChinese: String, in language: MobileLanguage,
+                   fileID: String = #fileID) -> String {
     switch language {
     case .english:
-        return english
+        return english.english
     case .simplifiedChinese:
-        return simplifiedChinese.isEmpty ? english : simplifiedChinese
+        return simplifiedChinese.isEmpty ? english.english : simplifiedChinese
     case .traditionalChinese:
         if !traditionalChinese.isEmpty { return traditionalChinese }
         if !simplifiedChinese.isEmpty { return simplifiedChinese }
-        return english
+        return english.english
+    case .japanese, .korean, .german:
+        guard let locale = language.catalogLocale,
+              let table = MobileCopyCatalog.translations(for: locale) else { return english.english }
+        return MobileCopyCatalog.resolve(english, fileID: fileID, translations: table)
     }
 }
 
@@ -74,7 +186,7 @@ var currentLanguage: MobileLanguage { MobileLocalization.shared.resolved }
 /// failures from their own queues, and those messages reach the interface. They
 /// cannot read the `@Observable` setting, so they read the mirror described in
 /// `MobileLocalization.snapshot`.
-nonisolated func TDetached(_ english: String, _ simplifiedChinese: String,
-                           _ traditionalChinese: String) -> String {
-    T(english, simplifiedChinese, traditionalChinese, in: MobileLocalization.snapshot)
+nonisolated func TDetached(_ english: MobileSourceCopy, _ simplifiedChinese: String,
+                           _ traditionalChinese: String, fileID: String = #fileID) -> String {
+    T(english, simplifiedChinese, traditionalChinese, in: MobileLocalization.snapshot, fileID: fileID)
 }

@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Silverphase</string>
 	<key>CFBundleExecutable</key>
@@ -21,15 +23,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>拍摄照片并在 Silverphase 中用所选胶片显影。</string>
+	<string>Take photos and develop them with your selected film in Silverphase.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>在你开启“记录拍摄位置”后，为应用内拍摄的照片记录位置。</string>
+	<string>Geotag photos taken in Silverphase when you turn on Record Capture Location.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>读取设备倾斜角度，在相机取景框中显示水平仪。</string>
+	<string>Use your device’s tilt to show a level in the camera viewfinder.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>将你选择的胶片成片保存到照片图库。</string>
+	<string>Save your finished photos to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>读取你选中的照片的原始资源，以便优先导入 RAW 原片。</string>
+	<string>Read the original files for photos you select so Silverphase can import the RAW versions when available.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -7,8 +7,8 @@ import Observation
 }
 
 struct OpenSilverphaseCameraIntent: AppIntent {
-    static let title: LocalizedStringResource = "打开相机"
-    static let description = IntentDescription("直接打开 Silverphase 的胶片相机。")
+    static let title: LocalizedStringResource = "Open Camera"
+    static let description = IntentDescription("Open the film camera in Silverphase.")
     static let openAppWhenRun = true
 
     @MainActor func perform() async throws -> some IntentResult {
@@ -20,7 +20,7 @@ struct OpenSilverphaseCameraIntent: AppIntent {
 struct SilverphaseAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: OpenSilverphaseCameraIntent(),
-                    phrases: ["打开\(.applicationName)相机", "用\(.applicationName)拍照"],
-                    shortTitle: "打开相机", systemImageName: "camera")
+                    phrases: ["Open the camera in \(.applicationName)", "Take a photo with \(.applicationName)"],
+                    shortTitle: "Open Camera", systemImageName: "camera")
     }
 }

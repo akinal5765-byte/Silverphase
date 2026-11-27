@@ -1,0 +1,65 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Open the camera in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Open the camera in ${applicationName}",
+              "Take a photo with ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "打开 ${applicationName} 相机",
+              "用 ${applicationName} 拍照"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "開啟 ${applicationName} 相機",
+              "用 ${applicationName} 拍照"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}のカメラを開く",
+              "${applicationName}で写真を撮る"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} 카메라 열어 줘",
+              "${applicationName}로 사진 찍어 줘"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Kamera in ${applicationName} öffnen",
+              "Ein Foto mit ${applicationName} aufnehmen"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version": "1.1"
+}

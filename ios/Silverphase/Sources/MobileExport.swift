@@ -42,7 +42,7 @@ struct MobileExportPanel: View {
             }
             ToolSectionTitle(title: T("File & Colour", "文件与色彩", "檔案與色彩"))
             row(T("Format", "格式", "格式")) { Picker(T("Format", "格式", "格式"), selection: recipe.format) { ForEach(MobileExportFormat.allCases) { Text($0.title).tag($0) } }.labelsHidden() }
-            row(T("Bit depth", "位深", "位深")) { Text(document.exportRecipe.format.isEightBit ? "8-bit" : "16-bit").monospacedDigit() }
+            row(T("Bit depth", "位深", "位深")) { Text(document.exportRecipe.format.isEightBit ? T("8-bit", "8 位", "8 位元") : T("16-bit", "16 位", "16 位元")).monospacedDigit() }
             if document.exportRecipe.format != .di {
                 row(T("Colour space", "色彩空间", "色彩空間")) {
                     Picker(T("Colour space", "色彩空间", "色彩空間"), selection: recipe.colorSpace) {
