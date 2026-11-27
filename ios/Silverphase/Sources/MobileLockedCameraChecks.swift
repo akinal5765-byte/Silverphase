@@ -4,6 +4,7 @@ import CoreImage
 import ImageIO
 import UniformTypeIdentifiers
 import UIKit
+import SwiftUI
 
 /// Pure configuration checks plus synthetic file/engine checks. No camera,
 /// lock-screen activation, Photos permission or private input is used.
@@ -142,17 +143,18 @@ enum MobileLockedCameraChecks {
             }
             for width: CGFloat in [390, 627, 669, 820] {
                 let aperture = MobileWaistFilmTrack.Aperture(size: CGSize(width: width, height: 410))
-                let center = aperture.centerX(of: 28, at: settle.position(at: 6))
-                let left = aperture.centerX(of: 27, at: 28), right = aperture.centerX(of: 29, at: 28)
+                let center = aperture.cover(of: 28, at: settle.position(at: 6), reduceMotion: false).centerX
+                let left = aperture.cover(of: 27, at: 28, reduceMotion: false).centerX
+                let right = aperture.cover(of: 29, at: 28, reduceMotion: false).centerX
                 try require(center == width / 2 && abs((left + right) / 2 - center) < 0.00001,
                             "Resizing the aperture must preserve the center of the settled group")
             }
             let wheelAperture = MobileWaistFilmTrack.Aperture(size: CGSize(width: 669, height: 410))
-            let centeredCover = wheelAperture.coverPose(of: 0, at: 0, reduceMotion: false)
-            let leftCover = wheelAperture.coverPose(of: -1, at: 0, reduceMotion: false)
-            let rightCover = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: false)
-            let farCover = wheelAperture.coverPose(of: 2, at: 0, reduceMotion: false)
-            let flatCover = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: true)
+            let centeredCover = wheelAperture.cover(of: 0, at: 0, reduceMotion: false).pose
+            let leftCover = wheelAperture.cover(of: -1, at: 0, reduceMotion: false).pose
+            let rightCover = wheelAperture.cover(of: 1, at: 0, reduceMotion: false).pose
+            let farCover = wheelAperture.cover(of: 2, at: 0, reduceMotion: false).pose
+            let flatCover = wheelAperture.cover(of: 1, at: 0, reduceMotion: true).pose
             let corner = CGPoint(x: 83, y: 45)
             let leftCorner = leftCover.project(CGPoint(x: -corner.x, y: corner.y))
             let rightCorner = rightCover.project(corner)
@@ -166,9 +168,8 @@ enum MobileLockedCameraChecks {
                          CGSize(width: 669, height: 410), CGSize(width: 820, height: 125)] {
                 let aperture = MobileWaistFilmTrack.Aperture(size: size)
                 func edge(_ slot: Int, at position: CGFloat, side: CGFloat, flat: Bool) -> CGFloat {
-                    let center = aperture.centerX(of: slot, at: position)
-                    let pose = aperture.coverPose(of: slot, at: position, reduceMotion: flat)
-                    return center + pose.project(CGPoint(x: side * aperture.width / 2, y: 0)).x
+                    let cover = aperture.cover(of: slot, at: position, reduceMotion: flat)
+                    return cover.centerX + cover.pose.project(CGPoint(x: side * aperture.width / 2, y: 0)).x
                 }
                 for step in -32...32 {
                     let position = CGFloat(step) / 32
@@ -181,66 +182,108 @@ enum MobileLockedCameraChecks {
                     }
                 }
             }
-            try require(wheelAperture.centerX(of: 2, at: 0)
+            try require(wheelAperture.cover(of: 2, at: 0, reduceMotion: false).centerX
                             + farCover.project(CGPoint(x: -wheelAperture.width / 2, y: 0)).x
                             < wheelAperture.size.width - 12,
                         "Keep the next cover peeking at the Duo edge")
             checks.append("tabletop film wheel wraps continuously and chooses the nearest centered stock")
 
-            let edgeOn = wheelAperture.coverPose(of: 0, at: 0, reduceMotion: false, fold: 1)
-            let foldedGap = wheelAperture.centerX(of: 1, at: 0, fold: 1) - wheelAperture.size.width / 2
-            let openGap = wheelAperture.centerX(of: 1, at: 0) - wheelAperture.size.width / 2
-            try require(edgeOn.horizontalScale < 0.35 && edgeOn.perspective != 0 &&
-                        foldedGap < openGap * 0.55 && wheelAperture.dragPitch(reduceMotion: false) < wheelAperture.pitch * 0.5 &&
-                        wheelAperture.dragPitch(reduceMotion: true) == wheelAperture.pitch &&
-                        wheelAperture.lift(at: 0, fold: 1) > wheelAperture.lift(at: 1, fold: 1),
-                        "Side-on covers really compress the lane and finger travel, and lift only near the center")
-            let leftFolded = wheelAperture.coverPose(of: -1, at: 0, reduceMotion: false, fold: 1)
-            let rightFolded = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: false, fold: 1)
-            let middleRatio = edgeOn.horizontalScale / edgeOn.verticalScale
-            let leftRatio = leftFolded.horizontalScale / leftFolded.verticalScale
-            let rightRatio = rightFolded.horizontalScale / rightFolded.verticalScale
-            try require(middleRatio > 0.20 && middleRatio < 0.28 &&
-                        leftRatio - middleRatio > 0.30 && abs(rightRatio - leftRatio) < 0.00001 &&
-                        leftFolded.perspective < 0 && rightFolded.perspective > 0 &&
-                        edgeOn.perspective > 0 && edgeOn.perspective < rightFolded.perspective,
-                        "Opposing record-stack banks leave the thin center cover slightly tilted and visible")
+            // Measure the screen silhouette, including placement. A positive
+            // perspective coefficient alone can describe an almost rectangular row.
+            func silhouette(_ aperture: MobileWaistFilmTrack.Aperture, slot: Int, at position: CGFloat,
+                            fold: CGFloat) -> (left: CGPoint, right: CGPoint) {
+                let card = aperture.cover(of: slot, at: position, reduceMotion: false, fold: fold)
+                func edge(_ x: CGFloat) -> CGPoint {
+                    let p = card.pose.project(CGPoint(x: x, y: aperture.height / 2))
+                    return CGPoint(x: p.x + card.centerX, y: p.y)
+                }
+                return (edge(-aperture.width / 2), edge(aperture.width / 2))
+            }
+            let hero = silhouette(wheelAperture, slot: 0, at: 0, fold: 1)
+            let heroWidth = hero.right.x - hero.left.x
+            let spinePitch = wheelAperture.compactPitch
+            try require(heroWidth > 0.33 * spinePitch && heroWidth < 0.5 * spinePitch &&
+                        abs(hero.left.y - hero.right.y) > 3 &&
+                        wheelAperture.dragPitch(reduceMotion: false) < wheelAperture.pitch * 0.5 &&
+                        wheelAperture.dragPitch(reduceMotion: true) == wheelAperture.pitch,
+                        "The folded center retains a tilted face with short finger travel")
+            for phase: CGFloat in [-0.4, 0, 0.4] {
+                for sign in [-1, 1] {
+                    let inner = silhouette(wheelAperture, slot: 2 * sign, at: phase, fold: 1)
+                    let outer = silhouette(wheelAperture, slot: 3 * sign, at: phase, fold: 1)
+                    let near = sign < 0 ? outer.left : outer.right
+                    let far = sign < 0 ? outer.right : outer.left
+                    let preceding = sign < 0 ? inner.left : inner.right
+                    try require(abs(abs(near.x - preceding.x) - spinePitch) < 1 &&
+                                abs(near.y - preceding.y) < 0.001 && near.y * 2 > wheelAperture.height * 1.6 &&
+                                far.y / near.y < 0.68 && outer.right.x - outer.left.x > 2 * heroWidth,
+                                "Both banks need evenly spaced tall spines and wide faces tapering toward the same horizon")
+                }
+            }
             let opening = MobileWaistFilmTrack.Fold(origin: 1, destination: 0, began: 1, duration: 0.24)
             try require(opening.amount(at: 1) == 1 && opening.amount(at: 2) == 0 &&
                         abs(opening.amount(at: 1.12) - 0.5) < 0.00001,
                         "The cover reveal starts at the folded pose and reaches the front without overshoot")
+            for release in fastReleases {
+                let now = release.startedAt + 0.09
+                let moving = release.position(at: now)
+                let initialDrag: CGFloat = release.velocity > 0 ? 11 : -9
+                let grab = MobileWaistFilmTrack.Grab(position: moving, translation: initialDrag, pitch: spinePitch)
+                let partial = opening.amount(at: 1.12)
+                let reversal = MobileWaistFilmTrack.Fold(origin: partial, destination: 1, began: now, duration: 0.11)
+                try require(grab.position(at: initialDrag) == moving &&
+                            abs(grab.position(at: initialDrag + spinePitch) - (moving - 1)) < 0.00001 &&
+                            reversal.amount(at: now) == partial,
+                            "Taking over a coast or a reveal preserves the displayed slot and fold at recognition")
+            }
             for size in [CGSize(width: 390, height: 160), CGSize(width: 669, height: 410),
                          CGSize(width: 820, height: 125)] {
                 let aperture = MobileWaistFilmTrack.Aperture(size: size)
-                for foldIndex in 1...8 {
+                for foldIndex in 0...8 {
                     let amount = CGFloat(foldIndex) / 8
-                    try require(aperture.centerX(of: 0, at: 0, fold: amount) == size.width / 2,
-                                "Compact and revealing covers always land on the exact center axis")
+                    let lane = aperture.laneHeight(fold: amount)
+                    let hero = silhouette(aperture, slot: 0, at: 0, fold: amount)
+                    try require(abs((hero.left.x + hero.right.x) / 2 - size.width / 2) < 0.00001 &&
+                                lane + 28 <= size.height + 0.00001,
+                                "Center the silhouette in the upper panel and leave room for the caption")
                     for phase in 0...24 {
                         let position = CGFloat(phase) / 24
                         for slot in -4..<4 {
-                            let left = aperture.coverPose(of: slot, at: position, reduceMotion: false, fold: amount)
-                            let right = aperture.coverPose(of: slot + 1, at: position, reduceMotion: false, fold: amount)
-                            let facingRight = left.project(CGPoint(x: aperture.width / 2, y: 0)).x
-                            let facingLeft = right.project(CGPoint(x: -aperture.width / 2, y: 0)).x
-                            let gap = aperture.centerX(of: slot + 1, at: position, fold: amount) + facingLeft
-                                - aperture.centerX(of: slot, at: position, fold: amount) - facingRight
-                            try require(gap > 2.8 && left.contains(.zero, width: aperture.width, height: aperture.height),
-                                        "Compressed covers maintain a visible gap and invertible touch projection")
-                            let centerY = aperture.laneHeight / 2
-                                - aperture.lift(at: CGFloat(slot) - position, fold: amount)
+                            let cover = aperture.cover(of: slot, at: position, reduceMotion: false, fold: amount)
+                            let flat = aperture.cover(of: slot, at: position, reduceMotion: true, fold: amount)
+                            try require(flat == aperture.cover(of: slot, at: position, reduceMotion: true),
+                                        "Reduce Motion always uses the resting layout")
+                            let face = silhouette(aperture, slot: slot, at: position, fold: amount)
+                            let next = silhouette(aperture, slot: slot + 1, at: position, fold: amount)
+                            try require(next.left.x - face.right.x > 2.8 && face.right.x > face.left.x,
+                                        "Adjacent projected faces stay upright and separated during a drag")
+                            let transform = cover.pose.transform(width: aperture.width, height: aperture.height)
                             for x in [-aperture.width / 2, aperture.width / 2] {
                                 for y in [-aperture.height / 2, aperture.height / 2] {
-                                    let edgeY = centerY + left.project(CGPoint(x: x, y: y)).y
-                                    try require(edgeY > 0.9 && edgeY < aperture.laneHeight - 0.9,
-                                                "Every projected corner stays inside the lane throughout the flip")
+                                    let p = cover.pose.project(CGPoint(x: x, y: y))
+                                    let drawn = CGPoint(x: x + aperture.width / 2, y: y + aperture.height / 2)
+                                        .applying(transform)
+                                    try require(abs(drawn.x - aperture.width / 2 - p.x) < 0.00001 &&
+                                                abs(drawn.y - aperture.height / 2 - p.y) < 0.00001 &&
+                                                abs(p.y) < lane / 2 - 0.9,
+                                                "All four rendered corners agree with the model and clear the clip")
                                 }
                             }
+                            let clippedCorner = CGPoint(x: aperture.width / 2 - 0.1, y: aperture.height / 2 - 0.1)
+                            try require(!cover.pose.contains(cover.pose.project(clippedCorner),
+                                                             width: aperture.width, height: aperture.height),
+                                        "A tap outside the rounded artwork corner misses even inside the projected quad")
+                            // Probe the sloping edge midway between its vertical ends.
+                            let x = (face.left.x + face.right.x) / 2 - cover.centerX
+                            let y = (face.left.y + face.right.y) / 2
+                            try require(cover.pose.contains(CGPoint(x: x, y: y - 1), width: aperture.width, height: aperture.height) &&
+                                        !cover.pose.contains(CGPoint(x: x, y: y + 1), width: aperture.width, height: aperture.height),
+                                        "Touch follows the projected face boundary")
                         }
                     }
                 }
             }
-            checks.append("tabletop film wheel contracts when moving and reveals the centered cover when stopped")
+            checks.append("tabletop stack silhouette, spine spacing, fold/regrab continuity, clip and projected touch boundary")
 
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),

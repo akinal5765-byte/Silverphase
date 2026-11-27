@@ -2029,7 +2029,7 @@ private struct MobileWaistFilmWheel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var tracking = false
     @State private var restingSlot: Int
-    @State private var grabOrigin: CGFloat?
+    @State private var grab: MobileWaistFilmTrack.Grab?
     @State private var grabBegan: TimeInterval?
     @State private var fingerPosition: CGFloat?
     @State private var motion: MobileWaistFilmTrack.Settle?
@@ -2089,7 +2089,7 @@ private struct MobileWaistFilmWheel: View {
         .onChange(of: selectedID) { _, _ in synchronizeSelection() }
         .onChange(of: enabled) { _, active in
             if !active {
-                grabOrigin = nil
+                grab = nil
                 grabBegan = nil
                 fingerPosition = nil
                 motion = nil
@@ -2120,9 +2120,8 @@ private struct MobileWaistFilmWheel: View {
                     let stock = stocks[track.index(at: slot)]
                     let relative = slot - focused
                     let distance = CGFloat(slot) - coordinate
-                    let pose = aperture.coverPose(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
-                    // One viewing plane and a shared horizon for all covers.
-                    // Projection preserves each physical center.
+                    let coverPlacement = aperture.cover(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
+                    let pose = coverPlacement.pose
                     Button { snap(to: slot) } label: {
                         cover(stock, width: aperture.width, height: aperture.height)
                     }
@@ -2133,12 +2132,11 @@ private struct MobileWaistFilmWheel: View {
                     .accessibilityHidden(abs(relative) > 2)
                     .projectionEffect(pose.transform(width: aperture.width, height: aperture.height))
                     .opacity(pose.opacity)
-                    .position(x: aperture.centerX(of: slot, at: coordinate, fold: fold),
-                              y: aperture.laneHeight / 2 - aperture.lift(at: distance, fold: fold))
+                    .position(x: coverPlacement.centerX, y: aperture.laneHeight(fold: fold) / 2)
                     .zIndex(4 - Double(abs(distance)))
                 }
             }
-            .frame(width: aperture.size.width, height: aperture.laneHeight)
+            .frame(width: aperture.size.width, height: aperture.laneHeight(fold: fold))
             .clipped()
             .overlay {
                 // The visible buttons retain AX actions; a single hit surface
@@ -2160,7 +2158,8 @@ private struct MobileWaistFilmWheel: View {
     }
 
     private func cover(_ stock: Stock, width: CGFloat, height: CGFloat) -> some View {
-        Group {
+        let outline = MobileWaistFilmTrack.CoverPose.outline
+        return Group {
             if let artwork = stock.packagingArtworkURL {
                 FilmstripThumbnail(url: artwork, fillsFrame: true)
             } else {
@@ -2170,12 +2169,12 @@ private struct MobileWaistFilmWheel: View {
             }
         }
         .frame(width: width, height: height)
-        .clipShape(.rect(cornerRadius: 8))
+        .clipShape(outline)
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
+            outline
                 .strokeBorder(stock.id == selectedID ? MobileStyle.accent.opacity(0.82) : .white.opacity(0.15), lineWidth: 1)
         }
-        .contentShape(.rect(cornerRadius: 8))
+        .contentShape(outline)
     }
 
     private func currentPosition(at now: TimeInterval) -> CGFloat {
@@ -2189,8 +2188,9 @@ private struct MobileWaistFilmWheel: View {
     private func setFold(_ destination: CGFloat, at now: TimeInterval) {
         guard !reduceMotion else { fold = nil; return }
         let current = foldAmount(at: now)
-        guard abs(current - destination) > 0.001 else {
-            if destination == 0 { fold = nil }
+        guard fold?.destination != destination else { return }
+        if current == destination && destination == 0 {
+            fold = nil
             return
         }
         fold = MobileWaistFilmTrack.Fold(origin: current, destination: destination, began: now,
@@ -2203,11 +2203,13 @@ private struct MobileWaistFilmWheel: View {
             .onChanged { event in
                 guard enabled, stocks.count > 1 else { return }
                 let now = ProcessInfo.processInfo.systemUptime
-                if grabOrigin == nil {
+                if grab == nil {
                     guard abs(event.translation.width) >= 6,
                           abs(event.translation.width) > abs(event.translation.height) else { return }
                     let current = currentPosition(at: now)
-                    grabOrigin = current
+                    let takeover = motion != nil || fold?.destination == 0
+                    grab = MobileWaistFilmTrack.Grab(position: current, translation: takeover ? event.translation.width : 0,
+                                                    pitch: aperture.dragPitch(reduceMotion: reduceMotion))
                     grabBegan = now
                     lastDetent = track.nearestSlot(to: current)
                     lastTickTime = -.infinity
@@ -2216,8 +2218,8 @@ private struct MobileWaistFilmWheel: View {
                     detentHaptic.prepare()
                     settleHaptic.prepare()
                 }
-                guard let start = grabOrigin else { return }
-                let coordinate = start - event.translation.width / aperture.dragPitch(reduceMotion: reduceMotion)
+                guard let grab else { return }
+                let coordinate = grab.position(at: event.translation.width)
                 fingerPosition = coordinate
                 let detent = track.nearestSlot(to: coordinate)
                 if detent != lastDetent {
@@ -2231,17 +2233,17 @@ private struct MobileWaistFilmWheel: View {
             }
             .onEnded { event in
                 guard enabled else { return }
-                guard let start = grabOrigin else {
+                guard let grab else {
                     if hypot(event.translation.width, event.translation.height) < 6 {
                         tapCover(at: event.location, in: aperture)
                     }
                     return
                 }
-                let position = start - event.translation.width / aperture.dragPitch(reduceMotion: reduceMotion)
+                let position = grab.position(at: event.translation.width)
                 if reduceMotion {
                     snap(to: track.nearestSlot(to: position), from: position)
                 } else {
-                    let velocity = -event.velocity.width / aperture.dragPitch(reduceMotion: reduceMotion)
+                    let velocity = -event.velocity.width / grab.pitch
                     let release = track.release(from: position, velocity: velocity,
                                                 startedAt: ProcessInfo.processInfo.systemUptime,
                                                 coastGain: MobileWaistFilmTrack.compactCoastGain(for: velocity))
@@ -2258,11 +2260,9 @@ private struct MobileWaistFilmWheel: View {
         let slots = stocks.count == 1 ? [focused] : Array(aperture.slots(around: focused, fold: fold))
         // Check front-to-back, the same order used to render the cards.
         for slot in slots.sorted(by: { abs(CGFloat($0) - coordinate) < abs(CGFloat($1) - coordinate) }) {
-            let pose = aperture.coverPose(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
-            let x = aperture.centerX(of: slot, at: coordinate, fold: fold)
-            let y = aperture.laneHeight / 2 - aperture.lift(at: CGFloat(slot) - coordinate, fold: fold)
-            if pose.contains(CGPoint(x: point.x - x, y: point.y - y),
-                             width: aperture.width, height: aperture.height) {
+            let cover = aperture.cover(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
+            let local = CGPoint(x: point.x - cover.centerX, y: point.y - aperture.laneHeight(fold: fold) / 2)
+            if cover.pose.contains(local, width: aperture.width, height: aperture.height) {
                 snap(to: slot, from: coordinate)
                 return
             }
@@ -2273,7 +2273,7 @@ private struct MobileWaistFilmWheel: View {
         guard enabled else { return }
         let now = ProcessInfo.processInfo.systemUptime
         let position = explicitPosition ?? currentPosition(at: now)
-        grabOrigin = nil
+        grab = nil
         grabBegan = nil
         fingerPosition = nil
         guard !reduceMotion, abs(position - CGFloat(slot)) > 0.001 || abs(release?.velocity ?? 0) > 0.001 else {
@@ -2312,7 +2312,15 @@ private struct MobileWaistFilmWheel: View {
     }
 }
 
-private extension MobileWaistFilmTrack.CoverPose {
+extension MobileWaistFilmTrack.CoverPose {
+    static var outline: RoundedRectangle { RoundedRectangle(cornerRadius: 8) }
+
+    func contains(_ point: CGPoint, width: CGFloat, height: CGFloat) -> Bool {
+        guard let source = unproject(point) else { return false }
+        let bounds = CGRect(x: -width / 2, y: -height / 2, width: width, height: height)
+        return Self.outline.path(in: bounds).contains(source)
+    }
+
     func transform(width: CGFloat, height: CGFloat) -> ProjectionTransform {
         // The model projects in card-centered coordinates. SwiftUI takes
         // a homogeneous transform in the card's top-leading coordinates.
