@@ -160,6 +160,42 @@ enum MobileLockedCameraChecks {
                         "Keep the next cover peeking at the Duo edge")
             checks.append("tabletop film wheel wraps continuously and chooses the nearest centered stock")
 
+            let edgeOn = wheelAperture.coverPose(of: 0, at: 0, reduceMotion: false, fold: 1)
+            let foldedGap = wheelAperture.centerX(of: 1, at: 0, fold: 1) - wheelAperture.size.width / 2
+            let openGap = wheelAperture.centerX(of: 1, at: 0) - wheelAperture.size.width / 2
+            try require(edgeOn.horizontalScale < 0.35 && edgeOn.perspective != 0 &&
+                        foldedGap < openGap * 0.55 && wheelAperture.dragPitch(reduceMotion: false) < wheelAperture.pitch * 0.5 &&
+                        wheelAperture.dragPitch(reduceMotion: true) == wheelAperture.pitch &&
+                        wheelAperture.lift(at: 0, fold: 1) > wheelAperture.lift(at: 1, fold: 1),
+                        "Side-on covers really compress the lane and finger travel, and lift only near the center")
+            let opening = MobileWaistFilmTrack.Fold(origin: 1, destination: 0, began: 1, duration: 0.24)
+            try require(opening.amount(at: 1) == 1 && opening.amount(at: 2) == 0 &&
+                        abs(opening.amount(at: 1.12) - 0.5) < 0.00001,
+                        "The cover reveal starts at the folded pose and reaches the front without overshoot")
+            for size in [CGSize(width: 390, height: 160), CGSize(width: 669, height: 410),
+                         CGSize(width: 820, height: 125)] {
+                let aperture = MobileWaistFilmTrack.Aperture(size: size)
+                for foldIndex in 1...8 {
+                    let amount = CGFloat(foldIndex) / 8
+                    try require(aperture.centerX(of: 0, at: 0, fold: amount) == size.width / 2,
+                                "Compact and revealing covers always land on the exact center axis")
+                    for phase in 0...24 {
+                        let position = CGFloat(phase) / 24
+                        for slot in -4..<4 {
+                            let left = aperture.coverPose(of: slot, at: position, reduceMotion: false, fold: amount)
+                            let right = aperture.coverPose(of: slot + 1, at: position, reduceMotion: false, fold: amount)
+                            let facingRight = left.project(CGPoint(x: aperture.width / 2, y: 0)).x
+                            let facingLeft = right.project(CGPoint(x: -aperture.width / 2, y: 0)).x
+                            let gap = aperture.centerX(of: slot + 1, at: position, fold: amount) + facingLeft
+                                - aperture.centerX(of: slot, at: position, fold: amount) - facingRight
+                            try require(gap > 2.8 && left.contains(.zero, width: aperture.width, height: aperture.height),
+                                        "Compressed covers maintain a visible gap and invertible touch projection")
+                        }
+                    }
+                }
+            }
+            checks.append("tabletop film wheel contracts when moving and reveals the centered cover when stopped")
+
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
                            CGSize(width: 402, height: 778)] {

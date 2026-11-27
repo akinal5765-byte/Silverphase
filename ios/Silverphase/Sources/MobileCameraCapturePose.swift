@@ -140,6 +140,20 @@ struct MobileWaistFilmTrack {
                       coastDuration: coastDuration, drag: drag, springDuration: 0.31)
     }
 
+    /// A continuous presentation transition, independent of the mechanical
+    /// slot/coast state. Interruptions start at the actually displayed fold.
+    struct Fold: Equatable {
+        let origin: CGFloat
+        let destination: CGFloat
+        let began: TimeInterval
+        let duration: TimeInterval
+
+        func amount(at now: TimeInterval) -> CGFloat {
+            let t = CGFloat(min(1, max(0, (now - began) / duration)))
+            return origin + (destination - origin) * t * t * (3 - 2 * t)
+        }
+    }
+
     struct Aperture {
         let size: CGSize
         var width: CGFloat {
@@ -148,39 +162,53 @@ struct MobileWaistFilmTrack {
         var height: CGFloat { width * 9 / 16 }
         var pitch: CGFloat { max(1, min(width * 0.90, size.width * 0.282)) }
         var laneHeight: CGFloat { height + 12 }
+        var compactPitch: CGFloat { max(1, pitch * 0.43) }
+
+        func dragPitch(reduceMotion: Bool) -> CGFloat { reduceMotion ? pitch : compactPitch }
+
+        func lift(at distance: CGFloat, fold: CGFloat) -> CGFloat {
+            let proximity = max(0, 1 - abs(distance) / 0.72)
+            return min(5, height * 0.048) * proximity * proximity * fold
+        }
 
         private var focalLength: CGFloat { max(1, width * 3.2, size.width * 1.08) }
         private var coverGap: CGFloat { min(6, width * 0.05) }
 
-        private func naturalCenter(at distance: CGFloat) -> CGFloat {
-            distance * pitch + MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
+        private func naturalCenter(at distance: CGFloat, fold: CGFloat) -> CGFloat {
+            let open = distance * pitch + MobileWaistFilmTrack.coverSeparation(at: distance, width: width, pitch: pitch)
+            return open + (distance * compactPitch - open) * fold
         }
 
-        private func pose(at distance: CGFloat, center: CGFloat, reduceMotion: Bool) -> CoverPose {
+        private func pose(at distance: CGFloat, center: CGFloat, reduceMotion: Bool, fold: CGFloat) -> CoverPose {
             MobileWaistFilmTrack.pose(at: distance, screenX: center, focalLength: focalLength,
-                                     reduceMotion: reduceMotion)
+                                     reduceMotion: reduceMotion, fold: fold)
         }
 
-        private func edge(at distance: CGFloat, center: CGFloat, side: CGFloat) -> CGFloat {
+        private func edge(at distance: CGFloat, center: CGFloat, side: CGFloat, fold: CGFloat) -> CGFloat {
             let point = CGPoint(x: side * width / 2, y: 0)
-            let tilted = pose(at: distance, center: center, reduceMotion: false)
-            // Reserve whichever edge extends further, even with Reduce Motion.
-            return center + side * max(abs(tilted.project(point).x), abs(point.x) * tilted.verticalScale)
+            let tilted = pose(at: distance, center: center, reduceMotion: false, fold: fold)
+            // At rest reserve the original flat bounds for Reduce Motion.
+            // Once folded, reserve the actual narrow silhouette instead.
+            let projected = abs(tilted.project(point).x)
+            let flat = abs(point.x) * tilted.verticalScale
+            return center + side * (projected + max(0, flat - projected) * (1 - fold))
         }
 
-        func centerX(of slot: Int, at coordinate: CGFloat) -> CGFloat {
+        func centerX(of slot: Int, at coordinate: CGFloat, fold: CGFloat = 0) -> CGFloat {
             let leftSlot = Int(floor(coordinate))
             let phase = coordinate - CGFloat(leftSlot)
             let leftDistance = -phase, rightDistance = 1 - phase
-            let naturalLeft = naturalCenter(at: leftDistance), naturalRight = naturalCenter(at: rightDistance)
+            let naturalLeft = naturalCenter(at: leftDistance, fold: fold)
+            let naturalRight = naturalCenter(at: rightDistance, fold: fold)
+            let gapTarget = coverGap * (1 - 0.5 * fold)
             var left = naturalLeft, right = naturalRight
             // Keep a gutter between projected edges throughout the drag.
             // The nearer cover moves less; on a detent it stays on the axis.
             for _ in 0..<6 {
-                let gap = edge(at: rightDistance, center: right, side: -1)
-                    - edge(at: leftDistance, center: left, side: 1)
-                guard gap < coverGap - 0.001 else { break }
-                let correction = coverGap - gap
+                let gap = edge(at: rightDistance, center: right, side: -1, fold: fold)
+                    - edge(at: leftDistance, center: left, side: 1, fold: fold)
+                guard gap < gapTarget - 0.001 else { break }
+                let correction = gapTarget - gap
                 left -= correction * phase
                 right += correction * (1 - phase)
             }
@@ -190,13 +218,13 @@ struct MobileWaistFilmTrack {
             // Keep the original placement of the outer covers unless their
             // visible edges would touch. This preserves the outer peek.
             while current != slot {
-                let precedingEdge = edge(at: CGFloat(current) - coordinate, center: center, side: side)
+                let precedingEdge = edge(at: CGFloat(current) - coordinate, center: center, side: side, fold: fold)
                 current += side < 0 ? -1 : 1
                 let distance = CGFloat(current) - coordinate
-                center = naturalCenter(at: distance)
+                center = naturalCenter(at: distance, fold: fold)
                 for _ in 0..<6 {
-                    let facingEdge = edge(at: distance, center: center, side: -side)
-                    let correction = coverGap - side * (facingEdge - precedingEdge)
+                    let facingEdge = edge(at: distance, center: center, side: -side, fold: fold)
+                    let correction = gapTarget - side * (facingEdge - precedingEdge)
                     guard correction > 0.001 else { break }
                     center += side * correction
                 }
@@ -204,13 +232,14 @@ struct MobileWaistFilmTrack {
             return size.width / 2 + center
         }
 
-        func coverPose(of slot: Int, at coordinate: CGFloat, reduceMotion: Bool) -> CoverPose {
-            let center = centerX(of: slot, at: coordinate) - size.width / 2
-            return pose(at: CGFloat(slot) - coordinate, center: center, reduceMotion: reduceMotion)
+        func coverPose(of slot: Int, at coordinate: CGFloat, reduceMotion: Bool, fold: CGFloat = 0) -> CoverPose {
+            let center = centerX(of: slot, at: coordinate, fold: fold) - size.width / 2
+            return pose(at: CGFloat(slot) - coordinate, center: center, reduceMotion: reduceMotion, fold: fold)
         }
 
-        func slots(around center: Int) -> ClosedRange<Int> {
-            let radius = min(6, max(3, Int(ceil((size.width + width) / (2 * pitch))) + 1))
+        func slots(around center: Int, fold: CGFloat = 0) -> ClosedRange<Int> {
+            let spacing = pitch + (compactPitch - pitch) * fold
+            let radius = min(9, max(3, Int(ceil((size.width + width) / (2 * spacing))) + 1))
             return (center - radius)...(center + radius)
         }
     }
@@ -293,7 +322,8 @@ struct MobileWaistFilmTrack {
         }
     }
 
-    static func pose(at position: CGFloat, screenX: CGFloat, focalLength: CGFloat, reduceMotion: Bool) -> CoverPose {
+    static func pose(at position: CGFloat, screenX: CGFloat, focalLength: CGFloat, reduceMotion: Bool,
+                     fold: CGFloat = 0) -> CoverPose {
         let distance = abs(position)
         let squared = distance * distance
         // Recede along a shallow track, not individual up/down translations.
@@ -301,8 +331,13 @@ struct MobileWaistFilmTrack {
         let depth = 1 + 0.59 * squared / (1 + 0.42 * squared)
         let yaw = reduceMotion ? 0 : -atan(screenX / focalLength) * 0.66
         let slope = sin(yaw) / focalLength
-        return CoverPose(horizontalScale: (cos(yaw) - screenX * slope) / depth,
-                         verticalScale: 1 / depth, perspective: slope / depth,
-                         opacity: max(0.44, 1 - Double(distance) * 0.21))
+        let foldedYaw: CGFloat = -73 * .pi / 180
+        let mix = reduceMotion ? 0 : fold
+        let frontWidth = cos(yaw) - screenX * slope
+        let sideWidth = cos(foldedYaw)
+        let sideSlope = sin(foldedYaw) / focalLength
+        return CoverPose(horizontalScale: (frontWidth + (sideWidth - frontWidth) * mix) / depth,
+                         verticalScale: 1 / depth, perspective: (slope + (sideSlope - slope) * mix) / depth,
+                         opacity: max(0.44, 1 - Double(distance) * (0.21 - 0.095 * Double(mix))))
     }
 }
