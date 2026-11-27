@@ -56,7 +56,8 @@ struct MobilePhotoDetail: View {
     @State private var pageIndexes: [UUID: Int] = [:]
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
-    private static let titledFilmButtonWidth: CGFloat = 160
+    private static let titledFilmLabelWidth: CGFloat = 108
+    private static let toolbarFilmSymbolSize: CGFloat = 22
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -64,7 +65,8 @@ struct MobilePhotoDetail: View {
     private var showsControls: Bool { chromeVisible && !pulling }
 
     private enum HingeReading { case pending, measured(Bool?) }
-    private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait }
+    private enum Placement: Equatable { case bottom, systemSide, duoPortrait, iPad }
+    private var usesSpreadPhotoActions: Bool { placement == .duoPortrait }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
         switch hinge {
@@ -81,7 +83,7 @@ struct MobilePhotoDetail: View {
 #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("--gallery-duo-portrait-layout") { return .duoPortrait }
 #endif
-        if UIDevice.current.userInterfaceIdiom == .pad { return .top }
+        if UIDevice.current.userInterfaceIdiom == .pad { return .iPad }
         let closed = hingeClosed
         if #available(iOS 27.1, *), let closed {
             let size = detailWindowSize
@@ -131,10 +133,10 @@ struct MobilePhotoDetail: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { navigationItems(photo) }
                     .toolbar(showsControls ? .visible : .hidden, for: .navigationBar)
-                    .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
+                    .toolbar(showsControls ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailNoScrollMask())
-                    .modifier(DetailToolbarAxis(usesTop: placement == .top || placement == .duoPortrait))
+                    .modifier(DetailToolbarAxis(usesTop: placement == .iPad || usesSpreadPhotoActions))
             } else {
                 Button(backLabel, action: onPullDismiss)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -342,27 +344,77 @@ struct MobilePhotoDetail: View {
         .sensoryFeedback(.selection, trigger: photoID)
     }
 
-    private func metadata(_ photo: MobilePhoto) -> some View {
-        HStack(spacing: placement == .systemSide ? EditorDesign.unit : 2 * EditorDesign.unit) {
-            rating(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
-            flag(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
-            filmButton(photo)
+    private var showsDuoLandscapeFilmName: Bool {
+#if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--gallery-duo-test-wide-film-name") { return true }
+#endif
+        let size = detailWindowSize
+        return placement == .systemSide && size.width > size.height && size.width >= 560
+    }
+
+    private var hostedFilmLabelSize: CGSize? {
+        if UIDevice.current.userInterfaceIdiom == .pad && detailWindowSize.width >= 680 {
+            // iPad has room for a longer name, but its top-row glass is shorter.
+            return CGSize(width: 148, height: 28)
         }
+        if showsDuoLandscapeFilmName {
+            return CGSize(width: Self.titledFilmLabelWidth, height: 36)
+        }
+        return nil
     }
 
     private func filmButton(_ photo: MobilePhoto) -> some View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
-        return ViewThatFits(in: .horizontal) {
-            filmTrigger(width: Self.titledFilmButtonWidth, name: name) {
-                titledFilmChip(name ?? T("Film", "胶片", "膠片"))
-                    .frame(maxWidth: .infinity)
-            }
-            filmTrigger(width: EditorDesign.hitSize, name: name) {
-                Image(systemName: "film").font(EditorDesign.sectionTitle)
-                    .frame(width: 30, height: 30)
+        let title = T("Choose Film", "切换胶片", "切換膠片")
+        return Group {
+            if #available(iOS 26.0, *), let labelSize = hostedFilmLabelSize {
+                // The native toolbar can reduce even a titleAndIcon Label to
+                // an icon. Host only the wide film label to keep its name.
+                HStack(spacing: 0) {
+                    Button { showingFilm = true } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "film")
+                                .font(.system(size: Self.toolbarFilmSymbolSize))
+                            Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
+                                .lineLimit(1).truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(EditorDesign.sectionTitle)
+                        .frame(width: labelSize.width, height: labelSize.height)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    .fixedSize()
+                    .accessibilityLabel(title)
+                    .accessibilityValue(name ?? "")
+                    .accessibilityIdentifier("photo-detail.film")
+                }
+            } else {
+                Button { showingFilm = true } label: {
+                    let minimumWidth: CGFloat = switch placement {
+                    case .iPad: 680
+                    case .systemSide: 430
+                    case .bottom, .duoPortrait: 510
+                    }
+                    if detailWindowSize.width >= minimumWidth {
+                        Label {
+                            Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
+                                .lineLimit(1)
+                                .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
+                        } icon: {
+                            Image(systemName: "film")
+                        }
+                        .labelStyle(.titleAndIcon)
+                    } else {
+                        Label(title, systemImage: "film")
+                    }
+                }
             }
         }
+        .accessibilityLabel(title)
+        .accessibilityValue(name ?? "")
+        .accessibilityIdentifier("photo-detail.film")
         .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
             // Keep the original attachment, but use more of the window height
             // so browsing usually shows additional rows before scrolling.
@@ -379,25 +431,6 @@ struct MobilePhotoDetail: View {
         }
     }
 
-    private func filmTrigger<Label: View>(width: CGFloat, name: String?, @ViewBuilder label: () -> Label) -> some View {
-        let button = Button { showingFilm = true } label: { label() }
-        return Group {
-            if #available(iOS 26.0, *) {
-                button.buttonStyle(.glass).buttonBorderShape(width == EditorDesign.hitSize ? .circle : .capsule)
-            } else {
-                button.buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, minHeight: EditorDesign.hitSize)
-                    .modifier(ChromeSurface(radius: 22, interactive: true))
-            }
-        }
-        .controlSize(width == EditorDesign.hitSize ? .regular : .large)
-        .frame(width: width, height: EditorDesign.hitSize)
-        .fixedSize()
-        .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
-        .accessibilityValue(name ?? "")
-        .accessibilityIdentifier("photo-detail.film")
-    }
-
     private func filmPicker(_ photo: MobilePhoto) -> some View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         return MobileFilmPickerGrid(stocks: StockCatalog.shared.filmsForPicker, selectedID: id, cancel: { showingFilm = false }) { film in
@@ -405,21 +438,6 @@ struct MobilePhotoDetail: View {
             document.setLibraryFilm(film, for: photo.id)
             showingFilm = false
         }
-    }
-
-    private func titledFilmChip(_ fullTitle: String) -> some View {
-        let title = shortFilmTitle(fullTitle)
-        return HStack(spacing: 5) {
-            Image(systemName: "film").fixedSize()
-            ViewThatFits(in: .horizontal) {
-                Text(fullTitle).lineLimit(1).fixedSize(horizontal: true, vertical: false)
-                Text(title).lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.down").font(.system(size: 8)).fixedSize()
-        }
-        .font(EditorDesign.cardTitle)
     }
 
     private func shortFilmTitle(_ name: String) -> String {
@@ -439,28 +457,43 @@ struct MobilePhotoDetail: View {
             dateItem(photo).axisBehavior(.horizontalOnly)
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
-            metadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
+            ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            if hostedFilmLabelSize != nil {
+                filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            }
+            if !usesSpreadPhotoActions {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            }
         } else if #available(iOS 26.0, *) {
             dateItem(photo).sharedBackgroundVisibility(.hidden)
-            metadataItem(photo).sharedBackgroundVisibility(.hidden)
+            ratingItem(photo)
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            flagItem(photo)
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            if hostedFilmLabelSize != nil {
+                filmItem(photo).sharedBackgroundVisibility(.hidden)
+            } else {
+                filmItem(photo)
+            }
+            if !usesSpreadPhotoActions { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
         } else {
             dateItem(photo)
-            metadataItem(photo)
+            ratingItem(photo)
+            flagItem(photo)
+            filmItem(photo)
         }
         actionToolbar(photo)
     }
 
     @ToolbarContentBuilder
     private func actionToolbar(_ photo: MobilePhoto) -> some ToolbarContent {
-        if placement == .top {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                exportTool(photo)
-                infoTool(photo)
-                editTool(photo)
-                more(photo)
-                deleteTool(photo)
-            }
-        } else if #available(iOS 27.1, *), placement == .systemSide {
+        if #available(iOS 27.1, *), placement == .systemSide {
             // Register with the same native navigation/sidebar host as the editor.
             // The OS owns this lane, including its safe regions and rotations.
             ToolbarItem(placement: .topBarTrailing) {
@@ -478,26 +511,43 @@ struct MobilePhotoDetail: View {
             ToolbarItem(id: "photo-detail.native-delete", placement: .bottomBar) {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
+        } else if #available(iOS 26.0, *), placement == .iPad {
+            ToolbarItem(placement: .topBarTrailing) { more(photo) }
+            ToolbarItem(placement: .bottomBar) { exportTool(photo) }
+            ToolbarSpacer(.flexible, placement: .bottomBar)
+            ToolbarItemGroup(placement: .bottomBar) {
+                infoTool(photo)
+                editTool(photo)
+                deleteTool(photo)
+            }
         } else {
-            if placement != .duoPortrait {
+            if !usesSpreadPhotoActions {
                 ToolbarItem(placement: .topBarTrailing) { more(photo) }
             }
             ToolbarItemGroup(placement: .bottomBar) {
                 exportTool(photo)
                 Spacer()
-                if placement == .duoPortrait { more(photo) }
+                if usesSpreadPhotoActions { more(photo) }
                 infoTool(photo)
                 editTool(photo)
-                if placement == .duoPortrait { Spacer() }
+                if usesSpreadPhotoActions { Spacer() }
                 deleteTool(photo)
             }
         }
     }
 
-    private func metadataItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
-        ToolbarItem(id: "photo-detail.native-metadata", placement: .topBarTrailing) {
-            metadata(photo)
-        }
+    // Match More: a native Menu directly inside its own ToolbarItem.
+    // The toolbar owns the material, highlight and dismissal geometry.
+    private func ratingItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-rating", placement: .topBarTrailing) { rating(photo) }
+    }
+
+    private func flagItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-flag", placement: .topBarTrailing) { flag(photo) }
+    }
+
+    private func filmItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-film", placement: .topBarTrailing) { filmButton(photo) }
     }
 
     private func dateItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
@@ -585,26 +635,52 @@ struct MobilePhotoDetail: View {
                 }
             }
         } label: {
-            chip(photo.rating > 0 ? "\(photo.rating)" : nil, symbol: photo.rating > 0 ? "star.fill" : "star")
-                .foregroundStyle(photo.rating > 0 ? MobileStyle.accent : Color.primary)
+            Label {
+                Text(T("Rating", "星标", "星標"))
+            } icon: {
+                if let icon = Self.ratedToolbarImages[photo.rating] {
+                    Image(uiImage: icon)
+                } else {
+                    Image(systemName: "star")
+                }
+            }
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(T("Rating", "星标", "星標"))
         .accessibilityValue(photo.rating > 0 ? "\(photo.rating) / 5" : T("Unrated", "尚未评分", "尚未評分"))
         .accessibilityIdentifier("photo-detail.rating")
     }
 
+    // The native bar extracts one image from a Menu label. Render the
+    // existing star and number as a single template, never its glass.
+    @MainActor private static let ratedToolbarImages: [Int: UIImage] = {
+        let configuration = UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        guard let symbol = UIImage(systemName: "star.fill", withConfiguration: configuration)?
+            .withTintColor(.black, renderingMode: .alwaysOriginal) else { return [:] }
+        let font = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.black]
+        let size = CGSize(width: 27, height: 19)
+        return Dictionary(uniqueKeysWithValues: (1...5).map { value in
+            let number = String(value) as NSString
+            let icon = UIGraphicsImageRenderer(size: size).image { _ in
+                symbol.draw(at: CGPoint(x: 1, y: (size.height - symbol.size.height) / 2))
+                number.draw(at: CGPoint(x: 19, y: (size.height - number.size(withAttributes: attributes).height) / 2),
+                            withAttributes: attributes)
+            }
+            return (value, icon.withRenderingMode(.alwaysTemplate))
+        })
+    }()
+
     private func flag(_ photo: MobilePhoto) -> some View {
-        Menu {
+        let symbol = photo.flag == "pick" ? "flag.fill" : photo.flag == "reject" ? "flag.slash" : "flag"
+        return Menu {
             Button(T("Pick", "保留", "保留"), systemImage: "flag.fill") { document.markPhotos([photo.id], flag: "pick") }
             Button(T("Reject", "淘汰", "淘汰"), systemImage: "flag.slash") { document.markPhotos([photo.id], flag: "reject") }
             Button(T("Clear flag", "清除旗标", "清除旗標")) { document.markPhotos([photo.id], flag: "none") }
         } label: {
-            chip(nil, symbol: photo.flag == "pick" ? "flag.fill" : photo.flag == "reject" ? "flag.slash" : "flag")
+            Label(T("Flag", "旗标", "旗標"), systemImage: symbol)
                 .foregroundStyle(["pick", "reject"].contains(photo.flag) ? MobileStyle.accent : Color.primary)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
+        .accessibilityIdentifier("photo-detail.flag")
     }
 
     private func cancelTileWork() {
@@ -907,19 +983,6 @@ struct MobilePhotoDetail: View {
     private func tool(_ label: String, _ symbol: String, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Label(label, systemImage: symbol) }
             .accessibilityIdentifier(id)
-    }
-
-    private func chip(_ title: String?, symbol: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol)
-            if let title {
-                Text(title).lineLimit(1)
-            }
-        }
-        .font(.caption.weight(.semibold))
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
-        .modifier(ChromeSurface(radius: 22, interactive: true))
     }
 }
 

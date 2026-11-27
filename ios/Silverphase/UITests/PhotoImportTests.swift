@@ -100,11 +100,7 @@ final class PhotoImportTests: XCTestCase {
         }
         let layout = app.buttons["photo-detail.edit"].frame.midY
         let film = app.descendants(matching: .any).matching(identifier: "photo-detail.film").firstMatch
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            XCTAssertLessThan(layout, app.frame.height * 0.38)
-        } else {
-            XCTAssertGreaterThan(layout, app.frame.height * 0.62)
-        }
+        XCTAssertGreaterThan(layout, app.frame.height * 0.62)
         XCTAssertTrue(film.exists)
         app.buttons["photo-detail.info"].tap()
         XCTAssertTrue(app.staticTexts["photo-info.title"].waitForExistence(timeout: 6))
@@ -133,6 +129,32 @@ final class PhotoImportTests: XCTestCase {
     }
 
     #if targetEnvironment(simulator)
+    @MainActor func testDuoWideToolbarFilmNameRemainsVisible() throws {
+        guard ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] == "iPhone19,4"
+            else { throw XCTSkip("Run on a Duo simulator") }
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-duo-test-wide-film-name"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(film.waitForExistence(timeout: 8))
+        XCTAssertGreaterThan(film.frame.width, 100, "Wide style must not be collapsed by the toolbar host")
+        XCTAssertTrue(app.buttons["photo-detail.rating"].isHittable)
+        XCTAssertTrue(app.buttons["photo-detail.flag"].isHittable)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "Duo landscape named film trigger"
+        shot.lifetime = .keepAlways
+        add(shot)
+        film.tap()
+        XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
+        app.buttons["photo-detail.film-close"].tap()
+        XCTAssertTrue(film.isHittable)
+    }
+
     @MainActor func testDuoPortraitPhotoDetailDistributesControls() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
@@ -166,6 +188,123 @@ final class PhotoImportTests: XCTestCase {
     }
     #endif
 
+    @MainActor func testIPadPortraitPhotoToolbarShowsFilmName() throws {
+        try verifyIPadPhotoToolbarShowsFilmName(.portrait)
+    }
+
+    @MainActor func testIPadLandscapePhotoToolbarShowsFilmName() throws {
+        try verifyIPadPhotoToolbarShowsFilmName(.landscapeLeft)
+    }
+
+    @MainActor private func verifyIPadPhotoActionGrouping(in app: XCUIApplication) throws {
+        func button(_ id: String) -> XCUIElement { app.buttons["photo-detail." + id] }
+        let more = button("menu"), film = button("film")
+        let bottom = ["export", "info", "edit", "delete"].map(button)
+        for control in [more, film] + bottom {
+            XCTAssertTrue(control.waitForExistence(timeout: 6))
+            XCTAssertTrue(control.isHittable)
+        }
+        XCTAssertLessThan(more.frame.midY, app.frame.height * 0.25)
+        XCTAssertGreaterThan(more.frame.minX, film.frame.maxX + 2)
+        let otherTop = ["back", "rating", "flag", "film"].map(button)
+        for control in otherTop { XCTAssertLessThan(control.frame.midX, more.frame.midX) }
+        for control in bottom { XCTAssertGreaterThan(control.frame.midY, app.frame.height * 0.75) }
+        let frames = bottom.map(\.frame)
+        let gaps = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }
+        XCTAssertGreaterThan(gaps[0], max(gaps[1], gaps[2]) + 2, "Export stays apart from the info/edit/delete group")
+        XCTAssertLessThan(bottom[0].frame.midX, app.frame.midX)
+        XCTAssertGreaterThan(bottom[1].frame.midX, app.frame.midX)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "iPad unified gallery action grouping"
+        shot.lifetime = .keepAlways
+        add(shot)
+        more.tap()
+        let fit = button("zoom-to-fit")
+        XCTAssertTrue(fit.waitForExistence(timeout: 5)); fit.tap()
+        XCTAssertTrue(fit.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor private func verifyIPadPhotoToolbarShowsFilmName(_ orientation: UIDeviceOrientation) throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("iPad audit") }
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = orientation
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        XCUIDevice.shared.orientation = orientation
+        let oriented = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (app.frame.width > app.frame.height) == (orientation == .landscapeLeft)
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [oriented], timeout: 8), .completed)
+        source.tap()
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(film.waitForExistence(timeout: 6))
+        XCTAssertEqual(app.frame.width > app.frame.height, orientation == .landscapeLeft)
+        XCTAssertGreaterThan(film.frame.width, 148, "The iPad name needs more room than the Duo label")
+        for id in ["rating", "flag", "menu", "edit", "info", "export", "delete", "back"] {
+            XCTAssertTrue(app.buttons["photo-detail." + id].isHittable, id)
+        }
+        XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists)
+        XCTAssertLessThan(film.frame.midY, app.frame.height * 0.25)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "iPad film label " + String(orientation.rawValue)
+        shot.lifetime = .keepAlways
+        add(shot)
+        film.tap()
+        XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
+        app.buttons["photo-detail.film-close"].tap()
+        XCTAssertTrue(film.isHittable)
+        try verifyIPadPhotoActionGrouping(in: app)
+    }
+
+    @MainActor func testPhotoDetailToolbarMetadataMenusKeepTheirSlots() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let rating = app.buttons["photo-detail.rating"]
+        let flag = app.buttons["photo-detail.flag"]
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(rating.waitForExistence(timeout: 6))
+        XCTAssertTrue(flag.isHittable)
+        XCTAssertTrue(film.isHittable)
+        let controls = [rating, flag, film]
+        let frames = controls.map(\.frame)
+        rating.tap()
+        let threeStars = app.buttons["3 ★"]
+        XCTAssertTrue(threeStars.waitForExistence(timeout: 5))
+        threeStars.tap()
+        let rated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "3 / 5"), object: rating)
+        XCTAssertEqual(XCTWaiter.wait(for: [rated], timeout: 5), .completed)
+        flag.tap()
+        let pick = app.buttons["Pick"]
+        XCTAssertTrue(pick.waitForExistence(timeout: 5))
+        pick.tap()
+        XCTAssertTrue(pick.waitForNonExistence(timeout: 5))
+        for (control, frame) in zip(controls, frames) {
+            XCTAssertEqual(control.frame, frame, "Choosing an option must not resize or move the toolbar chip")
+        }
+        film.tap()
+        XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
+        app.buttons["photo-detail.film-close"].tap()
+        XCTAssertTrue(film.isHittable)
+
+        // Exercise the reference native menu in the same screen recording.
+        app.buttons["photo-detail.menu"].tap()
+        let fit = app.buttons["photo-detail.zoom-to-fit"]
+        XCTAssertTrue(fit.waitForExistence(timeout: 5))
+        fit.tap()
+        XCTAssertTrue(fit.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(film.isHittable)
+    }
+
     @MainActor func testPhotoDetailFilmPickerSearchAndSelection() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
@@ -178,10 +317,19 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(film.waitForExistence(timeout: 8))
         let initialWidth = film.frame.width
         if app.frame.width < 440 {
-            XCTAssertEqual(initialWidth, 44, accuracy: 3, "A tight toolbar uses the icon-only chip")
+            let more = app.buttons["photo-detail.menu"]
+            if more.exists, more.frame.midY < app.frame.height * 0.38 {
+                XCTAssertEqual(initialWidth, more.frame.width, accuracy: 3,
+                               "The compact film trigger uses the same native sizing as More")
+            } else {
+                XCTAssertLessThanOrEqual(initialWidth, 48, "A tight toolbar uses an icon-only item")
+            }
+        } else if UIDevice.current.userInterfaceIdiom == .pad, app.frame.width >= 680 {
+            XCTAssertGreaterThan(initialWidth, 148)
+        } else {
+            XCTAssertTrue((32...48).contains(initialWidth) || (138...172).contains(initialWidth),
+                          "The film item should be either icon-only or have room for its name")
         }
-        XCTAssertTrue(abs(initialWidth - 44) <= 3 || abs(initialWidth - 160) <= 3,
-                      "Toolbar should use one complete chip rather than squeeze the name")
         let buttonFrame = film.frame
         film.tap()
         let title = app.staticTexts["photo-detail.film-title"]
