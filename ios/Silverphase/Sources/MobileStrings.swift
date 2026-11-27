@@ -100,7 +100,18 @@ enum MobileCopyCatalog {
                         translations: [String: String]) -> String {
         let filename = fileID.split(separator: "/").last ?? ""
         let stem = filename.hasSuffix(".swift") ? filename.dropLast(6) : filename
-        guard let value = translations["\(stem)|\(source.key)"] ?? translations[source.key],
+        let qualified = "\(stem)|\(source.key)"
+        var selected: String?
+        // Only catalogs with grammatically distinct singular copy supply a
+        // |one:N form. N identifies the count, not e.g. the photo filename.
+        for (index, argument) in source.arguments.enumerated() where argument == "1" {
+            let suffix = "|one:\(index + 1)"
+            if let variant = translations[qualified + suffix] ?? translations[source.key + suffix] {
+                selected = variant
+                break
+            }
+        }
+        guard let value = selected ?? translations[qualified] ?? translations[source.key],
               !value.isEmpty else { return source.english }
         guard let placeholder else { return source.english }
         if source.arguments.isEmpty, !value.contains("{") { return value }

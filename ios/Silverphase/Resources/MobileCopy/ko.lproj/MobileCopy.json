@@ -237,6 +237,8 @@
   "MobileEngine|There is not enough memory to export at this size safely. Lower the pixel limit or the output long edge.": "이 크기로 내보낼 메모리가 부족합니다. 최대 화소 수나 출력 이미지의 긴 변을 줄여 주세요.",
   "MobileEngine|This image is larger than the memory budget on this phone allows": "이미지가 너무 커서 이 기기에서 사용할 수 있는 메모리를 초과합니다.",
   "MobileEngine|White balance cannot be sampled from this RAW": "이 RAW 사진에서는 화이트 밸런스를 샘플링할 수 없습니다.",
+  "MobileExport|16-bit": "16비트",
+  "MobileExport|8-bit": "8비트",
   "MobileExport|Add a number": "번호 붙이기",
   "MobileExport|All photos": "모든 사진",
   "MobileExport|Bit depth": "비트 심도",

@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Silverphase verwendet die Kamera, um Fotos aufzunehmen und mit dem ausgewählten Film zu entwickeln.";
+"NSLocationWhenInUseUsageDescription" = "Wenn du „Aufnahmeort speichern“ aktivierst, speichert Silverphase den Standort in den hier aufgenommenen Fotos.";
+"NSMotionUsageDescription" = "Silverphase erfasst die Neigung deines Geräts, um im Kamerasucher eine Wasserwaage anzuzeigen.";
+"NSPhotoLibraryAddUsageDescription" = "Speichere deine bearbeiteten Bilder in der Fotos-App.";
+"NSPhotoLibraryUsageDescription" = "Silverphase liest die Originaldateien der ausgewählten Fotos und importiert, wenn verfügbar, die RAW-Originale.";

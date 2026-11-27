@@ -1,6 +1,66 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testJapaneseKoreanGermanLibraryCameraAndExport() {
+        let cases = [
+            ("ja", "ja_JP", "system", "写真情報", "キャンセル", "フィルムを選ぶ"),
+            ("en", "ko_KR", "korean", "사진 정보", "취소", "필름 선택"),
+            ("en", "de_DE", "german", "Fotoinformationen", "Abbrechen", "Film auswählen"),
+        ]
+        XCUIDevice.shared.orientation = .portrait
+        for (language, locale, override, infoLabel, cancelLabel, filmLabel) in cases {
+            let app = XCUIApplication()
+            app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                                   "--library-photo-info-fixture", "--camera-layout-check",
+                                   "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
+                                   "-mobile.language", override]
+            app.launch()
+            defer { app.terminate() }
+
+            let source = app.buttons["library.photo.来源"]
+            guard source.waitForExistence(timeout: 18) else { return XCTFail("Library fixture: \(locale)") }
+            source.tap()
+
+            let info = app.buttons["photo-detail.info"]
+            guard info.waitForExistence(timeout: 8) else { return XCTFail("Photo inspector: \(locale)") }
+            info.tap()
+            let title = app.staticTexts["photo-info.title"]
+            XCTAssertTrue(title.waitForExistence(timeout: 8))
+            XCTAssertEqual(title.label, infoLabel)
+            captureLocalization(app, name: "Photo info \(locale)")
+            app.buttons["photo-info.done"].tap()
+
+            let export = app.buttons["photo-detail.export"]
+            guard export.waitForExistence(timeout: 8) else { return XCTFail("Export entry: \(locale)") }
+            export.tap()
+            let cancel = app.buttons["library.export-done"]
+            XCTAssertTrue(cancel.waitForExistence(timeout: 8))
+            XCTAssertEqual(cancel.label, cancelLabel)
+            captureLocalization(app, name: "Export \(locale)")
+            cancel.tap()
+            app.buttons["photo-detail.back"].tap()
+
+            let camera = app.buttons["library.camera"]
+            guard camera.waitForExistence(timeout: 8) else { return XCTFail("Camera entry: \(locale)") }
+            camera.tap()
+            let film = app.buttons["camera.film"]
+            XCTAssertTrue(film.waitForExistence(timeout: 8))
+            XCTAssertEqual(film.label, filmLabel)
+            film.tap()
+            let close = app.buttons["camera.film-picker-close"]
+            XCTAssertTrue(close.waitForExistence(timeout: 8))
+            captureLocalization(app, name: "Camera film picker \(locale)")
+            close.tap()
+        }
+    }
+
+    @MainActor private func captureLocalization(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     @MainActor func testPhotoInfoShowsOriginalMetadata() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",

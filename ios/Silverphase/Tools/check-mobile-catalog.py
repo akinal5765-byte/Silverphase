@@ -14,13 +14,25 @@ slot = re.compile(r'\{([1-9][0-9]*)\}')
 # A few pre-existing callers format a translated printf template after T(...).
 # Translators must keep the entire formatting directive unchanged and in order.
 printf = re.compile(r'(?<!%)%[+ #0-]*(?:\d+)?(?:\.\d+)?(?:hh|h|ll|l|z|t|j)?[gGfFeEdDsuixX@]')
+category = re.compile(r'\|one:([1-9][0-9]*)$')
 named = re.compile(r'\{([a-z][a-zA-Z]*)\}')
 file_keys = {Path(r['file']).stem + '|' + r['english'] for r in inventory}
 shared_keys = {r['english'] for r in inventory}
 for path in sorted(root.glob('*.lproj/MobileCopy.json')):
     values = json.loads(path.read_text())
-    unknown = values.keys() - (file_keys | shared_keys)
-    problems = [f'unknown key: {key!r}' for key in sorted(unknown)]
+    problems = []
+    for key, value in values.items():
+        variant = category.search(key)
+        if variant:
+            base = key[:variant.start()]
+            if (base not in file_keys | shared_keys or base not in values
+                or variant[1] not in slot.findall(base) or not value.strip()
+                or sorted(slot.findall(base)) != sorted(slot.findall(value))
+                or printf.findall(base) != printf.findall(value)
+                or sorted(named.findall(base)) != sorted(named.findall(value))):
+                problems.append(f'invalid singular variant: {key!r}')
+        elif key not in file_keys | shared_keys:
+            problems.append(f'unknown key: {key!r}')
     for entry in inventory:
         source = entry['english']
         key = Path(entry['file']).stem + '|' + source

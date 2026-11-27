@@ -16,6 +16,10 @@ struct MobileCopyChecks {
         precondition(resolve([source.key: "{1} {2} {3}"]) == source.english)
         precondition(resolve([source.key: ""]) == source.english)
         precondition(resolve([:]) == source.english)
+        let german = ["{1} photos": "{1} Fotos", "{1} photos|one:1": "{1} Foto"]
+        let one = 1, two = 2
+        precondition(MobileCopyCatalog.resolve("\(one) photos", fileID: "A.swift", translations: german) == "1 Foto")
+        precondition(MobileCopyCatalog.resolve("\(two) photos", fileID: "A.swift", translations: german) == "2 Fotos")
         precondition(T("Library", "图库", "圖庫", in: .traditionalChinese) == "圖庫")
         precondition(T("Library", "图库", "", in: .traditionalChinese) == "图库")
         precondition(T("Library", "", "", in: .simplifiedChinese) == "Library")

@@ -23,8 +23,8 @@ private struct LockedCameraContent: View {
                 LockedCameraHostProbe { hingeClosed = $0 }
                     .allowsHitTesting(false)
             }
-        .alert("无法打开图库", isPresented: Binding(get: { launchError != nil }, set: { if !$0 { launchError = nil } })) {
-            Button("好") { launchError = nil }
+        .alert("Could not open the library", isPresented: Binding(get: { launchError != nil }, set: { if !$0 { launchError = nil } })) {
+            Button("OK") { launchError = nil }
         } message: {
             Text(launchError ?? "")
         }

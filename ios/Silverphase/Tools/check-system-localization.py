@@ -20,6 +20,7 @@ permission = {key: value for key, value in base.items() if key.endswith('UsageDe
 actions = {
     'Silverphase Camera', 'Open the Silverphase camera after unlocking your device.',
     'Open Silverphase Camera', 'Silverphase Screen', 'Camera', 'Screen',
+    'Could not open the library', 'OK',
 }
 expected = {
     ('System', 'InfoPlist.strings'): set(permission),

@@ -13,7 +13,8 @@ the Silverphase library in the context of the actual screen.
   `FileStem|` where the same English phrase requires different local wording.
   The more specific key wins. Preserve each numbered placeholder exactly;
   reorder placeholders if the language needs it. Preserve printf directives
-  and export filename tokens such as `{original}` unchanged.
+  and export filename tokens such as `{original}` unchanged. A German
+  singular variant can add `|one:N` to a key, where N is the count slot.
 - Run `Silverphase/Tools/export-mobile-copy.sh` to export strings with source
   locations and existing language context, then
   `python3 Silverphase/Tools/check-mobile-catalog.py` to reject missing or
