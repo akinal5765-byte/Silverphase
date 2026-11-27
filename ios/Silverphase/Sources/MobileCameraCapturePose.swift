@@ -296,7 +296,11 @@ struct MobileWaistFilmTrack {
             // exchanging depth through the middle without mirroring the print.
             let crossing = 0.76 * compactPitch
             let faceWidth = reach < crossing ? (crossing + reach * reach / crossing) / 2 : reach
-            let bank = distance + 0.28
+            // Keep the far edge from rising at the center: exchange depth
+            // on the axis, where both edges are equal. Fade the existing
+            // off-center bias back in before reaching the adjacent slot.
+            let blend = min(1, max(0, (abs(distance) - 0.38) / 0.42))
+            let bank = distance + 0.28 * blend * blend * (3 - 2 * blend)
             let t = min(1, abs(bank) / 1.3)
             let squared = distance * distance
             // Both banks get progressively lower away from the center.
