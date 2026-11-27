@@ -353,6 +353,43 @@ enum MobileLockedCameraChecks {
             }
             checks.append("tabletop wallet stacked sleeves adapt to the panel and reveal the foreground selection")
 
+            for viewport in [CGSize(width: 540, height: 255), CGSize(width: 669, height: 410),
+                             CGSize(width: 820, height: 514)] {
+                let panel = CGRect(origin: .zero, size: viewport)
+                guard let rail = MobileWaistFilmTrack.Wallet.landscapeFrame(in: panel) else {
+                    try require(false, "Missing landscape film stack")
+                    continue
+                }
+                try require(panel.contains(rail) && rail.maxX < panel.midX && rail.minY >= 78,
+                            "Landscape wallet stays in a left overlay clear of the header and shutter")
+                let wallet = MobileWaistFilmTrack.Wallet(size: rail.size, expandedDepth: true)
+                let compactWallet = MobileWaistFilmTrack.Wallet(size: rail.size)
+                let back = wallet.card(at: -4, reveal: 0)
+                let front = wallet.card(at: 0, reveal: 0)
+                let compact = compactWallet.card(at: -4, reveal: 0)
+                let compactFront = compactWallet.card(at: 0, reveal: 0)
+                let restingSpan = wallet.card(at: -1, reveal: 1).frame.minY - wallet.card(at: -4, reveal: 1).frame.minY
+                let openSpan = wallet.card(at: -1, reveal: 0).frame.minY - back.frame.minY
+                try require(front.frame.minY - back.frame.minY > compactFront.frame.minY - compact.frame.minY
+                                && back.frame.width / front.frame.width < compact.frame.width / compactFront.frame.width
+                                && restingSpan < openSpan * 0.30,
+                            "The landscape stack opens farther during motion but still folds tight at rest")
+                for step in -24...24 {
+                    for phase in [CGFloat(0), 0.25, 0.5, 0.75, 1] {
+                        let card = wallet.card(at: CGFloat(step) / 8, reveal: phase)
+                        let right = card.frame.maxX + card.frame.height * sin(card.angle)
+                        let top = card.frame.maxY - card.frame.width * sin(card.angle) - card.frame.height * cos(card.angle)
+                        try require(card.frame.minX >= 0 && top >= -0.00001 && right <= rail.width + 0.00001
+                                        && card.frame.maxY <= wallet.laneHeight
+                                        && abs(card.frame.width / card.frame.height - 16.0 / 9.0) < 0.00001,
+                                    "Moving, resting and rotated landscape cards preserve 16:9 and fit inside the rail")
+                    }
+                }
+            }
+            try require(MobileWaistFilmTrack.Wallet.landscapeFrame(in: CGRect(x: 0, y: 0, width: 514, height: 820)) == nil,
+                        "The left-side rail is not shown in portrait")
+            checks.append("expanded landscape wallet depth, clipping, aspect and portrait exclusion")
+
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
                            CGSize(width: 402, height: 778)] {

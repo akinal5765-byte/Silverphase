@@ -14,6 +14,19 @@ licences, catalogue and JSON scalar type. The earlier iOS PoC's build approach
 and simulator texture compatibility fix have been brought forward; its older
 engine and receiver have not been copied into this product.
 
+## Library photo viewer
+
+Tap a photo in the grid to review it before editing. The viewer supports
+horizontal swipes and a filmstrip, rating and flagging, quick film selection,
+photo information, and export. Tap **Edit** to open the existing editor. Actions are at the top
+on iPad, on the right on both displays of a hinge-equipped phone, and at the
+bottom on ordinary iPhone.
+The library menu's **Format** filter uses only original file formats present
+in the library; camera RAW extensions such as DNG and ARW remain distinct
+when both are present. The existing batch-edit and RAW-only actions remain
+available.
+
+
 ## Device usability
 
 Conventional iPhones run in portrait only, with vertically scrolling film/paper
@@ -168,10 +181,14 @@ unchanged.
 
 An active horizontal fold keeps the viewfinder, header and right-hand capture
 group below the hinge. The settings strip sits to the left of the capture
-group so its buttons do not overlap. The upper panel shows a swipeable film wheel with the
-active stock large in the center and adjacent stocks on either side. The lower
-film button still opens the full catalogue. A vertical book fold or flat inner
-display uses the full scene with the same grip. No tabletop
+group so its buttons do not overlap. The upper panel shows a vertical,
+wallet-style stack of film sleeves. Drag vertically to browse; the stack
+closes at rest and the selected sleeve lifts up and right. The lower film
+button still opens the full catalogue. On the unfolded landscape display the
+same stack appears at the left with more depth while moving, without shifting
+the viewfinder or right-hand grip. With approximate preview enabled, browsing
+either stack previews the film nearest the active slot; releasing commits the
+choice. The native and system previews don't scrub. No tabletop
 print accessory is registered on the outer display; the system rear-camera
 selfie handoff is separate.
 

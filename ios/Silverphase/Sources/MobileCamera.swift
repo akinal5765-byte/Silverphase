@@ -26,14 +26,17 @@ private struct CameraPhotoBounds: PreferenceKey {
 struct MobileCameraView: View {
 #if SILVERPHASE_APP
     let initialHingeClosed: Bool?
-    let libraryThumbnail: URL?
+    let thumbnailForPhoto: (UUID) -> URL?
+    let libraryPhotoID: UUID?
+    let isReviewingPhoto: Bool
+    let containsPhoto: (UUID) -> Bool
     let mirrorsFrontCamera: Bool
     @Binding var prefersRAW: Bool
     @Binding var prefers12MP: Bool
     let importPhoto: (URL, Stock?, MobileCameraRecipe) async throws -> MobilePhoto
     let developPhoto: (MobilePhoto, Bool) async throws -> MobileCameraDevelopment
     let savePhoto: (MobilePhoto) async throws -> Void
-    let returnToLibrary: (UUID) -> Void
+    let reviewPhoto: (UUID) -> Void
 #else
     let storeCapture: (Data, MobileCaptureFormat, MobileCameraRecipe) async throws -> Void
     let openLibrary: () -> Void
@@ -57,7 +60,7 @@ struct MobileCameraView: View {
     @State private var fastLookEngine = MobileCameraFastLookEngine()
     @State private var lookFrame: MobileCameraLookResult?
     @State private var lookUnavailable = false
-    @State private var waistWheelMounted = false
+    @State private var quickFilmWheelMounted = false
     @State private var scrubFilmID: String?
     @AppStorage("mobile.camera.metering") private var metering = MobileMeteringMode.center_weighted
     @AppStorage("mobile.camera.diffusion") private var diffusion = MobileDiffusionFilter.off
@@ -213,11 +216,11 @@ struct MobileCameraView: View {
         return previewRecipe.withoutExposureCompensation
     }
 
-    private var followsWaistFilmPreview: Bool { waistWheelMounted && previewMode == .approximate }
+    private var followsQuickFilmPreview: Bool { quickFilmWheelMounted && previewMode == .approximate }
 
     private var previewRecipe: MobileCameraRecipe {
         var recipe = captureRecipe
-        if followsWaistFilmPreview, let scrubFilmID { recipe.filmID = scrubFilmID }
+        if followsQuickFilmPreview, let scrubFilmID { recipe.filmID = scrubFilmID }
         return recipe
     }
 
@@ -225,7 +228,7 @@ struct MobileCameraView: View {
         guard var request = lookRequest else { return nil }
         // The approximate renderer can change its colour table in place.
         // Do not restart its loop or clear the previous frame at each detent.
-        if followsWaistFilmPreview { request.filmID = nil }
+        if followsQuickFilmPreview { request.filmID = nil }
         return request
     }
 
@@ -234,7 +237,7 @@ struct MobileCameraView: View {
               let request = lookRequest else { return nil }
         var rendered = frame.recipe.withoutExposureCompensation
         if rendered == request { return frame }
-        guard followsWaistFilmPreview, frame.sourceGeneration == camera.lookFrames.currentGeneration() else { return nil }
+        guard followsQuickFilmPreview, frame.sourceGeneration == camera.lookFrames.currentGeneration() else { return nil }
         rendered.filmID = nil
         return rendered == lookTaskRequest ? frame : nil
     }
@@ -254,7 +257,7 @@ struct MobileCameraView: View {
 
     private var canRunCamera: Bool {
 #if SILVERPHASE_APP
-        scenePhase == .active
+        scenePhase == .active && !isReviewingPhoto
 #else
         true
 #endif
@@ -362,19 +365,28 @@ struct MobileCameraView: View {
                 safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
                 bottom: safeInsets.bottom, trailing: safeInsets.trailing
             ) : nil
+            let landscapeRail = usesInnerCameraLayout && waist == nil && duoDivisions(geometry).isEmpty
+                ? MobileWaistFilmTrack.Wallet.landscapeFrame(in: panel) : nil
+            let rail = waist?.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing) ?? landscapeRail
             ZStack {
                 cameraPanelContent(panel.size, previewSize: previewSize, outer: outer, tabletop: waist != nil)
                     .position(x: panel.midX, y: panel.midY)
 
-                if let waist {
-                    // The upper panel is exclusively the quick film wheel. The
-                    // lower grip keeps the full catalogue button in its usual spot.
-                    let aperture = waist.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing)
-                    waistFilmWheel
-                        .frame(width: aperture.width, height: aperture.height)
-                        .position(x: aperture.midX, y: aperture.midY)
+                if let rail, film != nil {
+                    // Both rails are overlays: neither changes the finder or grip.
+                    let isLandscapeRail = landscapeRail != nil
+                    quickFilmWheel(expandedDepth: isLandscapeRail)
+                        .id(isLandscapeRail)
+                        .frame(width: rail.width, height: rail.height)
+                        .position(x: rail.midX, y: rail.midY)
                 }
             }
+            .onChange(of: rail != nil && film != nil, initial: true) { _, mounted in
+                quickFilmWheelMounted = mounted
+                if !mounted { scrubFilmID = nil }
+            }
+            .onChange(of: landscapeRail != nil) { _, _ in scrubFilmID = nil }
+            .onChange(of: previewMode) { _, _ in scrubFilmID = nil }
             .environment(\.layoutDirection, .leftToRight)
         }
     }
@@ -450,21 +462,15 @@ struct MobileCameraView: View {
         return []
     }
 
-    @ViewBuilder private var waistFilmWheel: some View {
+    @ViewBuilder private func quickFilmWheel(expandedDepth: Bool) -> some View {
         if let film, !films.isEmpty {
             MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress,
-                                 presentation: .wallet, preview: { id in
-                scrubFilmID = followsWaistFilmPreview && !shotInProgress ? id : nil
+                                 presentation: .wallet, expandedDepth: expandedDepth, preview: { id in
+                scrubFilmID = followsQuickFilmPreview && !shotInProgress ? id : nil
             }) { id in
                 guard !shotInProgress, id != self.film?.id else { return }
                 filmID = id
             }
-            .onAppear { waistWheelMounted = true }
-            .onDisappear {
-                waistWheelMounted = false
-                scrubFilmID = nil
-            }
-            .onChange(of: previewMode) { _, _ in scrubFilmID = nil }
         }
     }
 #endif
@@ -735,6 +741,10 @@ struct MobileCameraView: View {
             guard !saving, holdLanding else { return }
             holdLanding = false
             landReveal()
+        }
+        .onChange(of: isReviewingPhoto) { _, reviewing in
+            if reviewing { stopCamera() }
+            else { retry += 1 }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { measuredCapturePose = nil }
@@ -1039,13 +1049,19 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
+    private var reviewPhotoID: UUID? {
+        if let latestPhotoID, containsPhoto(latestPhotoID) { return latestPhotoID }
+        return libraryPhotoID
+    }
+
     private var galleryButton: some View {
         Button {
-            if let latestPhotoID { returnToLibrary(latestPhotoID) }
+            if let id = reviewPhotoID { reviewPhoto(id) }
             else { dismiss() }
         } label: { latestThumbnail }
         .buttonStyle(.plain)
-        .accessibilityLabel(T("Back to Library", "返回图库", "返回圖庫"))
+        .accessibilityLabel(reviewPhotoID == nil ? T("Back to Library", "返回图库", "返回圖庫")
+                           : T("Review Photo", "查看照片", "檢視照片"))
         .accessibilityIdentifier("camera.latest")
         .disabled(shotInProgress)
         .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.thumbnail: $0] }
@@ -1096,47 +1112,12 @@ struct MobileCameraView: View {
                 Color.clear.contentShape(Rectangle())
                     .onTapGesture { setFilmPicker(false) }
                     .accessibilityHidden(true)
-                VStack(spacing: 0) {
-                    Capsule().fill(.white.opacity(0.5)).frame(width: 36, height: 4)
-                        .frame(maxWidth: .infinity, minHeight: 20)
-                        .contentShape(Rectangle())
-                        .gesture(DragGesture().onEnded { drag in
-                            if drag.translation.height > 24 { setFilmPicker(false) }
-                        })
-                        .accessibilityHidden(true)
-                    HStack {
-                        Text(T("Choose Film", "选择胶片", "選擇膠片")).font(.headline).accessibilityAddTraits(.isHeader)
-                        Spacer()
-                        Button(T("Done", "完成", "完成")) { setFilmPicker(false) }.tint(MobileStyle.accent)
-                            .frame(minHeight: 32)
-                    }
-                    .padding(.horizontal, 18)
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 12) {
-                            ForEach(films) { stock in
-                                Button {
-                                    filmID = stock.id
-                                    setFilmPicker(false)
-                                } label: {
-                                    BrowserCard(title: stock.displayName, subtitle: stock.speedLabel ?? "", width: 96, selected: stock.id == film?.id, stock: stock) {
-                                        if let artwork = stock.packagingArtworkURL {
-                                            FilmstripThumbnail(url: artwork, fillsFrame: true)
-                                        } else {
-                                            Image(systemName: "film").frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        }
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(stock.name)
-                                .accessibilityAddTraits(stock.id == film?.id ? .isSelected : [])
-                                .accessibilityIdentifier("camera.film-choice.\(stock.id)")
-                            }
-                        }
-                        .padding(12)
-                    }
-                }
-                .frame(maxWidth: 560)
-                .frame(height: geometry.size.height * 0.54)
+                MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
+                    filmID = stock.id
+                    setFilmPicker(false)
+                }, identifier: "camera.film-picker")
+                .frame(maxWidth: 470)
+                .frame(height: min(geometry.size.height, max(280, geometry.size.height * 0.64)))
                 .modifier(ChromeSurface(radius: 30, interactive: true))
                 .padding(.horizontal, 8)
                 .padding(.bottom, 6)
@@ -1166,11 +1147,11 @@ struct MobileCameraView: View {
 
     private var latestThumbnail: some View {
         Group {
-            if let latestPreview {
+            if let latestPhotoID, containsPhoto(latestPhotoID), let latestPreview {
                 Image(decorative: latestPreview, scale: 1)
                     .resizable().scaledToFill()
-            } else if let libraryThumbnail {
-                FilmstripThumbnail(url: libraryThumbnail, fillsFrame: true)
+            } else if let id = reviewPhotoID, let thumbnail = thumbnailForPhoto(id) {
+                FilmstripThumbnail(url: thumbnail, fillsFrame: true)
             } else {
                 Image(systemName: "photo.on.rectangle").frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.white.opacity(0.12))
@@ -1894,7 +1875,7 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
         // If the shutter interrupts browsing, use the last film actually
         // shown, not a detent whose colour table has not finished rendering.
-        if followsWaistFilmPreview, scrubFilmID != nil {
+        if followsQuickFilmPreview, scrubFilmID != nil {
             if let visibleID = displayedLookFrame?.recipe.filmID { filmID = visibleID }
             scrubFilmID = nil
         }
@@ -2086,6 +2067,7 @@ private struct MobileWaistFilmWheel: View {
     let enabled: Bool
     let select: (String) -> Void
     let presentation: Presentation
+    let expandedDepth: Bool
     let preview: (String?) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -2102,16 +2084,19 @@ private struct MobileWaistFilmWheel: View {
     @State private var detentHaptic = UIImpactFeedbackGenerator(style: .medium)
     @State private var settleHaptic = UIImpactFeedbackGenerator(style: .rigid)
 
+    private var accessibilityPrefix: String { expandedDepth ? "camera.landscape-film" : "camera.waist-film" }
+
     private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
     private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
 
     init(stocks: [Stock], selectedID: String, enabled: Bool, presentation: Presentation = .rack,
-         preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
+         expandedDepth: Bool = false, preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
         self.stocks = stocks
         self.selectedID = selectedID
         self.enabled = enabled
         self.select = select
         self.presentation = presentation
+        self.expandedDepth = expandedDepth
         self.preview = preview
         _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
     }
@@ -2125,7 +2110,7 @@ private struct MobileWaistFilmWheel: View {
                 let phase = foldAmount(at: now)
                 if presentation == .wallet {
                     let previewID = browsingFilmPreview ? stocks[track.index(at: track.nearestSlot(to: position))].id : nil
-                    wallet(MobileWaistFilmTrack.Wallet(size: geometry.size), coordinate: position, reveal: 1 - phase)
+                    wallet(MobileWaistFilmTrack.Wallet(size: geometry.size, expandedDepth: expandedDepth), coordinate: position, reveal: 1 - phase)
                         .onChange(of: previewID) { _, id in preview(id) }
                 } else {
                     strip(aperture, coordinate: position, fold: phase)
@@ -2143,7 +2128,7 @@ private struct MobileWaistFilmWheel: View {
             @unknown default: break
             }
         }
-        .accessibilityIdentifier("camera.waist-film-wheel")
+        .accessibilityIdentifier("\(accessibilityPrefix)-wheel")
         .disabled(!enabled)
         .task(id: motion) { @MainActor in
             guard let sample = motion else { return }
@@ -2280,7 +2265,7 @@ private struct MobileWaistFilmWheel: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(stock.displayName + (stock.isFotufilm ? ", Fotufilm" : ""))
                     .accessibilityAddTraits(chosen ? .isSelected : [])
-                    .accessibilityIdentifier("camera.waist-film.\(slot - focused)")
+                    .accessibilityIdentifier("\(accessibilityPrefix).\(slot - focused)")
                     .accessibilityHidden(card.opacity < 0.45)
                     .rotationEffect(.radians(Double(card.angle)), anchor: .bottomTrailing)
                     .opacity(card.opacity)

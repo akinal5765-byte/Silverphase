@@ -38,6 +38,18 @@ enum EditorDesign {
     static let instrument = Font.system(size: 10).monospacedDigit()
 }
 
+/// Duo gains at most a small symmetric crop. Manual zoom remains a
+/// separate transform in both photo canvases.
+enum MobilePhotoFit {
+    static func scale(image: CGSize, available: CGSize, duo: Bool) -> CGFloat {
+        guard image.width > 0, image.height > 0 else { return 1 }
+        let x = available.width / image.width
+        let y = available.height / image.height
+        let fit = min(x, y)
+        return duo ? min(max(x, y), fit * 1.06) : fit
+    }
+}
+
 struct ToolbarGlyph: View {
     let symbol: String
     var size: CGFloat = EditorDesign.glyphSize
@@ -92,6 +104,7 @@ struct BrowserCard<Artwork: View>: View {
     let width: CGFloat
     let selected: Bool
     var stock: Stock? = nil
+    var compact = false
     @ViewBuilder let artwork: () -> Artwork
     private var artworkWidth: CGFloat { width - EditorDesign.cardInset * 2 }
     private var artworkHeight: CGFloat {
@@ -114,7 +127,9 @@ struct BrowserCard<Artwork: View>: View {
             Spacer(minLength: 0)
         }
         .padding(EditorDesign.cardInset)
-        .frame(width: width, height: EditorDesign.cardHeight + (stock == nil ? 0 : max(0, artworkHeight - EditorDesign.artworkHeight)),
+        .frame(width: width, height: compact
+               ? artworkHeight + EditorDesign.cardInset * 2 + (title == nil ? 16 : 30)
+               : EditorDesign.cardHeight + (stock == nil ? 0 : max(0, artworkHeight - EditorDesign.artworkHeight)),
                alignment: .topLeading)
         .modifier(BrowserSelection(selected: selected))
     }

@@ -343,9 +343,23 @@ struct MobileWaistFilmTrack {
     /// Relative coordinates are continuous so a sleeve never jumps between ranks.
     struct Wallet {
         let size: CGSize
-        var laneHeight: CGFloat { max(1, size.height - 26) }
-        var pitch: CGFloat { min(39, max(20, laneHeight * 0.105)) }
-        private var fullWidth: CGFloat { max(1, min(336, size.width * 0.70, laneHeight * 1.02)) }
+        var expandedDepth = false
+
+        static func landscapeFrame(in panel: CGRect) -> CGRect? {
+            guard panel.width > panel.height, panel.width >= 540, panel.height >= 255 else { return nil }
+            // The rail stays clear of the header and opposite the shutter.
+            return CGRect(x: panel.minX + 8, y: panel.minY + 78,
+                          width: min(248, panel.width * 0.36), height: panel.height - 90)
+        }
+
+        var laneHeight: CGFloat { max(1, size.height - (expandedDepth ? 8 : 26)) }
+        var pitch: CGFloat {
+            expandedDepth ? min(48, max(24, laneHeight * 0.12)) : min(39, max(20, laneHeight * 0.105))
+        }
+        private var fullWidth: CGFloat {
+            expandedDepth ? max(1, min(192, size.width * 0.72, laneHeight * 0.93))
+                : max(1, min(336, size.width * 0.70, laneHeight * 1.02))
+        }
 
         struct Card {
             let frame: CGRect
@@ -368,11 +382,14 @@ struct MobileWaistFilmTrack {
             // While moving there is more room for spacing. Artwork always scales
             // uniformly and the selected sleeve only rotates in the screen plane.
             let deckWidth = fullWidth * (0.90 + 0.10 * reveal)
-            let width = deckWidth * (0.35 + 0.65 * pow(progress, 1.10))
+            // Recede the rear sleeves farther while the full-height rail moves;
+            // keep the original resting silhouette and the artwork's 16:9 ratio.
+            let rearScale = 0.35 - (expandedDepth ? 0.12 * (1 - reveal) : 0)
+            let width = deckWidth * (rearScale + (1 - rearScale) * pow(progress, expandedDepth ? 1.25 : 1.10))
             let height = width * 9 / 16
             let travel = max(0, laneHeight - deckWidth * 9 / 16 - 15)
-            let expanded = pow(progress, 1.65)
-            let compact = 0.18 + expanded * 0.32
+            let expanded = pow(progress, expandedDepth ? 1.72 : 1.65)
+            let compact = 0.18 + expanded * (expandedDepth ? 0.28 : 0.32)
             let upper = 8 + travel * (expanded + (compact - expanded) * reveal)
                 - min(29, travel * 0.27) * pop
             let revealX = min(48, size.width * 0.11) * pop
@@ -382,7 +399,9 @@ struct MobileWaistFilmTrack {
             // right corners can extend past the unrotated card.
             let rightOverflow = height * sin(angle)
             let topOverflow = max(0, width * sin(angle) + height * (cos(angle) - 1))
-            let x = min(size.width - width - rightOverflow, max(0, (size.width - width) / 2 + revealX))
+            let recession = expandedDepth ? min(30, size.width * 0.13) * (1 - progress) * (1 - reveal) : 0
+            let x = min(size.width - width - rightOverflow,
+                        max(0, (size.width - width) / 2 + revealX - recession))
             let y = min(laneHeight - height, max(topOverflow, upper))
             let edge = min(1, max(0, relative + 5), max(0, 1 - relative))
             let alpha = edge * edge * (3 - 2 * edge)

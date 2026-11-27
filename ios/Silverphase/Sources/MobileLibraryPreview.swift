@@ -8,15 +8,20 @@ import UniformTypeIdentifiers
 /// A pasted/undone edit never displays another recipe's finished photograph.
 enum MobileLibraryPreview {
     private static let lock = NSLock()
+    // The RAW preview raster changed before film processing. A thumbnail
+    // encoded by the previous pipeline is not valid as the first frame.
+    private static let rasterVersion = 3
     private struct Key: Encodable {
+        let rasterVersion: Int
         let recipe: [String: ParamValue]
         let geometry: MobileGeometry
         let cropRemapsEffects: Bool
         let diBlueCompensation: Bool
     }
-    static func url(photo: MobilePhoto, cropRemapsEffects: Bool, diBlueCompensation: Bool) -> URL {
+    static func url(photo: MobilePhoto, cropRemapsEffects: Bool, diBlueCompensation: Bool,
+                    rasterVersion: Int = MobileLibraryPreview.rasterVersion) -> URL {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        let key = Key(recipe: photo.recipe, geometry: photo.geometry, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation)
+        let key = Key(rasterVersion: rasterVersion, recipe: photo.recipe, geometry: photo.geometry, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation)
         let digest = SHA256.hash(data: (try? encoder.encode(key)) ?? Data()).map { String(format: "%02x", $0) }.joined()
         return URL.cachesDirectory.appendingPathComponent("Silverphase-Previews", isDirectory: true)
             .appendingPathComponent(photo.id.uuidString + "-" + digest + ".jpg")
@@ -37,7 +42,7 @@ enum MobileLibraryPreview {
                 let folder = url.deletingLastPathComponent()
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 let scale = min(1, 384.0 / Double(max(image.width, image.height)))
-                let input = CIImage(cgImage: image).transformed(by: .init(scaleX: scale, y: scale))
+                let input = MobileSimulationSize.resizeForPreview(CIImage(cgImage: image), scale: scale)
                 let context = CIContext(options: [.cacheIntermediates: false])
                 defer { context.clearCaches() }
                 guard let small = context.createCGImage(input, from: input.extent, format: .RGBA8, colorSpace: image.colorSpace) else { return false }
