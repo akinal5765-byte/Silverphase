@@ -42,6 +42,23 @@ struct MobileWaistCameraGeometry {
 }
 
 
+/// The two lanes of the unfolded landscape camera. Only the optical canvas
+/// moves: the safe-area header and right-hand shutter bank remain overlays.
+struct MobileDuoLandscapeCameraLayout {
+    let finder: CGRect
+    let rail: CGRect
+
+    init?(panel: CGRect, viewport: CGRect) {
+        guard panel.width > panel.height, panel.width >= 540, panel.height >= 255 else { return nil }
+        let split = viewport.minX + viewport.width * 0.48
+        finder = CGRect(x: split, y: viewport.minY, width: viewport.maxX - split, height: viewport.height)
+        let left = panel.minX + 12
+        let top = panel.minY + 72
+        rail = CGRect(x: left, y: top, width: split - left - 14, height: panel.maxY - top - 12)
+        guard rail.width >= 155, rail.height >= 150 else { return nil }
+    }
+}
+
 /// The still photo ratio is fitted inside the canvas, independent of where
 /// controls are overlaid. Rotating the connection switches its axes.
 enum MobileCameraViewfinderGeometry {
@@ -345,19 +362,12 @@ struct MobileWaistFilmTrack {
         let size: CGSize
         var expandedDepth = false
 
-        static func landscapeFrame(in panel: CGRect) -> CGRect? {
-            guard panel.width > panel.height, panel.width >= 540, panel.height >= 255 else { return nil }
-            // The rail stays clear of the header and opposite the shutter.
-            return CGRect(x: panel.minX + 8, y: panel.minY + 78,
-                          width: min(248, panel.width * 0.36), height: panel.height - 90)
-        }
-
         var laneHeight: CGFloat { max(1, size.height - (expandedDepth ? 8 : 26)) }
         var pitch: CGFloat {
-            expandedDepth ? min(48, max(24, laneHeight * 0.12)) : min(39, max(20, laneHeight * 0.105))
+            expandedDepth ? min(64, max(27, laneHeight * 0.115)) : min(39, max(20, laneHeight * 0.105))
         }
         private var fullWidth: CGFloat {
-            expandedDepth ? max(1, min(192, size.width * 0.72, laneHeight * 0.93))
+            expandedDepth ? max(1, min(400, size.width * 0.84, laneHeight * 1.20))
                 : max(1, min(336, size.width * 0.70, laneHeight * 1.02))
         }
 
@@ -392,7 +402,7 @@ struct MobileWaistFilmTrack {
             let compact = 0.18 + expanded * (expandedDepth ? 0.28 : 0.32)
             let upper = 8 + travel * (expanded + (compact - expanded) * reveal)
                 - min(29, travel * 0.27) * pop
-            let revealX = min(48, size.width * 0.11) * pop
+            let revealX = (expandedDepth ? min(34, size.width * 0.08) : min(48, size.width * 0.11)) * pop
             let angle = reduceMotion ? 0 : 5 * CGFloat.pi / 180 * pop
             // In screen coordinates a positive angle turns clockwise. The
             // right-bottom point is fixed by rotation, so only the top and

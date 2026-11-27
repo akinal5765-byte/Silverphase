@@ -582,7 +582,8 @@ final class PhotoImportTests: XCTestCase {
         return CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
     }
 
-    @MainActor private func assertDuoGrip(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+    @MainActor private func assertDuoGrip(_ app: XCUIApplication, splitFinder: Bool? = nil,
+                                          file: StaticString = #filePath, line: UInt = #line) {
         let shutter = app.buttons["camera.shutter"], gallery = app.buttons["camera.latest"]
         let film = app.buttons["camera.film"], diffusion = app.buttons["camera.diffusion"]
         let grip = app.otherElements["camera.side-grip"]
@@ -603,15 +604,18 @@ final class PhotoImportTests: XCTestCase {
         snapshot.lifetime = .keepAlways
         add(snapshot)
         print("Duo grip: finder=\(finder) bank=\(grip.frame) shutter=\(b) gallery=\(gallery.frame) film=\(film.frame) diffusion=\(diffusion.frame)")
-        // The finder fills the scene width; the folded bank overlays its right
-        // edge without stealing width or shifting the optical center.
-        // A Duo scene can omit its uneven safe-area margins. Compare with
-        // the window as a bound rather than requiring those margins in the finder.
-        XCTAssertLessThanOrEqual(finder.width, app.frame.width + 2, file: file, line: line)
-        XCTAssertGreaterThanOrEqual(finder.width, app.frame.width * 0.75, file: file, line: line)
+        let isSplit = splitFinder ?? app.descendants(matching: .any)["camera.landscape-film-wheel"].exists
+        if isSplit {
+            XCTAssertEqual(finder.width / app.frame.width, 0.52, accuracy: 0.04, file: file, line: line)
+            XCTAssertGreaterThan(finder.minX, app.frame.minX + app.frame.width * 0.43, file: file, line: line)
+        } else {
+            // A Duo scene can omit its uneven safe-area margins.
+            XCTAssertLessThanOrEqual(finder.width, app.frame.width + 2, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(finder.width, app.frame.width * 0.75, file: file, line: line)
+        }
         XCTAssertTrue(finder.insetBy(dx: -2, dy: -2).contains(b), file: file, line: line)
-        XCTAssertGreaterThan(b.midX, finder.midX + finder.width * 0.25, file: file, line: line)
-        XCTAssertEqual(b.midY, finder.midY, accuracy: 3, file: file, line: line)
+        XCTAssertGreaterThan(b.midX, app.frame.midX + app.frame.width * 0.12, file: file, line: line)
+        XCTAssertEqual(b.midY, finder.midY, accuracy: isSplit ? 18 : 3, file: file, line: line)
         XCTAssertEqual(b.width, 68, accuracy: 2, file: file, line: line)
         XCTAssertEqual(b.height, 68, accuracy: 2, file: file, line: line)
         // The one quarter-turn maps folded leading to bottom, trailing to top.
@@ -741,19 +745,18 @@ final class PhotoImportTests: XCTestCase {
         let grip = app.otherElements["camera.side-grip"]
         let shutter = app.buttons["camera.shutter"]
         let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            guard let frame = self.duoFinderBounds(grip) else { return false }
-            return frame.width > frame.height && frame.width >= 540
+            app.frame.width > app.frame.height && app.frame.width >= 540 && self.duoFinderBounds(grip) != nil
         }, object: nil)
         guard XCTWaiter.wait(for: [landscape], timeout: 8) == .completed else {
             throw XCTSkip("The simulator did not provide an unfolded landscape camera viewport")
         }
         XCTAssertTrue(wheel.waitForExistence(timeout: 8))
         XCTAssertTrue(front.exists)
-        assertDuoGrip(app)
-        XCTAssertLessThan(wheel.frame.maxX, shutter.frame.minX)
-        let finder = duoFinderBounds(grip)
+        assertDuoGrip(app, splitFinder: true)
+        guard let finder = duoFinderBounds(grip) else { return XCTFail("Missing right finder bounds") }
+        XCTAssertLessThanOrEqual(wheel.frame.maxX, finder.minX)
+        XCTAssertGreaterThan(front.frame.width, wheel.frame.width * 0.65)
         let shutterFrame = shutter.frame
-        XCTAssertNotNil(finder)
         let before = plainWalletFilmName(front.label)
         swipeWallet(wheel: wheel, front: front)
         assertWalletSelection(wheel: wheel, front: front, differentFrom: before)

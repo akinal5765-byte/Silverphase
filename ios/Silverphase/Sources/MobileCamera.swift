@@ -365,16 +365,20 @@ struct MobileCameraView: View {
                 safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
                 bottom: safeInsets.bottom, trailing: safeInsets.trailing
             ) : nil
-            let landscapeRail = usesInnerCameraLayout && waist == nil && duoDivisions(geometry).isEmpty
-                ? MobileWaistFilmTrack.Wallet.landscapeFrame(in: panel) : nil
-            let rail = waist?.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing) ?? landscapeRail
+            let landscape = usesInnerCameraLayout && waist == nil && duoDivisions(geometry).isEmpty && film != nil
+                ? MobileDuoLandscapeCameraLayout(panel: panel, viewport: MobileCameraViewfinderGeometry.outerViewport(
+                    safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
+                    bottom: safeInsets.bottom, trailing: safeInsets.trailing
+                )) : nil
+            let rail = waist?.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing) ?? landscape?.rail
             ZStack {
-                cameraPanelContent(panel.size, previewSize: previewSize, outer: outer, tabletop: waist != nil)
+                cameraPanelContent(panel.size, previewSize: previewSize, outer: outer, tabletop: waist != nil,
+                                   landscapeFinder: landscape?.finder)
                     .position(x: panel.midX, y: panel.midY)
 
                 if let rail, film != nil {
-                    // Both rails are overlays: neither changes the finder or grip.
-                    let isLandscapeRail = landscapeRail != nil
+                    // The wallet and capture bank stay independent of the optical canvas.
+                    let isLandscapeRail = landscape != nil
                     quickFilmWheel(expandedDepth: isLandscapeRail)
                         .id(isLandscapeRail)
                         .frame(width: rail.width, height: rail.height)
@@ -385,25 +389,30 @@ struct MobileCameraView: View {
                 quickFilmWheelMounted = mounted
                 if !mounted { scrubFilmID = nil }
             }
-            .onChange(of: landscapeRail != nil) { _, _ in scrubFilmID = nil }
+            .onChange(of: landscape != nil) { _, _ in scrubFilmID = nil }
             .onChange(of: previewMode) { _, _ in scrubFilmID = nil }
             .environment(\.layoutDirection, .leftToRight)
         }
     }
 
-    private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool) -> some View {
-        // Keep one live preview at a stable identity during display handoff.
-        // Like folded mode, the chrome floats above it without shifting its center.
+    private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool,
+                                    landscapeFinder: CGRect?) -> some View {
+        // Reposition the existing preview rather than remounting its layer.
+        // The image remains aspect-fit within the right lane, like other inner modes.
         viewfinder(fillsPanel: outer != nil || (fillsPanel && !followsInterface), tabletop: tabletop)
             .ignoresSafeArea(.container, edges: outer == nil && !usesInnerCameraLayout && fillsPanel ? .all : [])
-            .frame(width: outer?.width ?? previewSize.width, height: outer?.height ?? previewSize.height)
-            .offset(x: outer.map { $0.midX - size.width / 2 } ?? 0,
-                    y: outer.map { $0.midY - size.height / 2 } ?? 0)
+            .frame(width: (landscapeFinder ?? outer)?.width ?? previewSize.width,
+                   height: (landscapeFinder ?? outer)?.height ?? previewSize.height)
+            .offset(x: (landscapeFinder ?? outer).map { $0.midX - size.width / 2 } ?? 0,
+                    y: landscapeFinder?.minY ?? outer.map { $0.midY - size.height / 2 } ?? 0)
             // Pin the photographic canvas to the same top edge so it can
             // extend behind the bottom system area without moving the chrome.
             .frame(width: size.width, height: size.height, alignment: outer == nil ? .top : .center)
 #if DEBUG
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+            .onGeometryChange(for: CGRect.self) { geometry in
+                let panel = geometry.frame(in: .global)
+                return landscapeFinder.map { $0.offsetBy(dx: panel.minX, dy: panel.minY) } ?? panel
+            } action: {
                 if isLayoutCheck { cameraFinderTestBounds = $0 }
             }
 #endif

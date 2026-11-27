@@ -184,10 +184,10 @@ group below the hinge. The settings strip sits to the left of the capture
 group so its buttons do not overlap. The upper panel shows a vertical,
 wallet-style stack of film sleeves. Drag vertically to browse; the stack
 closes at rest and the selected sleeve lifts up and right. The lower film
-button still opens the full catalogue. On the unfolded landscape display the
-same stack appears at the left with more depth while moving, without shifting
-the viewfinder or right-hand grip. With approximate preview enabled, browsing
-either stack previews the film nearest the active slot; releasing commits the
+button still opens the full catalogue. Unfolded landscape splits into two lanes: a larger 16:9 film stack on the left, and the
+aspect-fit viewfinder with the same right-hand grip on the right. The stack
+uses more travel between films and opens deeper while moving. With approximate preview enabled,
+browsing either stack previews the film nearest the active slot; releasing commits the
 choice. The native and system previews don't scrub. No tabletop
 print accessory is registered on the outer display; the system rear-camera
 selfie handoff is separate.
