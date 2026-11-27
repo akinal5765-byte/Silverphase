@@ -122,6 +122,8 @@ Import from Photos or Files, or use the in-app camera. The editor has a local li
 
 **macOS 1.4.0 (build 7)** brings redesigned covers, custom film-edge text and less aggressive output gamut compression. [Release notes](modern_UI/Spektrafilm/releases/1.4.0.md) · [Keep your edits when upgrading](docs/MACOS-IDENTITY-UPGRADE.md).
 
+**iOS and iPadOS 1.4.0 (build 12)** add a dedicated photo viewer and file-format filters, improve large-library browsing, and update the camera film picker and iPad toolbar layout. [Source and release preparation](ios/releases/1.4.0.md).
+
 In 1.3.1, macOS, iOS, and iPadOS moved metering and film exposure into Film, added cover art and source badges for all 29 public Fotufilm profiles, and reduced DIR edge overshoot in 17 of those profiles.
 
 | Platform | 1.3.1 source notes |

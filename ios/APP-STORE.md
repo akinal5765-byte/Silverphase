@@ -1,6 +1,10 @@
 # iOS App Store distribution
 
-Silverphase is available on the [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) including the [China mainland storefront](https://apps.apple.com/cn/app/id6829987567). [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. Check the storefront for the currently installable version; the GitHub release tag is a source milestone. In the 2026-11-20 check, the US, Japan and Hong Kong storefronts listed **1.2.5** and the mainland China lookup returned no listing. The developer confirmed that the mainland China listing was live on 2026-11-25.
+Silverphase is available on the [App Store](https://apps.apple.com/app/id6829987567), including China mainland. [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. Check the storefront for the currently installable version; the GitHub release tag is a source milestone. In the 2026-11-20 check, the US, Japan and Hong Kong storefronts listed **1.2.5** and the mainland China lookup returned no listing. The developer confirmed that the mainland China listing was live on 2026-11-25.
+
+## 1.4.0 (12) · preflight
+
+The iOS app, Control Center entry and locked camera extension use matching versions. See the bilingual [1.4.0 release notes](releases/1.4.0.md). This entry records preparation, not an App Store Connect upload or a review submission.
 
 ## 1.3.1 (11) · 2026-11-25
 

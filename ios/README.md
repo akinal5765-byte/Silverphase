@@ -119,7 +119,7 @@ python3 modern_UI/Spektrafilm/Tools/gen-project.py
 python3 ios/Silverphase/Tools/gen-project.py --check
 ```
 
-The source version is **1.3.1 (11)** for the app, control widget, and locked camera extension. The [App Store](https://apps.apple.com/us/app/silverphase-film-simulator/id6829987567) and [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) show the builds available to install; a source tag is not an App Store release. [Current download guide](../docs/BINARY-RELEASES.md) · [1.3.1 source notes](releases/1.3.1.md) · [1.3.0 history](releases/1.3.0.md)
+The source version is **1.4.0 (12)** for the app, control widget, and locked camera extension. The [App Store](https://apps.apple.com/app/id6829987567) and [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) show the builds available to install; a source tag is not an App Store release. [Current download guide](../docs/BINARY-RELEASES.md) · [1.4.0 source notes](releases/1.4.0.md) · [1.3.1 history](releases/1.3.1.md) · [1.3.0 history](releases/1.3.0.md)
 
 ## Current behavior
 

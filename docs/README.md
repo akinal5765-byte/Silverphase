@@ -18,7 +18,8 @@ for label and control differences.
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | App Store, TestFlight and macOS downloads | [Binary releases](BINARY-RELEASES.md) |
 | macOS 1.4.0 release notes, output behavior and migration | [Build 7 notes](../modern_UI/Spektrafilm/releases/1.4.0.md) / [macOS upgrade guide](MACOS-IDENTITY-UPGRADE.md) |
-| Previous 1.3.1 Mac installer and current iOS source release | [macOS DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) / [iOS source release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) |
+| iOS and iPadOS 1.4.0 source and release preparation | [Build 12 notes](../ios/releases/1.4.0.md) |
+| Previous 1.3.1 Mac installer and iOS source release | [macOS DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) / [iOS source release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) |
 | 1.3.1 source notes and verification | [macOS build 6](../modern_UI/Spektrafilm/releases/1.3.1.md) / [iOS and iPadOS build 11](../ios/releases/1.3.1.md) |
 | macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
 | iOS 1.3.0 historical release | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) / [Source notes](../ios/releases/1.3.0.md) |

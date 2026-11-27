@@ -7,7 +7,7 @@ signing state and validation scope. Release builds may have incomplete features.
 
 The platforms maintain independent versions and build numbers. GitHub Releases lists source milestones and macOS installers. The App Store and TestFlight show the iOS builds available for installation. Historical GitHub iOS packages are unsigned.
 
-The distribution links below lead to the currently installable builds. The current Mac installer is 1.4.0 (build 7). The iOS/iPadOS source milestone remains [1.3.1](../ios/releases/1.3.1.md).
+The distribution links below lead to the currently installable builds. The current Mac installer is 1.4.0 (build 7). The iOS/iPadOS source is prepared for [1.4.0 (build 12)](../ios/releases/1.4.0.md). Check the store for the installable version.
 
 ## macOS
 
@@ -34,7 +34,7 @@ external editor settings; no separate `.lrplugin` is needed. See the
 
 ## iPhone and iPad
 
-Install the public version through the [App Store](https://apps.apple.com/app/id6829987567). The iOS 1.3.1 (build 11) source milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) and [source notes](../ios/releases/1.3.1.md).
+Install the public version through the [App Store](https://apps.apple.com/app/id6829987567). The previous iOS 1.3.1 (build 11) source milestone is documented in the [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) and [source notes](../ios/releases/1.3.1.md).
 
 Install the beta through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 Open the invitation on your iPhone/iPad, install Apple’s TestFlight app if prompted,
