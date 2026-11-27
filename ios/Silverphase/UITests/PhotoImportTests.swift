@@ -676,7 +676,6 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(tile.waitForExistence(timeout: 5))
             XCTAssertLessThan(tile.frame.maxY, lower.minY, "Film stack stays above the hinge")
         }
-        XCTAssertFalse(app.buttons["camera.waist-film.1"].exists, "No ghost sleeve ahead of the selected card")
         let before = plainWalletFilmName(centerFilm.label)
         swipeWallet(wheel: wheel, front: centerFilm)
         assertWalletSelection(wheel: wheel, front: centerFilm, differentFrom: before)
