@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "사진을 촬영하고 선택한 필름으로 현상하기 위해 카메라를 사용합니다.";
+"NSLocationWhenInUseUsageDescription" = "‘촬영 위치 기록’을 켜면 Silverphase에서 촬영한 사진에 위치 정보를 추가합니다.";
+"NSMotionUsageDescription" = "카메라 뷰파인더에 수평계를 표시하기 위해 기기의 기울기를 감지합니다.";
+"NSPhotoLibraryAddUsageDescription" = "완성한 사진을 ‘사진’ 앱에 저장합니다.";
+"NSPhotoLibraryUsageDescription" = "선택한 사진의 원본 파일을 읽어 RAW 원본이 있으면 우선 가져옵니다.";
