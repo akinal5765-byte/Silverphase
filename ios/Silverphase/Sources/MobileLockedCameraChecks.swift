@@ -168,6 +168,15 @@ enum MobileLockedCameraChecks {
                         wheelAperture.dragPitch(reduceMotion: true) == wheelAperture.pitch &&
                         wheelAperture.lift(at: 0, fold: 1) > wheelAperture.lift(at: 1, fold: 1),
                         "Side-on covers really compress the lane and finger travel, and lift only near the center")
+            let leftFolded = wheelAperture.coverPose(of: -1, at: 0, reduceMotion: false, fold: 1)
+            let rightFolded = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: false, fold: 1)
+            try require(leftFolded.horizontalScale / leftFolded.verticalScale
+                            < edgeOn.horizontalScale / edgeOn.verticalScale &&
+                        edgeOn.horizontalScale / edgeOn.verticalScale
+                            < rightFolded.horizontalScale / rightFolded.verticalScale &&
+                        rightFolded.horizontalScale / rightFolded.verticalScale
+                            - leftFolded.horizontalScale / leftFolded.verticalScale > 0.30,
+                        "Folded covers use visibly distinct tangents to the same track")
             let opening = MobileWaistFilmTrack.Fold(origin: 1, destination: 0, began: 1, duration: 0.24)
             try require(opening.amount(at: 1) == 1 && opening.amount(at: 2) == 0 &&
                         abs(opening.amount(at: 1.12) - 0.5) < 0.00001,
@@ -190,6 +199,15 @@ enum MobileLockedCameraChecks {
                                 - aperture.centerX(of: slot, at: position, fold: amount) - facingRight
                             try require(gap > 2.8 && left.contains(.zero, width: aperture.width, height: aperture.height),
                                         "Compressed covers maintain a visible gap and invertible touch projection")
+                            let centerY = aperture.laneHeight / 2
+                                - aperture.lift(at: CGFloat(slot) - position, fold: amount)
+                            for x in [-aperture.width / 2, aperture.width / 2] {
+                                for y in [-aperture.height / 2, aperture.height / 2] {
+                                    let edgeY = centerY + left.project(CGPoint(x: x, y: y)).y
+                                    try require(edgeY > 0.9 && edgeY < aperture.laneHeight - 0.9,
+                                                "Every projected corner stays inside the lane throughout the flip")
+                                }
+                            }
                         }
                     }
                 }

@@ -180,8 +180,13 @@ struct MobileWaistFilmTrack {
         }
 
         private func pose(at distance: CGFloat, center: CGFloat, reduceMotion: Bool, fold: CGFloat) -> CoverPose {
-            MobileWaistFilmTrack.pose(at: distance, screenX: center, focalLength: focalLength,
-                                     reduceMotion: reduceMotion, fold: fold)
+            let projected = MobileWaistFilmTrack.pose(at: distance, screenX: center, focalLength: focalLength,
+                                                      reduceMotion: reduceMotion, fold: fold)
+            // A perspective turn raises the near top/bottom corners beyond
+            // the untransformed bounds. Fit the projected corners to the fixed
+            // lane, including the hero lift, without moving the optical axis.
+            let clearance = max(1, laneHeight / 2 - lift(at: distance, fold: fold) - 1)
+            return projected.fittedVertically(width: width, height: height, halfLane: clearance)
         }
 
         private func edge(at distance: CGFloat, center: CGFloat, side: CGFloat, fold: CGFloat) -> CGFloat {
@@ -311,6 +316,15 @@ struct MobileWaistFilmTrack {
             return CGPoint(x: horizontalScale * point.x / depth, y: verticalScale * point.y / depth)
         }
 
+        func fittedVertically(width: CGFloat, height: CGFloat, halfLane: CGFloat) -> CoverPose {
+            let corner = CGPoint(x: perspective < 0 ? width / 2 : -width / 2, y: height / 2)
+            let tip = abs(project(corner).y)
+            guard tip > halfLane else { return self }
+            let fit = halfLane / tip
+            return CoverPose(horizontalScale: horizontalScale * fit, verticalScale: verticalScale * fit,
+                             perspective: perspective, opacity: opacity)
+        }
+
         func contains(_ point: CGPoint, width: CGFloat, height: CGFloat) -> Bool {
             // Invert the same common-camera projection used by the renderer;
             // hit testing must not use the pre-tilt, rectangular artwork bounds.
@@ -331,7 +345,10 @@ struct MobileWaistFilmTrack {
         let depth = 1 + 0.59 * squared / (1 + 0.42 * squared)
         let yaw = reduceMotion ? 0 : -atan(screenX / focalLength) * 0.66
         let slope = sin(yaw) / focalLength
-        let foldedYaw: CGFloat = -73 * .pi / 180
+        // Covers follow the tangents of one curved track. Nearby slots
+        // have visibly different angles, and a moving card rolls continuously
+        // through the center instead of all covers sharing a single yaw.
+        let foldedYaw: CGFloat = (-72 + 17 * tanh(position / 1.45)) * .pi / 180
         let mix = reduceMotion ? 0 : fold
         let frontWidth = cos(yaw) - screenX * slope
         let sideWidth = cos(foldedYaw)

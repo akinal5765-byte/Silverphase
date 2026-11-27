@@ -2303,6 +2303,9 @@ private struct MobileWaistFilmWheel: View {
         let now = ProcessInfo.processInfo.systemUptime
         let current = currentPosition(at: now)
         let nearest = track.closestSlot(of: index, to: track.nearestSlot(to: current))
+        // Picker changes use the same folded track and reveal as a swipe.
+        // Index selection stays committed to the picker; only presentation moves.
+        if abs(current - CGFloat(nearest)) > 0.001 { setFold(1, at: now) }
         snap(to: nearest, from: current)
     }
 }
