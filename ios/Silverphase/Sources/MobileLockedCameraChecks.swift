@@ -295,6 +295,34 @@ enum MobileLockedCameraChecks {
             }
             checks.append("tabletop stack silhouette, spine spacing, fold/regrab continuity, clip and projected touch boundary")
 
+            for size in [CGSize(width: 390, height: 125), CGSize(width: 669, height: 260),
+                         CGSize(width: 820, height: 410)] {
+                let stack = MobileWaistFilmTrack.Wallet(size: size)
+                let selected = stack.card(at: 0, reveal: 1).frame
+                let retracted = stack.card(at: 0, reveal: 0).frame
+                let front = stack.card(at: 1, reveal: 1).frame
+                try require(selected.midX > retracted.midX && selected.minY < retracted.minY &&
+                            selected.intersects(front) && front.minY - selected.minY > 8,
+                            "The selected film peeks out as the second sleeve without clearing the front sleeve")
+                for step in -32...32 {
+                    let coordinate = CGFloat(step) / 32
+                    for count in [1, 2, 5, 9, 14] {
+                        let slots = stack.slots(at: coordinate, count: count)
+                        let model = MobileWaistFilmTrack(count: count)
+                        try require(Set(slots.map { model.index(at: $0) }).count == slots.count,
+                                    "Wallet stack never duplicates films when the catalog is short")
+                        for slot in slots {
+                            let card = stack.card(at: CGFloat(slot) - coordinate, reveal: 1)
+                            try require(card.frame.minY >= 0 && card.frame.maxY <= stack.laneHeight &&
+                                        card.frame.minX >= 0 && card.frame.maxX <= size.width &&
+                                        abs(card.frame.width / card.frame.height - 16.0 / 9.0) < 0.00001,
+                                        "Wallet sleeves stay within the wide panel and preserve the film cover ratio")
+                        }
+                    }
+                }
+            }
+            checks.append("tabletop wallet stacked sleeves adapt to the panel and reveal the second card")
+
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
                            CGSize(width: 402, height: 778)] {

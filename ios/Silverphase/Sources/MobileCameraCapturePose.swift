@@ -339,6 +339,42 @@ struct MobileWaistFilmTrack {
         }
     }
 
+    /// Landscape-friendly stack of flat film sleeves ordered back to front.
+    /// Relative coordinates are continuous so a sleeve never jumps between ranks.
+    struct Wallet {
+        let size: CGSize
+        var laneHeight: CGFloat { max(1, size.height - 26) }
+        var pitch: CGFloat { min(39, max(20, laneHeight * 0.105)) }
+        private var fullWidth: CGFloat { max(1, min(336, size.width * 0.70, laneHeight * 1.02)) }
+
+        struct Card {
+            let frame: CGRect
+            let opacity: Double
+        }
+
+        func card(at relative: CGFloat, reveal: CGFloat) -> Card {
+            let progress = min(1, max(0, (relative + 5.5) / 7.8))
+            let peak = max(0, 1 - abs(relative))
+            let pop = peak * peak * reveal
+            let width = fullWidth * (0.53 + 0.47 * progress + 0.038 * pop)
+            let height = width * 9 / 16
+            let travel = max(0, laneHeight - fullWidth * 9 / 16 - 15)
+            let upper = 8 + travel * pow(progress, 1.8) - min(9, travel * 0.12) * pop
+            let revealX = min(14, size.width * 0.04) * pop
+            let alpha = min(1, max(0, (relative + 5.65) / 1.10), max(0, (2.42 - relative) / 0.95))
+            return Card(frame: CGRect(x: (size.width - width) / 2 + revealX, y: upper,
+                                      width: width, height: height), opacity: Double(alpha))
+        }
+
+        func slots(at coordinate: CGFloat, count: Int) -> ClosedRange<Int> {
+            let focus = Int(coordinate.rounded())
+            if count == 1 { return focus...focus }
+            if count < 10 { return (focus - count + 2)...(focus + 1) }
+            let lower = Int(floor(coordinate))
+            return (lower - 6)...(lower + 3)
+        }
+    }
+
     struct Settle: Equatable {
         let origin: CGFloat
         let destination: Int
