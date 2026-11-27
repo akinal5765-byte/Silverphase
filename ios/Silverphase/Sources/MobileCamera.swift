@@ -497,6 +497,13 @@ struct MobileCameraView: View {
         MobileCameraCanvas(followsInterface: followsInterface, interfaceChanged: { sceneQuarterTurn = $0 }) { insets in
             cameraBody(safeInsets: insets)
         }
+        .allowsHitTesting(!pickerUsesSceneCoordinates || !showingFilms)
+        .accessibilityHidden(pickerUsesSceneCoordinates && showingFilms)
+        .overlay {
+            // iPad's camera canvas is device-relative. Present the catalogue
+            // in the host scene so its grid/text never follows the camera turn.
+            if pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: true) }
+        }
 #else
         MobileCameraCanvas { _ in cameraBody(safeInsets: EdgeInsets()) }
 #endif
@@ -545,33 +552,7 @@ struct MobileCameraView: View {
         .allowsHitTesting(!showingFilms)
         .accessibilityHidden(showingFilms)
         .overlay {
-            ZStack {
-                if showingFilms {
-                    Rectangle()
-                        .fill(.clear)
-                        .contentShape(Rectangle())
-                        .onTapGesture { setFilmPicker(false) }
-                        .accessibilityHidden(true)
-                        .ignoresSafeArea(.container)
-                        .transition(.identity)
-                }
-                GeometryReader { geometry in
-                    let panel = activeCameraPanel(geometry)
-                    ZStack(alignment: .bottom) {
-                        if showingFilms {
-                            filmPicker(panelHeight: panel.height)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-                    }
-                    .frame(width: panel.width, height: panel.height, alignment: .bottom)
-                    .clipped()
-                    .position(x: panel.midX, y: panel.midY)
-                }
-                .ignoresSafeArea(.container, edges: fillsPanel ? .horizontal : [])
-            }
-            // During dismissal the visual transition may remain briefly, but
-            // neither the old picker nor its backdrop should accept touches.
-            .allowsHitTesting(showingFilms)
+            if !pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: false) }
         }
 #endif
 #if !SILVERPHASE_APP
@@ -1152,6 +1133,38 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
+    private var pickerUsesSceneCoordinates: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+    private func cameraFilmPickerOverlay(useScenePanel: Bool) -> some View {
+        ZStack {
+            if showingFilms {
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture { setFilmPicker(false) }
+                    .accessibilityHidden(true)
+                    .ignoresSafeArea(.container)
+                    .transition(.identity)
+            }
+            GeometryReader { geometry in
+                let panel = useScenePanel ? CGRect(origin: .zero, size: geometry.size) : activeCameraPanel(geometry)
+                ZStack(alignment: .bottom) {
+                    if showingFilms {
+                        filmPicker(panelHeight: panel.height)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .frame(width: panel.width, height: panel.height, alignment: .bottom)
+                .clipped()
+                .position(x: panel.midX, y: panel.midY)
+            }
+            .ignoresSafeArea(.container, edges: !useScenePanel && fillsPanel ? .horizontal : [])
+        }
+        // During dismissal the visual transition may remain briefly, but
+        // neither the old picker nor its backdrop should accept touches.
+        .allowsHitTesting(showingFilms)
+    }
+
     private func setFilmPicker(_ visible: Bool) {
         if visible != showingFilms { filmPreviewSelection.reset() }
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { showingFilms = visible }
