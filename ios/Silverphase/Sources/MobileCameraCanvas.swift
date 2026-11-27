@@ -9,7 +9,12 @@ struct MobileCameraCanvasGeometry: Equatable {
     let contentSize: CGSize
     let rotation: Double
 
-    init(viewport: CGSize, interfaceQuarterTurn: Double) {
+    init(viewport: CGSize, interfaceQuarterTurn: Double, followsInterface: Bool = false) {
+        if followsInterface {
+            contentSize = viewport
+            rotation = 0
+            return
+        }
         let quarterTurn = interfaceQuarterTurn.isFinite ? (interfaceQuarterTurn / 90).rounded() * 90 : 0
         rotation = quarterTurn.remainder(dividingBy: 360)
         let swapsAxes = abs(rotation.remainder(dividingBy: 180)) == 90
@@ -18,15 +23,23 @@ struct MobileCameraCanvasGeometry: Equatable {
 }
 
 struct MobileCameraCanvas<Content: View>: View {
-    let content: Content
+    private let content: (EdgeInsets) -> Content
     @State private var interfaceQuarterTurn = 0.0
+    let followsInterface: Bool
+    let interfaceChanged: ((Double) -> Void)?
 
-    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    init(followsInterface: Bool = false, interfaceChanged: ((Double) -> Void)? = nil,
+         @ViewBuilder content: @escaping (EdgeInsets) -> Content) {
+        self.followsInterface = followsInterface
+        self.interfaceChanged = interfaceChanged
+        self.content = content
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            let layout = MobileCameraCanvasGeometry(viewport: geometry.size, interfaceQuarterTurn: interfaceQuarterTurn)
-            content
+            let layout = MobileCameraCanvasGeometry(viewport: geometry.size, interfaceQuarterTurn: interfaceQuarterTurn,
+                                                    followsInterface: followsInterface)
+            content(geometry.safeAreaInsets)
                 .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .rotationEffect(.degrees(layout.rotation))
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
@@ -38,7 +51,10 @@ struct MobileCameraCanvas<Content: View>: View {
                             ? String(Int(interfaceQuarterTurn)) : "")
 #endif
         .background {
-            CameraCanvasOrientationProbe { interfaceQuarterTurn = $0 }
+            CameraCanvasOrientationProbe {
+                interfaceQuarterTurn = $0
+                interfaceChanged?($0)
+            }
                 .allowsHitTesting(false)
         }
     }
@@ -54,6 +70,9 @@ private struct CameraCanvasOrientationProbe: UIViewRepresentable {
     final class Probe: UIView {
         var changed: (Double) -> Void
         private var previous: Double?
+        private weak var observedScene: UIWindowScene?
+        private var geometryObservation: NSKeyValueObservation?
+
         init(changed: @escaping (Double) -> Void) {
             self.changed = changed
             super.init(frame: .zero)
@@ -64,7 +83,17 @@ private struct CameraCanvasOrientationProbe: UIViewRepresentable {
         override func layoutSubviews() { super.layoutSubviews(); measure() }
         override func safeAreaInsetsDidChange() { super.safeAreaInsetsDidChange(); measure() }
         func measure() {
-            guard let scene = window?.windowScene else { return }
+            let scene = window?.windowScene
+            if observedScene !== scene {
+                geometryObservation = nil
+                observedScene = scene
+                if #available(iOS 26, *), let scene {
+                    geometryObservation = scene.observe(\.effectiveGeometry, options: [.new]) { [weak self] _, _ in
+                        Task { @MainActor [weak self] in self?.measure() }
+                    }
+                }
+            }
+            guard let scene else { return }
             let orientation: UIInterfaceOrientation
             if #available(iOS 26, *) { orientation = scene.effectiveGeometry.interfaceOrientation }
             else { orientation = scene.interfaceOrientation }

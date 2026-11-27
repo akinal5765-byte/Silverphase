@@ -575,6 +575,219 @@ final class PhotoImportTests: XCTestCase {
                        "Ordinary-phone library retains its portrait policy after camera dismissal")
     }
 
+    @MainActor private func duoFinderBounds(_ grip: XCUIElement) -> CGRect? {
+        guard let value = grip.value as? String else { return nil }
+        let values = value.split(separator: ",").compactMap { Double($0) }
+        guard values.count == 4, values.allSatisfy(\.isFinite), values[2] > 0, values[3] > 0 else { return nil }
+        return CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
+    }
+
+    @MainActor private func assertDuoGrip(_ app: XCUIApplication, splitFinder: Bool? = nil,
+                                          file: StaticString = #filePath, line: UInt = #line) {
+        let shutter = app.buttons["camera.shutter"], gallery = app.buttons["camera.latest"]
+        let film = app.buttons["camera.film"], diffusion = app.buttons["camera.diffusion"]
+        let grip = app.otherElements["camera.side-grip"]
+        for control in [shutter, gallery, film, diffusion, grip] {
+            XCTAssertTrue(control.waitForExistence(timeout: 5), file: file, line: line)
+        }
+        let geometry = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.duoFinderBounds(grip) != nil
+        }, object: nil)
+        guard XCTWaiter.wait(for: [geometry], timeout: 4) == .completed,
+              let finder = duoFinderBounds(grip) else {
+            XCTFail("The empty simulator finder must still report layout bounds", file: file, line: line)
+            return
+        }
+        let b = shutter.frame
+        let snapshot = XCTAttachment(screenshot: app.screenshot())
+        snapshot.name = "Duo capture grip"
+        snapshot.lifetime = .keepAlways
+        add(snapshot)
+        print("Duo grip: finder=\(finder) bank=\(grip.frame) shutter=\(b) gallery=\(gallery.frame) film=\(film.frame) diffusion=\(diffusion.frame)")
+        let isSplit = splitFinder ?? app.descendants(matching: .any)["camera.landscape-film-wheel"].exists
+        if isSplit {
+            XCTAssertEqual(finder.width / app.frame.width, 0.52, accuracy: 0.04, file: file, line: line)
+            XCTAssertGreaterThan(finder.minX, app.frame.minX + app.frame.width * 0.43, file: file, line: line)
+        } else {
+            // A Duo scene can omit its uneven safe-area margins.
+            XCTAssertLessThanOrEqual(finder.width, app.frame.width + 2, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(finder.width, app.frame.width * 0.75, file: file, line: line)
+        }
+        XCTAssertTrue(finder.insetBy(dx: -2, dy: -2).contains(b), file: file, line: line)
+        XCTAssertGreaterThan(b.midX, app.frame.midX + app.frame.width * 0.12, file: file, line: line)
+        XCTAssertEqual(b.midY, finder.midY, accuracy: isSplit ? 18 : 3, file: file, line: line)
+        XCTAssertEqual(b.width, 68, accuracy: 2, file: file, line: line)
+        XCTAssertEqual(b.height, 68, accuracy: 2, file: file, line: line)
+        // The one quarter-turn maps folded leading to bottom, trailing to top.
+        XCTAssertGreaterThan(gallery.frame.midY, b.midY, file: file, line: line)
+        XCTAssertLessThan(film.frame.midY, b.midY, file: file, line: line)
+        XCTAssertLessThan(diffusion.frame.midY, film.frame.midY, file: file, line: line)
+        for button in [gallery, shutter, film, diffusion] {
+            XCTAssertTrue(grip.frame.insetBy(dx: -2, dy: -2).contains(button.frame), file: file, line: line)
+        }
+        for id in ["camera.flip", "camera.portrait"] where app.buttons[id].exists {
+            XCTAssertGreaterThanOrEqual(app.buttons[id].frame.minX, grip.frame.minX - 2, file: file, line: line)
+        }
+    }
+
+    @MainActor func testDuoKeepsTheFoldedShutterGroupTogetherOnTheRight() {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--camera-layout-check", "--camera-duo-layout-check"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft, .landscapeRight] {
+            XCUIDevice.shared.orientation = orientation
+            assertDuoGrip(app)
+        }
+    }
+
+    @MainActor func testDuoWaistCameraControlLayout() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--camera-layout-check", "--camera-waist-layout-check"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        assertDuoGrip(app)
+        let lower = duoFinderBounds(app.otherElements["camera.side-grip"]) ?? .null
+        XCTAssertGreaterThan(lower.minY, app.frame.height * 0.45)
+        for id in ["camera.back", "camera.options", "camera.latest", "camera.shutter", "camera.film", "camera.diffusion"] {
+            let item = app.buttons[id]
+            XCTAssertTrue(item.exists)
+            XCTAssertGreaterThanOrEqual(item.frame.minY, lower.minY - 2)
+        }
+        let grip = app.otherElements["camera.side-grip"].frame
+        for id in ["camera.format", "camera.flash", "camera.metering", "camera.options"] {
+            let setting = app.buttons[id]
+            if setting.exists {
+                XCTAssertLessThanOrEqual(setting.frame.maxX, grip.minX - 4,
+                                         "\(id) must stay left of the grip on the shorter tabletop panel")
+            }
+        }
+        XCTAssertLessThanOrEqual(app.buttons["camera.options"].frame.maxX,
+                                 app.buttons["camera.diffusion"].frame.minX - 4)
+        let centerFilm = app.buttons["camera.waist-film.0"]
+        let backFilm = app.buttons["camera.waist-film.-1"]
+        let wheel = app.descendants(matching: .any)["camera.waist-film-wheel"]
+        for tile in [backFilm, centerFilm] {
+            XCTAssertTrue(tile.waitForExistence(timeout: 5))
+            XCTAssertLessThan(tile.frame.maxY, lower.minY, "Film stack stays above the hinge")
+        }
+        let before = plainWalletFilmName(centerFilm.label)
+        swipeWallet(wheel: wheel, front: centerFilm)
+        assertWalletSelection(wheel: wheel, front: centerFilm, differentFrom: before)
+
+        let previous = plainWalletFilmName(centerFilm.label)
+        let railTap = app.coordinate(withNormalizedOffset: .zero).withOffset(
+            CGVector(dx: centerFilm.frame.midX - app.frame.minX, dy: centerFilm.frame.midY - app.frame.minY)
+        )
+        let close = app.buttons["camera.film-picker-close"]
+        app.buttons["camera.film"].tap()
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["camera.shutter"].isHittable, "The modal owns hits, not the camera underneath")
+        railTap.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: close)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 4), .completed,
+                       "An upper-panel tap closes the picker without interacting with the film rail")
+        XCTAssertEqual(wheel.value as? String, previous)
+        // Open the catalogue without first waiting for this swipe to settle.
+        // Its choice must remain selected when the previous coast ends.
+        swipeWallet(wheel: wheel, front: centerFilm)
+        app.buttons["camera.film"].tap()
+        let choices = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
+            "camera.film-choice.", "camera.film-picker-stock."
+        ))
+        let grid = app.scrollViews["camera.film-picker-grid"]
+        XCTAssertTrue(grid.waitForExistence(timeout: 5))
+        let beforeScroll = choices.allElementsBoundByIndex.filter(\.isHittable).map(\.identifier)
+        grid.swipeUp()
+        XCTAssertTrue(close.isHittable, "The picker stays open when the grid scrolls")
+        XCTAssertNotEqual(choices.allElementsBoundByIndex.filter(\.isHittable).map(\.identifier), beforeScroll)
+        guard let choice = choices.allElementsBoundByIndex.first(where: { $0.isHittable && $0.label != previous }) else {
+            XCTFail("The lower film picker did not reveal another stock")
+            return
+        }
+        let requested = choice.label.replacingOccurrences(of: " (Fotufilm)", with: "")
+        choice.tap()
+        let synchronized = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            centerFilm.exists && self.plainWalletFilmName(centerFilm.label) == requested && (wheel.value as? String) == requested
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [synchronized], timeout: 5), .completed)
+        let photo = XCTAttachment(screenshot: app.screenshot())
+        photo.name = "Tabletop film wheel after scrolling and lower-picker selection"
+        photo.lifetime = .keepAlways
+        add(photo)
+        XCTAssertTrue(app.buttons["camera.shutter"].exists)
+        XCTAssertFalse(app.switches["camera.waist-outer-print"].exists)
+    }
+
+    private nonisolated func plainWalletFilmName(_ label: String) -> String {
+        label.replacingOccurrences(of: ", Fotufilm", with: "")
+    }
+
+    @MainActor private func swipeWallet(wheel: XCUIElement, front: XCUIElement) {
+        let startY = front.frame.midY
+        let direction: CGFloat = startY - wheel.frame.minY >= wheel.frame.maxY - startY ? -1 : 1
+        let start = front.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let finish = start.withOffset(CGVector(dx: 0, dy: direction * wheel.frame.height * 0.32))
+        start.press(forDuration: 0.05, thenDragTo: finish)
+    }
+
+    @MainActor private func assertWalletSelection(wheel: XCUIElement, front: XCUIElement, differentFrom before: String) {
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard front.exists else { return false }
+            let name = self.plainWalletFilmName(front.label)
+            return name != before && (wheel.value as? String) == name
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+    }
+
+    @MainActor func testDuoLandscapeWalletSelectsWithoutMovingFinder() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "--camera-layout-check", "--camera-duo-layout-check"]
+        app.launch()
+        defer { app.terminate() }
+        let camera = app.buttons["library.camera"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 15)); camera.tap()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let wheel = app.descendants(matching: .any)["camera.landscape-film-wheel"]
+        let front = app.buttons["camera.landscape-film.0"]
+        let grip = app.otherElements["camera.side-grip"]
+        let shutter = app.buttons["camera.shutter"]
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.frame.width > app.frame.height && app.frame.width >= 540 && self.duoFinderBounds(grip) != nil
+        }, object: nil)
+        guard XCTWaiter.wait(for: [landscape], timeout: 8) == .completed else {
+            throw XCTSkip("The simulator did not provide an unfolded landscape camera viewport")
+        }
+        XCTAssertTrue(wheel.waitForExistence(timeout: 8))
+        XCTAssertTrue(front.exists)
+        assertDuoGrip(app, splitFinder: true)
+        guard let finder = duoFinderBounds(grip) else { return XCTFail("Missing right finder bounds") }
+        XCTAssertLessThanOrEqual(wheel.frame.maxX, finder.minX)
+        XCTAssertGreaterThan(front.frame.width, wheel.frame.width * 0.65)
+        let shutterFrame = shutter.frame
+        let before = plainWalletFilmName(front.label)
+        swipeWallet(wheel: wheel, front: front)
+        assertWalletSelection(wheel: wheel, front: front, differentFrom: before)
+        XCTAssertEqual(duoFinderBounds(grip), finder)
+        XCTAssertEqual(shutter.frame, shutterFrame)
+        XCUIDevice.shared.orientation = .portrait
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: wheel)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+    }
+
     @MainActor func testTabletCameraCanvasAndWorkspaceRotation() throws {
         guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Run on an iPad simulator") }
         XCUIDevice.shared.orientation = .portrait

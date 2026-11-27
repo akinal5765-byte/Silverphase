@@ -14,7 +14,7 @@ struct MobileCameraDevelopment: Sendable {
 }
 
 private struct CameraPhotoBounds: PreferenceKey {
-    enum Role: Hashable { case preview, thumbnail }
+    enum Role: Hashable { case preview, fullPreview, thumbnail }
     static let defaultValue: [Role: Anchor<CGRect>] = [:]
 
     static func reduce(value: inout [Role: Anchor<CGRect>], nextValue: () -> [Role: Anchor<CGRect>]) {
@@ -60,6 +60,8 @@ struct MobileCameraView: View {
     @State private var fastLookEngine = MobileCameraFastLookEngine()
     @State private var lookFrame: MobileCameraLookResult?
     @State private var lookUnavailable = false
+    @State private var quickFilmWheelMounted = false
+    @State private var filmPreviewSelection = MobileCameraFilmPreviewSelection()
     @AppStorage("mobile.camera.metering") private var metering = MobileMeteringMode.center_weighted
     @AppStorage("mobile.camera.diffusion") private var diffusion = MobileDiffusionFilter.off
     @AppStorage("mobile.camera.goldenGrid") private var showsGoldenGrid = true
@@ -77,6 +79,12 @@ struct MobileCameraView: View {
 #endif
 #if SILVERPHASE_APP
     @State private var hingeClosed: Bool?
+    @State private var hasObservedHinge = false
+    @State private var nativeSceneInterrupted = false
+    @State private var nativeScenePausedCapture = false
+#if DEBUG
+    @State private var cameraFinderTestBounds: CGRect = .zero
+#endif
 #endif
     @State private var camera = MobileStillCamera()
     @State private var configuration: MobileCameraConfiguration?
@@ -89,7 +97,7 @@ struct MobileCameraView: View {
     @State private var focusLocked = false
     @State private var focusFeedbackID = 0
     @State private var draggingExposure = false
-    @State private var portraitPreview = true
+    @State private var previewAngle: CGFloat = 90
     @State private var frontFraming: MobileFrontFraming = .portrait
     @State private var portraitMode = false
     @State private var levelRoll: Double?
@@ -97,10 +105,61 @@ struct MobileCameraView: View {
     @State private var updatedCaptureFormat: MobileCaptureFormat?
     @State private var updatingCaptureMode = false
     @State private var measuredCapturePose: MobileCameraCapturePose?
-    // MobileCameraCanvas keeps the camera's own coordinate system portrait.
+#if SILVERPHASE_APP
+    @State private var sceneQuarterTurn = 0.0
+    @State private var rearSelfieOnHostDisplay = false
+    private var followsInterface: Bool {
+        // Duo can move the same camera window to the other display while
+        // open. In both cases UIKit already puts the controls upright.
+        isDuoLayoutCheck || rearSelfieOnHostDisplay || hasObservedHinge || initialHingeClosed != nil
+    }
+    private var usesInnerCameraLayout: Bool {
+        isDuoLayoutCheck || (!rearSelfieOnHostDisplay && (hingeClosed ?? initialHingeClosed) == false)
+    }
+
+    private var isDuoLayoutCheck: Bool {
+#if DEBUG
+        isWaistLayoutCheck || ProcessInfo.processInfo.arguments.contains("--camera-duo-layout-check")
+#else
+        false
+#endif
+    }
+    private var isWaistLayoutCheck: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--camera-waist-layout-check")
+#else
+        false
+#endif
+    }
+    private var interfaceQuarterTurn: Double { followsInterface ? sceneQuarterTurn : 0 }
+#else
     private let interfaceQuarterTurn = 0.0
+    private let followsInterface = false
+#endif
+    private var shutterPose: MobileCameraCapturePose? {
+        followsInterface ? nil : measuredCapturePose
+    }
+    private var controlRotationTarget: Double {
+#if SILVERPHASE_APP
+        if usesFullOuterAperture {
+            // iOS may keep the outer window portrait while the user rolls
+            // the device. Rotate the existing glyphs, not the control frames.
+            let device = Double(measuredCapturePose?.rawValue ?? Int(deviceQuarterTurn))
+            return MobileCameraViewfinderGeometry.outerControlRotation(scene: sceneQuarterTurn, device: device)
+        }
+#endif
+        return followsInterface ? 0 : -Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn))
+    }
     @State private var controlRotation = 0.0
-    @State private var filmLabelHeight: CGFloat = 60
+    private var finderToolRotation: Double {
+#if SILVERPHASE_APP
+        // The folded change is visual only; keep the existing drag axis and
+        // level indicator behavior rather than coupling them to glyph motion.
+        if usesFullOuterAperture && !rearSelfieOnHostDisplay { return 0 }
+#endif
+        return controlRotation
+    }
+
 #if SILVERPHASE_APP
     @State private var showingFilms = false
 #endif
@@ -113,6 +172,7 @@ struct MobileCameraView: View {
     @State private var frozenShot: CGImage?
     @State private var reveal: MobileCameraDevelopment?
     @State private var shotQuarterTurn = 0.0
+    @State private var outerShotDisplayRotation: CGFloat?
     @State private var revealOpacity = 0.0
     @State private var landingPhoto = false
     @State private var photoAtThumbnail = false
@@ -153,7 +213,33 @@ struct MobileCameraView: View {
 
     private var lookRequest: MobileCameraRecipe? {
         guard !isLayoutCheck, showsFilmPreview, canRunCamera, !shotInProgress, film != nil else { return nil }
-        return captureRecipe.withoutExposureCompensation
+        return previewRecipe.withoutExposureCompensation
+    }
+
+    private var followsQuickFilmPreview: Bool { quickFilmWheelMounted && previewMode == .approximate }
+
+    private var previewRecipe: MobileCameraRecipe {
+        var recipe = captureRecipe
+        if followsQuickFilmPreview, let id = filmPreviewSelection.browsingID { recipe.filmID = id }
+        return recipe
+    }
+
+    private var lookTaskRequest: MobileCameraRecipe? {
+        guard var request = lookRequest else { return nil }
+        // The approximate renderer can change its colour table in place.
+        // Do not restart its loop or clear the previous frame at each detent.
+        if followsQuickFilmPreview { request.filmID = nil }
+        return request
+    }
+
+    private var displayedLookFrame: MobileCameraLookResult? {
+        guard let frame = lookFrame, !lookUnavailable, frame.previewAngle == previewAngle,
+              let request = lookRequest else { return nil }
+        var rendered = frame.recipe.withoutExposureCompensation
+        if rendered == request { return frame }
+        guard followsQuickFilmPreview, frame.sourceGeneration == camera.lookFrames.currentGeneration() else { return nil }
+        rendered.filmID = nil
+        return rendered == lookTaskRequest ? frame : nil
     }
 
     private var shotInProgress: Bool { capturing || developing || savingToPhotos || reveal != nil }
@@ -177,7 +263,9 @@ struct MobileCameraView: View {
 #endif
     }
     private var ready: Bool {
-#if !SILVERPHASE_APP
+#if SILVERPHASE_APP
+        guard !nativeSceneInterrupted && !nativeScenePausedCapture else { return false }
+#else
         guard !sessionInterrupted else { return false }
 #endif
         return configuration != nil && previewing && !switching && !updatingCaptureMode && switchFrame == nil && !shotInProgress && canRunCamera
@@ -185,7 +273,16 @@ struct MobileCameraView: View {
 
 #if SILVERPHASE_APP
     private var fillsPanel: Bool { (hingeClosed ?? initialHingeClosed) == true }
-    private var revealRotation: Double { (interfaceQuarterTurn - shotQuarterTurn).remainder(dividingBy: 360) }
+    private var usesFullOuterAperture: Bool {
+        MobileCameraViewfinderGeometry.usesFullOuterAperture(
+            isInner: usesInnerCameraLayout, hingeClosed: fillsPanel, rearSelfie: rearSelfieOnHostDisplay
+        )
+    }
+    private var revealRotation: Double {
+        let sceneRotation = interfaceQuarterTurn - shotQuarterTurn
+        let presentationRotation = rearSelfieOnHostDisplay ? Double(outerShotDisplayRotation ?? 0) : 0
+        return (sceneRotation + presentationRotation).remainder(dividingBy: 360)
+    }
     private var revealSwapsAxes: Bool { abs(revealRotation.remainder(dividingBy: 180)) == 90 }
 
 #else
@@ -200,47 +297,239 @@ struct MobileCameraView: View {
     private var waitingForCamera: Bool { (sessionInterrupted || !previewing || configuration == nil) && issue == nil }
 #endif
 
-    private var cameraLayout: some View {
+    @ViewBuilder private func cameraLayout(safeInsets: EdgeInsets) -> some View {
+#if SILVERPHASE_APP
+        // The live preview stays at the same SwiftUI identity even when
+        // UIKit temporarily takes the scene off one display and onto another.
+        sceneCameraLayout(safeInsets: safeInsets)
+#else
+        standardCameraLayout
+#endif
+    }
+
+    private var standardCameraLayout: some View {
         ZStack {
             viewfinder(fillsPanel: fillsPanel)
                 .ignoresSafeArea(.container, edges: fillsPanel ? .all : [])
-            VStack(spacing: 8) {
-                topControls
-#if SILVERPHASE_APP
-                previewStatus
-#endif
-                Spacer(minLength: 0)
-                if let configuration { finderControls(configuration) }
-                captureDock
-            }
+            standardCameraControls
         }
     }
 
-    var body: some View {
-        MobileCameraCanvas { cameraBody }
+    private static let dockContentWidth: CGFloat = 420
+    private static let dockHorizontalInset: CGFloat = 12
+
+    // This is the one source of control order, spacing and control sizes,
+    // including the lens row. The flat and tabletop grips re-use it as a unit.
+    private var captureControls: some View {
+        VStack(spacing: 8) {
+            if let configuration { finderControls(configuration) }
+            captureDock()
+        }
     }
 
-    private var cameraBody: some View {
-        cameraLayout
+    private var cameraHeader: some View {
+        VStack(spacing: 8) {
+            topControls
+#if SILVERPHASE_APP
+            previewStatus
+#endif
+        }
+    }
+
+    private var standardCameraControls: some View {
+        VStack(spacing: 8) {
+            cameraHeader
+            Spacer(minLength: 0)
+            captureControls
+        }
+    }
+
+#if SILVERPHASE_APP
+    private func waistGeometry(_ geometry: GeometryProxy) -> MobileWaistCameraGeometry? {
+        guard usesInnerCameraLayout else { return nil }
+        return MobileWaistCameraGeometry(viewport: geometry.size, divisionFrames: duoDivisions(geometry))
+    }
+
+    private func activeCameraPanel(_ geometry: GeometryProxy) -> CGRect {
+        waistGeometry(geometry)?.lower ?? CGRect(origin: .zero, size: geometry.size)
+    }
+
+    private func sceneCameraLayout(safeInsets: EdgeInsets) -> some View {
+        GeometryReader { geometry in
+            let waist = waistGeometry(geometry)
+            let panel = waist?.lower ?? CGRect(origin: .zero, size: geometry.size)
+            let previewSize = MobileCameraViewfinderGeometry.previewCanvas(
+                panel: panel.size, bottomSafeArea: safeInsets.bottom, isInner: usesInnerCameraLayout, isTabletop: waist != nil
+            )
+            let outer = usesFullOuterAperture ? MobileCameraViewfinderGeometry.outerViewport(
+                safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
+                bottom: safeInsets.bottom, trailing: safeInsets.trailing
+            ) : nil
+            let landscape = usesInnerCameraLayout && waist == nil && duoDivisions(geometry).isEmpty && film != nil
+                ? MobileDuoLandscapeCameraLayout(panel: panel, viewport: MobileCameraViewfinderGeometry.outerViewport(
+                    safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
+                    bottom: safeInsets.bottom, trailing: safeInsets.trailing
+                )) : nil
+            let rail = waist?.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing) ?? landscape?.rail
+            ZStack {
+                cameraPanelContent(panel.size, previewSize: previewSize, outer: outer, tabletop: waist != nil,
+                                   landscapeFinder: landscape?.finder)
+                    .position(x: panel.midX, y: panel.midY)
+
+                if let rail, film != nil {
+                    // The wallet and capture bank stay independent of the optical canvas.
+                    let isLandscapeRail = landscape != nil
+                    quickFilmWheel(expandedDepth: isLandscapeRail, restingAxis: landscape?.wheelAxis)
+                        .id(isLandscapeRail)
+                        .frame(width: rail.width, height: rail.height)
+                        .position(x: rail.midX, y: rail.midY)
+                }
+            }
+            .onChange(of: rail != nil && film != nil, initial: true) { _, mounted in
+                quickFilmWheelMounted = mounted
+                if !mounted { filmPreviewSelection.reset() }
+            }
+            .onChange(of: landscape != nil) { _, _ in filmPreviewSelection.reset() }
+            .onChange(of: previewMode) { _, _ in filmPreviewSelection.reset() }
+            .environment(\.layoutDirection, .leftToRight)
+        }
+    }
+
+    private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool,
+                                    landscapeFinder: CGRect?) -> some View {
+        // Reposition the existing preview rather than remounting its layer.
+        // In the right lane preserve aspect-fit unless it leaves only narrow horizontal strips.
+        let fillsRightLane = landscapeFinder.map {
+            MobileCameraViewfinderGeometry.rightLaneCanFillVerticalGap(canvas: $0.size, aspect: viewfinderImageAspect)
+        } ?? false
+        return viewfinder(fillsPanel: outer != nil || (fillsPanel && !followsInterface), tabletop: tabletop,
+                          fillsRightLane: fillsRightLane)
+            .ignoresSafeArea(.container, edges: outer == nil && !usesInnerCameraLayout && fillsPanel ? .all : [])
+            .frame(width: (landscapeFinder ?? outer)?.width ?? previewSize.width,
+                   height: (landscapeFinder ?? outer)?.height ?? previewSize.height)
+            .offset(x: (landscapeFinder ?? outer).map { $0.midX - size.width / 2 } ?? 0,
+                    y: landscapeFinder?.minY ?? outer.map { $0.midY - size.height / 2 } ?? 0)
+            // Pin the photographic canvas to the same top edge so it can
+            // extend behind the bottom system area without moving the chrome.
+            .frame(width: size.width, height: size.height, alignment: outer == nil ? .top : .center)
+#if DEBUG
+            .onGeometryChange(for: CGRect.self) { geometry in
+                let panel = geometry.frame(in: .global)
+                return landscapeFinder.map { $0.offsetBy(dx: panel.minX, dy: panel.minY) } ?? panel
+            } action: {
+                if isLayoutCheck { cameraFinderTestBounds = $0 }
+            }
+#endif
+            .overlay(alignment: .top) {
+                if !usesInnerCameraLayout {
+                    standardCameraControls
+                } else if !tabletop {
+                    cameraHeader
+                }
+            }
+            .overlay(alignment: .trailing) {
+                if usesInnerCameraLayout {
+                    let span = min(size.height, Self.dockContentWidth + 2 * Self.dockHorizontalInset)
+                    if tabletop {
+                        // The short lower panel brings the first grip buttons
+                        // up to header height. Keep the header's setting strip
+                        // left of the measured grip instead of laying two
+                        // independent, overlapping toolbars on top of the finder.
+                        HStack(spacing: 8) {
+                            VStack(spacing: 0) {
+                                cameraHeader
+                                Spacer(minLength: 0)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            innerCameraGrip(span: span)
+                        }
+                    } else {
+                        innerCameraGrip(span: span)
+                    }
+                }
+            }
+    }
+
+    private func innerCameraGrip(span: CGFloat) -> some View {
+        SidewaysCaptureBank(span: span) {
+            captureControls
+                .environment(\.captureBankQuarterTurn, 90)
+                .rotationEffect(.degrees(-90))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("camera.side-grip")
+#if DEBUG
+        .accessibilityValue(isLayoutCheck ? [cameraFinderTestBounds.minX, cameraFinderTestBounds.minY,
+                                            cameraFinderTestBounds.width, cameraFinderTestBounds.height]
+            .map { String(Double($0)) }.joined(separator: ",") : "")
+#endif
+    }
+
+    private func duoDivisions(_ geometry: GeometryProxy) -> [CGRect] {
+        if isWaistLayoutCheck {
+            return [CGRect(x: 0, y: geometry.size.height / 2 - 6, width: geometry.size.width, height: 12)]
+        }
+        if #available(iOS 27.1, *) {
+            return geometry.reservedRegions(kind: .division).map(\.frame)
+        }
+        return []
+    }
+
+    @ViewBuilder private func quickFilmWheel(expandedDepth: Bool, restingAxis: CGFloat?) -> some View {
+        if let film, !films.isEmpty {
+            let generation = filmPreviewSelection.generation
+            MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress,
+                                 presentation: .wallet, expandedDepth: expandedDepth, restingAxis: restingAxis,
+                                 previewGeneration: generation, preview: { id in
+                guard followsQuickFilmPreview, !shotInProgress, !showingFilms else { return }
+                filmPreviewSelection.browse(id, from: generation)
+            }) { id in
+                guard !shotInProgress, !showingFilms, filmPreviewSelection.accepts(generation),
+                      id != self.film?.id else { return }
+                filmID = id
+            }
+        }
+    }
+#endif
+
+    var body: some View {
+#if SILVERPHASE_APP
+        MobileCameraCanvas(followsInterface: followsInterface, interfaceChanged: { sceneQuarterTurn = $0 }) { insets in
+            cameraBody(safeInsets: insets)
+        }
+#else
+        MobileCameraCanvas { _ in cameraBody(safeInsets: EdgeInsets()) }
+#endif
+    }
+
+    private func cameraBody(safeInsets: EdgeInsets) -> some View {
+        cameraLayout(safeInsets: safeInsets)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #if SILVERPHASE_APP
         .background {
-            MobileCameraOrientationObserver()
+            MobileCameraOrientationObserver(followsInterface: followsInterface)
                 .allowsHitTesting(false)
             if #available(iOS 27.1, *), UIDevice.current.userInterfaceIdiom == .phone {
-                ProcessBarGeometryProbe(hingeChanged: { hingeClosed = $0 })
+                ProcessBarGeometryProbe(hingeChanged: { closed in
+                    // UIKit sends nil when a view leaves a display
+                    // hierarchy; nil does not mean the hardware changed.
+                    guard let closed else { return }
+                    hingeClosed = closed
+                    hasObservedHinge = true
+                })
                     .allowsHitTesting(false)
             }
         }
         .overlayPreferenceValue(CameraPhotoBounds.self) { anchors in
             GeometryReader { geometry in
-                if let reveal, landingPhoto, let from = anchors[.preview], let to = anchors[.thumbnail] {
+                if let reveal, landingPhoto,
+                   let from = anchors[.fullPreview] ?? anchors[.preview], let to = anchors[.thumbnail] {
                     let rect = geometry[photoAtThumbnail ? to : from]
                     let swapsAxes = !photoAtThumbnail && revealSwapsAxes
                     Image(decorative: reveal.image, scale: 1).resizable().scaledToFill()
                         .frame(width: swapsAxes ? rect.height : rect.width,
                                height: swapsAxes ? rect.width : rect.height)
-                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : 20))
+                        .clipShape(.rect(cornerRadius: photoAtThumbnail ? rect.width / 2 : (anchors[.fullPreview] != nil || usesFullOuterAperture) ? 0 : 20))
                         .rotationEffect(.degrees(revealRotation))
                         .position(x: rect.midX, y: rect.midY)
                         .accessibilityHidden(true)
@@ -251,14 +540,38 @@ struct MobileCameraView: View {
         .background(MobileStyle.canvas.ignoresSafeArea())
         .preferredColorScheme(.dark)
 #if SILVERPHASE_APP
-        .interactiveDismissDisabled(capturing || developing || savingToPhotos)
+        .interactiveDismissDisabled(capturing || developing || savingToPhotos || showingFilms)
+        // Disable the mounted camera surface, not the modal layered above it.
+        .allowsHitTesting(!showingFilms)
         .accessibilityHidden(showingFilms)
         .overlay {
-            if showingFilms {
-                filmPicker
-                    .ignoresSafeArea(.container, edges: fillsPanel ? .horizontal : [])
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            ZStack {
+                if showingFilms {
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture { setFilmPicker(false) }
+                        .accessibilityHidden(true)
+                        .ignoresSafeArea(.container)
+                        .transition(.identity)
+                }
+                GeometryReader { geometry in
+                    let panel = activeCameraPanel(geometry)
+                    ZStack(alignment: .bottom) {
+                        if showingFilms {
+                            filmPicker(panelHeight: panel.height)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+                    }
+                    .frame(width: panel.width, height: panel.height, alignment: .bottom)
+                    .clipped()
+                    .position(x: panel.midX, y: panel.midY)
+                }
+                .ignoresSafeArea(.container, edges: fillsPanel ? .horizontal : [])
             }
+            // During dismissal the visual transition may remain briefly, but
+            // neither the old picker nor its backdrop should accept touches.
+            .allowsHitTesting(showingFilms)
         }
 #endif
 #if !SILVERPHASE_APP
@@ -315,25 +628,43 @@ struct MobileCameraView: View {
                     .notice("Could not update lock-screen camera preferences")
             }
         }
-        .task(id: MobileCameraLookTaskID(request: lookRequest, cameraRetry: retry, mode: previewMode)) {
+        .task(id: MobileCameraLookTaskID(request: lookTaskRequest, cameraRetry: retry, mode: previewMode)) {
             lookEngine.workGate.setActive(false)
             fastLookEngine.workGate.setActive(false)
             lookUnavailable = false
-            guard let request = lookRequest else {
+            guard let request = lookTaskRequest else {
                 lookFrame = nil
                 await lookEngine.close()
                 await fastLookEngine.close(keepingColorTables: shotInProgress && canRunCamera)
                 return
             }
-            if lookFrame?.recipe.withoutExposureCompensation != request { lookFrame = nil }
+            if displayedLookFrame == nil { lookFrame = nil }
             let mode = previewMode
-            if mode == .approximate { await lookEngine.close(); fastLookEngine.workGate.setActive(true) }
-            else { await fastLookEngine.close(); lookEngine.workGate.setActive(true) }
+            if mode == .approximate {
+                await lookEngine.close()
+                guard !Task.isCancelled else { return }
+                fastLookEngine.workGate.setActive(true)
+            } else {
+                await fastLookEngine.close()
+                guard !Task.isCancelled else { return }
+                lookEngine.workGate.setActive(true)
+            }
             var previousSerial: UInt64?
             var previousRecipe: MobileCameraRecipe?
+            var failedFilmLook: MobileCameraRecipe?
             do {
-                while !Task.isCancelled, lookRequest == request {
-                    let recipe = captureRecipe
+                while !Task.isCancelled, lookTaskRequest == request {
+                    // One render at a time: skip detents already passed instead of queuing them.
+                    let recipe = previewRecipe
+                    let requestedFilmLook = recipe.withoutExposureCompensation
+                    if let failure = failedFilmLook {
+                        if requestedFilmLook == failure {
+                            try await Task.sleep(for: .milliseconds(30))
+                            continue
+                        }
+                        failedFilmLook = nil
+                        lookUnavailable = false
+                    }
                     guard previewing, !changingPhysicalLens,
                           let frame = camera.lookFrames.latest(),
                           frame.serial != previousSerial || recipe != previousRecipe else {
@@ -345,17 +676,37 @@ struct MobileCameraView: View {
                         ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue
                     let budget = MobileCameraLookBudget(reducedPower: reduced)
                     let geometry = camera.lookGeometry()
-                    let result: MobileCameraLookResult
-                    if mode == .approximate {
-                        result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
-                                                                recipe: recipe, longEdge: reduced ? 640 : 960)
-                    } else {
-                        result = try await lookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
-                                                            recipe: recipe, longEdge: budget.longEdge)
+                    var result: MobileCameraLookResult
+                    do {
+                        if mode == .approximate {
+                            result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
+                                                                    recipe: recipe, longEdge: reduced ? 640 : 960)
+                        } else {
+                            result = try await lookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
+                                                                recipe: recipe, longEdge: budget.longEdge)
+                        }
+                    } catch {
+                        try Task.checkCancellation()
+                        // A failed cold table for a detent already passed must
+                        // not shut down the preview for the next stock.
+                        if lookTaskRequest == request, requestedFilmLook != lookRequest { continue }
+                        if mode == .approximate, followsQuickFilmPreview, lookTaskRequest == request {
+                            failedFilmLook = requestedFilmLook
+                            lookUnavailable = true
+                            Logger(subsystem: "com.silverphase.editor", category: "CameraLook")
+                                .error("Film choice preview unavailable: \(error.localizedDescription, privacy: .public)")
+                            continue
+                        }
+                        throw error
                     }
                     try Task.checkCancellation()
-                    guard lookRequest == request, previewMode == mode else { return }
+                    guard lookTaskRequest == request, previewMode == mode else { return }
+                    guard requestedFilmLook == lookRequest else { continue }
                     guard result.sourceGeneration == camera.lookFrames.currentGeneration() else { continue }
+                    // Discard in-flight look frames made for the previous display angle.
+                    // The native preview stays underneath during the transition.
+                    guard camera.lookGeometry().angle == geometry.angle else { continue }
+                    result.previewAngle = geometry.angle
                     lookFrame = result
                     previousSerial = frame.serial
                     previousRecipe = recipe
@@ -365,7 +716,7 @@ struct MobileCameraView: View {
             } catch is CancellationError {
                 return
             } catch {
-                guard !Task.isCancelled, lookRequest == request, previewMode == mode else { return }
+                guard !Task.isCancelled, lookTaskRequest == request, previewMode == mode else { return }
                 lookUnavailable = true; lookFrame = nil
                 Logger(subsystem: "com.silverphase.editor", category: "CameraLook")
                     .error("Film preview unavailable: \(error.localizedDescription, privacy: .public)")
@@ -396,7 +747,7 @@ struct MobileCameraView: View {
         .task(id: canRunCamera) {
             if canRunCamera && !isLayoutCheck { await trackDeviceOrientation() }
         }
-        .onChange(of: interfaceQuarterTurn - deviceQuarterTurn, initial: true) { _, target in
+        .onChange(of: controlRotationTarget, initial: true) { _, target in
             controlRotation += (target - controlRotation).remainder(dividingBy: 360)
         }
 #if SILVERPHASE_APP
@@ -447,18 +798,32 @@ struct MobileCameraView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { measuredCapturePose = nil }
-            if phase == .active { retry += 1 }
-            else if phase == .background {
+            if phase == .active {
+                if !followsInterface || nativeScenePausedCapture || configuration == nil || !camera.session.isRunning {
+                    nativeScenePausedCapture = false
+                    retry += 1
+                } else {
+                    previewing = camera.hasLivePreview
+                }
+            } else if phase == .background {
                 finishReveal()
-                stopCamera()
+                // Pause the capture graph, but keep the preview layer bound.
+                // Reattaching a new layer to a running graph on a scene
+                // update blocked UIKit during the outer→inner handoff.
+                nativeScenePausedCapture = followsInterface
+                stopCamera(keepingPreview: followsInterface)
             }
         }
 #endif
         .onDisappear { stopCamera() }
         .onReceive(NotificationCenter.default.publisher(for: AVCaptureSession.wasInterruptedNotification, object: camera.session).receive(on: DispatchQueue.main)) { notification in
 #if SILVERPHASE_APP
-            camera.detachPreview()
-            configuration = nil
+            if followsInterface {
+                nativeSceneInterrupted = true
+            } else {
+                camera.detachPreview()
+                configuration = nil
+            }
             previewing = false
             issue = T("The camera is unavailable right now", "相机暂时不可用", "相機暫時不可用")
 #else
@@ -474,7 +839,13 @@ struct MobileCameraView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: AVCaptureSession.interruptionEndedNotification, object: camera.session).receive(on: DispatchQueue.main)) { _ in
 #if SILVERPHASE_APP
-            if canRunCamera { retry += 1 }
+            nativeSceneInterrupted = false
+            if canRunCamera {
+                if followsInterface && configuration != nil && camera.session.isRunning {
+                    issue = nil
+                    previewing = camera.hasLivePreview
+                } else { retry += 1 }
+            }
 #else
             sessionInterrupted = false
             issue = nil
@@ -503,6 +874,10 @@ struct MobileCameraView: View {
         } message: { Text(failure ?? "") }
     }
 
+    private var finderToolOrientation: CameraControlOrientation {
+        CameraControlOrientation(rotation: finderToolRotation, animated: !reduceMotion)
+    }
+
     private var controlOrientation: CameraControlOrientation {
         CameraControlOrientation(rotation: controlRotation, animated: !reduceMotion)
     }
@@ -511,7 +886,7 @@ struct MobileCameraView: View {
     private var previewStatus: some View {
         HStack {
             if showsFilmPreview, !shotInProgress {
-                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : lookFrame?.recipe.withoutExposureCompensation != lookRequest ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
+                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : displayedLookFrame == nil ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
                     .font(.caption2).lineLimit(1)
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 8).padding(.vertical, 5)
@@ -649,15 +1024,15 @@ struct MobileCameraView: View {
 #endif
     }
 
-    private var captureDock: some View {
+    private func captureDock() -> some View {
         HStack(spacing: 8) {
             galleryButton.frame(maxWidth: .infinity)
             shutterButton
             filmControls.frame(maxWidth: .infinity)
         }
         .padding(8)
-        .frame(maxWidth: 420)
-        .padding(.horizontal, 12)
+        .frame(maxWidth: Self.dockContentWidth)
+        .padding(.horizontal, Self.dockHorizontalInset)
         .padding(.bottom, 8)
     }
 
@@ -699,24 +1074,28 @@ struct MobileCameraView: View {
             lensControls(configuration)
             Spacer(minLength: 0)
             if configuration.hasPortraitCamera || portraitMode {
-                Button { setPortraitMode(!portraitMode) } label: {
-                    Image(systemName: "f.cursive")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(portraitMode ? MobileStyle.accent : .white)
-                        .modifier(controlOrientation)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .modifier(ChromeSurface(radius: 22, interactive: true))
-                .disabled(!ready)
-                .accessibilityLabel(T("Portrait mode", "人像模式", "人像模式"))
-                .accessibilityAddTraits(portraitMode ? .isSelected : [])
-                .accessibilityIdentifier("camera.portrait")
+                portraitButton
             } else {
                 Color.clear.frame(width: 44, height: 44)
             }
         }
         .padding(.horizontal, 12)
+    }
+
+    private var portraitButton: some View {
+        Button { setPortraitMode(!portraitMode) } label: {
+            Image(systemName: "f.cursive")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(portraitMode ? MobileStyle.accent : .white)
+                .modifier(controlOrientation)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .modifier(ChromeSurface(radius: 22, interactive: true))
+        .disabled(!ready)
+        .accessibilityLabel(T("Portrait mode", "人像模式", "人像模式"))
+        .accessibilityAddTraits(portraitMode ? .isSelected : [])
+        .accessibilityIdentifier("camera.portrait")
     }
 
 #if SILVERPHASE_APP
@@ -774,28 +1153,28 @@ struct MobileCameraView: View {
 
 #if SILVERPHASE_APP
     private func setFilmPicker(_ visible: Bool) {
+        if visible != showingFilms { filmPreviewSelection.reset() }
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { showingFilms = visible }
     }
 
-    private var filmPicker: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                Color.clear.contentShape(Rectangle())
-                    .onTapGesture { setFilmPicker(false) }
-                    .accessibilityHidden(true)
-                MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
-                    filmID = stock.id
-                    setFilmPicker(false)
-                }, identifier: "camera.film-picker")
-                .frame(maxWidth: 470)
-                .frame(height: min(geometry.size.height, max(280, geometry.size.height * 0.64)))
-                .modifier(ChromeSurface(radius: 30, interactive: true))
-                .padding(.horizontal, 8)
-                .padding(.bottom, 6)
-                .accessibilityAddTraits(.isModal)
-                .accessibilityAction(.escape) { setFilmPicker(false) }
-            }
+    private func filmPicker(panelHeight: CGFloat) -> some View {
+        MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
+            filmID = stock.id
+            setFilmPicker(false)
+        }, identifier: "camera.film-picker")
+        .frame(maxWidth: 470)
+        .frame(height: min(panelHeight, max(280, panelHeight * 0.64)))
+        // Only the child controls and scroll view are interactive. The glass
+        // is visual chrome, and empty space inside the card is not a backdrop.
+        .background {
+            Rectangle().fill(.clear).contentShape(Rectangle()).onTapGesture {}
+                .accessibilityHidden(true)
         }
+        .modifier(ChromeSurface(radius: 30))
+        .padding(.horizontal, 8)
+        .padding(.bottom, 6)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { setFilmPicker(false) }
     }
 
     private var filmButton: some View {
@@ -808,24 +1187,12 @@ struct MobileCameraView: View {
     }
 
     private var filmButtonLabel: some View {
-        ZStack(alignment: .top) {
-            Color.clear.frame(width: 44, height: 44)
-                .modifier(ChromeSurface(radius: 22, interactive: true))
-            VStack(spacing: 3) {
-                Image(systemName: "film").font(.title3)
-                    .frame(width: 44, height: 44)
-                let title = film?.name ?? T("Film", "胶片", "膠片")
-                Text(title).font(.caption2).lineLimit(1)
-                    .modifier(AdjustmentNumberTransition(value: nil, label: title))
-                    .frame(maxWidth: 88)
-            }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { filmLabelHeight = $0 }
-            .modifier(CameraControlOrientation(
-                rotation: controlRotation, animated: !reduceMotion,
-                anchor: UnitPoint(x: 0.5, y: 22 / max(44, filmLabelHeight))
-            ))
-        }
-        .foregroundStyle(.white)
+        Image(systemName: "film")
+            .font(.title3)
+            .foregroundStyle(.white)
+            .modifier(controlOrientation)
+            .frame(width: 44, height: 44)
+            .modifier(ChromeSurface(radius: 22, interactive: true))
     }
 
     private var latestThumbnail: some View {
@@ -856,8 +1223,26 @@ struct MobileCameraView: View {
 #endif
     }
 
-    private func viewfinder(fillsPanel: Bool) -> some View {
+    private func rearSelfieChanged(_ value: Bool) {
+#if SILVERPHASE_APP
+        rearSelfieOnHostDisplay = value
+#endif
+    }
+
+    private var viewfinderImageAspect: CGFloat {
+        let captureAspect = (followsInterface ? configuration?.photoAspect : configuration?.aspect) ?? 4.0 / 3.0
+        return configuration?.frontFraming?.aspect
+            ?? MobileCameraViewfinderGeometry.orientedAspect(captureAspect, angle: previewAngle)
+    }
+
+    private func viewfinder(fillsPanel: Bool, tabletop: Bool = false, fillsRightLane: Bool = false) -> some View {
         GeometryReader { proxy in
+            let tableauFill = tabletop && MobileCameraViewfinderGeometry.tabletopCanFill(
+                canvas: proxy.size, aspect: viewfinderImageAspect
+            )
+            let fill = fillsRightLane || ((fillsPanel || tableauFill) && configuration?.frontFraming == nil)
+            let imageSize = MobileCameraViewfinderGeometry.imageSize(in: proxy.size, aspect: viewfinderImageAspect,
+                                                                     fillsPanel: fill)
             ZStack {
 #if SILVERPHASE_APP
                 let previewDevice = configuration?.device
@@ -866,27 +1251,22 @@ struct MobileCameraView: View {
                 let previewDevice = configuration?.device ?? lens.physicalLens.findDevice()
 #endif
                 if let previewDevice {
-                    let aspect = configuration?.aspect ?? 4.0 / 3.0
-                    let framing = configuration?.frontFraming
-                    let ratio = framing?.aspect ?? (portraitPreview ? 1 / aspect : aspect)
-                    let fillsPanel = fillsPanel && framing == nil
-                    let width = fillsPanel ? proxy.size.width : min(proxy.size.width, proxy.size.height * ratio)
-                    let height = fillsPanel ? proxy.size.height : width / ratio
+                    let width = imageSize.width, height = imageSize.height
                     ZStack {
                         MobileStyle.canvas
                         if !changingPhysicalLens {
                             MobileCameraPreview(camera: camera, device: previewDevice,
-                                                portrait: $portraitPreview, previewing: $previewing,
+                                                previewAngle: $previewAngle, previewing: $previewing,
                                                 mirrored: lens == .front && mirrorsFrontCamera,
                                                 hardwareShutterEnabled: previewHardwareShutterEnabled, shutter: takePhoto,
                                                 canAdjustExposure: ready && focusPoint != nil && !focusLocked,
-                                                exposureRotation: controlRotation,
+                                                exposureRotation: finderToolRotation,
+                                                rearSelfieChanged: rearSelfieChanged,
                                                 focus: focus, adjustExposure: dragExposure)
                                 .id(previewDevice.uniqueID)
 #if SILVERPHASE_APP
                                 .overlay {
-                                    if let lookFrame, lookFrame.recipe.withoutExposureCompensation == lookRequest, !lookUnavailable,
-                                       !shotInProgress, canRunCamera {
+                                    if let lookFrame = displayedLookFrame {
                                         Image(decorative: lookFrame.image, scale: 1).resizable().scaledToFill()
                                             .frame(width: width, height: height).clipped()
                                             .allowsHitTesting(false).accessibilityHidden(true)
@@ -908,7 +1288,7 @@ struct MobileCameraView: View {
                         if showsLensPlaceholder && switchFrame == nil {
                             Text(lens.title).font(.headline).foregroundStyle(.secondary)
                                 .modifier(AdjustmentNumberTransition(value: nil, label: lens.title))
-                                .modifier(controlOrientation)
+                                .modifier(finderToolOrientation)
                         }
                     }
                     .frame(width: width, height: height)
@@ -977,7 +1357,7 @@ struct MobileCameraView: View {
                     }.padding().background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
                 } else if configuration == nil {
                     if !shotInProgress && !isLayoutCheck {
-                        ProgressView(T("Opening the camera", "正在打开相机", "正在開啟相機")).modifier(controlOrientation)
+                        ProgressView(T("Opening the camera", "正在打开相机", "正在開啟相機")).modifier(finderToolOrientation)
                     }
                 }
 #if SILVERPHASE_APP
@@ -989,7 +1369,7 @@ struct MobileCameraView: View {
                         ProgressView().tint(.primary)
                         Text(developing ? T("Developing…", "显影中…", "顯影中…") : T("Saving to Photos…", "保存到相册…", "儲存到相簿…")).font(EditorDesign.noticeTitle)
                     }
-                    .modifier(controlOrientation)
+                    .modifier(finderToolOrientation)
                     .frame(width: 104, height: 104)
                     .modifier(ChromeSurface(radius: 20))
                     .accessibilityElement(children: .combine)
@@ -997,15 +1377,16 @@ struct MobileCameraView: View {
                 }
                 if let reveal {
                     let ratio = CGFloat(reveal.image.width) / CGFloat(reveal.image.height)
-                    let availableWidth = revealSwapsAxes ? proxy.size.height : proxy.size.width
-                    let availableHeight = revealSwapsAxes ? proxy.size.width : proxy.size.height
-                    // Folded (outer display) runs the develop edge to edge, matching
-                    // the full-bleed viewfinder there; other layouts keep the print
-                    // card. Either way the print keeps its aspect ratio and the
-                    // overflow is clipped by the panel.
-                    let width = fillsPanel ? max(availableWidth, availableHeight * ratio)
-                                           : min(availableWidth, availableHeight * ratio)
-                    let height = width / ratio
+                    // Filled modes share the finder bounds with the print,
+                    // without stretching the source when its aspect differs.
+                    let sharedAperture = usesFullOuterAperture || tabletop || fillsRightLane
+                    let envelope = sharedAperture ? imageSize : proxy.size
+                    let unrotated = revealSwapsAxes
+                        ? CGSize(width: envelope.height, height: envelope.width) : envelope
+                    let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: fillsRightLane || (tabletop ? fill : fillsPanel))
+                    let width = print.width, height = print.height
+                    let visible = sharedAperture ? envelope
+                        : CGSize(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
                     Group {
                         if landingPhoto {
                             Color.clear
@@ -1024,10 +1405,13 @@ struct MobileCameraView: View {
                         }
                     }
                     .frame(width: width, height: height)
-                    .clipShape(.rect(cornerRadius: fillsPanel ? 0 : 20))
+                    .clipShape(.rect(cornerRadius: fillsPanel || usesFullOuterAperture || fillsRightLane || (tabletop && fill) ? 0 : 20))
                     .rotationEffect(.degrees(revealRotation))
-                    .frame(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
-                    .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) { [.preview: $0] }
+                    .frame(width: visible.width, height: visible.height)
+                    .clipped()
+                    .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) {
+                        [(tabletop && fill) || fillsRightLane ? .fullPreview : .preview: $0]
+                    }
                     .accessibilityLabel(T("Development preview", "显影预览", "顯影預覽"))
                 }
 #endif
@@ -1156,7 +1540,7 @@ struct MobileCameraView: View {
             }
             if showsLevel, let levelRoll {
                 let levelAngle = -levelRoll.remainder(dividingBy: 90)
-                let vertical = abs(controlRotation.remainder(dividingBy: 180)) > 45
+                let vertical = abs(finderToolRotation.remainder(dividingBy: 180)) > 45
                 let aligned = abs(levelAngle) < 1.5
                 HStack(spacing: 4) {
                     Capsule().fill(.white.opacity(0.60)).frame(width: 18, height: 2)
@@ -1251,7 +1635,7 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
         // Capture the composed, processed image synchronously before switch
         // state or task cancellation can hide/replace it. Includes portrait.
-        let displayedFrame = !lookUnavailable && lookFrame?.recipe.withoutExposureCompensation == lookRequest ? lookFrame?.image : nil
+        let displayedFrame = displayedLookFrame?.image
         let oldGeneration = camera.lookFrames.currentGeneration()
 #endif
         switching = true
@@ -1292,8 +1676,8 @@ struct MobileCameraView: View {
     }
 
     private var focusIndicator: some View {
-        let orientation = controlOrientation
-        let swapsAxes = abs(controlRotation.remainder(dividingBy: 180)) == 90
+        let orientation = finderToolOrientation
+        let swapsAxes = abs(finderToolRotation.remainder(dividingBy: 180)) == 90
         return GeometryReader { geometry in
             let size = geometry.size
             Color.clear.keyframeAnimator(initialValue: CGFloat(1), trigger: focusFeedbackID) { content, scale in
@@ -1364,7 +1748,7 @@ struct MobileCameraView: View {
     }
 
     private func focus(at point: CGPoint, devicePoint: CGPoint, lock: Bool) {
-        guard ready else { return }
+        guard ready, !showingFilms else { return }
         focusPoint = point
         focusLocked = lock
         focusFeedbackID += 1
@@ -1376,7 +1760,7 @@ struct MobileCameraView: View {
             draggingExposure = false
             return
         }
-        guard ready, focusPoint != nil else { return }
+        guard ready, !showingFilms, focusPoint != nil else { return }
         let range = MobileCameraRecipe.exposureCompensationRange
         draggingExposure = true
         let value = min(max(exposure - Double(movement) / 90, range.lowerBound), range.upperBound)
@@ -1465,7 +1849,7 @@ struct MobileCameraView: View {
         }
     }
 
-    private func stopCamera() {
+    private func stopCamera(keepingPreview: Bool = false) {
         measuredCapturePose = nil
 #if SILVERPHASE_APP
         if !isLayoutCheck { MobileCameraLocation.shared.setCameraActive(false, enabled: recordsLocation) }
@@ -1479,11 +1863,12 @@ struct MobileCameraView: View {
         focusLocked = false
         switchFrame = nil
 #if SILVERPHASE_APP
-        camera.detachPreview()
+        nativeSceneInterrupted = false
+        if !keepingPreview { camera.detachPreview() }
 #else
         lockedDevelopment = nil
 #endif
-        configuration = nil
+        if !keepingPreview { configuration = nil }
         previewing = false
         camera.stop()
     }
@@ -1535,11 +1920,19 @@ struct MobileCameraView: View {
 
 #endif
     private func takePhoto() {
-        guard ready else { return }
+        guard ready, !showingFilms else { return }
 #if SILVERPHASE_APP
+        // If the shutter interrupts browsing, use the last film actually
+        // shown, not a detent whose colour table has not finished rendering.
+        if followsQuickFilmPreview, filmPreviewSelection.browsingID != nil {
+            if let visibleID = displayedLookFrame?.recipe.filmID { filmID = visibleID }
+            filmPreviewSelection.reset()
+        }
         let selectedFilm = film
-        shotQuarterTurn = deviceQuarterTurn
-        frozenShot = showsFilmPreview && !lookUnavailable ? lookFrame?.snapshot(for: captureRecipe) : nil
+        shotQuarterTurn = followsInterface ? interfaceQuarterTurn
+            : (shutterPose.map { Double($0.rawValue) } ?? deviceQuarterTurn)
+        frozenShot = showsFilmPreview && !lookUnavailable && lookFrame?.previewAngle == previewAngle
+            ? lookFrame?.snapshot(for: captureRecipe) : nil
 #else
         lockedDevelopment = nil
 #endif
@@ -1554,10 +1947,20 @@ struct MobileCameraView: View {
         let shutterUptime = ProcessInfo.processInfo.systemUptime
 #endif
         let selectedRecipe = captureRecipe
-        // No motion sample (including denied/unavailable motion) must not be
-        // mistaken for a measured portrait pose. Retain the native coordinator
-        // fallback until a physical orientation has actually been observed.
-        let selectedPose = measuredCapturePose
+        // For Duo, latch AVFoundation's display-aware capture angle before
+        // freezing the finder. For the ordinary and locked cameras, retain
+        // the pose-based path and its existing fallback.
+        let selectedPose = shutterPose
+        let captureAngle = followsInterface ? camera.horizonCaptureAngle : nil
+#if SILVERPHASE_APP
+        outerShotDisplayRotation = nil
+        if rearSelfieOnHostDisplay, let captureAngle {
+            let shownAngle = camera.lookGeometry().angle
+            outerShotDisplayRotation = MobileCameraViewfinderGeometry.developmentRotation(
+                capture: captureAngle, preview: shownAngle
+            )
+        }
+#endif
         let selectedFlash = flash
         let selectedLens = lens
         let usesDepth = portraitMode
@@ -1583,7 +1986,8 @@ struct MobileCameraView: View {
             }
             do {
                 let (data, format) = try await camera.capture(lens: selectedLens, flash: selectedFlash, portrait: usesDepth,
-                                                              mirrored: mirrored, pose: selectedPose, location: selectedLocation)
+                                                              mirrored: mirrored, pose: selectedPose,
+                                                              displayCaptureAngle: captureAngle, location: selectedLocation)
 #if DEBUG && SILVERPHASE_APP
                 if selectedRecipe.metering == .custom, selectedFlash == .off, !usesDepth,
                    format == .proRAW || format == .bayer, let exposureFrame {
@@ -1701,13 +2105,507 @@ private struct CameraDiffusionFilterGlyph: View {
     }
 }
 
+#if SILVERPHASE_APP
+/// All covers share one floating-point slot coordinate. The selected integer
+/// slot is on the aperture's midpoint, not on a scroll proxy's center.
+private struct MobileWaistFilmWheel: View {
+    enum Presentation { case rack, wallet }
+
+    let stocks: [Stock]
+    let selectedID: String
+    let enabled: Bool
+    let select: (String) -> Void
+    let presentation: Presentation
+    let expandedDepth: Bool
+    let restingAxis: CGFloat?
+    let previewGeneration: UInt64
+    let preview: (String?) -> Void
+
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState private var tracking = false
+    @State private var browsingFilmPreview = false
+    @State private var previewingTappedFilm = false
+    @State private var restingSlot: Int
+    @State private var grab: MobileWaistFilmTrack.Grab?
+    @State private var grabBegan: TimeInterval?
+    @State private var fingerPosition: CGFloat?
+    @State private var motion: MobileWaistFilmTrack.Settle?
+    @State private var fold: MobileWaistFilmTrack.Fold?
+    @State private var lastDetent: Int?
+    @State private var lastTickTime: TimeInterval = -.infinity
+    @State private var detentHaptic = UIImpactFeedbackGenerator(style: .medium)
+    @State private var settleHaptic = UIImpactFeedbackGenerator(style: .rigid)
+
+    private var accessibilityPrefix: String { expandedDepth ? "camera.landscape-film" : "camera.waist-film" }
+
+    private var track: MobileWaistFilmTrack { MobileWaistFilmTrack(count: stocks.count) }
+    private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
+
+    init(stocks: [Stock], selectedID: String, enabled: Bool, presentation: Presentation = .rack,
+         expandedDepth: Bool = false, restingAxis: CGFloat? = nil, previewGeneration: UInt64 = 0,
+         preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
+        self.stocks = stocks
+        self.selectedID = selectedID
+        self.enabled = enabled
+        self.select = select
+        self.presentation = presentation
+        self.expandedDepth = expandedDepth
+        self.restingAxis = restingAxis
+        self.previewGeneration = previewGeneration
+        self.preview = preview
+        _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let aperture = MobileWaistFilmTrack.Aperture(size: geometry.size)
+            TimelineView(.animation(paused: motion == nil && fold == nil)) { _ in
+                let now = ProcessInfo.processInfo.systemUptime
+                let position = currentPosition(at: now)
+                let phase = foldAmount(at: now)
+                if presentation == .wallet {
+                    let previewID = browsingFilmPreview ? stocks[track.index(at: track.nearestSlot(to: position))].id : nil
+                    wallet(MobileWaistFilmTrack.Wallet(size: geometry.size, expandedDepth: expandedDepth,
+                                                      restingAxis: restingAxis, count: stocks.count),
+                           coordinate: position, reveal: 1 - phase)
+                        .onChange(of: previewID) { _, id in
+                            if browsingFilmPreview, let id { preview(id) }
+                        }
+                } else {
+                    strip(aperture, coordinate: position, fold: phase)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(T("Film wheel", "胶片轮盘", "膠片輪盤"))
+        .accessibilityValue(committedStock.displayName)
+        .accessibilityAdjustableAction { direction in
+            let from = track.nearestSlot(to: currentPosition(at: ProcessInfo.processInfo.systemUptime))
+            switch direction {
+            case .increment: presentation == .wallet ? moveWallet(to: from + 1) : snap(to: from + 1)
+            case .decrement: presentation == .wallet ? moveWallet(to: from - 1) : snap(to: from - 1)
+            @unknown default: break
+            }
+        }
+        .accessibilityIdentifier("\(accessibilityPrefix)-wheel")
+        .disabled(!enabled)
+        .task(id: motion) { @MainActor in
+            guard let sample = motion else { return }
+            try? await Task.sleep(for: .seconds(sample.duration))
+            guard !Task.isCancelled, motion == sample else { return }
+            settle(at: sample.destination)
+        }
+        .task(id: fold) { @MainActor in
+            guard let transition = fold, transition.destination == 0 else { return }
+            try? await Task.sleep(for: .seconds(transition.duration))
+            guard !Task.isCancelled, fold == transition else { return }
+            fold = nil
+        }
+        .onChange(of: reduceMotion) { _, reduced in
+            if reduced { fold = nil }
+        }
+        .onChange(of: previewGeneration) { _, _ in synchronizeSelection(force: true) }
+        .onChange(of: selectedID) { _, _ in synchronizeSelection() }
+        .onChange(of: enabled) { _, active in
+            if !active {
+                endBrowsingFilmPreview()
+                grab = nil
+                grabBegan = nil
+                fingerPosition = nil
+                motion = nil
+                fold = nil
+            }
+            synchronizeSelection()
+        }
+        .onChange(of: tracking) { _, active in
+            // SwiftUI may cancel a gesture on a system rotation or modal
+            // handoff without calling onEnded. Return to the committed stock.
+            guard !active, let interrupted = grabBegan else { return }
+            Task { @MainActor in
+                // GestureState can reset before SwiftUI dispatches onEnded.
+                // Only recover a genuinely abandoned, unchanged drag.
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !tracking, grabBegan == interrupted else { return }
+                endBrowsingFilmPreview()
+                snap(to: restingSlot)
+            }
+        }
+    }
+
+    private func strip(_ aperture: MobileWaistFilmTrack.Aperture, coordinate: CGFloat, fold: CGFloat) -> some View {
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = stocks.count == 1 ? focused...focused : aperture.slots(around: focused, fold: fold)
+        return VStack(spacing: 8) {
+            ZStack {
+                ForEach(slots, id: \.self) { slot in
+                    let stock = stocks[track.index(at: slot)]
+                    let relative = slot - focused
+                    let distance = CGFloat(slot) - coordinate
+                    let coverPlacement = aperture.cover(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
+                    let pose = coverPlacement.pose
+                    Button { snap(to: slot) } label: {
+                        cover(stock, width: aperture.width, height: aperture.height)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(stock.displayName)
+                    .accessibilityAddTraits(relative == 0 && slot == restingSlot && motion == nil ? .isSelected : [])
+                    .accessibilityIdentifier("camera.waist-film.\(relative)")
+                    .accessibilityHidden(abs(relative) > 2)
+                    .projectionEffect(pose.transform(width: aperture.width, height: aperture.height))
+                    .opacity(pose.opacity)
+                    .position(x: coverPlacement.centerX, y: aperture.laneHeight / 2)
+                    .zIndex(4 - Double(abs(distance)))
+                }
+            }
+            .frame(width: aperture.size.width, height: aperture.laneHeight)
+            .clipped()
+            .overlay {
+                // The visible buttons retain AX actions; a single hit surface
+                // owns finger taps and pans to avoid competing recognizers.
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .gesture(wheelTouch(vertical: false, pitch: aperture.dragPitch(reduceMotion: reduceMotion)) {
+                        tapCover(at: $0, in: aperture)
+                    })
+                    .accessibilityHidden(true)
+            }
+            Text(stocks[track.index(at: focused)].displayName)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .accessibilityHidden(true)
+        }
+        .frame(width: aperture.size.width, height: aperture.size.height)
+        .transaction { $0.animation = nil }
+    }
+
+    private func wallet(_ layout: MobileWaistFilmTrack.Wallet, coordinate: CGFloat, reveal: CGFloat) -> some View {
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = layout.slots(at: coordinate, count: stocks.count)
+        let artworkPixels = layout.artworkPixelLimit(displayScale: displayScale)
+        return VStack(spacing: 0) {
+            ZStack {
+                ForEach(slots, id: \.self) { slot in
+                    let stock = stocks[track.index(at: slot)]
+                    let relative = CGFloat(slot) - coordinate
+                    let card = layout.card(at: relative, reveal: reveal, reduceMotion: reduceMotion)
+                    let chosen = slot == restingSlot && motion == nil && fingerPosition == nil
+                    Button { moveWallet(to: slot) } label: {
+                        cover(stock, width: card.frame.width, height: card.frame.height,
+                              artworkPixels: (-5.5...1.25).contains(relative) ? artworkPixels : nil)
+                            .background(.black, in: MobileWaistFilmTrack.CoverPose.outline)
+                            .overlay {
+                                MobileWaistFilmTrack.CoverPose.outline
+                                    .fill(.black.opacity(card.shade))
+                                    .allowsHitTesting(false)
+                                if chosen {
+                                    MobileWaistFilmTrack.CoverPose.outline
+                                        .strokeBorder(MobileStyle.accent.opacity(reveal), lineWidth: 2)
+                                }
+                            }
+                            .fotufilmBadge(for: stock)
+                            .overlay(alignment: .topLeading) {
+                                Label {
+                                    Text(stock.displayName)
+                                } icon: {
+                                    if chosen { Image(systemName: "checkmark").foregroundStyle(MobileStyle.accent) }
+                                }
+                                    .font(.caption2.weight(chosen ? .bold : .semibold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(.black.opacity(0.72), in: Capsule())
+                                    .padding(.leading, 9)
+                                    .padding(.top, 5)
+                                    .accessibilityHidden(true)
+                            }
+                            .shadow(color: .black.opacity(chosen ? 0.48 : 0.31),
+                                    radius: chosen ? 8 : 4, y: chosen ? 5 : 2)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(stock.displayName + (stock.isFotufilm ? ", Fotufilm" : ""))
+                    .accessibilityAddTraits(chosen ? .isSelected : [])
+                    .accessibilityIdentifier("\(accessibilityPrefix).\(slot - focused)")
+                    .accessibilityHidden(card.opacity < 0.45)
+                    .rotationEffect(.radians(Double(card.angle)), anchor: .bottomTrailing)
+                    .opacity(card.opacity)
+                    .position(x: card.frame.midX, y: card.frame.midY)
+                    .zIndex(Double(slot - focused))
+                }
+            }
+            .frame(width: layout.size.width, height: layout.laneHeight)
+            .clipped()
+            .overlay {
+                Rectangle().fill(.clear).contentShape(Rectangle())
+                    .gesture(wheelTouch(vertical: true, pitch: layout.pitch) { point in
+                        tapWallet(at: point, in: layout)
+                    })
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(width: layout.size.width, height: layout.size.height)
+        .transaction { $0.animation = nil }
+    }
+
+    private func moveWallet(to slot: Int) {
+        guard enabled else { return }
+        browsingFilmPreview = false
+        previewingTappedFilm = true
+        preview(stocks[track.index(at: slot)].id)
+        let now = ProcessInfo.processInfo.systemUptime
+        let position = currentPosition(at: now)
+        if abs(CGFloat(slot) - position) > 0.001 { setFold(1, at: now) }
+        snap(to: slot, from: position)
+    }
+
+    private func tapWallet(at point: CGPoint, in layout: MobileWaistFilmTrack.Wallet) {
+        let now = ProcessInfo.processInfo.systemUptime
+        let position = currentPosition(at: now)
+        let reveal = 1 - foldAmount(at: now)
+        for slot in layout.slots(at: position, count: stocks.count).reversed() {
+            let card = layout.card(at: CGFloat(slot) - position, reveal: reveal, reduceMotion: reduceMotion)
+            let outline = MobileWaistFilmTrack.CoverPose.outline.path(in: CGRect(origin: .zero, size: card.frame.size))
+            if card.opacity >= 0.35, card.contains(point, outline: outline.cgPath) {
+                moveWallet(to: slot)
+                return
+            }
+        }
+    }
+
+    private func cover(_ stock: Stock, width: CGFloat, height: CGFloat, artworkPixels: Int? = nil) -> some View {
+        let outline = MobileWaistFilmTrack.CoverPose.outline
+        return Group {
+            if let artwork = stock.packagingArtworkURL {
+                FilmstripThumbnail(url: artwork, fillsFrame: true, artworkPixels: artworkPixels)
+            } else {
+                Image(systemName: "film")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.white.opacity(0.08))
+            }
+        }
+        .frame(width: width, height: height)
+        .clipShape(outline)
+        .overlay {
+            outline
+                .strokeBorder(stock.id == selectedID ? MobileStyle.accent.opacity(0.82) : .white.opacity(0.15), lineWidth: 1)
+        }
+        .contentShape(outline)
+    }
+
+    private func currentPosition(at now: TimeInterval) -> CGFloat {
+        fingerPosition ?? motion?.position(at: now) ?? CGFloat(restingSlot)
+    }
+
+    private func foldAmount(at now: TimeInterval) -> CGFloat {
+        reduceMotion ? 0 : fold?.amount(at: now) ?? 0
+    }
+
+    private func setFold(_ destination: CGFloat, at now: TimeInterval) {
+        guard !reduceMotion else { fold = nil; return }
+        let current = foldAmount(at: now)
+        guard fold?.destination != destination else { return }
+        if current == destination && destination == 0 {
+            fold = nil
+            return
+        }
+        fold = MobileWaistFilmTrack.Fold(origin: current, destination: destination, began: now,
+                                        duration: destination == 0 ? 0.24 : 0.11)
+    }
+
+    private func wheelTouch(vertical: Bool, pitch: CGFloat, tap: @escaping (CGPoint) -> Void) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .updating($tracking) { _, active, _ in active = true }
+            .onChanged { event in
+                guard enabled, stocks.count > 1 else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                let travel = vertical ? event.translation.height : event.translation.width
+                let cross = vertical ? event.translation.width : event.translation.height
+                if grab == nil {
+                    guard abs(travel) >= 6, abs(travel) > abs(cross) else { return }
+                    let current = currentPosition(at: now)
+                    let takeover = motion != nil || fold?.destination == 0
+                    grab = MobileWaistFilmTrack.Grab(position: current, translation: takeover ? travel : 0, pitch: pitch)
+                    grabBegan = now
+                    previewingTappedFilm = false
+                    browsingFilmPreview = presentation == .wallet
+                    lastDetent = track.nearestSlot(to: current)
+                    lastTickTime = -.infinity
+                    motion = nil
+                    setFold(1, at: now)
+                    detentHaptic.prepare()
+                    settleHaptic.prepare()
+                }
+                guard let grab else { return }
+                let coordinate = grab.position(at: travel)
+                fingerPosition = coordinate
+                let detent = track.nearestSlot(to: coordinate)
+                if detent != lastDetent {
+                    lastDetent = detent
+                    if now - lastTickTime >= 0.070 {
+                        detentHaptic.impactOccurred(intensity: 0.85)
+                        detentHaptic.prepare()
+                        lastTickTime = now
+                    }
+                }
+            }
+            .onEnded { event in
+                guard enabled else { return }
+                guard let grab else {
+                    if hypot(event.translation.width, event.translation.height) < 6 {
+                        tap(event.location)
+                    }
+                    return
+                }
+                let travel = vertical ? event.translation.height : event.translation.width
+                let position = grab.position(at: travel)
+                if reduceMotion {
+                    snap(to: track.nearestSlot(to: position), from: position)
+                } else {
+                    let velocity = -(vertical ? event.velocity.height : event.velocity.width) / grab.pitch
+                    let release = track.release(from: position, velocity: velocity,
+                                                startedAt: ProcessInfo.processInfo.systemUptime,
+                                                coastGain: MobileWaistFilmTrack.compactCoastGain(for: velocity))
+                    snap(to: release.destination, from: position, release: release)
+                }
+            }
+    }
+
+    private func tapCover(at point: CGPoint, in aperture: MobileWaistFilmTrack.Aperture) {
+        let now = ProcessInfo.processInfo.systemUptime
+        let coordinate = currentPosition(at: now)
+        let fold = foldAmount(at: now)
+        let focused = track.nearestSlot(to: coordinate)
+        let slots = stocks.count == 1 ? [focused] : Array(aperture.slots(around: focused, fold: fold))
+        // Check front-to-back, the same order used to render the cards.
+        for slot in slots.sorted(by: { abs(CGFloat($0) - coordinate) < abs(CGFloat($1) - coordinate) }) {
+            let cover = aperture.cover(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
+            let local = CGPoint(x: point.x - cover.centerX, y: point.y - aperture.laneHeight / 2)
+            if cover.pose.contains(local, width: aperture.width, height: aperture.height) {
+                snap(to: slot, from: coordinate)
+                return
+            }
+        }
+    }
+
+    private func snap(to slot: Int, from explicitPosition: CGFloat? = nil, release: MobileWaistFilmTrack.Settle? = nil) {
+        guard enabled else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let position = explicitPosition ?? currentPosition(at: now)
+        grab = nil
+        grabBegan = nil
+        fingerPosition = nil
+        guard !reduceMotion, abs(position - CGFloat(slot)) > 0.001 || abs(release?.velocity ?? 0) > 0.001 else {
+            settle(at: slot)
+            return
+        }
+        settleHaptic.prepare()
+        motion = release ?? MobileWaistFilmTrack.Settle(origin: position, destination: slot, velocity: 0, startedAt: now)
+    }
+
+    private func settle(at slot: Int) {
+        let changed = track.index(at: restingSlot) != track.index(at: slot)
+        restingSlot = slot
+        motion = nil
+        setFold(0, at: ProcessInfo.processInfo.systemUptime)
+        guard enabled else { return }
+        let id = stocks[track.index(at: slot)].id
+        if changed { settleHaptic.impactOccurred() }
+        if id != selectedID { select(id) }
+        endBrowsingFilmPreview()
+    }
+
+    private func endBrowsingFilmPreview() {
+        guard browsingFilmPreview || previewingTappedFilm else { return }
+        browsingFilmPreview = false
+        previewingTappedFilm = false
+        preview(nil)
+    }
+
+    private func synchronizeSelection(force: Bool = false) {
+        guard let index = stocks.firstIndex(where: { $0.id == selectedID }),
+              force || track.index(at: restingSlot) != index else { return }
+        endBrowsingFilmPreview()
+        guard enabled else {
+            restingSlot = track.closestSlot(of: index, to: restingSlot)
+            return
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        let current = currentPosition(at: now)
+        let nearest = track.closestSlot(of: index, to: track.nearestSlot(to: current))
+        // Picker changes use the same folded track and reveal as a swipe.
+        // Index selection stays committed to the picker; only presentation moves.
+        if abs(current - CGFloat(nearest)) > 0.001 { setFold(1, at: now) }
+        snap(to: nearest, from: current)
+    }
+}
+
+extension MobileWaistFilmTrack.CoverPose {
+    static var outline: RoundedRectangle { RoundedRectangle(cornerRadius: 8) }
+
+    func contains(_ point: CGPoint, width: CGFloat, height: CGFloat) -> Bool {
+        guard let source = unproject(point) else { return false }
+        let bounds = CGRect(x: -width / 2, y: -height / 2, width: width, height: height)
+        return Self.outline.path(in: bounds).contains(source)
+    }
+
+    func transform(width: CGFloat, height: CGFloat) -> ProjectionTransform {
+        // The model projects in card-centered coordinates. SwiftUI takes
+        // a homogeneous transform in the card's top-leading coordinates.
+        let x = width / 2, y = height / 2
+        let w = 1 - perspective * x
+        var result = ProjectionTransform()
+        result.m11 = horizontalScale + x * perspective
+        result.m12 = y * perspective
+        result.m13 = perspective
+        result.m22 = verticalScale
+        result.m31 = x * (w - horizontalScale)
+        result.m32 = y * (w - verticalScale)
+        result.m33 = w
+        return result
+    }
+}
+#endif
+
+// A transformed View still advertises its unrotated bounds to its parent.
+// Measure the real folded bank with its ordinary horizontal proposal, then
+// advertise its transposed footprint so its overlay stays aligned with the
+// physical edge of the finder without affecting the finder size.
+private struct SidewaysCaptureBank: Layout {
+    let span: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let bank = subviews.first else { return .zero }
+        let size = bank.sizeThatFits(ProposedViewSize(width: span, height: nil))
+        return CGSize(width: size.height, height: span)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: CGPoint(x: bounds.midX, y: bounds.midY), anchor: .center,
+                              proposal: ProposedViewSize(width: span, height: nil))
+    }
+}
+
+private extension EnvironmentValues {
+    @Entry var captureBankQuarterTurn: Double = 0
+}
+
 private struct CameraControlOrientation: ViewModifier {
+    @Environment(\.captureBankQuarterTurn) private var mountRotation
     let rotation: Double
     let animated: Bool
-    var anchor: UnitPoint = .center
+    let anchor: UnitPoint
+
+    init(rotation: Double, animated: Bool, anchor: UnitPoint = .center) {
+        self.rotation = rotation
+        self.animated = animated
+        self.anchor = anchor
+    }
 
     func body(content: Content) -> some View {
-        content.rotationEffect(.degrees(rotation), anchor: anchor)
+        content.rotationEffect(.degrees(rotation + mountRotation), anchor: anchor)
             .animation(animated ? .easeInOut(duration: 0.22) : nil, value: rotation)
     }
 }

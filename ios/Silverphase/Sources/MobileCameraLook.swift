@@ -43,6 +43,7 @@ struct MobileCameraLookResult: @unchecked Sendable {
     let recipe: MobileCameraRecipe
     let sourceSerial: UInt64
     var sourceGeneration: UInt64 = 0
+    var previewAngle: CGFloat? = nil
 #if DEBUG
     var exposureEV: Double? = nil
 #endif

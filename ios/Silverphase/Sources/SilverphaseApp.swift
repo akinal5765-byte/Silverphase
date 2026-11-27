@@ -1127,11 +1127,16 @@ struct MobileAbout: View {
 private actor MobileThumbnailLoader {
     static let shared = MobileThumbnailLoader()
     private let cache = NSCache<NSString, CGImage>()
+    private let artworkCache = NSCache<NSString, CGImage>()
 
-    init() { cache.totalCostLimit = 16 * 1024 * 1024 }
+    init() {
+        cache.totalCostLimit = 16 * 1024 * 1024
+        artworkCache.totalCostLimit = 24 * 1024 * 1024
+    }
 
-    func thumbnail(at url: URL, key: String) -> CGImage? {
+    func thumbnail(at url: URL, key: String, artworkPixels: Int? = nil) -> CGImage? {
         guard !Task.isCancelled else { return nil }
+        let cache = artworkPixels == nil ? cache : artworkCache
         let cacheKey = key as NSString
         if let image = cache.object(forKey: cacheKey) { return image }
         return autoreleasepool {
@@ -1139,14 +1144,20 @@ private actor MobileThumbnailLoader {
                 return nil
             }
             var options: [CFString: Any] = [
-                kCGImageSourceThumbnailMaxPixelSize: 192,
+                kCGImageSourceThumbnailMaxPixelSize: artworkPixels ?? 192,
                 kCGImageSourceCreateThumbnailWithTransform: true
             ]
-            // Prefer the camera's embedded thumbnail. Only decode the source
-            // if no embedded image is available, and do it one file at a time.
-            let embedded = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
-            options[kCGImageSourceCreateThumbnailFromImageIfAbsent] = true
-            guard let image = embedded ?? CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            let embedded: CGImage?
+            if artworkPixels != nil {
+                // Decode from the bundled cover, not a small embedded preview.
+                options[kCGImageSourceCreateThumbnailFromImageAlways] = true
+                embedded = nil
+            } else {
+                embedded = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+                options[kCGImageSourceCreateThumbnailFromImageIfAbsent] = true
+            }
+            guard !Task.isCancelled,
+                  let image = embedded ?? CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
                 return nil
             }
             cache.setObject(image, forKey: cacheKey, cost: image.bytesPerRow * image.height)
@@ -1159,14 +1170,15 @@ struct FilmstripThumbnail: View {
     let url: URL
     var fillsFrame = false
     var version = 0
+    var artworkPixels: Int? = nil
     @State private var image: CGImage?
-    private var thumbnailKey: String { "\(url.absoluteString)#\(version)" }
+    private var thumbnailKey: String { "\(url.absoluteString)#\(version)#\(artworkPixels ?? 0)" }
     var body: some View {
         Group {
             if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: fillsFrame ? .fill : .fit) }
             else { Image(systemName: "photo").foregroundStyle(.secondary) }
         }.task(id: thumbnailKey, priority: .utility) {
-            let result = await MobileThumbnailLoader.shared.thumbnail(at: url, key: thumbnailKey)
+            let result = await MobileThumbnailLoader.shared.thumbnail(at: url, key: thumbnailKey, artworkPixels: artworkPixels)
             if !Task.isCancelled { image = result }
         }
     }

@@ -153,12 +153,49 @@ unknown film IDs fail visibly while leaving the session original intact.
 Both in-app and locked cameras keep one device-relative portrait canvas on
 phones, tablets and Duo in either hinge state. The shutter and controls keep
 that layout while glyphs/labels follow gravity. The hinge selects only the
-full-bleed viewfinder treatment. Camera pages request portrait orientation;
-`MobileCameraCanvas` also compensates an actually rotated host window, including
-hosts that ignore orientation restrictions. This is scoped to capture: leaving
-the camera restores the library/editor's existing direction policy.
+full-bleed viewfinder treatment. Ordinary iPhones, iPad and the secure capture
+extension use the device-relative camera canvas. The in-app Duo camera follows
+its native scene instead. Leaving the camera restores the library/editor policy.
 
-At shutter press, both cameras latch physical device pose. On iOS27+
+On the Duo inner display, the camera reuses the folded capture controls,
+including the lens row, as one measured group on the viewer's right. It preserves
+their relative order and spacing in portrait and landscape. On the inner
+display, the viewfinder fits the still-photo aspect ratio and stays centered; it may leave
+margins rather than crop the framing to the shape of the screen. The controls
+float above it. In inner landscape and tabletop, only the photographic canvas
+extends behind the bottom system area; camera controls still respect it.
+AVFoundation supplies separate, display-aware preview and capture angles;
+a processed preview frame from the previous angle is discarded. The folded
+and rear-selfie viewfinders and their development previews fill the outer display
+with a center crop, including behind the system insets. The controls stay in the safe
+area. This is presentation only: it doesn't crop or rotate the saved file. AVKit's
+direction coordinator identifies the physical rear camera facing an open
+Duo's outer display. In this mode only, the live finder and film preview use
+the still orientation with the relative display offset reversed. At shutter,
+development latches the difference between the displayed and captured directions
+so it matches the frozen preview. The app does not change the rotation or
+mirroring of saved photos. On the outer rear-selfie screen, glyphs follow
+the physical roll relative to UIKit; button positions and the viewfinder are
+unchanged.
+[Apple's iPhone Duo camera guidance](https://developer.apple.com/videos/play/tech-talks/111465/).
+
+An active horizontal fold keeps the viewfinder, header and right-hand capture
+group below the hinge. The settings strip sits to the left of the capture
+group so its buttons do not overlap. The upper panel shows a vertical,
+wallet-style stack of film sleeves. Drag vertically to browse; the stack
+closes at rest and the selected sleeve lifts up and right. The lower film
+button still opens the full catalogue. Unfolded landscape splits into two lanes: a larger 16:9 film stack on the left, and the
+viewfinder with the same right-hand grip on the right. A shallow top/bottom
+gap in this lane may use up to 4% center fill, with the development animation
+using the same frame; other feeds still aspect-fit. The stack
+uses more travel between films and opens deeper while moving. With approximate preview enabled,
+browsing either stack previews the film nearest the active slot; releasing commits the
+choice. The native and system previews don't scrub. No tabletop
+print accessory is registered on the outer display; the system rear-camera
+selfie handoff is separate.
+
+For ordinary iPhones and the secure capture extension, the shutter latches
+physical device pose. On iOS27+
 AVFoundation resolves the sensor's rotation for that explicit pose independently
 of the fixed camera canvas or host window. Earlier systems retain the capture
 rotation coordinator. No captured pixels receive an ad-hoc import rotation.
