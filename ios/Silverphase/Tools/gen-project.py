@@ -33,14 +33,17 @@ related_icon_ref = obj('layerlight-icon', f'isa = PBXFileReference; lastKnownFil
 refs.append(related_icon_ref)
 related_icon_build = obj('build:layerlight-icon', f'isa = PBXBuildFile; fileRef = {related_icon_ref};')
 # Localized OS-owned text: permission prompts, widgets and App Intents.
-locales = ('en', 'zh-Hans', 'zh-Hant')
-def localized_group(directory, filename):
+existing_locales = ('en', 'zh-Hans', 'zh-Hant')
+catalog_locales = tuple(locale for locale in ('ja', 'ko', 'de')
+                        if (root / f'Resources/MobileCopy/{locale}.lproj/MobileCopy.json').is_file())
+locales = existing_locales + catalog_locales
+def localized_group(directory, filename, languages=locales, file_type='text.plist.strings'):
     children = []
-    for locale in locales:
+    for locale in languages:
         path = f'Resources/{directory}/{locale}.lproj/{filename}'
         if not (root / path).is_file():
             sys.exit(f'Missing localized resource: {path}')
-        children.append(obj(path, f'isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = {quote(locale)}; path = {quote(path)}; sourceTree = SOURCE_ROOT;'))
+        children.append(obj(path, f'isa = PBXFileReference; lastKnownFileType = {file_type}; name = {quote(locale)}; path = {quote(path)}; sourceTree = SOURCE_ROOT;'))
     group_ref = obj(directory + ':' + filename, f'isa = PBXVariantGroup; children = ({",".join(children)}); name = {quote(filename)}; sourceTree = "<group>";')
     refs.append(group_ref)
     return group_ref
@@ -51,7 +54,10 @@ def resource_build(target, group_ref):
 app_permissions = localized_group('System', 'InfoPlist.strings')
 locked_permissions = localized_group('LockedCamera', 'InfoPlist.strings')
 system_actions = localized_group('System', 'Localizable.strings')
-app_localized_builds = ','.join(resource_build('app', ref) for ref in (app_permissions, system_actions))
+copy_groups = ((localized_group('MobileCopy', 'MobileCopy.json', catalog_locales, 'text.json'),)
+               if catalog_locales else ())
+app_localized_builds = ','.join(resource_build('app', ref)
+                                for ref in (app_permissions, system_actions) + copy_groups)
 resource_phase = obj('resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({icon_build},{privacy_build},{related_icon_build},{app_localized_builds}); runOnlyForDeploymentPostprocessing = 0;')
 product = obj('product', 'isa = PBXFileReference; explicitFileType = wrapper.application; path = Silverphase.app; sourceTree = BUILT_PRODUCTS_DIR;')
 source_phase = obj('sources', f'isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(builds)}); runOnlyForDeploymentPostprocessing = 0;')
@@ -94,7 +100,7 @@ for name, suffix, extra_sources, extensionkit in [
                    'MobileLocalization', 'MobileStrings'] + extra_sources:
         ref = uid(f'Sources/{source}.swift')
         extension_builds.append(obj(f'{name}:build:{source}', f'isa = PBXBuildFile; fileRef = {ref};'))
-    localized_groups = (system_actions, locked_permissions) if extensionkit else (system_actions,)
+    localized_groups = ((system_actions, locked_permissions) if extensionkit else (system_actions,)) + copy_groups
     localized_builds = ','.join(resource_build(name, ref) for ref in localized_groups)
     extension_resource_phases = [obj(name + ':resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({localized_builds}); runOnlyForDeploymentPostprocessing = 0;')]
     if extensionkit:

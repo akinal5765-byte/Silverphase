@@ -1,19 +1,9 @@
 //  MobileLocalization.swift — which language the interface is drawn in, and how
 //  that is decided.
 //
-//  The same shape as the desktop's `Localization.swift`, and deliberately so:
-//  one product, one answer to "how does the interface change language". There is
-//  no `.xcstrings`, no `.lproj` and no `NSLocalizedString` here either, because a
-//  catalog is resolved through `Bundle` at lookup time and cannot be swapped
-//  underneath a running process — the standard answer is "relaunch", and the
-//  setting says "nothing needs restarting". The copy lives in
-//  `MobileStrings.swift`; this file is the setting, its resolution, and the
-//  observable that makes a change redraw.
-//
-//  The difference from the desktop is only in scale. The desktop keeps a table
-//  of ~400 shared keys plus inline triples for one-off copy; iOS has almost no
-//  string used in two places, so it is nearly all inline `T(_:_:_:)` and the
-//  table is short.
+//  Existing English and Chinese copy stays inline, while additional languages
+//  use a separate catalog. An in-app selection redraws without relaunch. The
+//  system still owns permission, widget and Shortcuts localization independently.
 
 import Foundation
 import Observation
@@ -28,12 +18,34 @@ enum MobileLanguage: String, CaseIterable, Sendable {
     case english
     case simplifiedChinese
     case traditionalChinese
+    case japanese
+    case korean
+    case german
+
+    nonisolated var catalogLocale: String? {
+        switch self {
+        case .english, .simplifiedChinese, .traditionalChinese: nil
+        case .japanese: "ja"
+        case .korean: "ko"
+        case .german: "de"
+        }
+    }
+
+    nonisolated var isAvailable: Bool {
+        guard let locale = catalogLocale else { return true }
+        return MobileCopyCatalog.translations(for: locale) != nil
+    }
 }
 
-/// What the Settings menu offers: the three languages, plus "whatever the
-/// system says" — the default, and not the same thing as English.
+/// What Settings offers: complete bundled languages plus the device default.
 enum MobileLanguageSetting: String, CaseIterable, Sendable, Identifiable {
-    case system, english, simplifiedChinese, traditionalChinese
+    case system, english, simplifiedChinese, traditionalChinese, japanese, korean, german
+
+    /// A locale is not advertised just because the enum recognizes its tag.
+    static var allCases: [Self] {
+        [.system, .english, .simplifiedChinese, .traditionalChinese, .japanese, .korean, .german]
+            .filter { $0.explicit?.isAvailable ?? true }
+    }
 
     var id: String { rawValue }
 
@@ -46,6 +58,9 @@ enum MobileLanguageSetting: String, CaseIterable, Sendable, Identifiable {
         case .english: .english
         case .simplifiedChinese: .simplifiedChinese
         case .traditionalChinese: .traditionalChinese
+        case .japanese: .japanese
+        case .korean: .korean
+        case .german: .german
         }
     }
 
@@ -64,6 +79,9 @@ enum MobileLanguageSetting: String, CaseIterable, Sendable, Identifiable {
         case .english: return "English"
         case .simplifiedChinese: return "简体中文 (zh-Hans)"
         case .traditionalChinese: return "繁體中文 (zh-Hant)"
+        case .japanese: return "日本語"
+        case .korean: return "한국어"
+        case .german: return "Deutsch"
         }
     }
 }
@@ -97,7 +115,7 @@ final class MobileLocalization {
     /// second source of truth. Reading `self.language` here is what registers
     /// the `@Observable` dependency.
     var resolved: MobileLanguage {
-        language.explicit ?? Self.resolve(Self.systemPreferredLanguages)
+        Self.resolved(language, preferred: Self.systemPreferredLanguages)
     }
 
     /// The user's preferred languages, read **once**.
@@ -123,7 +141,7 @@ final class MobileLocalization {
             .flatMap(MobileLanguageSetting.init(rawValue:)) ?? .system
         // `didSet` may not run for the assignment above, so seed the snapshot
         // explicitly rather than relying on it.
-        Self.snapshotStorage = language.explicit ?? Self.resolve(Self.systemPreferredLanguages)
+        Self.snapshotStorage = Self.resolved(language, preferred: Self.systemPreferredLanguages)
     }
 
     /// The resolved language, readable away from the main actor.
@@ -144,15 +162,22 @@ final class MobileLocalization {
 
     // MARK: - resolution
 
+    private nonisolated static func resolved(_ setting: MobileLanguageSetting,
+                                             preferred: [String]) -> MobileLanguage {
+        if let explicit = setting.explicit, explicit.isAvailable { return explicit }
+        return resolve(preferred)
+    }
+
     /// Which language a preference list resolves to: the first tag this app has
     /// copy for wins, which is the system's own rule.
     ///
     /// The two Chinese scripts are never substituted for each other. A reader
     /// whose system says `zh-Hant` gets Traditional or, failing that, English —
     /// never Simplified because it is the nearest script at hand.
-    nonisolated static func resolve(_ preferred: [String]) -> MobileLanguage {
+    nonisolated static func resolve(_ preferred: [String],
+                                    isAvailable: (MobileLanguage) -> Bool = { $0.isAvailable }) -> MobileLanguage {
         for tag in preferred {
-            if let match = match(tag) { return match }
+            if let match = match(tag), isAvailable(match) { return match }
         }
         return .english
     }
@@ -166,6 +191,12 @@ final class MobileLocalization {
         switch primary {
         case "en":
             return .english
+        case "ja":
+            return .japanese
+        case "ko":
+            return .korean
+        case "de":
+            return .german
         case "zh":
             // Script beats region: `zh-Hans-TW` is Simplified and `zh-Hant-CN`
             // is Traditional, because a tag that names a script has said which

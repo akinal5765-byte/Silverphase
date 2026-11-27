@@ -13,7 +13,7 @@ def table(path):
 
 
 root = Path(__file__).resolve().parents[1]
-locales = ('en', 'zh-Hans', 'zh-Hant')
+locales = tuple(sorted(folder.stem for folder in (root / 'Resources/System').glob('*.lproj')))
 camera = 'NSCameraUsageDescription'
 base = plistlib.loads((root / 'Info.plist').read_bytes())
 permission = {key: value for key, value in base.items() if key.endswith('UsageDescription')}
@@ -48,6 +48,10 @@ if len(sys.argv) > 1:
             'InfoPlist.strings': 'LockedCamera', 'Localizable.strings': 'System',
         },
     }.items():
+        for locale in set(locales) - {'en', 'zh-Hans', 'zh-Hant'}:
+            relative = Path(locale + '.lproj') / 'MobileCopy.json'
+            assert json.loads((bundle / relative).read_text()) == json.loads(
+                (root / 'Resources/MobileCopy' / relative).read_text()), bundle
         for filename, directory in tables.items():
             for locale in locales:
                 relative = Path(locale + '.lproj') / filename
