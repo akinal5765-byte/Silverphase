@@ -346,6 +346,7 @@ struct MobilePhotoDetail: View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
         let title = T("Choose Film", "切换胶片", "切換膠片")
+        let spokenTitle = name.map { "\(title), \($0)" } ?? title
         return Button { showingFilm = true } label: {
             if detailWindowSize.width >= (placement == .top ? 810 : 510) {
                 Label {
@@ -357,10 +358,10 @@ struct MobilePhotoDetail: View {
                 }
                 .labelStyle(.titleAndIcon)
             } else {
-                Label(title, systemImage: "film")
+                Label(spokenTitle, systemImage: "film")
             }
         }
-        .accessibilityLabel(title)
+        .accessibilityLabel(spokenTitle)
         .accessibilityValue(name ?? "")
         .accessibilityIdentifier("photo-detail.film")
         .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
@@ -402,18 +403,23 @@ struct MobilePhotoDetail: View {
             dateItem(photo).axisBehavior(.horizontalOnly)
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
-            ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-            // Duo's status indicators can take up the right side of this row.
-            // Keep the independent native controls together without spacers.
-            if !isDuo && placement != .duoPortrait {
+            if isDuo || placement == .duoPortrait {
+                // The status area limits the ordinary trailing placement.
+                // Pin the native group on Duo instead of letting individual
+                // controls disappear into navigation overflow.
+                ToolbarItemGroup(placement: .topBarPinnedTrailing) {
+                    rating(photo)
+                    flag(photo)
+                    filmButton(photo)
+                }
+                .axisBehavior(.horizontalOnly)
+                .visibilityPriority(.init(higherThan: .high))
+            } else {
+                ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
-            }
-            flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-            if !isDuo && placement != .duoPortrait {
+                flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
-            }
-            filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-            if !isDuo && placement != .duoPortrait {
+                filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             }
         } else if #available(iOS 26.0, *) {

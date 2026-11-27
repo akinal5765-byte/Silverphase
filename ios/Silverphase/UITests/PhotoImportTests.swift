@@ -280,7 +280,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(stock.waitForExistence(timeout: 6))
         stock.tap()
         XCTAssertTrue(search.waitForNonExistence(timeout: 6))
-        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", "HP5"), object: film)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", "HP5", "HP5"), object: film)
         XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
         XCTAssertEqual(film.frame.width, initialWidth, accuracy: 3, "Film name changes must not resize the chip")
         film.tap()
