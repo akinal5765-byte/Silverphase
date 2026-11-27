@@ -78,6 +78,26 @@ enum MobileLockedCameraChecks {
                         "Flat posture must not enter tabletop camera")
             checks.append("unfolded Duo orientation selection and system division geometry for tabletop vs book/flat")
 
+            var browse = MobileCameraFilmPreviewSelection()
+            let beforePicker = browse.generation
+            browse.browse("grain", from: beforePicker)
+            try require(browse.browsingID == "grain", "A drag can preview its current detent")
+            browse.reset()
+            let whilePickerVisible = browse.generation
+            try require(browse.browsingID == nil && !browse.accepts(beforePicker),
+                        "Opening the picker revokes the old carousel and clears its preview")
+            browse.reset()
+            let afterPicker = browse.generation
+            browse.browse("mono", from: beforePicker)
+            browse.browse("blue", from: whilePickerVisible)
+            try require(browse.browsingID == nil, "Delayed scroll events cannot override a catalogue choice")
+            browse.browse("new stock", from: afterPicker)
+            browse.browse(nil, from: beforePicker)
+            try require(browse.browsingID == "new stock", "Old animation cleanup cannot clear a newer drag")
+            browse.browse(nil, from: afterPicker)
+            try require(browse.browsingID == nil, "Current carousel can return control to the committed film")
+            checks.append("camera film preview ownership across picker and wheel handoff")
+
             let wheel = MobileWaistFilmTrack(count: 27)
             let last = 26
             try require(wheel.index(at: last + 1) == 0 && wheel.index(at: last + 2) == 1 &&

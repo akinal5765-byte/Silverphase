@@ -128,6 +128,25 @@ enum MobileCameraViewfinderGeometry {
     }
 }
 
+/// The carousel may still emit events from its previous drag or coast after
+/// the catalogue takes control. Only the current generation can supply a look.
+struct MobileCameraFilmPreviewSelection {
+    private(set) var generation: UInt64 = 0
+    private(set) var browsingID: String?
+
+    func accepts(_ source: UInt64) -> Bool { source == generation }
+
+    mutating func browse(_ id: String?, from source: UInt64) {
+        guard accepts(source) else { return }
+        browsingID = id
+    }
+
+    mutating func reset() {
+        generation &+= 1
+        browsingID = nil
+    }
+}
+
 /// A logical track in units of covers, independent of aperture width and
 /// screen origin. Crossing either catalog end only wraps the artwork index.
 struct MobileWaistFilmTrack {

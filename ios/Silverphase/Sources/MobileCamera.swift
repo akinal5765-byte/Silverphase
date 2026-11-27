@@ -61,7 +61,7 @@ struct MobileCameraView: View {
     @State private var lookFrame: MobileCameraLookResult?
     @State private var lookUnavailable = false
     @State private var quickFilmWheelMounted = false
-    @State private var scrubFilmID: String?
+    @State private var filmPreviewSelection = MobileCameraFilmPreviewSelection()
     @AppStorage("mobile.camera.metering") private var metering = MobileMeteringMode.center_weighted
     @AppStorage("mobile.camera.diffusion") private var diffusion = MobileDiffusionFilter.off
     @AppStorage("mobile.camera.goldenGrid") private var showsGoldenGrid = true
@@ -220,7 +220,7 @@ struct MobileCameraView: View {
 
     private var previewRecipe: MobileCameraRecipe {
         var recipe = captureRecipe
-        if followsQuickFilmPreview, let scrubFilmID { recipe.filmID = scrubFilmID }
+        if followsQuickFilmPreview, let id = filmPreviewSelection.browsingID { recipe.filmID = id }
         return recipe
     }
 
@@ -387,10 +387,10 @@ struct MobileCameraView: View {
             }
             .onChange(of: rail != nil && film != nil, initial: true) { _, mounted in
                 quickFilmWheelMounted = mounted
-                if !mounted { scrubFilmID = nil }
+                if !mounted { filmPreviewSelection.reset() }
             }
-            .onChange(of: landscape != nil) { _, _ in scrubFilmID = nil }
-            .onChange(of: previewMode) { _, _ in scrubFilmID = nil }
+            .onChange(of: landscape != nil) { _, _ in filmPreviewSelection.reset() }
+            .onChange(of: previewMode) { _, _ in filmPreviewSelection.reset() }
             .environment(\.layoutDirection, .leftToRight)
         }
     }
@@ -473,11 +473,15 @@ struct MobileCameraView: View {
 
     @ViewBuilder private func quickFilmWheel(expandedDepth: Bool) -> some View {
         if let film, !films.isEmpty {
+            let generation = filmPreviewSelection.generation
             MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress,
-                                 presentation: .wallet, expandedDepth: expandedDepth, preview: { id in
-                scrubFilmID = followsQuickFilmPreview && !shotInProgress ? id : nil
+                                 presentation: .wallet, expandedDepth: expandedDepth,
+                                 previewGeneration: generation, preview: { id in
+                guard followsQuickFilmPreview, !shotInProgress, !showingFilms else { return }
+                filmPreviewSelection.browse(id, from: generation)
             }) { id in
-                guard !shotInProgress, id != self.film?.id else { return }
+                guard !shotInProgress, !showingFilms, filmPreviewSelection.accepts(generation),
+                      id != self.film?.id else { return }
                 filmID = id
             }
         }
@@ -627,10 +631,20 @@ struct MobileCameraView: View {
             }
             var previousSerial: UInt64?
             var previousRecipe: MobileCameraRecipe?
+            var failedFilmLook: MobileCameraRecipe?
             do {
                 while !Task.isCancelled, lookTaskRequest == request {
                     // One render at a time: skip detents already passed instead of queuing them.
                     let recipe = previewRecipe
+                    let requestedFilmLook = recipe.withoutExposureCompensation
+                    if let failure = failedFilmLook {
+                        if requestedFilmLook == failure {
+                            try await Task.sleep(for: .milliseconds(30))
+                            continue
+                        }
+                        failedFilmLook = nil
+                        lookUnavailable = false
+                    }
                     guard previewing, !changingPhysicalLens,
                           let frame = camera.lookFrames.latest(),
                           frame.serial != previousSerial || recipe != previousRecipe else {
@@ -655,12 +669,19 @@ struct MobileCameraView: View {
                         try Task.checkCancellation()
                         // A failed cold table for a detent already passed must
                         // not shut down the preview for the next stock.
-                        if lookTaskRequest == request, recipe.withoutExposureCompensation != lookRequest { continue }
+                        if lookTaskRequest == request, requestedFilmLook != lookRequest { continue }
+                        if mode == .approximate, followsQuickFilmPreview, lookTaskRequest == request {
+                            failedFilmLook = requestedFilmLook
+                            lookUnavailable = true
+                            Logger(subsystem: "com.silverphase.editor", category: "CameraLook")
+                                .error("Film choice preview unavailable: \(error.localizedDescription, privacy: .public)")
+                            continue
+                        }
                         throw error
                     }
                     try Task.checkCancellation()
                     guard lookTaskRequest == request, previewMode == mode else { return }
-                    guard recipe.withoutExposureCompensation == lookRequest else { continue }
+                    guard requestedFilmLook == lookRequest else { continue }
                     guard result.sourceGeneration == camera.lookFrames.currentGeneration() else { continue }
                     // Discard in-flight look frames made for the previous display angle.
                     // The native preview stays underneath during the transition.
@@ -1112,6 +1133,7 @@ struct MobileCameraView: View {
 
 #if SILVERPHASE_APP
     private func setFilmPicker(_ visible: Bool) {
+        if visible != showingFilms { filmPreviewSelection.reset() }
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { showingFilms = visible }
     }
 
@@ -1884,9 +1906,9 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
         // If the shutter interrupts browsing, use the last film actually
         // shown, not a detent whose colour table has not finished rendering.
-        if followsQuickFilmPreview, scrubFilmID != nil {
+        if followsQuickFilmPreview, filmPreviewSelection.browsingID != nil {
             if let visibleID = displayedLookFrame?.recipe.filmID { filmID = visibleID }
-            scrubFilmID = nil
+            filmPreviewSelection.reset()
         }
         let selectedFilm = film
         shotQuarterTurn = followsInterface ? interfaceQuarterTurn
@@ -2077,11 +2099,13 @@ private struct MobileWaistFilmWheel: View {
     let select: (String) -> Void
     let presentation: Presentation
     let expandedDepth: Bool
+    let previewGeneration: UInt64
     let preview: (String?) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var tracking = false
     @State private var browsingFilmPreview = false
+    @State private var previewingTappedFilm = false
     @State private var restingSlot: Int
     @State private var grab: MobileWaistFilmTrack.Grab?
     @State private var grabBegan: TimeInterval?
@@ -2099,13 +2123,14 @@ private struct MobileWaistFilmWheel: View {
     private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
 
     init(stocks: [Stock], selectedID: String, enabled: Bool, presentation: Presentation = .rack,
-         expandedDepth: Bool = false, preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
+         expandedDepth: Bool = false, previewGeneration: UInt64 = 0, preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
         self.stocks = stocks
         self.selectedID = selectedID
         self.enabled = enabled
         self.select = select
         self.presentation = presentation
         self.expandedDepth = expandedDepth
+        self.previewGeneration = previewGeneration
         self.preview = preview
         _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
     }
@@ -2120,7 +2145,9 @@ private struct MobileWaistFilmWheel: View {
                 if presentation == .wallet {
                     let previewID = browsingFilmPreview ? stocks[track.index(at: track.nearestSlot(to: position))].id : nil
                     wallet(MobileWaistFilmTrack.Wallet(size: geometry.size, expandedDepth: expandedDepth), coordinate: position, reveal: 1 - phase)
-                        .onChange(of: previewID) { _, id in preview(id) }
+                        .onChange(of: previewID) { _, id in
+                            if browsingFilmPreview, let id { preview(id) }
+                        }
                 } else {
                     strip(aperture, coordinate: position, fold: phase)
                 }
@@ -2132,8 +2159,8 @@ private struct MobileWaistFilmWheel: View {
         .accessibilityAdjustableAction { direction in
             let from = track.nearestSlot(to: currentPosition(at: ProcessInfo.processInfo.systemUptime))
             switch direction {
-            case .increment: snap(to: from + 1)
-            case .decrement: snap(to: from - 1)
+            case .increment: presentation == .wallet ? moveWallet(to: from + 1) : snap(to: from + 1)
+            case .decrement: presentation == .wallet ? moveWallet(to: from - 1) : snap(to: from - 1)
             @unknown default: break
             }
         }
@@ -2154,6 +2181,7 @@ private struct MobileWaistFilmWheel: View {
         .onChange(of: reduceMotion) { _, reduced in
             if reduced { fold = nil }
         }
+        .onChange(of: previewGeneration) { _, _ in synchronizeSelection(force: true) }
         .onChange(of: selectedID) { _, _ in synchronizeSelection() }
         .onChange(of: enabled) { _, active in
             if !active {
@@ -2297,6 +2325,10 @@ private struct MobileWaistFilmWheel: View {
     }
 
     private func moveWallet(to slot: Int) {
+        guard enabled else { return }
+        browsingFilmPreview = false
+        previewingTappedFilm = true
+        preview(stocks[track.index(at: slot)].id)
         let now = ProcessInfo.processInfo.systemUptime
         let position = currentPosition(at: now)
         if abs(CGFloat(slot) - position) > 0.001 { setFold(1, at: now) }
@@ -2371,6 +2403,7 @@ private struct MobileWaistFilmWheel: View {
                     let takeover = motion != nil || fold?.destination == 0
                     grab = MobileWaistFilmTrack.Grab(position: current, translation: takeover ? travel : 0, pitch: pitch)
                     grabBegan = now
+                    previewingTappedFilm = false
                     browsingFilmPreview = presentation == .wallet
                     lastDetent = track.nearestSlot(to: current)
                     lastTickTime = -.infinity
@@ -2459,14 +2492,15 @@ private struct MobileWaistFilmWheel: View {
     }
 
     private func endBrowsingFilmPreview() {
-        guard browsingFilmPreview else { return }
+        guard browsingFilmPreview || previewingTappedFilm else { return }
         browsingFilmPreview = false
+        previewingTappedFilm = false
         preview(nil)
     }
 
-    private func synchronizeSelection() {
+    private func synchronizeSelection(force: Bool = false) {
         guard let index = stocks.firstIndex(where: { $0.id == selectedID }),
-              track.index(at: restingSlot) != index else { return }
+              force || track.index(at: restingSlot) != index else { return }
         endBrowsingFilmPreview()
         guard enabled else {
             restingSlot = track.closestSlot(of: index, to: restingSlot)

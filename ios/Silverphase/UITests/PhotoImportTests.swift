@@ -685,6 +685,9 @@ final class PhotoImportTests: XCTestCase {
         assertWalletSelection(wheel: wheel, front: centerFilm, differentFrom: before)
 
         let previous = plainWalletFilmName(centerFilm.label)
+        // Open the catalogue without first waiting for this swipe to settle.
+        // Its choice must remain selected when the previous coast ends.
+        swipeWallet(wheel: wheel, front: centerFilm)
         app.buttons["camera.film"].tap()
         let choices = app.buttons.matching(NSPredicate(
             format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
