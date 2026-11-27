@@ -108,35 +108,45 @@ struct MobilePhotoInfoPage: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: EditorDesign.contentInset) {
-                    header
-                    if let loaded {
-                        capture(loaded)
-                    } else {
-                        ProgressView().frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityLabel(T("Reading photo information", "正在读取照片信息", "正在讀取照片資訊"))
-                    }
-                    section(T("Original file", "原始文件", "原始檔案"), icon: "doc", rows: fileRows)
-                    recipe
+        ScrollView {
+            VStack(alignment: .leading, spacing: EditorDesign.contentInset) {
+                header
+                if let loaded {
+                    capture(loaded)
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel(T("Reading photo information", "正在读取照片信息", "正在讀取照片資訊"))
                 }
-                .frame(maxWidth: 600)
-                .padding(.horizontal, EditorDesign.contentInset)
-                .padding(.vertical, EditorDesign.contentInset)
-                .frame(maxWidth: .infinity)
+                section(T("Original file", "原始文件", "原始檔案"), icon: "doc", rows: fileRows)
+                recipe
             }
-            .accessibilityIdentifier("photo-info.scroll")
-            .mobilePageBackground()
-            .navigationTitle(T("Photo Info", "照片信息", "照片資訊"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(T("Done", "完成", "完成"), action: onDone)
-                        .accessibilityIdentifier("photo-info.done")
-                }
-            }
+            .frame(maxWidth: 600)
+            .padding(.horizontal, EditorDesign.contentInset)
+            .padding(.vertical, EditorDesign.contentInset)
+            .frame(maxWidth: .infinity)
         }
+        .accessibilityIdentifier("photo-info.scroll")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Text(T("Photo Info", "照片信息", "照片資訊"))
+                    .font(.headline).accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("photo-info.title")
+                Spacer(minLength: 12)
+                Button(T("Done", "完成", "完成"), action: onDone)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(MobileStyle.accent)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("photo-info.done")
+            }
+            .padding(.horizontal, EditorDesign.contentInset)
+            .padding(.vertical, 4)
+            .background(MobileStyle.canvas)
+            .overlay(alignment: .bottom) { Divider().accessibilityHidden(true) }
+        }
+        .accessibilityAction(.escape) { onDone() }
+        .mobilePageBackground()
         .presentationBackground(MobileStyle.canvas)
         .task(id: originalURL) {
             loaded = nil

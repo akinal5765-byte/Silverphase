@@ -76,7 +76,7 @@ final class PhotoImportTests: XCTestCase {
         }
         XCTAssertTrue(film.exists)
         app.buttons["photo-detail.info"].tap()
-        XCTAssertTrue(app.navigationBars["Photo Info"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["photo-info.title"].waitForExistence(timeout: 6))
         app.buttons["photo-info.done"].tap()
         app.buttons["photo-detail.back"].tap()
         XCTAssertTrue(source.waitForExistence(timeout: 8))
