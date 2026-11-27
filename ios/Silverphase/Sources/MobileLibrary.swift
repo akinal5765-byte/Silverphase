@@ -370,19 +370,8 @@ struct MobileLibrary: View {
     }
 
     private func infoPage(_ photo: MobilePhoto, onDone: @escaping () -> Void) -> some View {
-        NavigationStack {
-            Form {
-                LabeledContent(T("File name", "文件名", "檔案名"), value: photo.name)
-                LibraryFormatBadge(identifier: photo.sourceTypeIdentifier, original: document.url(for: photo))
-                if !photo.exifSummary.isEmpty { Text(photo.exifSummary).foregroundStyle(.secondary) }
-            }
-            .mobilePageBackground()
-            .navigationTitle(T("Photo Info", "照片信息", "照片資訊"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button(T("Done", "完成", "完成"), action: onDone) }
-            }
-        }.presentationBackground(MobileStyle.canvas)
+        MobilePhotoInfoPage(photo: photo, originalURL: document.url(for: photo),
+                            thumbnailURL: cameraThumbnail(for: photo), onDone: onDone)
     }
 
     @ViewBuilder private var libraryTopBar: some View {

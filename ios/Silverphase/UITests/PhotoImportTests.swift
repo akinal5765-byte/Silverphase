@@ -1,6 +1,43 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testPhotoInfoShowsOriginalMetadataAndOmitsMissingCaptureFields() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                               "--library-photo-info-fixture", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        func info(_ id: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "photo-info." + id).firstMatch
+        }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 15))
+        source.tap()
+        let infoButton = app.buttons["photo-detail.info"]
+        XCTAssertTrue(infoButton.waitForExistence(timeout: 6))
+        infoButton.tap()
+        XCTAssertTrue(info("filename").waitForExistence(timeout: 6))
+        XCTAssertTrue(info("camera").waitForExistence(timeout: 6))
+        XCTAssertTrue(info("camera").label.contains("Example Camera Co. M1"))
+        XCTAssertTrue(info("iso").label.contains("400"))
+        XCTAssertTrue(info("shutter").label.contains("1/125"))
+        let scroll = app.scrollViews["photo-info.scroll"]
+        scroll.swipeUp()
+        XCTAssertTrue(info("dimensions").label.contains("96 × 64"))
+        XCTAssertTrue(info("size").exists)
+        XCTAssertTrue(info("film").exists)
+        app.buttons["photo-info.done"].tap()
+        app.buttons["photo-detail.back"].tap()
+        let png = app.buttons["library.photo.目标 A"]
+        XCTAssertTrue(png.waitForExistence(timeout: 8))
+        png.tap()
+        XCTAssertTrue(infoButton.waitForExistence(timeout: 6))
+        infoButton.tap()
+        XCTAssertTrue(info("dimensions").waitForExistence(timeout: 6))
+        XCTAssertFalse(info("camera").exists)
+        XCTAssertFalse(info("iso").exists)
+    }
+
     @MainActor func testPhotoDetailToolsAndDynamicFormatFilter() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
@@ -40,7 +77,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(film.exists)
         app.buttons["photo-detail.info"].tap()
         XCTAssertTrue(app.navigationBars["Photo Info"].waitForExistence(timeout: 6))
-        app.buttons["Done"].tap()
+        app.buttons["photo-info.done"].tap()
         app.buttons["photo-detail.back"].tap()
         XCTAssertTrue(source.waitForExistence(timeout: 8))
         app.buttons["library.menu"].tap()
