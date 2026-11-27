@@ -2178,12 +2178,15 @@ private struct MobileWaistFilmWheel: View {
                 ForEach(slots, id: \.self) { slot in
                     let stock = stocks[track.index(at: slot)]
                     let relative = CGFloat(slot) - coordinate
-                    let card = layout.card(at: relative, reveal: reveal, reduceMotion: reduceMotion)
+                    let card = layout.card(at: relative, reveal: reveal)
                     let chosen = slot == restingSlot && motion == nil && fingerPosition == nil
                     Button { moveWallet(to: slot) } label: {
                         cover(stock, width: card.frame.width, height: card.frame.height)
                             .background(.black, in: MobileWaistFilmTrack.CoverPose.outline)
                             .overlay {
+                                MobileWaistFilmTrack.CoverPose.outline
+                                    .fill(.black.opacity(card.shade))
+                                    .allowsHitTesting(false)
                                 if chosen {
                                     MobileWaistFilmTrack.CoverPose.outline
                                         .strokeBorder(MobileStyle.accent.opacity(reveal), lineWidth: 2)
@@ -2212,7 +2215,6 @@ private struct MobileWaistFilmWheel: View {
                     .accessibilityAddTraits(chosen ? .isSelected : [])
                     .accessibilityIdentifier("camera.waist-film.\(slot - focused)")
                     .accessibilityHidden(card.opacity < 0.45)
-                    .projectionEffect(card.transform)
                     .opacity(card.opacity)
                     .position(x: card.frame.midX, y: card.frame.midY)
                     .zIndex(Double(slot - focused))
@@ -2249,9 +2251,9 @@ private struct MobileWaistFilmWheel: View {
         let position = currentPosition(at: now)
         let reveal = 1 - foldAmount(at: now)
         for slot in layout.slots(at: position, count: stocks.count).reversed() {
-            let card = layout.card(at: CGFloat(slot) - position, reveal: reveal, reduceMotion: reduceMotion)
-            if card.opacity >= 0.35, let local = card.localPoint(point),
-               MobileWaistFilmTrack.CoverPose.outline.path(in: CGRect(origin: .zero, size: card.frame.size)).contains(local) {
+            let card = layout.card(at: CGFloat(slot) - position, reveal: reveal)
+            if card.opacity >= 0.35,
+               MobileWaistFilmTrack.CoverPose.outline.path(in: card.frame).contains(point) {
                 moveWallet(to: slot)
                 return
             }
@@ -2411,19 +2413,6 @@ private struct MobileWaistFilmWheel: View {
         // Index selection stays committed to the picker; only presentation moves.
         if abs(current - CGFloat(nearest)) > 0.001 { setFold(1, at: now) }
         snap(to: nearest, from: current)
-    }
-}
-
-extension MobileWaistFilmTrack.Wallet.Card {
-    var transform: ProjectionTransform {
-        let q = 2 * perspective / frame.height
-        var projection = ProjectionTransform()
-        projection.m11 = 1 - perspective
-        projection.m21 = frame.width / 2 * q
-        projection.m22 = 1 + perspective
-        projection.m23 = q
-        projection.m33 = 1 - perspective
-        return projection
     }
 }
 
