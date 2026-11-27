@@ -100,7 +100,7 @@ final class PhotoImportTests: XCTestCase {
         }
         let layout = app.buttons["photo-detail.edit"].frame.midY
         let film = app.descendants(matching: .any).matching(identifier: "photo-detail.film").firstMatch
-        if UIDevice.current.userInterfaceIdiom == .pad {
+        if UIDevice.current.userInterfaceIdiom == .pad && app.frame.width >= 1_050 {
             XCTAssertLessThan(layout, app.frame.height * 0.38)
         } else {
             XCTAssertGreaterThan(layout, app.frame.height * 0.62)
@@ -224,6 +224,20 @@ final class PhotoImportTests: XCTestCase {
             XCTAssertTrue(app.buttons["photo-detail." + id].isHittable, id)
         }
         XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists)
+        XCTAssertLessThan(film.frame.midY, app.frame.height * 0.25)
+        let actions = ["export", "menu", "info", "edit", "delete"].map { app.buttons["photo-detail." + $0] }
+        for action in actions {
+            if app.frame.width >= 1_050 {
+                XCTAssertLessThan(action.frame.midY, app.frame.height * 0.25)
+            } else {
+                XCTAssertGreaterThan(action.frame.midY, app.frame.height * 0.75)
+            }
+        }
+        if app.frame.width < 1_050 {
+            for (left, right) in zip(actions, actions.dropFirst()) {
+                XCTAssertLessThan(left.frame.midX, right.frame.midX)
+            }
+        }
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = "iPad film label " + String(orientation.rawValue)
         shot.lifetime = .keepAlways
@@ -298,7 +312,7 @@ final class PhotoImportTests: XCTestCase {
             } else {
                 XCTAssertLessThanOrEqual(initialWidth, 48, "A tight toolbar uses an icon-only item")
             }
-        } else if UIDevice.current.userInterfaceIdiom == .pad, app.frame.width >= 810 {
+        } else if UIDevice.current.userInterfaceIdiom == .pad, app.frame.width >= 680 {
             XCTAssertGreaterThan(initialWidth, 148)
         } else {
             XCTAssertTrue((32...48).contains(initialWidth) || (138...172).contains(initialWidth),

@@ -57,6 +57,8 @@ struct MobilePhotoDetail: View {
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
     private static let titledFilmLabelWidth: CGFloat = 108
+    private static let toolbarFilmSymbolSize: CGFloat = 22
+    private static let iPadFullToolbarMinimumWidth: CGFloat = 1_050
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -64,7 +66,8 @@ struct MobilePhotoDetail: View {
     private var showsControls: Bool { chromeVisible && !pulling }
 
     private enum HingeReading { case pending, measured(Bool?) }
-    private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait }
+    private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait, iPadCompact }
+    private var usesSpreadPhotoActions: Bool { placement == .duoPortrait || placement == .iPadCompact }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
         switch hinge {
@@ -81,7 +84,9 @@ struct MobilePhotoDetail: View {
 #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("--gallery-duo-portrait-layout") { return .duoPortrait }
 #endif
-        if UIDevice.current.userInterfaceIdiom == .pad { return .top }
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            return detailWindowSize.width >= Self.iPadFullToolbarMinimumWidth ? .top : .iPadCompact
+        }
         let closed = hingeClosed
         if #available(iOS 27.1, *), let closed {
             let size = detailWindowSize
@@ -134,7 +139,7 @@ struct MobilePhotoDetail: View {
                     .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailNoScrollMask())
-                    .modifier(DetailToolbarAxis(usesTop: placement == .top || placement == .duoPortrait))
+                    .modifier(DetailToolbarAxis(usesTop: placement == .top || usesSpreadPhotoActions))
             } else {
                 Button(backLabel, action: onPullDismiss)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -351,7 +356,7 @@ struct MobilePhotoDetail: View {
     }
 
     private var hostedFilmLabelSize: CGSize? {
-        if placement == .top && detailWindowSize.width >= 810 {
+        if UIDevice.current.userInterfaceIdiom == .pad && detailWindowSize.width >= 680 {
             // iPad has room for a longer name, but its top-row glass is shorter.
             return CGSize(width: 148, height: 28)
         }
@@ -373,7 +378,7 @@ struct MobilePhotoDetail: View {
                     Button { showingFilm = true } label: {
                         HStack(spacing: 7) {
                             Image(systemName: "film")
-                                .font(.system(size: EditorDesign.glyphSize))
+                                .font(.system(size: Self.toolbarFilmSymbolSize))
                             Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
                                 .lineLimit(1).truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -391,7 +396,7 @@ struct MobilePhotoDetail: View {
             } else {
                 Button { showingFilm = true } label: {
                     let minimumWidth: CGFloat = switch placement {
-                    case .top: 810
+                    case .top, .iPadCompact: 680
                     case .systemSide: 430
                     case .bottom, .duoPortrait: 510
                     }
@@ -462,7 +467,7 @@ struct MobilePhotoDetail: View {
             } else {
                 filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
             }
-            if placement != .duoPortrait {
+            if !usesSpreadPhotoActions {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             }
         } else if #available(iOS 26.0, *) {
@@ -476,7 +481,7 @@ struct MobilePhotoDetail: View {
             } else {
                 filmItem(photo)
             }
-            if placement != .duoPortrait { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
+            if !usesSpreadPhotoActions { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
         } else {
             dateItem(photo)
             ratingItem(photo)
@@ -515,16 +520,16 @@ struct MobilePhotoDetail: View {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
         } else {
-            if placement != .duoPortrait {
+            if !usesSpreadPhotoActions {
                 ToolbarItem(placement: .topBarTrailing) { more(photo) }
             }
             ToolbarItemGroup(placement: .bottomBar) {
                 exportTool(photo)
                 Spacer()
-                if placement == .duoPortrait { more(photo) }
+                if usesSpreadPhotoActions { more(photo) }
                 infoTool(photo)
                 editTool(photo)
-                if placement == .duoPortrait { Spacer() }
+                if usesSpreadPhotoActions { Spacer() }
                 deleteTool(photo)
             }
         }
