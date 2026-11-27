@@ -350,20 +350,38 @@ struct MobileWaistFilmTrack {
         struct Card {
             let frame: CGRect
             let opacity: Double
+            let perspective: CGFloat
+
+            /// Invert the vertical projective transform in panel coordinates.
+            func localPoint(_ point: CGPoint) -> CGPoint? {
+                let x = point.x - frame.minX
+                let y = point.y - frame.minY
+                let q = 2 * perspective / frame.height
+                let divisor = 1 + perspective - q * y
+                guard divisor > 0 else { return nil }
+                let sourceY = y * (1 - perspective) / divisor
+                let depth = 1 - perspective + q * sourceY
+                let sourceX = (x * depth - frame.width / 2 * q * sourceY) / (1 - perspective)
+                return CGPoint(x: sourceX, y: sourceY)
+            }
         }
 
-        func card(at relative: CGFloat, reveal: CGFloat) -> Card {
+        func card(at relative: CGFloat, reveal: CGFloat, reduceMotion: Bool = false) -> Card {
             let progress = min(1, max(0, (relative + 5.5) / 7.8))
             let peak = max(0, 1 - abs(relative))
             let pop = peak * peak * reveal
-            let width = fullWidth * (0.53 + 0.47 * progress + 0.038 * pop)
+            let width = fullWidth * (0.44 + 0.56 * progress + 0.06 * pop)
             let height = width * 9 / 16
             let travel = max(0, laneHeight - fullWidth * 9 / 16 - 15)
-            let upper = 8 + travel * pow(progress, 1.8) - min(9, travel * 0.12) * pop
-            let revealX = min(14, size.width * 0.04) * pop
-            let alpha = min(1, max(0, (relative + 5.65) / 1.10), max(0, (2.42 - relative) / 0.95))
+            let upper = 8 + travel * pow(progress, 1.72) - min(22, travel * 0.28) * pop
+            let revealX = min(27, size.width * 0.07) * pop
+            // Only the edge slots fade in transit. At a detent the five
+            // visible back/selected sleeves and the front sleeve are opaque.
+            let edge = min(1, max(0, relative + 5), max(0, 2 - relative))
+            let alpha = edge * edge * (3 - 2 * edge)
+            let perspective = reduceMotion ? 0 : 0.024 + 0.132 * progress - 0.035 * pop
             return Card(frame: CGRect(x: (size.width - width) / 2 + revealX, y: upper,
-                                      width: width, height: height), opacity: Double(alpha))
+                                      width: width, height: height), opacity: Double(alpha), perspective: perspective)
         }
 
         func slots(at coordinate: CGFloat, count: Int) -> ClosedRange<Int> {

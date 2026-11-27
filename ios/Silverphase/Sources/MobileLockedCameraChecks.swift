@@ -304,6 +304,16 @@ enum MobileLockedCameraChecks {
                 try require(selected.midX > retracted.midX && selected.minY < retracted.minY &&
                             selected.intersects(front) && front.minY - selected.minY > 8,
                             "The selected film peeks out as the second sleeve without clearing the front sleeve")
+                for slot in -6...3 {
+                    let card = stack.card(at: CGFloat(slot), reveal: 1)
+                    try require(card.opacity == ((-4...1).contains(slot) ? 1 : 0),
+                                "Stationary sleeves show opaque faces, with no ghost in front or behind")
+                }
+                let distant = stack.card(at: -3, reveal: 1)
+                let foreground = stack.card(at: 1, reveal: 1)
+                try require(foreground.perspective > distant.perspective &&
+                            stack.card(at: 1, reveal: 1, reduceMotion: true).perspective == 0,
+                            "Near cards visibly converge more; Reduce Motion flattens them")
                 for step in -32...32 {
                     let coordinate = CGFloat(step) / 32
                     for count in [1, 2, 5, 9, 14] {
@@ -317,6 +327,13 @@ enum MobileLockedCameraChecks {
                                         card.frame.minX >= 0 && card.frame.maxX <= size.width &&
                                         abs(card.frame.width / card.frame.height - 16.0 / 9.0) < 0.00001,
                                         "Wallet sleeves stay within the wide panel and preserve the film cover ratio")
+                            let inner = CGPoint(x: 0.72 * card.frame.width, y: 0.80 * card.frame.height)
+                            let drawn = inner.applying(card.transform)
+                            let panel = CGPoint(x: drawn.x + card.frame.minX, y: drawn.y + card.frame.minY)
+                            let recovered = card.localPoint(panel)
+                            try require(abs((recovered?.x ?? -.infinity) - inner.x) < 0.00001 &&
+                                        abs((recovered?.y ?? -.infinity) - inner.y) < 0.00001,
+                                        "The projected and tappable card faces use the same mapping")
                         }
                     }
                 }
