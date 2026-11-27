@@ -53,7 +53,7 @@ struct MobilePhotoDetail: View {
     @State private var neighbors: [Int: DetailPageNeighbor] = [:]
     @State private var stripScrubbing = false
     @State private var stripProxyID: UUID?
-    @State private var filmstripItems: [DetailFilmstrip.Item] = []
+    @State private var pageIndexes: [UUID: Int] = [:]
     @State private var recentRenditions: [(key: URL, edge: Int, image: CGImage)] = []
     private static let stripBand: CGFloat = 58
     private static let titledFilmButtonWidth: CGFloat = 160
@@ -123,7 +123,7 @@ struct MobilePhotoDetail: View {
                            wantsNative: demand.nativeZoom)
     }
 
-    private var photo: MobilePhoto? { document.photos.first { $0.id == photoID } }
+    private var photo: MobilePhoto? { document.libraryPhoto(withID: photoID) }
     var body: some View {
         NavigationStack {
             if let photo {
@@ -280,12 +280,7 @@ struct MobilePhotoDetail: View {
         }
         .task(id: photoID) { await prepareNeighbors() }
         .task(id: photoIDs) {
-            let byID = Dictionary(uniqueKeysWithValues: document.photos.map { ($0.id, $0) })
-            filmstripItems = photoIDs.compactMap { byID[$0].map(stripItem) }
-        }
-        .onChange(of: document.libraryPreviewVersions[photoID]) { _, _ in
-            guard let photo, let index = filmstripItems.firstIndex(where: { $0.id == photoID }) else { return }
-            filmstripItems[index] = stripItem(photo)
+            pageIndexes = photoIDs.enumerated().reduce(into: [:]) { $0[$1.element] = $1.offset }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             recentRenditions.removeAll()
@@ -814,10 +809,12 @@ struct MobilePhotoDetail: View {
     }
 
     private func neighbor(_ step: Int) -> MobilePhoto? {
-        guard let index = photoIDs.firstIndex(of: photoID) else { return nil }
+        let cachedIndex = pageIndexes[photoID]
+        guard let index = cachedIndex.flatMap({ photoIDs.indices.contains($0) && photoIDs[$0] == photoID ? $0 : nil })
+            ?? photoIDs.firstIndex(of: photoID) else { return nil }
         var next = index + step
         while photoIDs.indices.contains(next) {
-            if let p = document.photos.first(where: { $0.id == photoIDs[next] }) { return p }
+            if let p = document.libraryPhoto(withID: photoIDs[next]) { return p }
             next += step
         }
         return nil
@@ -847,14 +844,18 @@ struct MobilePhotoDetail: View {
         photoID = target.id
     }
 
-    private func stripItem(_ photo: MobilePhoto) -> DetailFilmstrip.Item {
-        DetailFilmstrip.Item(id: photo.id, name: photo.name, previewURL: document.libraryPreviewURL(photo),
-                            sourceURL: document.url(for: photo), version: document.libraryPreviewVersions[photo.id, default: 0])
-    }
-
     private var filmstrip: some View {
-        DetailFilmstrip(items: filmstripItems, selection: photoID, reduceMotion: reduceMotion,
-                        onScrubbing: { stripScrubbing = $0 }) { id, image in
+        // Only the IDs are passed to UICollectionView. Invalidate visible
+        // cells on metadata and preview changes without copying the version map.
+        let preferences = document.preferences.values
+        let revision = DetailFilmstrip.ContentRevision(records: document.libraryPhotosRevision,
+            previews: document.libraryPreviewRevision, cropRemapsEffects: preferences.cropRemapsEffects,
+            diBlueCompensation: preferences.diBlueCompensation)
+        return DetailFilmstrip(photoIDs: photoIDs, contentRevision: revision, item: { id in
+            guard let photo = document.libraryPhoto(withID: id) else { return nil }
+            return DetailFilmstrip.Item(id: id, name: photo.name, previewURL: document.libraryPreviewURL(photo),
+                                        sourceURL: document.url(for: photo), version: document.libraryPreviewVersions[id, default: 0])
+        }, selection: photoID, reduceMotion: reduceMotion, onScrubbing: { stripScrubbing = $0 }) { id, image in
             guard photoID != id else { return }
             if let adjacent = neighbors.values.first(where: { $0.id == id })?.image {
                 preview = adjacent; previewID = id; stripProxyID = nil

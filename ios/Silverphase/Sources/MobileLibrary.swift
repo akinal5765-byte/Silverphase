@@ -43,38 +43,37 @@ struct MobileLibrary: View {
     @State private var copyRequest: MobileSettingsCopyRequest?
     @State private var deleting: Set<UUID> = []
     @State private var cellFrames: [UUID: CGRect] = [:]
+    @State private var gridCache = LibraryGridCache()
+    @State private var legacyDatesRevision: UInt64 = 0
 
-    private var filtered: [MobilePhoto] {
-        document.photos.filter {
-            $0.rating >= minimumRating && (flagFilter == "all" || $0.flag == flagFilter) &&
-            (!rawOnly || isRAW($0)) && (formatFilter == nil || Self.format(of: $0) == formatFilter) &&
-            (search.isEmpty || $0.name.localizedStandardContains(search))
-        }.sorted {
-            let lhs = $0.libraryDate ?? legacyPhotoDates[$0.id]?.date ?? .distantPast
-            let rhs = $1.libraryDate ?? legacyPhotoDates[$1.id]?.date ?? .distantPast
-            return newestFirst ? lhs > rhs : lhs < rhs
-        }
+    private var gridSnapshot: LibraryGridCache.Snapshot {
+        // Read the array to subscribe to record mutations even on cache hits.
+        let records = document.photos
+        let key = LibraryGridCache.Key(documentID: ObjectIdentifier(document), photosRevision: document.libraryPhotosRevision, dateRevision: legacyDatesRevision,
+                                       newestFirst: newestFirst, minimumRating: minimumRating, flag: flagFilter,
+                                       rawOnly: rawOnly, format: formatFilter, search: search)
+        return gridCache.snapshot(records: records, key: key, date: {
+            $0.libraryDate ?? legacyPhotoDates[$0.id]?.date ?? .distantPast
+        }, format: Self.format(of:), isRAW: isRAW)
     }
-    private var selected: [MobilePhoto] { document.photos.filter { document.selectedPhotoIDs.contains($0.id) } }
+    private var filtered: [MobilePhoto] { gridSnapshot.photos }
+    private var selected: [MobilePhoto] {
+        let ids = document.selectedPhotoIDs
+        guard !ids.isEmpty else { return [] }
+        return document.photos.filter { ids.contains($0.id) }
+    }
     private var headerPhoto: MobilePhoto? {
-        let photos = filtered
-        return photos.first { $0.id == visiblePhotoID } ?? photos.first
+        let snapshot = gridSnapshot
+        return visiblePhotoID.flatMap { snapshot.indexes[$0] }.map { snapshot.photos[$0] } ?? snapshot.photos.first
     }
-    private var legacyPhotoIDs: [UUID] {
-        document.photos.filter { $0.libraryDate == nil }.map(\.id)
-    }
+    private var legacyPhotoIDs: [UUID] { gridSnapshot.legacyDateIDs }
     private var canHandleCameraShortcut: Bool {
         MobileCameraLaunch.shared.pending && scenePhase == .active && !document.isInteractionLocked &&
             document.libraryReadError == nil && (editor != nil || !document.editorVisible) &&
             !pickingPhotos && !importing && settings == nil && about == nil && exportRequest == nil &&
             copyRequest == nil && photoInfo == nil && detail == nil && deleting.isEmpty
     }
-    private var newestPhoto: MobilePhoto? {
-        document.photos.reversed().max {
-            ($0.libraryDate ?? legacyPhotoDates[$0.id]?.date ?? .distantPast) <
-            ($1.libraryDate ?? legacyPhotoDates[$1.id]?.date ?? .distantPast)
-        }
-    }
+    private var newestPhoto: MobilePhoto? { gridSnapshot.newestPhoto }
 
     private func cameraThumbnail(for photo: MobilePhoto) -> URL {
         let preview = document.libraryPreviewURL(photo)
@@ -82,7 +81,8 @@ struct MobileLibrary: View {
     }
 
     private var libraryGrid: some View {
-        let photos = filtered
+        let snapshot = gridSnapshot
+        let photos = snapshot.photos
         return NavigationStack {
             ScrollView {
                 if let issue = document.libraryReadError {
@@ -116,7 +116,7 @@ struct MobileLibrary: View {
                         .onPreferenceChange(DetailGridTileFrames.self) { detailGridTiles = $0 }
                         .background {
                             LibrarySelectionGesture(enabled: document.isSelectingPhotos && !document.isInteractionLocked,
-                                ids: photos.map(\.id), frames: cellFrames, selection: document.selectedPhotoIDs,
+                                ids: snapshot.ids, frames: cellFrames, selection: document.selectedPhotoIDs,
                                 commit: { document.selectAllPhotos(Array($0)) })
                         }
                 }
@@ -154,16 +154,16 @@ struct MobileLibrary: View {
                 showingCamera = true
             }
         }
-        .onChange(of: photos.map(\.id)) { _, ids in document.restrictPhotoSelection(to: ids) }
+        .onChange(of: snapshot.ids) { _, ids in document.restrictPhotoSelection(to: ids) }
     }
 
     var body: some View {
         let presentations = libraryGrid
         .fullScreenCover(isPresented: $showingCamera) {
             MobileCameraView(initialHingeClosed: phoneHingeClosed, thumbnailForPhoto: { id in
-                                 document.photos.first { $0.id == id }.map(cameraThumbnail(for:))
+                                 document.libraryPhoto(withID: id).map(cameraThumbnail(for:))
                              }, libraryPhotoID: newestPhoto?.id, isReviewingPhoto: cameraDetail != nil,
-                             containsPhoto: { id in document.photos.contains { $0.id == id } },
+                             containsPhoto: { id in document.libraryPhoto(withID: id) != nil },
                              mirrorsFrontCamera: document.preferences.values.mirrorsFrontCamera,
                              prefersRAW: Binding(get: { document.preferences.values.prefersRAW },
                                                  set: { document.preferences.values.prefersRAW = $0 }),
@@ -257,7 +257,7 @@ struct MobileLibrary: View {
     }
 
     private var availableFormats: [String] {
-        Set(document.photos.compactMap(Self.format(of:))).sorted()
+        gridSnapshot.formats
     }
 
     private func showDetail(_ photo: MobilePhoto) {
@@ -277,7 +277,7 @@ struct MobileLibrary: View {
                 window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
             }
         }
-        let ids = filtered.map(\.id)
+        let ids = gridSnapshot.ids
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) {
@@ -430,6 +430,7 @@ struct MobileLibrary: View {
         }
         guard !Task.isCancelled else { return }
         legacyPhotoDates.merge(dates, uniquingKeysWith: { _, new in new })
+        legacyDatesRevision &+= 1
     }
 
     private var searchBar: some View {
@@ -601,7 +602,7 @@ struct MobileLibrary: View {
                 let all = selected.count == filtered.count && !filtered.isEmpty
                 Button {
                     if all { document.clearPhotoSelection() }
-                    else { document.selectAllPhotos(filtered.map(\.id)) }
+                    else { document.selectAllPhotos(gridSnapshot.ids) }
                 } label: {
                     Label(all ? T("Clear selection", "清空选择", "清空選擇") : T("Select all", "全选", "全選"), systemImage: all ? "xmark.square" : "checkmark.rectangle.stack")
                 }
@@ -849,5 +850,79 @@ private struct LibraryFormatBadge: View {
                     MobileImageMetadata.storedTypeIdentifier(original)
                 }.value
             }
+    }
+}
+
+
+/// Stores collection work outside SwiftUI's layout updates. A new filter can
+/// reuse the chronological ordering, while a frame/selection change needs neither.
+@MainActor final class LibraryGridCache {
+    struct Key: Equatable {
+        let documentID: ObjectIdentifier
+        let photosRevision: UInt64
+        let dateRevision: UInt64
+        let newestFirst: Bool
+        let minimumRating: Int
+        let flag: String
+        let rawOnly: Bool
+        let format: String?
+        let search: String
+
+        fileprivate var order: Order {
+            Order(documentID: documentID, photosRevision: photosRevision, dateRevision: dateRevision, newestFirst: newestFirst)
+        }
+    }
+
+    fileprivate struct Order: Equatable {
+        let documentID: ObjectIdentifier
+        let photosRevision: UInt64
+        let dateRevision: UInt64
+        let newestFirst: Bool
+    }
+
+    struct Snapshot {
+        let photos: [MobilePhoto]
+        let formats: [String]
+        let legacyDateIDs: [UUID]
+        let newestPhoto: MobilePhoto?
+        let ids: [UUID]
+        let indexes: [UUID: Int]
+    }
+
+    private var ordering: Order?
+    private var ordered: [MobilePhoto] = []
+    private var formatList: [String] = []
+    private var legacyDateIDs: [UUID] = []
+    private var newest: MobilePhoto?
+    private var formatsKey: (documentID: ObjectIdentifier, revision: UInt64)?
+    private var last: (key: Key, value: Snapshot)?
+
+    func snapshot(records: [MobilePhoto], key: Key, date: (MobilePhoto) -> Date,
+                  format: (MobilePhoto) -> String?, isRAW: (MobilePhoto) -> Bool) -> Snapshot {
+        if let last, last.key == key { return last.value }
+        if formatsKey?.documentID != key.documentID || formatsKey?.revision != key.photosRevision {
+            formatList = Set(records.compactMap(format)).sorted()
+            legacyDateIDs = records.filter { $0.libraryDate == nil }.map(\.id)
+            formatsKey = (key.documentID, key.photosRevision)
+        }
+        if ordering != key.order {
+            let dated = records.map { ($0, date($0)) }
+            ordered = dated.sorted { lhs, rhs in
+                key.newestFirst ? lhs.1 > rhs.1 : lhs.1 < rhs.1
+            }.map { $0.0 }
+            newest = dated.reversed().max(by: { $0.1 < $1.1 })?.0
+            ordering = key.order
+        }
+        let photos = ordered.filter { photo in
+            photo.rating >= key.minimumRating && (key.flag == "all" || photo.flag == key.flag) &&
+                (!key.rawOnly || isRAW(photo)) && (key.format == nil || format(photo) == key.format) &&
+                (key.search.isEmpty || photo.name.localizedStandardContains(key.search))
+        }
+        let ids = photos.map(\.id)
+        let indexes = ids.enumerated().reduce(into: [UUID: Int]()) { $0[$1.element] = $1.offset }
+        let value = Snapshot(photos: photos, formats: formatList, legacyDateIDs: legacyDateIDs,
+                             newestPhoto: newest, ids: ids, indexes: indexes)
+        last = (key, value)
+        return value
     }
 }
