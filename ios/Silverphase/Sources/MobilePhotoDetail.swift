@@ -377,18 +377,14 @@ struct MobilePhotoDetail: View {
     }
 
     private func filmTrigger<Label: View>(width: CGFloat, name: String?, @ViewBuilder label: () -> Label) -> some View {
-        let button = Button { showingFilm = true } label: { label() }
-        return Group {
-            if #available(iOS 26.0, *) {
-                button.buttonStyle(.glass).buttonBorderShape(width == EditorDesign.hitSize ? .circle : .capsule)
-            } else {
-                button.buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, minHeight: EditorDesign.hitSize)
-                    .modifier(ChromeSurface(radius: 22, interactive: true))
-            }
+        Button { showingFilm = true } label: {
+            label()
+                .padding(.horizontal, width == EditorDesign.hitSize ? 0 : EditorDesign.gutter)
+                .frame(width: width, height: EditorDesign.hitSize)
+                .contentShape(Capsule())
+                .modifier(DetailToolbarChipSurface())
         }
-        .controlSize(width == EditorDesign.hitSize ? .regular : .large)
-        .frame(width: width, height: EditorDesign.hitSize)
+        .buttonStyle(DetailToolbarChipPress())
         .fixedSize()
         .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
         .accessibilityValue(name ?? "")
@@ -915,8 +911,35 @@ struct MobilePhotoDetail: View {
         }
         .font(.caption.weight(.semibold))
         .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
-        .modifier(ChromeSurface(radius: 22, interactive: true))
+        .contentShape(Circle())
+        .modifier(DetailToolbarChipSurface())
+    }
+}
+
+// A toolbar item is hosted in a fixed-height native slot. Keep the material
+// inside that slot and let Menu / popover own the presentation animation,
+// rather than enlarging a second interactive glass effect in the label.
+private struct DetailToolbarChipSurface: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), !reduceTransparency {
+            content.glassEffect(.regular, in: .capsule)
+        } else if reduceTransparency {
+            content.background(MobileStyle.canvas, in: Capsule())
+        } else {
+            content.background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
+private struct DetailToolbarChipPress: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

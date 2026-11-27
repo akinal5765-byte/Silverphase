@@ -166,6 +166,43 @@ final class PhotoImportTests: XCTestCase {
     }
     #endif
 
+    @MainActor func testPhotoDetailToolbarMetadataMenusKeepTheirSlots() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let rating = app.buttons["photo-detail.rating"]
+        let flag = app.buttons["photo-detail.flag"]
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(rating.waitForExistence(timeout: 6))
+        XCTAssertTrue(flag.isHittable)
+        XCTAssertTrue(film.isHittable)
+        let controls = [rating, flag, film]
+        let frames = controls.map(\.frame)
+        rating.tap()
+        let threeStars = app.buttons["3 ★"]
+        XCTAssertTrue(threeStars.waitForExistence(timeout: 5))
+        threeStars.tap()
+        let rated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "3 / 5"), object: rating)
+        XCTAssertEqual(XCTWaiter.wait(for: [rated], timeout: 5), .completed)
+        flag.tap()
+        let pick = app.buttons["Pick"]
+        XCTAssertTrue(pick.waitForExistence(timeout: 5))
+        pick.tap()
+        XCTAssertTrue(pick.waitForNonExistence(timeout: 5))
+        for (control, frame) in zip(controls, frames) {
+            XCTAssertEqual(control.frame, frame, "Choosing an option must not resize or move the toolbar chip")
+        }
+        film.tap()
+        XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
+        app.buttons["photo-detail.film-close"].tap()
+        XCTAssertTrue(film.isHittable)
+    }
+
     @MainActor func testPhotoDetailFilmPickerSearchAndSelection() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
