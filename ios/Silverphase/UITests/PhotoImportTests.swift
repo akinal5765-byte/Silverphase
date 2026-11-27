@@ -192,6 +192,48 @@ final class PhotoImportTests: XCTestCase {
     }
     #endif
 
+    @MainActor func testIPadPortraitPhotoToolbarShowsFilmName() throws {
+        try verifyIPadPhotoToolbarShowsFilmName(.portrait)
+    }
+
+    @MainActor func testIPadLandscapePhotoToolbarShowsFilmName() throws {
+        try verifyIPadPhotoToolbarShowsFilmName(.landscapeLeft)
+    }
+
+    @MainActor private func verifyIPadPhotoToolbarShowsFilmName(_ orientation: UIDeviceOrientation) throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("iPad audit") }
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = orientation
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        XCUIDevice.shared.orientation = orientation
+        let oriented = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (app.frame.width > app.frame.height) == (orientation == .landscapeLeft)
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [oriented], timeout: 8), .completed)
+        source.tap()
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(film.waitForExistence(timeout: 6))
+        XCTAssertEqual(app.frame.width > app.frame.height, orientation == .landscapeLeft)
+        XCTAssertGreaterThan(film.frame.width, 148, "The iPad name needs more room than the Duo label")
+        for id in ["rating", "flag", "menu", "edit", "info", "export", "delete", "back"] {
+            XCTAssertTrue(app.buttons["photo-detail." + id].isHittable, id)
+        }
+        XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "iPad film label " + String(orientation.rawValue)
+        shot.lifetime = .keepAlways
+        add(shot)
+        film.tap()
+        XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
+        app.buttons["photo-detail.film-close"].tap()
+        XCTAssertTrue(film.isHittable)
+    }
+
     @MainActor func testPhotoDetailToolbarMetadataMenusKeepTheirSlots() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture",
@@ -256,6 +298,8 @@ final class PhotoImportTests: XCTestCase {
             } else {
                 XCTAssertLessThanOrEqual(initialWidth, 48, "A tight toolbar uses an icon-only item")
             }
+        } else if UIDevice.current.userInterfaceIdiom == .pad, app.frame.width >= 810 {
+            XCTAssertGreaterThan(initialWidth, 148)
         } else {
             XCTAssertTrue((32...48).contains(initialWidth) || (138...172).contains(initialWidth),
                           "The film item should be either icon-only or have room for its name")

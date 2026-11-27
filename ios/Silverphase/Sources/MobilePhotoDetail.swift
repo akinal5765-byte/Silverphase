@@ -350,15 +350,25 @@ struct MobilePhotoDetail: View {
         return placement == .systemSide && size.width > size.height && size.width >= 560
     }
 
+    private var hostedFilmLabelSize: CGSize? {
+        if placement == .top && detailWindowSize.width >= 810 {
+            // iPad has room for a longer name, but its top-row glass is shorter.
+            return CGSize(width: 148, height: 28)
+        }
+        if showsDuoLandscapeFilmName {
+            return CGSize(width: Self.titledFilmLabelWidth, height: 36)
+        }
+        return nil
+    }
+
     private func filmButton(_ photo: MobilePhoto) -> some View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
         let title = T("Choose Film", "切换胶片", "切換膠片")
         return Group {
-            if #available(iOS 27.1, *), showsDuoLandscapeFilmName {
-                // Duo's native toolbar can reduce even a titleAndIcon Label
-                // to an icon. Host only the wide film button as a custom
-                // label so the name is part of its actual layout.
+            if #available(iOS 26.0, *), let labelSize = hostedFilmLabelSize {
+                // The native toolbar can reduce even a titleAndIcon Label to
+                // an icon. Host only the wide film label to keep its name.
                 HStack(spacing: 0) {
                     Button { showingFilm = true } label: {
                         HStack(spacing: 7) {
@@ -368,7 +378,7 @@ struct MobilePhotoDetail: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .font(EditorDesign.sectionTitle)
-                        .frame(width: Self.titledFilmLabelWidth, height: 36)
+                        .frame(width: labelSize.width, height: labelSize.height)
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.capsule)
@@ -445,7 +455,7 @@ struct MobilePhotoDetail: View {
             ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
             ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
-            if showsDuoLandscapeFilmName {
+            if hostedFilmLabelSize != nil {
                 filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
                     .sharedBackgroundVisibility(.hidden)
             } else {
@@ -460,7 +470,11 @@ struct MobilePhotoDetail: View {
             ToolbarSpacer(.fixed, placement: .topBarTrailing)
             flagItem(photo)
             ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            filmItem(photo)
+            if hostedFilmLabelSize != nil {
+                filmItem(photo).sharedBackgroundVisibility(.hidden)
+            } else {
+                filmItem(photo)
+            }
             if placement != .duoPortrait { ToolbarSpacer(.fixed, placement: .topBarTrailing) }
         } else {
             dateItem(photo)
