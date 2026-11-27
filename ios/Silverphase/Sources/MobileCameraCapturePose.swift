@@ -92,6 +92,18 @@ enum MobileCameraViewfinderGeometry {
         return CGSize(width: panel.width, height: panel.height + bottomSafeArea)
     }
 
+    /// Extend only the photographic aperture into the upper and lower insets.
+    /// Large aspect differences still use the normal aspect-fit viewfinder.
+    static func unfoldedPortraitAperture(panel: CGSize, top: CGFloat, bottom: CGFloat, aspect: CGFloat) -> CGRect? {
+        guard panel.width.isFinite, panel.height.isFinite, panel.width > 0, panel.height > panel.width,
+              top.isFinite, bottom.isFinite, top >= 0, bottom >= 0, aspect.isFinite, aspect > 0 else { return nil }
+        let viewport = CGRect(x: 0, y: -top, width: panel.width, height: panel.height + top + bottom)
+        let fit = aspectSize(in: viewport.size, aspect: aspect, cover: false)
+        let cover = aspectSize(in: viewport.size, aspect: aspect, cover: true)
+        guard cover.width <= fit.width * 1.10 else { return nil }
+        return viewport
+    }
+
     /// Coordinates relative to the chrome's safe layout. The preview and
     /// development animation extend behind the chrome together.
     static func outerViewport(safeSize: CGSize, top: CGFloat, leading: CGFloat,

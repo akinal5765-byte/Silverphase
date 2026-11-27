@@ -161,8 +161,10 @@ On the Duo inner display, the camera reuses the folded capture controls,
 including the lens row, as one measured group on the viewer's right. It preserves
 their relative order and spacing in portrait and landscape. On the inner
 display, the viewfinder fits the still-photo aspect ratio and stays centered; it may leave
-margins rather than crop the framing to the shape of the screen. The controls
-float above it. In inner landscape and tabletop, only the photographic canvas
+margins rather than crop the framing to the shape of the screen. Unfolded
+portrait fills the vertical insets when a small center crop is enough; the
+live preview, frozen shot and development animation share that aperture.
+The controls float above it. In inner landscape and tabletop, only the photographic canvas
 extends behind the bottom system area; camera controls still respect it.
 AVFoundation supplies separate, display-aware preview and capture angles;
 a processed preview frame from the previous angle is discarded. The folded
