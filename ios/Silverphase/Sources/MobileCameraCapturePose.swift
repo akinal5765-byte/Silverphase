@@ -351,29 +351,41 @@ struct MobileWaistFilmTrack {
             let frame: CGRect
             let opacity: Double
             let shade: Double
+            let angle: CGFloat
+
+            func contains(_ point: CGPoint, outline: CGPath) -> Bool {
+                let dx = point.x - frame.midX, dy = point.y - frame.midY
+                let x = dx * cos(angle) + dy * sin(angle)
+                let y = -dx * sin(angle) + dy * cos(angle)
+                return outline.contains(CGPoint(x: x + frame.width / 2, y: y + frame.height / 2))
+            }
         }
 
-        func card(at relative: CGFloat, reveal: CGFloat) -> Card {
+        func card(at relative: CGFloat, reveal: CGFloat, reduceMotion: Bool = false) -> Card {
             let progress = min(1, max(0, (relative + 5.0) / 5.0))
             let peak = max(0, 1 - abs(relative))
             let pop = peak * peak * reveal
-            // Uniform scaling and stepped overlap give the deck depth without
-            // changing the film art's aspect ratio.
-            let width = fullWidth * (0.35 + 0.65 * pow(progress, 1.10))
+            // While moving there is more room for spacing. Artwork always scales
+            // uniformly and the selected sleeve only rotates in the screen plane.
+            let deckWidth = fullWidth * (0.90 + 0.10 * reveal)
+            let width = deckWidth * (0.35 + 0.65 * pow(progress, 1.10))
             let height = width * 9 / 16
-            let travel = max(0, laneHeight - fullWidth * 9 / 16 - 15)
+            let travel = max(0, laneHeight - deckWidth * 9 / 16 - 15)
             let expanded = pow(progress, 1.65)
-            let compact = 0.20 + expanded * 0.51
+            let compact = 0.18 + expanded * 0.32
             let upper = 8 + travel * (expanded + (compact - expanded) * reveal)
-                + min(25, travel * 0.26) * pop
-            let revealX = min(29, size.width * 0.07) * pop
-            // At a detent the selected sleeve is the foreground: the next
-            // positive-relative sleeve only appears as the track advances.
+                - min(29, travel * 0.27) * pop
+            let revealX = min(48, size.width * 0.11) * pop
+            let angle = reduceMotion ? 0 : -5 * CGFloat.pi / 180 * pop
+            let dx = (width * cos(angle) + height * abs(sin(angle))) / 2
+            let dy = (height * cos(angle) + width * abs(sin(angle))) / 2
+            let x = min(size.width - dx, max(dx, size.width / 2 + revealX))
+            let y = min(laneHeight - dy, max(dy, upper + height / 2))
             let edge = min(1, max(0, relative + 5), max(0, 1 - relative))
             let alpha = edge * edge * (3 - 2 * edge)
             let shade = (1 - progress) * (1 - progress) * 0.52
-            return Card(frame: CGRect(x: (size.width - width) / 2 + revealX, y: upper,
-                                      width: width, height: height), opacity: Double(alpha), shade: Double(shade))
+            return Card(frame: CGRect(x: x - width / 2, y: y - height / 2,
+                                      width: width, height: height), opacity: Double(alpha), shade: Double(shade), angle: angle)
         }
 
         func slots(at coordinate: CGFloat, count: Int) -> ClosedRange<Int> {

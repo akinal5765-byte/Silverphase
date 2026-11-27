@@ -2173,12 +2173,12 @@ private struct MobileWaistFilmWheel: View {
     private func wallet(_ layout: MobileWaistFilmTrack.Wallet, coordinate: CGFloat, reveal: CGFloat) -> some View {
         let focused = track.nearestSlot(to: coordinate)
         let slots = layout.slots(at: coordinate, count: stocks.count)
-        return VStack(spacing: 5) {
+        return VStack(spacing: 0) {
             ZStack {
                 ForEach(slots, id: \.self) { slot in
                     let stock = stocks[track.index(at: slot)]
                     let relative = CGFloat(slot) - coordinate
-                    let card = layout.card(at: relative, reveal: reveal)
+                    let card = layout.card(at: relative, reveal: reveal, reduceMotion: reduceMotion)
                     let chosen = slot == restingSlot && motion == nil && fingerPosition == nil
                     Button { moveWallet(to: slot) } label: {
                         cover(stock, width: card.frame.width, height: card.frame.height)
@@ -2192,6 +2192,7 @@ private struct MobileWaistFilmWheel: View {
                                         .strokeBorder(MobileStyle.accent.opacity(reveal), lineWidth: 2)
                                 }
                             }
+                            .fotufilmBadge(for: stock)
                             .overlay(alignment: .topLeading) {
                                 Label {
                                     Text(stock.displayName)
@@ -2212,10 +2213,11 @@ private struct MobileWaistFilmWheel: View {
                                     radius: chosen ? 8 : 4, y: chosen ? 5 : 2)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(stock.displayName)
+                    .accessibilityLabel(stock.displayName + (stock.isFotufilm ? ", Fotufilm" : ""))
                     .accessibilityAddTraits(chosen ? .isSelected : [])
                     .accessibilityIdentifier("camera.waist-film.\(slot - focused)")
                     .accessibilityHidden(card.opacity < 0.45)
+                    .rotationEffect(.radians(Double(card.angle)))
                     .opacity(card.opacity)
                     .position(x: card.frame.midX, y: card.frame.midY)
                     .zIndex(Double(slot - focused))
@@ -2230,11 +2232,6 @@ private struct MobileWaistFilmWheel: View {
                     })
                     .accessibilityHidden(true)
             }
-            Text(stocks[track.index(at: focused)].displayName)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .accessibilityHidden(true)
         }
         .frame(width: layout.size.width, height: layout.size.height)
         .transaction { $0.animation = nil }
@@ -2252,9 +2249,9 @@ private struct MobileWaistFilmWheel: View {
         let position = currentPosition(at: now)
         let reveal = 1 - foldAmount(at: now)
         for slot in layout.slots(at: position, count: stocks.count).reversed() {
-            let card = layout.card(at: CGFloat(slot) - position, reveal: reveal)
-            if card.opacity >= 0.35,
-               MobileWaistFilmTrack.CoverPose.outline.path(in: card.frame).contains(point) {
+            let card = layout.card(at: CGFloat(slot) - position, reveal: reveal, reduceMotion: reduceMotion)
+            let outline = MobileWaistFilmTrack.CoverPose.outline.path(in: CGRect(origin: .zero, size: card.frame.size))
+            if card.opacity >= 0.35, card.contains(point, outline: outline.cgPath) {
                 moveWallet(to: slot)
                 return
             }

@@ -298,13 +298,19 @@ enum MobileLockedCameraChecks {
             for size in [CGSize(width: 390, height: 125), CGSize(width: 669, height: 260),
                          CGSize(width: 820, height: 410)] {
                 let stack = MobileWaistFilmTrack.Wallet(size: size)
-                let selected = stack.card(at: 0, reveal: 1).frame
+                let hero = stack.card(at: 0, reveal: 1)
+                let selected = hero.frame
                 let retracted = stack.card(at: 0, reveal: 0).frame
                 let preceding = stack.card(at: -1, reveal: 1).frame
-                try require(selected.midX > retracted.midX && selected.minY > preceding.minY &&
-                            selected.intersects(preceding) && selected.maxY > preceding.maxY &&
+                try require(selected.midX - retracted.midX >= 40 && selected.midY < retracted.midY &&
+                            selected.intersects(preceding) && hero.angle < -0.08 &&
+                            stack.card(at: 0, reveal: 1, reduceMotion: true).angle == 0 &&
                             stack.card(at: 1, reveal: 1).opacity == 0,
-                            "The selected sleeve is the foremost opaque card and only partly leaves the stack")
+                            "The opaque forefront sleeve lifts up-right with a restrained turn and keeps overlapping its deck")
+                let path = MobileWaistFilmTrack.CoverPose.outline.path(in: CGRect(origin: .zero, size: selected.size)).cgPath
+                try require(hero.contains(CGPoint(x: selected.midX, y: selected.midY), outline: path) &&
+                            !hero.contains(CGPoint(x: selected.maxX + selected.width, y: selected.midY), outline: path),
+                            "The rotated foreground sleeve keeps a corresponding hit area")
                 for slot in -6...3 {
                     let card = stack.card(at: CGFloat(slot), reveal: 1)
                     try require(card.opacity == ((-4...0).contains(slot) ? 1 : 0),
@@ -316,11 +322,9 @@ enum MobileLockedCameraChecks {
                 let frontClosed = stack.card(at: -1, reveal: 1)
                 let openSpan = frontOpen.frame.minY - farOpen.frame.minY
                 let closedSpan = frontClosed.frame.minY - farClosed.frame.minY
-                let peek = selected.maxY - preceding.maxY
-                try require(abs(closedSpan / openSpan - 0.51) < 0.00001 &&
-                            farOpen.shade > 0.30 && farOpen.frame.width < selected.width * 0.50 &&
-                            peek / selected.height > 0.14 && peek / selected.height < 0.55,
-                            "On settle the background gathers, with a stronger depth ramp and partial front-card reveal")
+                try require(closedSpan / openSpan < 0.32 &&
+                            farOpen.shade > 0.30 && farOpen.frame.width < selected.width * 0.50,
+                            "Closed mode is visibly denser than the expanded moving deck")
                 for step in -32...32 {
                     let coordinate = CGFloat(step) / 32
                     for count in [1, 2, 5, 9, 14] {
