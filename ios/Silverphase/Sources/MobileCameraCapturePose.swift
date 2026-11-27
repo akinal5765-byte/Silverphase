@@ -354,10 +354,10 @@ struct MobileWaistFilmTrack {
             let angle: CGFloat
 
             func contains(_ point: CGPoint, outline: CGPath) -> Bool {
-                let dx = point.x - frame.midX, dy = point.y - frame.midY
+                let dx = point.x - frame.maxX, dy = point.y - frame.maxY
                 let x = dx * cos(angle) + dy * sin(angle)
                 let y = -dx * sin(angle) + dy * cos(angle)
-                return outline.contains(CGPoint(x: x + frame.width / 2, y: y + frame.height / 2))
+                return outline.contains(CGPoint(x: x + frame.width, y: y + frame.height))
             }
         }
 
@@ -376,15 +376,18 @@ struct MobileWaistFilmTrack {
             let upper = 8 + travel * (expanded + (compact - expanded) * reveal)
                 - min(29, travel * 0.27) * pop
             let revealX = min(48, size.width * 0.11) * pop
-            let angle = reduceMotion ? 0 : -5 * CGFloat.pi / 180 * pop
-            let dx = (width * cos(angle) + height * abs(sin(angle))) / 2
-            let dy = (height * cos(angle) + width * abs(sin(angle))) / 2
-            let x = min(size.width - dx, max(dx, size.width / 2 + revealX))
-            let y = min(laneHeight - dy, max(dy, upper + height / 2))
+            let angle = reduceMotion ? 0 : 5 * CGFloat.pi / 180 * pop
+            // In screen coordinates a positive angle turns clockwise. The
+            // right-bottom point is fixed by rotation, so only the top and
+            // right corners can extend past the unrotated card.
+            let rightOverflow = height * sin(angle)
+            let topOverflow = max(0, width * sin(angle) + height * (cos(angle) - 1))
+            let x = min(size.width - width - rightOverflow, max(0, (size.width - width) / 2 + revealX))
+            let y = min(laneHeight - height, max(topOverflow, upper))
             let edge = min(1, max(0, relative + 5), max(0, 1 - relative))
             let alpha = edge * edge * (3 - 2 * edge)
             let shade = (1 - progress) * (1 - progress) * 0.52
-            return Card(frame: CGRect(x: x - width / 2, y: y - height / 2,
+            return Card(frame: CGRect(x: x, y: y,
                                       width: width, height: height), opacity: Double(alpha), shade: Double(shade), angle: angle)
         }
 

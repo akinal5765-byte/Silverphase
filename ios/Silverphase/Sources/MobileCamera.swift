@@ -2217,7 +2217,7 @@ private struct MobileWaistFilmWheel: View {
                     .accessibilityAddTraits(chosen ? .isSelected : [])
                     .accessibilityIdentifier("camera.waist-film.\(slot - focused)")
                     .accessibilityHidden(card.opacity < 0.45)
-                    .rotationEffect(.radians(Double(card.angle)))
+                    .rotationEffect(.radians(Double(card.angle)), anchor: .bottomTrailing)
                     .opacity(card.opacity)
                     .position(x: card.frame.midX, y: card.frame.midY)
                     .zIndex(Double(slot - focused))

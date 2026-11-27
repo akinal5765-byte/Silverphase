@@ -303,14 +303,19 @@ enum MobileLockedCameraChecks {
                 let retracted = stack.card(at: 0, reveal: 0).frame
                 let preceding = stack.card(at: -1, reveal: 1).frame
                 try require(selected.midX - retracted.midX >= 40 && selected.midY < retracted.midY &&
-                            selected.intersects(preceding) && hero.angle < -0.08 &&
+                            selected.intersects(preceding) && hero.angle > 0.08 &&
                             stack.card(at: 0, reveal: 1, reduceMotion: true).angle == 0 &&
                             stack.card(at: 1, reveal: 1).opacity == 0,
                             "The opaque forefront sleeve lifts up-right with a restrained turn and keeps overlapping its deck")
                 let path = MobileWaistFilmTrack.CoverPose.outline.path(in: CGRect(origin: .zero, size: selected.size)).cgPath
-                try require(hero.contains(CGPoint(x: selected.midX, y: selected.midY), outline: path) &&
-                            !hero.contains(CGPoint(x: selected.maxX + selected.width, y: selected.midY), outline: path),
-                            "The rotated foreground sleeve keeps a corresponding hit area")
+                let pivot = CGPoint(x: selected.maxX, y: selected.maxY)
+                let inset = min(15, selected.width * 0.2)
+                let inside = CGPoint(x: pivot.x - inset * cos(hero.angle) + inset * sin(hero.angle),
+                                     y: pivot.y - inset * sin(hero.angle) - inset * cos(hero.angle))
+                let outside = CGPoint(x: pivot.x + inset * cos(hero.angle),
+                                      y: pivot.y + inset * sin(hero.angle))
+                try require(hero.contains(inside, outline: path) && !hero.contains(outside, outline: path),
+                            "Hit testing follows a clockwise turn around the bottom-right corner")
                 for slot in -6...3 {
                     let card = stack.card(at: CGFloat(slot), reveal: 1)
                     try require(card.opacity == ((-4...0).contains(slot) ? 1 : 0),
@@ -334,7 +339,10 @@ enum MobileLockedCameraChecks {
                                     "Wallet stack never duplicates films when the catalog is short")
                         for slot in slots {
                             let card = stack.card(at: CGFloat(slot) - coordinate, reveal: 1)
-                            try require(card.frame.minY >= 0 && card.frame.maxY <= stack.laneHeight &&
+                            let right = card.frame.maxX + card.frame.height * sin(card.angle)
+                            let top = card.frame.maxY - card.frame.width * sin(card.angle) - card.frame.height * cos(card.angle)
+                            try require(right <= size.width + 0.00001 && top >= -0.00001 &&
+                                        card.frame.minY >= 0 && card.frame.maxY <= stack.laneHeight &&
                                         card.frame.minX >= 0 && card.frame.maxX <= size.width &&
                                         abs(card.frame.width / card.frame.height - 16.0 / 9.0) < 0.00001,
                                         "Wallet sleeves stay within the wide panel and preserve the film cover ratio")
