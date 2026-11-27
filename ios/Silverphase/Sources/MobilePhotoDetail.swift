@@ -65,6 +65,7 @@ struct MobilePhotoDetail: View {
 
     private enum HingeReading { case pending, measured(Bool?) }
     private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait }
+    private var duoMetadataItemWidth: CGFloat { detailWindowSize.width < 510 ? 40 : EditorDesign.hitSize }
     private var usesGroupedDuoMetadata: Bool { isDuo || placement == .duoPortrait }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
@@ -408,7 +409,7 @@ struct MobilePhotoDetail: View {
         .buttonStyle(.glass)
         .buttonBorderShape(compact ? .circle : .capsule)
         .controlSize(.regular)
-        .frame(width: compact ? EditorDesign.hitSize : 160, height: EditorDesign.hitSize)
+        .frame(width: compact ? duoMetadataItemWidth : 160, height: EditorDesign.hitSize)
         .fixedSize()
         .accessibilityLabel(name.map { "\(title), \($0)" } ?? title)
         .accessibilityValue(name ?? "")
@@ -420,16 +421,16 @@ struct MobilePhotoDetail: View {
         ToolbarItem(id: "photo-detail.native-metadata", placement: .topBarTrailing) {
             // Keep the same single toolbar slot and layout as the shipped Duo
             // viewer. Let each Menu/door own its glass instead of its label.
-            HStack(spacing: placement == .systemSide ? EditorDesign.unit : 2 * EditorDesign.unit) {
+            HStack(spacing: duoMetadataItemWidth < EditorDesign.hitSize ? 2 : 2 * EditorDesign.unit) {
                 rating(photo)
                     .buttonStyle(.glass).buttonBorderShape(.circle)
                     .labelStyle(.iconOnly)
-                    .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                    .frame(width: duoMetadataItemWidth, height: EditorDesign.hitSize)
                     .fixedSize().layoutPriority(1)
                 flag(photo)
                     .buttonStyle(.glass).buttonBorderShape(.circle)
                     .labelStyle(.iconOnly)
-                    .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                    .frame(width: duoMetadataItemWidth, height: EditorDesign.hitSize)
                     .fixedSize().layoutPriority(1)
                 filmButton(photo)
             }
@@ -464,7 +465,9 @@ struct MobilePhotoDetail: View {
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
             if usesGroupedDuoMetadata {
-                duoMetadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+                duoMetadataItem(photo).axisBehavior(.horizontalOnly)
+                    .contentMarginsRemoved()
+                    .visibilityPriority(.init(higherThan: .high))
                     .sharedBackgroundVisibility(.hidden)
             } else {
                 ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
