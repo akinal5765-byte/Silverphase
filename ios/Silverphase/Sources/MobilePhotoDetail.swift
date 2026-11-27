@@ -373,6 +373,7 @@ struct MobilePhotoDetail: View {
                     Button { showingFilm = true } label: {
                         HStack(spacing: 7) {
                             Image(systemName: "film")
+                                .font(.system(size: EditorDesign.glyphSize))
                             Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
                                 .lineLimit(1).truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .leading)
