@@ -65,6 +65,7 @@ struct MobilePhotoDetail: View {
 
     private enum HingeReading { case pending, measured(Bool?) }
     private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait }
+    private var usesGroupedDuoMetadata: Bool { isDuo || placement == .duoPortrait }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
         switch hinge {
@@ -347,18 +348,27 @@ struct MobilePhotoDetail: View {
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
         let title = T("Choose Film", "切换胶片", "切換膠片")
         let spokenTitle = name.map { "\(title), \($0)" } ?? title
-        return Button { showingFilm = true } label: {
-            if detailWindowSize.width >= (placement == .top ? 810 : 510) {
-                Label {
-                    Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
-                        .lineLimit(1)
-                        .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
-                } icon: {
-                    Image(systemName: "film")
+        return Group {
+            if #available(iOS 26.0, *), usesGroupedDuoMetadata {
+                ViewThatFits(in: .horizontal) {
+                    compactDuoFilmTrigger(title, name: name, compact: false)
+                    compactDuoFilmTrigger(title, name: name, compact: true)
                 }
-                .labelStyle(.titleAndIcon)
             } else {
-                Label(spokenTitle, systemImage: "film")
+                Button { showingFilm = true } label: {
+                    if detailWindowSize.width >= (placement == .top ? 810 : 510) {
+                        Label {
+                            Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
+                                .lineLimit(1)
+                                .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
+                        } icon: {
+                            Image(systemName: "film")
+                        }
+                        .labelStyle(.titleAndIcon)
+                    } else {
+                        Label(spokenTitle, systemImage: "film")
+                    }
+                }
             }
         }
         .accessibilityLabel(spokenTitle)
@@ -374,6 +384,46 @@ struct MobilePhotoDetail: View {
             } else {
                 filmPicker(photo).presentationCompactAdaptation(.none)
             }
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func compactDuoFilmTrigger(_ title: String, name: String?, compact: Bool) -> some View {
+        Button { showingFilm = true } label: {
+            if compact {
+                Label(title, systemImage: "film").labelStyle(.iconOnly)
+            } else {
+                Label(shortFilmTitle(name ?? title), systemImage: "film")
+                    .lineLimit(1)
+                    .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
+            }
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(compact ? .circle : .capsule)
+        .controlSize(.regular)
+        .frame(width: compact ? EditorDesign.hitSize : 160, height: EditorDesign.hitSize)
+        .fixedSize()
+    }
+
+    @available(iOS 26.0, *)
+    private func duoMetadataItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
+        ToolbarItem(id: "photo-detail.native-metadata", placement: .topBarTrailing) {
+            // Keep the same single toolbar slot and layout as the shipped Duo
+            // viewer. Let each Menu/door own its glass instead of its label.
+            HStack(spacing: placement == .systemSide ? EditorDesign.unit : 2 * EditorDesign.unit) {
+                rating(photo)
+                    .buttonStyle(.glass).buttonBorderShape(.circle)
+                    .labelStyle(.iconOnly)
+                    .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                    .fixedSize().layoutPriority(1)
+                flag(photo)
+                    .buttonStyle(.glass).buttonBorderShape(.circle)
+                    .labelStyle(.iconOnly)
+                    .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+                    .fixedSize().layoutPriority(1)
+                filmButton(photo)
+            }
+            .controlSize(.regular)
         }
     }
 
@@ -403,17 +453,9 @@ struct MobilePhotoDetail: View {
             dateItem(photo).axisBehavior(.horizontalOnly)
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
-            if isDuo || placement == .duoPortrait {
-                // The status area limits the ordinary trailing placement.
-                // Pin the native group on Duo instead of letting individual
-                // controls disappear into navigation overflow.
-                ToolbarItemGroup(placement: .topBarPinnedTrailing) {
-                    rating(photo)
-                    flag(photo)
-                    filmButton(photo)
-                }
-                .axisBehavior(.horizontalOnly)
-                .visibilityPriority(.init(higherThan: .high))
+            if usesGroupedDuoMetadata {
+                duoMetadataItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+                    .sharedBackgroundVisibility(.hidden)
             } else {
                 ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
