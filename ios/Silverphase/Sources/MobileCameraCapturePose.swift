@@ -61,56 +61,6 @@ struct MobileDuoLandscapeCameraLayout {
     }
 }
 
-/// Chooses a side of the trigger in the picker’s readable coordinates. The
-/// trigger stays uncovered and the grid gets the largest usable scroll area.
-struct MobileCameraFilmPopoverLayout {
-    let frame: CGRect
-    let origin: CGPoint
-
-    init(viewport: CGSize, trigger: CGRect?) {
-        let margin: CGFloat = 8, gap: CGFloat = 10
-        let safe = CGRect(x: margin, y: margin, width: max(1, viewport.width - margin * 2),
-                          height: max(1, viewport.height - margin * 2))
-        let width = min(440, safe.width)
-        let height = min(530, max(280, safe.height * 0.78), safe.height)
-        func bounded(_ x: CGFloat, _ low: CGFloat, _ high: CGFloat) -> CGFloat { min(max(x, low), high) }
-        let fallback = CGRect(x: safe.midX - width / 2, y: safe.maxY - height, width: width, height: height)
-        guard let trigger, !trigger.isEmpty, safe.intersects(trigger) else {
-            frame = fallback
-            origin = CGPoint(x: 0.5, y: 1)
-            return
-        }
-        let upper = max(0, min(height, trigger.minY - gap - safe.minY))
-        let lower = max(0, min(height, safe.maxY - trigger.maxY - gap))
-        let left = max(0, min(width, trigger.minX - gap - safe.minX))
-        let right = max(0, min(width, safe.maxX - trigger.maxX - gap))
-        let x = bounded(trigger.midX - width / 2, safe.minX, safe.maxX - width)
-        let y = bounded(trigger.midY - height / 2, safe.minY, safe.maxY - height)
-        let options = [
-            (CGRect(x: x, y: trigger.minY - gap - upper, width: width, height: upper), CGFloat(1.08)),
-            (CGRect(x: x, y: trigger.maxY + gap, width: width, height: lower), CGFloat(1.03)),
-            (CGRect(x: trigger.minX - gap - left, y: y, width: left, height: height), CGFloat(1)),
-            (CGRect(x: trigger.maxX + gap, y: y, width: right, height: height), CGFloat(1))
-        ]
-        let ranked = options.filter { $0.0.width >= min(210, width) && $0.0.height >= min(190, height) }
-        let candidates = ranked.isEmpty ? options.filter { $0.0.width >= min(125, width) && $0.0.height >= min(115, height) } : ranked
-        let chosen = candidates.max { a, b in a.0.width * a.0.height * a.1 < b.0.width * b.0.height * b.1 }?.0 ?? fallback
-        frame = chosen
-        origin = CGPoint(x: bounded((trigger.midX - chosen.minX) / chosen.width, 0, 1),
-                         y: bounded((trigger.midY - chosen.minY) / chosen.height, 0, 1))
-    }
-
-    static func logicalTrigger(_ trigger: CGRect, in panel: CGRect, logicalSize: CGSize, rotation: Double) -> CGRect {
-        let angle = CGFloat(-rotation * .pi / 180)
-        let dx = trigger.midX - panel.midX, dy = trigger.midY - panel.midY
-        let center = CGPoint(x: logicalSize.width / 2 + dx * cos(angle) - dy * sin(angle),
-                             y: logicalSize.height / 2 + dx * sin(angle) + dy * cos(angle))
-        let width = abs(trigger.width * cos(angle)) + abs(trigger.height * sin(angle))
-        let height = abs(trigger.width * sin(angle)) + abs(trigger.height * cos(angle))
-        return CGRect(x: center.x - width / 2, y: center.y - height / 2, width: width, height: height)
-    }
-}
-
 /// The still photo ratio is fitted inside the canvas, independent of where
 /// controls are overlaid. Rotating the connection switches its axes.
 enum MobileCameraViewfinderGeometry {
