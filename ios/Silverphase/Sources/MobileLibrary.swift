@@ -237,7 +237,7 @@ struct MobileLibrary: View {
             }
         }
         .mobileInformationPages(document: document, settings: $settings, about: $about)
-        .sheet(item: $photoInfo) { photo in infoPage(photo) { photoInfo = nil } }
+        .sheet(item: $photoInfo) { photo in infoPage(photo) }
         .alert(T("Remove from Library?", "从图库删除照片？", "從圖庫刪除照片？"), isPresented: Binding(get: { !deleting.isEmpty }, set: { if !$0 { deleting = [] } }),
                presenting: deleting.isEmpty ? nil : deleting) { ids in
             Button(T("Cancel", "取消", "取消"), role: .cancel) { deleting = [] }
@@ -336,7 +336,7 @@ struct MobileLibrary: View {
             MobileEditor(document: document, batchIDs: nil, returnToLibrary: { detailEditor = nil })
                 .task { document.openEditor(editor.firstID, ids: [editor.firstID]) }
         }
-        .sheet(item: $detailInfo) { photo in infoPage(photo) { detailInfo = nil } }
+        .sheet(item: $detailInfo) { photo in infoPage(photo) }
         .sheet(item: $detailExport) { export in exportPage(export) { detailExport = nil } }
         .sheet(item: $detailCopy) { MobileCopySettingsSheet(document: document, request: $0) }
         .alert(T("Remove from Library?", "从图库删除照片？", "從圖庫刪除照片？"),
@@ -369,9 +369,9 @@ struct MobileLibrary: View {
         .interactiveDismissDisabled(document.isInteractionLocked)
     }
 
-    private func infoPage(_ photo: MobilePhoto, onDone: @escaping () -> Void) -> some View {
+    private func infoPage(_ photo: MobilePhoto) -> some View {
         MobilePhotoInfoPage(photo: photo, originalURL: document.url(for: photo),
-                            thumbnailURL: cameraThumbnail(for: photo), onDone: onDone)
+                            thumbnailURL: cameraThumbnail(for: photo))
     }
 
     @ViewBuilder private var libraryTopBar: some View {

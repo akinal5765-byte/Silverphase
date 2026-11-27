@@ -86,7 +86,7 @@ struct MobilePhotoInfoPage: View {
     let photo: MobilePhoto
     let originalURL: URL
     let thumbnailURL: URL
-    let onDone: () -> Void
+    @Environment(\.dismiss) private var dismiss
     @State private var loaded: MobilePhotoInfoMetadata?
 
     private struct Row: Identifiable {
@@ -108,44 +108,28 @@ struct MobilePhotoInfoPage: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: EditorDesign.contentInset) {
-                header
-                if let loaded {
-                    capture(loaded)
-                } else {
-                    ProgressView().frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityLabel(T("Reading photo information", "正在读取照片信息", "正在讀取照片資訊"))
+        VStack(spacing: 0) {
+            titleBar
+            ScrollView {
+                VStack(alignment: .leading, spacing: EditorDesign.contentInset) {
+                    header
+                    if let loaded {
+                        capture(loaded)
+                    } else {
+                        ProgressView().frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityLabel(T("Reading photo information", "正在读取照片信息", "正在讀取照片資訊"))
+                    }
+                    section(T("Original file", "原始文件", "原始檔案"), icon: "doc", rows: fileRows)
+                    recipe
                 }
-                section(T("Original file", "原始文件", "原始檔案"), icon: "doc", rows: fileRows)
-                recipe
+                .frame(maxWidth: 600)
+                .padding(.horizontal, EditorDesign.contentInset)
+                .padding(.vertical, EditorDesign.contentInset)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: 600)
-            .padding(.horizontal, EditorDesign.contentInset)
-            .padding(.vertical, EditorDesign.contentInset)
-            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("photo-info.scroll")
         }
-        .accessibilityIdentifier("photo-info.scroll")
-        .safeAreaInset(edge: .top, spacing: 0) {
-            HStack {
-                Text(T("Photo Info", "照片信息", "照片資訊"))
-                    .font(.headline).accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("photo-info.title")
-                Spacer(minLength: 12)
-                Button(T("Done", "完成", "完成"), action: onDone)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(MobileStyle.accent)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("photo-info.done")
-            }
-            .padding(.horizontal, EditorDesign.contentInset)
-            .padding(.vertical, 4)
-            .background(MobileStyle.canvas)
-            .overlay(alignment: .bottom) { Divider().accessibilityHidden(true) }
-        }
-        .accessibilityAction(.escape) { onDone() }
+        .accessibilityAction(.escape) { dismiss() }
         .mobilePageBackground()
         .presentationBackground(MobileStyle.canvas)
         .task(id: originalURL) {
@@ -157,6 +141,29 @@ struct MobilePhotoInfoPage: View {
             let result = await withTaskCancellationHandler { await reader.value } onCancel: { reader.cancel() }
             if !Task.isCancelled { loaded = result }
         }
+    }
+
+    private var titleBar: some View {
+        HStack {
+            Text(T("Photo Info", "照片信息", "照片資訊"))
+                .font(.headline).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("photo-info.title")
+            Spacer(minLength: 12)
+            Button { dismiss() } label: {
+                Text(T("Done", "完成", "完成"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(MobileStyle.accent)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("photo-info.done")
+        }
+        .padding(.horizontal, EditorDesign.contentInset)
+        .padding(.vertical, 4)
+        .background(MobileStyle.canvas)
+        .overlay(alignment: .bottom) { Divider().accessibilityHidden(true).allowsHitTesting(false) }
     }
 
     private var header: some View {
