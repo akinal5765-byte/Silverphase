@@ -120,23 +120,16 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 ## 版本记录
 
-**macOS 1.4.0（构建 7）** 带来重新设计的封面、自定义片边文字和更温和的导出色域压缩。[发布说明](modern_UI/Spektrafilm/releases/1.4.0.md) · [升级时保留旧编辑](docs/MACOS-IDENTITY-UPGRADE.md)。
+| 版本 | 平台 | 构建 | 主要改动 | 说明 |
+|---|---|---:|---|---|
+| 1.4.0 | macOS | 7 | 新胶片封面、自定义片边文字、更温和的导出色域压缩。 | [发布说明](modern_UI/Spektrafilm/releases/1.4.0.md) · [迁移指南](docs/MACOS-IDENTITY-UPGRADE.md) |
+| 1.4.0 | iOS / iPadOS | 12 | 独立看图页、原片对比、按格式筛选、大图库浏览优化、Duo 腰平滑动选片。 | [版本说明](ios/releases/1.4.0.md) |
+| 1.3.1 | macOS | 6 | 测光和胶片曝光移到「胶片」，补齐 Fotufilm 封面与来源角标，并调整部分配置的 DIR。 | [源码与验证](modern_UI/Spektrafilm/releases/1.3.1.md) |
+| 1.3.1 | iOS / iPadOS | 11 | 同步测光、胶片曝光和 Fotufilm 改动。 | [源码与验证](ios/releases/1.3.1.md) |
+| 1.3.0 | macOS | 5 | 入片调整、相机预览亮度匹配、XMP 星级和共享引擎更新。 | [发布说明与 5219 验证](modern_UI/Spektrafilm/releases/1.3.0.md) |
+| 1.3.0 | iOS / iPadOS | 10 | 加入入片调整、相机亮度匹配、XMP 星级和 29 款实验胶片。 | [源码与验证](ios/releases/1.3.0.md) |
 
-**iOS／iPadOS 1.4.0（构建 12）** 加入独立看图页，可长按对比原片、快速换胶片和查看照片信息；支持按文件格式筛选，并改善大型图库的浏览。iPhone Duo 腰平取景时可上下滑动选片，下屏随之更新预览。[版本说明](ios/releases/1.4.0.md)。
-
-1.3.1 在 macOS 和 iOS／iPadOS 上将测光与胶片曝光移到「胶片」，为 29 款公开 Fotufilm 配置补齐封面和来源标识，并降低其中 17 款的 DIR 边缘过冲。
-
-| 平台 | 1.3.1 源码记录 |
-|---|---|
-| macOS（构建 6） | [改动与验证](modern_UI/Spektrafilm/releases/1.3.1.md) |
-| iOS／iPadOS（构建 11） | [改动与验证](ios/releases/1.3.1.md) |
-
-| 平台 | 1.3.0 发布说明 |
-|---|---|
-| macOS（构建 5） | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · [改动与 5219 验证](modern_UI/Spektrafilm/releases/1.3.0.md) |
-| iOS／iPadOS（构建 10） | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) · [源码与验证记录](ios/releases/1.3.0.md) |
-
-1.3.0 在两端加入入片调整、受支持 RAW 的相机预览亮度匹配，以及 JPEG、PNG 和 TIFF 的 XMP 星级。共享目录加入 29 款实验胶片，并更新光谱适配、DIR、印相中性滤色和颗粒柔化。已有照片会保留旧影调设置。
+[所有 GitHub 发布](https://github.com/akinal5765-byte/Silverphase/releases) · [下载安装与渠道说明](docs/BINARY-RELEASES.md)。
 
 ## 文档与构建
 

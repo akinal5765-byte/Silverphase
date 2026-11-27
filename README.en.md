@@ -120,23 +120,16 @@ Import from Photos or Files, or use the in-app camera. The editor has a local li
 
 ## Release notes
 
-**macOS 1.4.0 (build 7)** brings redesigned covers, custom film-edge text and less aggressive output gamut compression. [Release notes](modern_UI/Spektrafilm/releases/1.4.0.md) · [Keep your edits when upgrading](docs/MACOS-IDENTITY-UPGRADE.md).
+| Version | Platform | Build | Highlights | Details |
+|---|---|---:|---|---|
+| 1.4.0 | macOS | 7 | New film covers, custom film-edge text, and gentler export gamut compression. | [Notes](modern_UI/Spektrafilm/releases/1.4.0.md) · [Upgrade guide](docs/MACOS-IDENTITY-UPGRADE.md) |
+| 1.4.0 | iOS / iPadOS | 12 | Dedicated viewer, original comparison, format filters, large-library improvements, and Duo waist-level film browsing. | [Notes](ios/releases/1.4.0.md) |
+| 1.3.1 | macOS | 6 | Metering and exposure moved to Film; Fotufilm covers and badges were completed, and DIR was refined on selected profiles. | [Source notes](modern_UI/Spektrafilm/releases/1.3.1.md) |
+| 1.3.1 | iOS / iPadOS | 11 | Same metering, film-exposure, and Fotufilm updates. | [Source notes](ios/releases/1.3.1.md) |
+| 1.3.0 | macOS | 5 | Pre-film controls, camera-preview brightness matching, XMP star ratings, and shared engine updates. | [Notes and 5219 validation](modern_UI/Spektrafilm/releases/1.3.0.md) |
+| 1.3.0 | iOS / iPadOS | 10 | Pre-film controls, camera brightness matching, XMP star ratings, and 29 experimental film stocks. | [Source notes](ios/releases/1.3.0.md) |
 
-**iOS and iPadOS 1.4.0 (build 12)** add a dedicated photo viewer with press-and-hold original comparison, quick film selection and photo information, plus file-format filters and smoother browsing in large libraries. On iPhone Duo, swipe through films in waist-level mode and see the viewfinder update as you scroll. [Version notes](ios/releases/1.4.0.md).
-
-In 1.3.1, macOS, iOS, and iPadOS moved metering and film exposure into Film, added cover art and source badges for all 29 public Fotufilm profiles, and reduced DIR edge overshoot in 17 of those profiles.
-
-| Platform | 1.3.1 source notes |
-|---|---|
-| macOS (build 6) | [Changes and verification](modern_UI/Spektrafilm/releases/1.3.1.md) |
-| iOS and iPadOS (build 11) | [Changes and verification](ios/releases/1.3.1.md) |
-
-| Platform | 1.3.0 release notes |
-|---|---|
-| macOS (build 5) | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) · [Changes and Kodak 5219 validation](modern_UI/Spektrafilm/releases/1.3.0.md) |
-| iOS and iPadOS (build 10) | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.0) · [Source and validation notes](ios/releases/1.3.0.md) |
-
-On both platforms, 1.3.0 adds pre-film controls, camera preview brightness matching for supported RAW files, and XMP star ratings in JPEG, PNG and TIFF exports. The shared catalogue adds 29 experimental film profiles, and the shared engine updates spectral adaptation, DIR, neutral print filtration, and grain softness. Existing edits retain their saved legacy tone settings.
+[All GitHub releases](https://github.com/akinal5765-byte/Silverphase/releases) · [Downloads and distribution channels](docs/BINARY-RELEASES.md).
 
 ## Documentation and builds
 
