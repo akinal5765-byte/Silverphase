@@ -1,5 +1,7 @@
 # Silverphase 验证
 
+**简体中文** · [English](VALIDATION.en.md)
+
 当前验收围绕本地原生 C++／Metal 引擎和真实照片的完整工作流。冻结的
 旧 Python fork 不再保留，不作为运行验收的前提；`engine/tests/parity_*.py`
 仍是历史工具，不将未运行的 oracle parity 写为通过，也不拿新脚本

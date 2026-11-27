@@ -1,5 +1,7 @@
 # Local-only experimental materials
 
+[简体中文](LOCAL-MATERIALS.zh-CN.md) · **English**
+
 A normal build in a maintainer checkout stages materials from the ignored
 `private-fixtures/local-experimental-materials/` archive. The archived catalog
 selects twelve private films; superseded Tri-X/HP5/paper aliases continue to use

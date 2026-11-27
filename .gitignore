@@ -227,7 +227,10 @@ xcuserdata/
 # rest.
 DerivedData/
 *.xcarchive
+*.xcresult
+*.xctestrun
 *.ipa
+*.dmg
 *.dSYM.zip
 *.dSYM
 
@@ -342,6 +345,7 @@ com.apple.DeveloperTools/
 .env.*
 !.env.example
 !.env.sample
+*.p8
 *.p12
 *.pfx
 *.mobileprovision
@@ -352,6 +356,16 @@ com.apple.DeveloperTools/
 
 # Maintainer-only RAW copies, experimental material archives and derived output.
 /private-fixtures/
+# Camera inputs are never published with screenshots or test reports.
+*.[Aa][Rr][Ww]
+*.[Cc][Rr]2
+*.[Cc][Rr]3
+*.[Dd][Nn][Gg]
+*.[Nn][Ee][Ff]
+*.[Rr][Aa][Ff]
+*.[Rr][Ww]2
+*.[Oo][Rr][Ff]
+*.3[Ff][Rr]
 
 # Generated private material catalog and covers; staged only for local builds.
 /modern_UI/Spektrafilm/Spektrafilm/Resources/LocalMaterials/

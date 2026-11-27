@@ -9,6 +9,7 @@ SpektraLab repository: never push there. Commit or push only when asked.
 
 - [README.md](README.md) / [README.en.md](README.en.md): current product and builds.
 - [docs/README.md](docs/README.md): global documentation index and authority.
+- [Project maintenance](docs/PROJECT-MAINTENANCE.md) and [documentation guide](docs/WRITING-GUIDE.md): read before cleanup, new documentation, or bilingual updates.
 - [ARCHITECTURE.md](ARCHITECTURE.md): desktop, iOS, shared engine and ownership.
 - [macOS guide](modern_UI/Spektrafilm/README.md),
   [validation](modern_UI/Spektrafilm/VALIDATION.md),

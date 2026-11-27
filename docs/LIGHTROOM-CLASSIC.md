@@ -1,5 +1,7 @@
 # Lightroom Classic 外部编辑
 
+**简体中文** · [English](LIGHTROOM-CLASSIC.en.md)
+
 macOS 1.2.0 新增 Lightroom Classic 外部编辑流程。复用已安装的
 Silverphase.app，无需另装 `.lrplugin`。本指南适用于 macOS 的 Lightroom
 Classic，不包含 Lightroom 云端版、移动版或 Photoshop 插件。

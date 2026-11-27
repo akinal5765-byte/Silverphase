@@ -1,5 +1,7 @@
 # Silverphase iOS 界面规范
 
+[简体中文](DESIGN.md) · [English](DESIGN.en.md)
+
 当前规范，整理于2026-11-04。实现常量见 `Silverphase/Sources/EditorDesign.swift`。
 桌面端提供工艺语义与共用控件；手机与平板按实际工作区安排导航和面板。
 [2026-11-02 普通 iPhone 截图](../screenshots/ios/2026-11-02/README.md)早于本次原生工艺栏及材料入口更新；当前行为以本文与源码为准。

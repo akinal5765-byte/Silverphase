@@ -92,3 +92,13 @@ Silicon Mac with a separate local user or test volume:
   check Finder permissions and Lightroom Classic writeback again. Run the
   normal Release packaging, signing, Gatekeeper and update-check verification.
   The in-app updater should still point only at Silverphase's macOS releases.
+
+
+## 维护者发版检查
+
+在独立的本机用户或测试卷中，用 Apple Silicon Mac 验证发布候选版：
+
+- 核对归档的 `CFBundleIdentifier` 和签名标识均为 `com.silverphase.editor`；Finder 仍可打开原有 `com.silverphase.half-frame-pair` 文件。
+- 用真正的 1.3.1 DMG 建立含编辑、半格双联画、评分及自定义配方的图库，再升级。新版偏好应独立，不能改动任何旧文件。按上文复制已知文件，再验证编辑、重开和 TIFF 导出。
+- 两款 App 并行安装时，在两边打开同一张照片，确认各自看不到另一款的新设置。另测旧的便携 sidecar 和 Silverphase 重置。
+- 核对日志路径、保留策略及缓存使用 Silverphase 自己的命名空间。重试 Finder 权限和 Lightroom 写回；完成 Release 打包、签名、Gatekeeper 和更新检查，确保应用内更新只指向 Silverphase 的 macOS 发布。

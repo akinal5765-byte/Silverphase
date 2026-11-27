@@ -12,7 +12,7 @@
 <p align="center">
   简体中文 · <a href="README.en.md">English</a> ·
   <a href="https://akinal5765-byte.github.io/Silverphase/">官网</a> · <a href="#下载">下载</a> · <a href="#也试试-layerlight">Layerlight</a> · <a href="#效果案例">效果案例</a> · <a href="#胶片封面">胶片封面</a> · <a href="#编辑流程">编辑流程</a> ·
-  <a href="#版本记录">版本记录</a> · <a href="docs/README.md">文档</a>
+  <a href="#版本记录">版本记录</a> · <a href="docs/README.zh-CN.md">文档</a>
 </p>
 
 Silverphase 是一间在设备上运行的**开源数字暗房**，适用于 **macOS、iPhone 和 iPad**。
@@ -30,7 +30,7 @@ Silverphase 是一间在设备上运行的**开源数字暗房**，适用于 **m
 | macOS | [1.4.0（构建 7）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.4.0) · Apple Silicon DMG | macOS 15 或更高 |
 | iPhone／iPad | [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
 
-macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.md)
+macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.zh-CN.md)
 
 iPhone 和 iPad 的可安装版本以 App Store 和 TestFlight 各自显示为准。
 
@@ -116,7 +116,7 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 ### iPhone 与 iPad
 
-可从「照片」或「文件」导入，也可直接拍摄。支持本地图库、评分与旗标、批量编辑与导出，并为常规 iPhone、iPhone Duo 和 iPad 提供各自的布局。[iOS 指南](ios/README.md) · [平台控制与设备限制](ios/CONTROL-AUDIT.md) · [真实照片界面截图](screenshots/ios/2026-11-27/README.md)
+可从「照片」或「文件」导入，也可直接拍摄。支持本地图库、评分与旗标、批量编辑与导出，并为常规 iPhone、iPhone Duo 和 iPad 提供各自的布局。[iOS 指南](ios/README.zh-CN.md) · [平台控制与设备限制](ios/CONTROL-AUDIT.md) · [真实照片界面截图](screenshots/ios/2026-11-27/README.md)
 
 ## 版本记录
 
@@ -129,7 +129,7 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 | 1.3.0 | macOS | 5 | 入片调整、相机预览亮度匹配、XMP 星级和共享引擎更新。 | [发布说明与 5219 验证](modern_UI/Spektrafilm/releases/1.3.0.md) |
 | 1.3.0 | iOS / iPadOS | 10 | 加入入片调整、相机亮度匹配、XMP 星级和 29 款实验胶片。 | [源码与验证](ios/releases/1.3.0.md) |
 
-[所有 GitHub 发布](https://github.com/akinal5765-byte/Silverphase/releases) · [下载安装与渠道说明](docs/BINARY-RELEASES.md)。
+[所有 GitHub 发布](https://github.com/akinal5765-byte/Silverphase/releases) · [下载安装与渠道说明](docs/BINARY-RELEASES.zh-CN.md)。
 
 ## 文档与构建
 
@@ -147,7 +147,7 @@ SILVERPHASE_LOCAL_MATERIALS=0 xcodebuild \
 open build/DerivedData/Build/Products/Debug/Silverphase.app
 ```
 
-iOS 工程、真机签名及模拟器命令见 [iOS 构建指南](ios/README.md)。了解应用结构和验证方式，请看[文档索引](docs/README.md)、[共享引擎架构](ARCHITECTURE.md)和[验证指南](modern_UI/Spektrafilm/VALIDATION.md)。反馈问题或参与开发，请到 [Issues](https://github.com/akinal5765-byte/Silverphase/issues) 或查看[贡献指南](CONTRIBUTING.md)。
+iOS 工程、真机签名及模拟器命令见 [iOS 构建指南](ios/README.zh-CN.md)。了解应用结构和验证方式，请看[文档索引](docs/README.zh-CN.md)、[共享引擎架构](ARCHITECTURE.zh-CN.md)和[验证指南](modern_UI/Spektrafilm/VALIDATION.md)。反馈问题或参与开发，请到 [Issues](https://github.com/akinal5765-byte/Silverphase/issues) 或查看[贡献指南](CONTRIBUTING.zh-CN.md)。
 
 ## 致谢与许可
 

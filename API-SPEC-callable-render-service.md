@@ -1,5 +1,7 @@
 # Silverphase native render API
 
+[简体中文](API-SPEC-callable-render-service.zh-CN.md) · **English**
+
 Current integration reference, reviewed 2026-11-18. The filename is historical:
 there is no callable Python service in the product. The authoritative declarations
 are [spk_engine.h](engine/include/spektrafilm/spk_engine.h); parameter metadata and

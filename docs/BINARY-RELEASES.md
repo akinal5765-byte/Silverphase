@@ -1,5 +1,7 @@
 # Binary releases
 
+[简体中文](BINARY-RELEASES.zh-CN.md) · **English**
+
 Find release notes and macOS packages on [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases).
 iPhone and iPad users can install Silverphase from the [App Store](https://apps.apple.com/app/id6829987567). Beta builds are available through [TestFlight](https://testflight.apple.com/join/uwY3ZYJp).
 The release notes name the exact source tag/commit, system requirements,

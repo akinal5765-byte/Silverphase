@@ -1,5 +1,7 @@
 # iOS 功能边界与验证 · 2026-11-06
 
+[简体中文](CONTROL-AUDIT.md) · [English](CONTROL-AUDIT.en.md)
+
 参考为本仓库当前 `modern_UI/Spektrafilm/Spektrafilm` 源码，不是上游截图。默认标量记录于 `Silverphase/Resources/DesktopControlDefaults.json`；桌面 `MobileDesktopContractTests.testExportDesktopControlContract` 检查 wire 是否漂移。以下“对齐”指选项与传参语义，不代表每种组合已经逐一在真机点击验收。
 
 ## 当前设备体验

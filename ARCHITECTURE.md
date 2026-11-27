@@ -1,5 +1,7 @@
 # Silverphase architecture
 
+[简体中文](ARCHITECTURE.zh-CN.md) · **English**
+
 Current implementation map, reviewed 2026-11-18. Silverphase derives from Hanze
 Qiu's SpektraLab and Andrea Volpato's spektrafilm model. Product name changes do
 not change source or profile attribution. The [documentation index](docs/README.md)

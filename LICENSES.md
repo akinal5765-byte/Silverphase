@@ -1,5 +1,7 @@
 # Licensing and attribution
 
+**English** · [简体中文](LICENSES.zh-CN.md)
+
 Silverphase is an independent derivative of [SpektraLab](https://github.com/JamesQiu2005/SpektraLab)
 by **Hanze Qiu**, built on [spektrafilm](https://github.com/andreavolpato/spektrafilm)
 by **Andrea Volpato**. Silverphase changes are maintained by **akinal5765-byte**.

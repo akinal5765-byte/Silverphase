@@ -1,5 +1,7 @@
 # iOS App Store distribution
 
+[简体中文](APP-STORE.zh-CN.md) · [English](APP-STORE.md)
+
 Silverphase is available on the [App Store](https://apps.apple.com/app/id6829987567), including China mainland. [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. Check the storefront for the currently installable version; the GitHub release tag is a source milestone. In the 2026-11-20 check, the US, Japan and Hong Kong storefronts listed **1.2.5** and the mainland China lookup returned no listing. The developer confirmed that the mainland China listing was live on 2026-11-25.
 
 ## 1.4.0 (12) · 2026-11-27

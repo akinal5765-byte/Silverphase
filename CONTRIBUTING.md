@@ -1,5 +1,9 @@
 # Contributing to Silverphase
 
+[简体中文](CONTRIBUTING.zh-CN.md) · **English**
+
+Before editing documentation, follow the [documentation guide](docs/WRITING-GUIDE.md) for source ownership, bilingual updates, and verification language.
+
 Silverphase is an independent derivative of Hanze Qiu's SpektraLab and Andrea
 Volpato's spektrafilm. Start with the [README](README.en.md),
 [documentation index](docs/README.md), and [working rules](AGENTS.md).

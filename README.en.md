@@ -112,11 +112,11 @@ The public catalog includes 25 standard film profiles, 9 papers and 29 experimen
 
 ### macOS
 
-Work with folders, soft-proof images, and create two-photo half-frame compositions. Simulation Size lets you set the long edge after cropping so grain and halation are generated at the target size. Lightroom Classic can hand off a single JPEG or TIFF copy, and Save writes the full-resolution result back to that copy. The input retains Lightroom’s tone rendering. [macOS guide](modern_UI/Spektrafilm/README.md) · [Lightroom Classic workflow](docs/LIGHTROOM-CLASSIC.md)
+Work with folders, soft-proof images, and create two-photo half-frame compositions. Simulation Size lets you set the long edge after cropping so grain and halation are generated at the target size. Lightroom Classic can hand off a single JPEG or TIFF copy, and Save writes the full-resolution result back to that copy. The input retains Lightroom’s tone rendering. [macOS guide](modern_UI/Spektrafilm/README.en.md) · [Lightroom Classic workflow](docs/LIGHTROOM-CLASSIC.en.md)
 
 ### iPhone and iPad
 
-Import from Photos or Files, or use the in-app camera. The editor has a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. [iOS guide](ios/README.md) · [Controls and device limitations](ios/CONTROL-AUDIT.md) · [Real-photo screenshots](screenshots/ios/2026-11-27/README.md)
+Import from Photos or Files, or use the in-app camera. The editor has a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. [iOS guide](ios/README.md) · [Controls and device limitations](ios/CONTROL-AUDIT.en.md) · [Real-photo screenshots](screenshots/ios/2026-11-27/README.md)
 
 ## Release notes
 
@@ -147,7 +147,7 @@ SILVERPHASE_LOCAL_MATERIALS=0 xcodebuild \
 open build/DerivedData/Build/Products/Debug/Silverphase.app
 ```
 
-See the [iOS guide](ios/README.md) for the project, device signing, and simulator builds. For architecture and verification, see the [documentation index](docs/README.md), [shared engine architecture](ARCHITECTURE.md), and [validation guide](modern_UI/Spektrafilm/VALIDATION.md). Report issues on [GitHub](https://github.com/akinal5765-byte/Silverphase/issues) or see the [contribution guide](CONTRIBUTING.md).
+See the [iOS guide](ios/README.md) for the project, device signing, and simulator builds. For architecture and verification, see the [documentation index](docs/README.md), [shared engine architecture](ARCHITECTURE.md), and [validation guide](modern_UI/Spektrafilm/VALIDATION.en.md). Report issues on [GitHub](https://github.com/akinal5765-byte/Silverphase/issues) or see the [contribution guide](CONTRIBUTING.md).
 
 ## Acknowledgements and licences
 

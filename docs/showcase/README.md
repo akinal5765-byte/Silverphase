@@ -1,5 +1,7 @@
 # Silverphase · Virtual darkroom showcase
 
+[简体中文](README.zh-CN.md) · **English**
+
 [简体中文主页](../../README.md) · [English home](../../README.en.md) · [Downloads](../BINARY-RELEASES.md)
 
 Four **2560 × 1600** sRGB cards. These are renders from the Silverphase Metal engine, not scans of physical prints and not current app-interface captures. Grain and halation are enabled on the simulated prints. The photography is from approved Silverphase project fixtures; the source RAW files are not distributed.

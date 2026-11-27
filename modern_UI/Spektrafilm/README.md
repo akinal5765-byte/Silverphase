@@ -1,5 +1,7 @@
 # Silverphase macOS 工程
 
+**简体中文** · [English](README.en.md)
+
 桌面版独立编号。源码构建版本由 [工程生成器](Tools/gen-project.py) 定义，安装包及版本说明见 [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases)。
 
 本目录是 Silverphase 的 SwiftUI／AppKit 应用工程。Xcode target 和部分

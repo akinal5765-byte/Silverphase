@@ -1,5 +1,7 @@
 # Silverphase host/engine contract
 
+[简体中文](CONTRACT-frontend-backend.zh-CN.md) · **English**
+
 Current contract, reviewed 2026-11-18. This filename predates the native engine.
 The product has two native hosts and one shared C++/Metal engine. The earlier
 Python service/two-session contract is preserved in
