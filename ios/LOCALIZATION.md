@@ -20,7 +20,10 @@ the Silverphase library in the context of the actual screen.
   `python3 Silverphase/Tools/check-mobile-catalog.py` to reject missing or
   malformed entries. This does not replace in-context copy and layout review.
 - iOS owns permission prompts, Control Center and Shortcuts strings. Their
-  resources are separate from live in-app copy. A new catalog must also add
+  resources are separate from live in-app copy. The main app's Siri phrases live
+  in Apple's `Resources/AppShortcuts.xcstrings` catalog; keep one
+  `${applicationName}` token in each phrase and localize the title and description
+  in `Localizable.strings`. A new catalog must also add
   `Resources/System/<locale>.lproj/{InfoPlist,Localizable}.strings` and
   `Resources/LockedCamera/<locale>.lproj/InfoPlist.strings`. Regenerate the
   project and use `check-system-localization.py` with the built app path.
