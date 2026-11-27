@@ -100,11 +100,7 @@ final class PhotoImportTests: XCTestCase {
         }
         let layout = app.buttons["photo-detail.edit"].frame.midY
         let film = app.descendants(matching: .any).matching(identifier: "photo-detail.film").firstMatch
-        if UIDevice.current.userInterfaceIdiom == .pad && app.frame.width >= 1_050 {
-            XCTAssertLessThan(layout, app.frame.height * 0.38)
-        } else {
-            XCTAssertGreaterThan(layout, app.frame.height * 0.62)
-        }
+        XCTAssertGreaterThan(layout, app.frame.height * 0.62)
         XCTAssertTrue(film.exists)
         app.buttons["photo-detail.info"].tap()
         XCTAssertTrue(app.staticTexts["photo-info.title"].waitForExistence(timeout: 6))
@@ -200,27 +196,31 @@ final class PhotoImportTests: XCTestCase {
         try verifyIPadPhotoToolbarShowsFilmName(.landscapeLeft)
     }
 
-    @MainActor private func verifyPhotoActionGrouping(in app: XCUIApplication, atBottom: Bool) throws {
-        let ids = ["export", "menu", "info", "edit", "delete"]
-        let controls = ids.map { app.buttons["photo-detail." + $0] }
-        for (id, control) in zip(ids, controls) {
-            XCTAssertTrue(control.waitForExistence(timeout: 6), id)
-            XCTAssertTrue(control.isHittable, id)
-            if atBottom { XCTAssertGreaterThan(control.frame.midY, app.frame.height * 0.75, id) }
-            else { XCTAssertLessThan(control.frame.midY, app.frame.height * 0.25, id) }
+    @MainActor private func verifyIPadPhotoActionGrouping(in app: XCUIApplication) throws {
+        func button(_ id: String) -> XCUIElement { app.buttons["photo-detail." + id] }
+        let more = button("menu"), film = button("film")
+        let bottom = ["export", "info", "edit", "delete"].map(button)
+        for control in [more, film] + bottom {
+            XCTAssertTrue(control.waitForExistence(timeout: 6))
+            XCTAssertTrue(control.isHittable)
         }
-        guard controls.allSatisfy(\.exists) else { return }
-        let frames = controls.map(\.frame)
+        XCTAssertLessThan(more.frame.midY, app.frame.height * 0.25)
+        XCTAssertGreaterThan(more.frame.minX, film.frame.maxX + 2)
+        let otherTop = ["back", "rating", "flag", "film"].map(button)
+        for control in otherTop { XCTAssertLessThan(control.frame.midX, more.frame.midX) }
+        for control in bottom { XCTAssertGreaterThan(control.frame.midY, app.frame.height * 0.75) }
+        let frames = bottom.map(\.frame)
         let gaps = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }
-        XCTAssertGreaterThan(gaps[1], max(gaps[2], gaps[3]) + 2, "More needs a separate group")
+        XCTAssertGreaterThan(gaps[0], max(gaps[1], gaps[2]) + 2, "Export stays apart from the info/edit/delete group")
+        XCTAssertLessThan(bottom[0].frame.midX, app.frame.midX)
+        XCTAssertGreaterThan(bottom[1].frame.midX, app.frame.midX)
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        shot.name = "Gallery action grouping"
+        shot.name = "iPad unified gallery action grouping"
         shot.lifetime = .keepAlways
         add(shot)
-        controls[1].tap()
-        let fit = app.buttons["photo-detail.zoom-to-fit"]
-        XCTAssertTrue(fit.waitForExistence(timeout: 5))
-        fit.tap()
+        more.tap()
+        let fit = button("zoom-to-fit")
+        XCTAssertTrue(fit.waitForExistence(timeout: 5)); fit.tap()
         XCTAssertTrue(fit.waitForNonExistence(timeout: 5))
     }
 
@@ -249,19 +249,6 @@ final class PhotoImportTests: XCTestCase {
         }
         XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists)
         XCTAssertLessThan(film.frame.midY, app.frame.height * 0.25)
-        let actions = ["export", "menu", "info", "edit", "delete"].map { app.buttons["photo-detail." + $0] }
-        for action in actions {
-            if app.frame.width >= 1_050 {
-                XCTAssertLessThan(action.frame.midY, app.frame.height * 0.25)
-            } else {
-                XCTAssertGreaterThan(action.frame.midY, app.frame.height * 0.75)
-            }
-        }
-        if app.frame.width < 1_050 {
-            for (left, right) in zip(actions, actions.dropFirst()) {
-                XCTAssertLessThan(left.frame.midX, right.frame.midX)
-            }
-        }
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = "iPad film label " + String(orientation.rawValue)
         shot.lifetime = .keepAlways
@@ -270,7 +257,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
         app.buttons["photo-detail.film-close"].tap()
         XCTAssertTrue(film.isHittable)
-        try verifyPhotoActionGrouping(in: app, atBottom: app.frame.width < 1_050)
+        try verifyIPadPhotoActionGrouping(in: app)
     }
 
     @MainActor func testPhotoDetailToolbarMetadataMenusKeepTheirSlots() {

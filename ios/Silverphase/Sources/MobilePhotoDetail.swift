@@ -58,7 +58,6 @@ struct MobilePhotoDetail: View {
     private static let stripBand: CGFloat = 58
     private static let titledFilmLabelWidth: CGFloat = 108
     private static let toolbarFilmSymbolSize: CGFloat = 22
-    private static let iPadFullToolbarMinimumWidth: CGFloat = 1_050
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -66,8 +65,8 @@ struct MobilePhotoDetail: View {
     private var showsControls: Bool { chromeVisible && !pulling }
 
     private enum HingeReading { case pending, measured(Bool?) }
-    private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait, iPadCompact }
-    private var usesSpreadPhotoActions: Bool { placement == .duoPortrait || placement == .iPadCompact }
+    private enum Placement: Equatable { case bottom, systemSide, duoPortrait, iPad }
+    private var usesSpreadPhotoActions: Bool { placement == .duoPortrait }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
         switch hinge {
@@ -84,9 +83,7 @@ struct MobilePhotoDetail: View {
 #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("--gallery-duo-portrait-layout") { return .duoPortrait }
 #endif
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            return detailWindowSize.width >= Self.iPadFullToolbarMinimumWidth ? .top : .iPadCompact
-        }
+        if UIDevice.current.userInterfaceIdiom == .pad { return .iPad }
         let closed = hingeClosed
         if #available(iOS 27.1, *), let closed {
             let size = detailWindowSize
@@ -136,10 +133,10 @@ struct MobilePhotoDetail: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { navigationItems(photo) }
                     .toolbar(showsControls ? .visible : .hidden, for: .navigationBar)
-                    .toolbar(showsControls && placement != .top ? .visible : .hidden, for: .bottomBar)
+                    .toolbar(showsControls ? .visible : .hidden, for: .bottomBar)
                     .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
                     .modifier(DetailNoScrollMask())
-                    .modifier(DetailToolbarAxis(usesTop: placement == .top || usesSpreadPhotoActions))
+                    .modifier(DetailToolbarAxis(usesTop: placement == .iPad || usesSpreadPhotoActions))
             } else {
                 Button(backLabel, action: onPullDismiss)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -396,7 +393,7 @@ struct MobilePhotoDetail: View {
             } else {
                 Button { showingFilm = true } label: {
                     let minimumWidth: CGFloat = switch placement {
-                    case .top, .iPadCompact: 680
+                    case .iPad: 680
                     case .systemSide: 430
                     case .bottom, .duoPortrait: 510
                     }
@@ -493,25 +490,7 @@ struct MobilePhotoDetail: View {
 
     @ToolbarContentBuilder
     private func actionToolbar(_ photo: MobilePhoto) -> some ToolbarContent {
-        if #available(iOS 26.0, *), placement == .top {
-            ToolbarItem(placement: .topBarTrailing) { exportTool(photo) }
-            ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            ToolbarItem(placement: .topBarTrailing) { more(photo) }
-            ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                infoTool(photo)
-                editTool(photo)
-                deleteTool(photo)
-            }
-        } else if placement == .top {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                exportTool(photo)
-                infoTool(photo)
-                editTool(photo)
-                more(photo)
-                deleteTool(photo)
-            }
-        } else if #available(iOS 27.1, *), placement == .systemSide {
+        if #available(iOS 27.1, *), placement == .systemSide {
             // Register with the same native navigation/sidebar host as the editor.
             // The OS owns this lane, including its safe regions and rotations.
             ToolbarItem(placement: .topBarTrailing) {
@@ -529,11 +508,10 @@ struct MobilePhotoDetail: View {
             ToolbarItem(id: "photo-detail.native-delete", placement: .bottomBar) {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
-        } else if #available(iOS 26.0, *), placement == .iPadCompact {
+        } else if #available(iOS 26.0, *), placement == .iPad {
+            ToolbarItem(placement: .topBarTrailing) { more(photo) }
             ToolbarItem(placement: .bottomBar) { exportTool(photo) }
             ToolbarSpacer(.flexible, placement: .bottomBar)
-            ToolbarItem(placement: .bottomBar) { more(photo) }
-            ToolbarSpacer(.fixed, placement: .bottomBar)
             ToolbarItemGroup(placement: .bottomBar) {
                 infoTool(photo)
                 editTool(photo)
