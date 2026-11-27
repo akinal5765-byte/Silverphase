@@ -21,6 +21,10 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(info("camera").label.contains("Example Camera Co. M1"))
         XCTAssertTrue(info("iso").label.contains("400"))
         XCTAssertTrue(info("shutter").label.contains("1/125"))
+        let metadata = XCTAttachment(screenshot: app.screenshot())
+        metadata.name = "Photo info: capture metadata"
+        metadata.lifetime = .keepAlways
+        add(metadata)
         let scroll = app.scrollViews["photo-info.scroll"]
         scroll.swipeUp()
         XCTAssertTrue(info("dimensions").label.contains("96 × 64"))
@@ -29,7 +33,10 @@ final class PhotoImportTests: XCTestCase {
         app.buttons["photo-info.done"].tap()
         app.buttons["photo-detail.back"].tap()
         let png = app.buttons["library.photo.目标 A"]
-        XCTAssertTrue(png.waitForExistence(timeout: 8))
+        let gridIsReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in png.isHittable }, object: nil)
+        guard XCTWaiter.wait(for: [gridIsReady], timeout: 12) == .completed else {
+            return XCTFail("The library did not become interactive after closing detail")
+        }
         png.tap()
         XCTAssertTrue(infoButton.waitForExistence(timeout: 6))
         infoButton.tap()
