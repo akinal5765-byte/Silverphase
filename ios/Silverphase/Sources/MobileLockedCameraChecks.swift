@@ -203,7 +203,8 @@ enum MobileLockedCameraChecks {
             let heroWidth = hero.right.x - hero.left.x
             let spinePitch = wheelAperture.compactPitch
             try require(heroWidth > 0.33 * spinePitch && heroWidth < 0.5 * spinePitch &&
-                        abs(hero.left.y - hero.right.y) > 3 &&
+                        abs(hero.left.y - hero.right.y) > 2 &&
+                        abs(max(hero.left.y, hero.right.y) * 2 - wheelAperture.height) < 0.00001 &&
                         wheelAperture.dragPitch(reduceMotion: false) < wheelAperture.pitch * 0.5 &&
                         wheelAperture.dragPitch(reduceMotion: true) == wheelAperture.pitch,
                         "The folded center retains a tilted face with short finger travel")
@@ -215,9 +216,9 @@ enum MobileLockedCameraChecks {
                     let far = sign < 0 ? outer.right : outer.left
                     let preceding = sign < 0 ? inner.left : inner.right
                     try require(abs(abs(near.x - preceding.x) - spinePitch) < 1 &&
-                                abs(near.y - preceding.y) < 0.001 && near.y * 2 > wheelAperture.height * 1.6 &&
+                                near.y < preceding.y && near.y * 2 < wheelAperture.height &&
                                 far.y / near.y < 0.68 && outer.right.x - outer.left.x > 2 * heroWidth,
-                                "Both banks need evenly spaced tall spines and wide faces tapering toward the same horizon")
+                                "Both banks taper in height away from the hinge while keeping opposing perspective")
                 }
             }
             let opening = MobileWaistFilmTrack.Fold(origin: 1, destination: 0, began: 1, duration: 0.24)
@@ -241,10 +242,11 @@ enum MobileLockedCameraChecks {
                 let aperture = MobileWaistFilmTrack.Aperture(size: size)
                 for foldIndex in 0...8 {
                     let amount = CGFloat(foldIndex) / 8
-                    let lane = aperture.laneHeight(fold: amount)
+                    let lane = aperture.laneHeight
                     let hero = silhouette(aperture, slot: 0, at: 0, fold: amount)
                     try require(abs((hero.left.x + hero.right.x) / 2 - size.width / 2) < 0.00001 &&
-                                lane + 28 <= size.height + 0.00001,
+                                lane + 28 <= size.height + 0.00001 &&
+                                abs(max(hero.left.y, hero.right.y) * 2 - aperture.height) < 0.00001,
                                 "Center the silhouette in the upper panel and leave room for the caption")
                     for phase in 0...24 {
                         let position = CGFloat(phase) / 24
@@ -255,6 +257,8 @@ enum MobileLockedCameraChecks {
                                         "Reduce Motion always uses the resting layout")
                             let face = silhouette(aperture, slot: slot, at: position, fold: amount)
                             let next = silhouette(aperture, slot: slot + 1, at: position, fold: amount)
+                            try require(max(face.left.y, face.right.y) * 2 <= aperture.height + 0.00001,
+                                        "Projected film graphics never grow taller than the native 16:9 cover")
                             try require(next.left.x - face.right.x > 2.8 && face.right.x > face.left.x,
                                         "Adjacent projected faces stay upright and separated during a drag")
                             let transform = cover.pose.transform(width: aperture.width, height: aperture.height)

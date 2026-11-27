@@ -2132,11 +2132,11 @@ private struct MobileWaistFilmWheel: View {
                     .accessibilityHidden(abs(relative) > 2)
                     .projectionEffect(pose.transform(width: aperture.width, height: aperture.height))
                     .opacity(pose.opacity)
-                    .position(x: coverPlacement.centerX, y: aperture.laneHeight(fold: fold) / 2)
+                    .position(x: coverPlacement.centerX, y: aperture.laneHeight / 2)
                     .zIndex(4 - Double(abs(distance)))
                 }
             }
-            .frame(width: aperture.size.width, height: aperture.laneHeight(fold: fold))
+            .frame(width: aperture.size.width, height: aperture.laneHeight)
             .clipped()
             .overlay {
                 // The visible buttons retain AX actions; a single hit surface
@@ -2261,7 +2261,7 @@ private struct MobileWaistFilmWheel: View {
         // Check front-to-back, the same order used to render the cards.
         for slot in slots.sorted(by: { abs(CGFloat($0) - coordinate) < abs(CGFloat($1) - coordinate) }) {
             let cover = aperture.cover(of: slot, at: coordinate, reduceMotion: reduceMotion, fold: fold)
-            let local = CGPoint(x: point.x - cover.centerX, y: point.y - aperture.laneHeight(fold: fold) / 2)
+            let local = CGPoint(x: point.x - cover.centerX, y: point.y - aperture.laneHeight / 2)
             if cover.pose.contains(local, width: aperture.width, height: aperture.height) {
                 snap(to: slot, from: coordinate)
                 return

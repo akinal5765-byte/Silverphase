@@ -184,11 +184,10 @@ struct MobileWaistFilmTrack {
 
         func dragPitch(reduceMotion: Bool) -> CGFloat { reduceMotion ? pitch : compactPitch }
 
-        // All front spines share one depth and one horizontal horizon.
-        // Use the upper panel's headroom for the long edge of the transposed stack.
-        private var spineHeight: CGFloat { max(height, min(3.2 * compactPitch, size.height - 40)) }
-
-        func laneHeight(fold: CGFloat = 0) -> CGFloat { height + 12 + fold * (spineHeight - height) }
+        // Rotating the reference rack does not rotate the 16:9 film art:
+        // its vertical edge stays the short edge. A fixed lane prevents
+        // the selected card and its name from expanding as the drag begins.
+        var laneHeight: CGFloat { height + 12 }
 
         private var focalLength: CGFloat { max(1, width * 3.2, size.width * 1.08) }
         private var coverGap: CGFloat { min(6, width * 0.05) }
@@ -200,7 +199,7 @@ struct MobileWaistFilmTrack {
         private func pose(at distance: CGFloat, center: CGFloat, reduceMotion: Bool) -> CoverPose {
             let projected = MobileWaistFilmTrack.restingPose(at: distance, screenX: center, focalLength: focalLength,
                                                            reduceMotion: reduceMotion)
-            return projected.fittedVertically(width: width, height: height, halfLane: laneHeight() / 2 - 1)
+            return projected.fittedVertically(width: width, height: height, halfLane: height / 2)
         }
 
         private func edge(at distance: CGFloat, center: CGFloat, side: CGFloat) -> CGFloat {
@@ -297,10 +296,14 @@ struct MobileWaistFilmTrack {
             // exchanging depth through the middle without mirroring the print.
             let crossing = 0.76 * compactPitch
             let faceWidth = reach < crossing ? (crossing + reach * reach / crossing) / 2 : reach
-            let bank = distance + 0.30
-            let t = min(1, abs(bank))
-            let depthLoss = spineHeight / 2 * (1 - backScale) * t * t * (3 - 2 * t)
-            let near = spineHeight / 2
+            let bank = distance + 0.28
+            let t = min(1, abs(bank) / 1.3)
+            let squared = distance * distance
+            // Both banks get progressively lower away from the center.
+            // At the detent the upright edge is exactly the original height;
+            // use just enough opposing skew to keep the thin face readable.
+            let near = height / 2 / (1 + 0.16 * squared / (1 + 0.32 * squared))
+            let depthLoss = near * (1 - backScale) * t * t * (3 - 2 * t)
             return Edges(left: CGPoint(x: middle - faceWidth / 2, y: near - (bank > 0 ? depthLoss : 0)),
                          right: CGPoint(x: middle + faceWidth / 2, y: near - (bank < 0 ? depthLoss : 0)))
         }
