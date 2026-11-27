@@ -126,12 +126,13 @@ struct MobileWaistFilmTrack {
 
     func nearestSlot(to coordinate: CGFloat) -> Int { Int(coordinate.rounded()) }
 
-    func release(from coordinate: CGFloat, velocity: CGFloat, startedAt: TimeInterval) -> Settle {
+    func release(from coordinate: CGFloat, velocity: CGFloat, startedAt: TimeInterval,
+                 coastGain: CGFloat = 1) -> Settle {
         let speed = velocity.isFinite ? velocity : 0
         let springThreshold: CGFloat = 1.1     // cover slots per second
         // Keep the fastest throws bounded by stronger friction, not by
         // clamping the first frame's velocity and visibly grabbing the strip.
-        let drag: CGFloat = 3.35 * max(1, abs(speed) / 12)
+        let drag: CGFloat = 3.35 * max(1, abs(speed) / 12) / coastGain
         let coastDuration = log(max(1, abs(speed) / springThreshold)) / drag
         let coastEnd = coordinate - speed * expm1(-drag * coastDuration) / drag
         let coastVelocity = speed * exp(-drag * coastDuration)
@@ -345,10 +346,11 @@ struct MobileWaistFilmTrack {
         let depth = 1 + 0.59 * squared / (1 + 0.42 * squared)
         let yaw = reduceMotion ? 0 : -atan(screenX / focalLength) * 0.66
         let slope = sin(yaw) / focalLength
-        // Covers follow the tangents of one curved track. Nearby slots
-        // have visibly different angles, and a moving card rolls continuously
-        // through the center instead of all covers sharing a single yaw.
-        let foldedYaw: CGFloat = (-72 + 17 * tanh(position / 1.45)) * .pi / 180
+        // Treat the center axis as the tightest part of the turn. Each cover
+        // rotates about its own vertical centerline, with a continuous angle
+        // on entry and exit and a slightly more open exit side.
+        let offset = tanh(position / 1.05)
+        let foldedYaw: CGFloat = (-84 + offset * offset * (38 + 11 * offset)) * .pi / 180
         let mix = reduceMotion ? 0 : fold
         let frontWidth = cos(yaw) - screenX * slope
         let sideWidth = cos(foldedYaw)

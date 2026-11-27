@@ -102,7 +102,18 @@ enum MobileLockedCameraChecks {
             }
             try require(zip(releases.map(\.destination), [26, 27, 28]).allSatisfy(==),
                         "A slow drag stays near its stock; a fast flick should coast over multiple slots")
-            for motion in releases {
+            let extendedReleases = [-16.0, -8, 8, 16].map { velocity in
+                wheel.release(from: 26.21, velocity: velocity, startedAt: 5, coastGain: 1.35)
+            }
+            for longer in extendedReleases {
+                let prior = wheel.release(from: longer.origin, velocity: longer.velocity, startedAt: longer.startedAt)
+                let priorTravel = abs(prior.position(at: prior.startedAt + prior.coastDuration) - prior.origin)
+                let newTravel = abs(longer.position(at: longer.startedAt + longer.coastDuration) - longer.origin)
+                try require(priorTravel > 0 && abs(newTravel / priorTravel - 1.35) < 0.00001 &&
+                            abs(longer.destination - wheel.nearestSlot(to: longer.origin)) <= 5,
+                            "The tabletop coast is longer in either direction but still bounded")
+            }
+            for motion in releases + extendedReleases {
                 let seam = motion.startedAt + motion.coastDuration
                 let initialSlope = (motion.position(at: 5 + smallStep) - motion.origin) / smallStep
                 let coastSlope = (motion.position(at: seam) - motion.position(at: seam - smallStep)) / smallStep
@@ -170,13 +181,12 @@ enum MobileLockedCameraChecks {
                         "Side-on covers really compress the lane and finger travel, and lift only near the center")
             let leftFolded = wheelAperture.coverPose(of: -1, at: 0, reduceMotion: false, fold: 1)
             let rightFolded = wheelAperture.coverPose(of: 1, at: 0, reduceMotion: false, fold: 1)
-            try require(leftFolded.horizontalScale / leftFolded.verticalScale
-                            < edgeOn.horizontalScale / edgeOn.verticalScale &&
-                        edgeOn.horizontalScale / edgeOn.verticalScale
-                            < rightFolded.horizontalScale / rightFolded.verticalScale &&
-                        rightFolded.horizontalScale / rightFolded.verticalScale
-                            - leftFolded.horizontalScale / leftFolded.verticalScale > 0.30,
-                        "Folded covers use visibly distinct tangents to the same track")
+            let middleRatio = edgeOn.horizontalScale / edgeOn.verticalScale
+            let leftRatio = leftFolded.horizontalScale / leftFolded.verticalScale
+            let rightRatio = rightFolded.horizontalScale / rightFolded.verticalScale
+            try require(middleRatio < 0.12 && leftRatio - middleRatio > 0.24 &&
+                        rightRatio - leftRatio > 0.12,
+                        "Covers turn tightest on the shared center axis and open progressively on both sides")
             let opening = MobileWaistFilmTrack.Fold(origin: 1, destination: 0, began: 1, duration: 0.24)
             try require(opening.amount(at: 1) == 1 && opening.amount(at: 2) == 0 &&
                         abs(opening.amount(at: 1.12) - 0.5) < 0.00001,
