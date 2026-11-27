@@ -296,20 +296,21 @@ struct MobileWaistFilmTrack {
             // exchanging depth through the middle without mirroring the print.
             let crossing = 0.76 * compactPitch
             let faceWidth = reach < crossing ? (crossing + reach * reach / crossing) / 2 : reach
-            // Keep the far edge from rising at the center: exchange depth
-            // on the axis, where both edges are equal. Fade the existing
-            // off-center bias back in before reaching the adjacent slot.
-            let blend = min(1, max(0, (abs(distance) - 0.38) / 0.42))
-            let bank = distance + 0.28 * blend * blend * (3 - 2 * blend)
+            let bank = distance + 0.28
             let t = min(1, abs(bank) / 1.3)
             let squared = distance * distance
             // Both banks get progressively lower away from the center.
             // At the detent the upright edge is exactly the original height;
             // use just enough opposing skew to keep the thin face readable.
             let near = height / 2 / (1 + 0.16 * squared / (1 + 0.32 * squared))
-            let depthLoss = near * (1 - backScale) * t * t * (3 - 2 * t)
-            return Edges(left: CGPoint(x: middle - faceWidth / 2, y: near - (bank > 0 ? depthLoss : 0)),
-                         right: CGPoint(x: middle + faceWidth / 2, y: near - (bank < 0 ? depthLoss : 0)))
+            let sideDepth = (bank < 0 ? -1 : 1) * (1 - backScale) * t * t * (3 - 2 * t)
+            // The center print stays tipped toward the same bank while it
+            // traverses the axis. The receding edge stays short instead of
+            // briefly drawing a square. Swap banks outside the center zone.
+            let blend = min(1, max(0, (abs(distance) - 0.38) / 0.42))
+            let depth = 0.25 + (sideDepth - 0.25) * blend * blend * (3 - 2 * blend)
+            return Edges(left: CGPoint(x: middle - faceWidth / 2, y: near * (1 - max(0, depth))),
+                         right: CGPoint(x: middle + faceWidth / 2, y: near * (1 + min(0, depth))))
         }
 
         func cover(of slot: Int, at coordinate: CGFloat, reduceMotion: Bool, fold: CGFloat = 0) -> Cover {

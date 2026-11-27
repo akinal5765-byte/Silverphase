@@ -203,16 +203,16 @@ enum MobileLockedCameraChecks {
             let heroWidth = hero.right.x - hero.left.x
             let spinePitch = wheelAperture.compactPitch
             try require(heroWidth > 0.33 * spinePitch && heroWidth < 0.5 * spinePitch &&
-                        abs(hero.left.y - hero.right.y) < 0.00001 &&
+                        abs(hero.left.y / hero.right.y - 0.75) < 0.00001 &&
                         abs(max(hero.left.y, hero.right.y) * 2 - wheelAperture.height) < 0.00001 &&
                         wheelAperture.dragPitch(reduceMotion: false) < wheelAperture.pitch * 0.5 &&
                         wheelAperture.dragPitch(reduceMotion: true) == wheelAperture.pitch,
-                        "The folded center retains a narrow face and equal-height edges")
-            for phase: CGFloat in [-0.12, -0.06, 0.06, 0.12] {
+                        "The folded center keeps a readable face, with the receding edge shorter")
+            for step in -12...12 {
+                let phase = CGFloat(step) / 32
                 let pass = silhouette(wheelAperture, slot: 0, at: phase, fold: 1)
-                let delta = pass.left.y - pass.right.y
-                try require(delta * phase > 0 && abs(delta) < 1,
-                            "Depth trades sides smoothly at the center without lifting the far edge")
+                try require(abs(pass.left.y / pass.right.y - 0.75) < 0.00001,
+                            "The far edge stays shorter on both sides of the center crossing")
             }
             for phase: CGFloat in [-0.4, 0, 0.4] {
                 for sign in [-1, 1] {
