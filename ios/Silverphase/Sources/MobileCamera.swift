@@ -500,8 +500,8 @@ struct MobileCameraView: View {
         .allowsHitTesting(!pickerUsesSceneCoordinates || !showingFilms)
         .accessibilityHidden(pickerUsesSceneCoordinates && showingFilms)
         .overlay {
-            // iPad's camera canvas is device-relative. Present the catalogue
-            // in the host scene so its grid/text never follows the camera turn.
+            // Size the catalogue in the scene, then orient it the same way
+            // as the camera controls rather than inheriting the canvas transform.
             if pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: true) }
         }
 #else
@@ -1133,7 +1133,21 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
-    private var pickerUsesSceneCoordinates: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    private var pickerUsesSceneCoordinates: Bool { !usesInnerCameraLayout }
+
+    private var pickerSceneRotation: Double {
+        // iPad's landscape scene can lay out the catalogue natively. Phones
+        // may keep the scene portrait while their camera glyphs follow roll.
+        guard UIDevice.current.userInterfaceIdiom != .pad else { return 0 }
+#if DEBUG
+        if isLayoutCheck,
+           let hint = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--camera-picker-test-angle=") }),
+           let degrees = Double(hint.split(separator: "=").last ?? "") {
+            return degrees
+        }
+#endif
+        return controlRotation + (followsInterface ? 0 : sceneQuarterTurn)
+    }
 
     private func cameraFilmPickerOverlay(useScenePanel: Bool) -> some View {
         ZStack {
@@ -1148,14 +1162,17 @@ struct MobileCameraView: View {
             }
             GeometryReader { geometry in
                 let panel = useScenePanel ? CGRect(origin: .zero, size: geometry.size) : activeCameraPanel(geometry)
+                let layout = MobileCameraCanvasGeometry(viewport: panel.size,
+                    interfaceQuarterTurn: useScenePanel ? pickerSceneRotation : 0)
                 ZStack(alignment: .bottom) {
                     if showingFilms {
-                        filmPicker(panelHeight: panel.height)
+                        filmPicker(panelHeight: layout.contentSize.height)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .frame(width: panel.width, height: panel.height, alignment: .bottom)
+                .frame(width: layout.contentSize.width, height: layout.contentSize.height, alignment: .bottom)
                 .clipped()
+                .rotationEffect(.degrees(layout.rotation))
                 .position(x: panel.midX, y: panel.midY)
             }
             .ignoresSafeArea(.container, edges: !useScenePanel && fillsPanel ? .horizontal : [])
