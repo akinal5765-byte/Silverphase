@@ -377,14 +377,18 @@ struct MobilePhotoDetail: View {
     }
 
     private func filmTrigger<Label: View>(width: CGFloat, name: String?, @ViewBuilder label: () -> Label) -> some View {
-        Button { showingFilm = true } label: {
-            label()
-                .padding(.horizontal, width == EditorDesign.hitSize ? 0 : EditorDesign.gutter)
-                .frame(width: width, height: EditorDesign.hitSize)
-                .contentShape(Capsule())
-                .modifier(DetailToolbarChipSurface())
+        let button = Button { showingFilm = true } label: { label() }
+        return Group {
+            if #available(iOS 26.0, *) {
+                button.buttonStyle(.glass).buttonBorderShape(width == EditorDesign.hitSize ? .circle : .capsule)
+            } else {
+                button.buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: EditorDesign.hitSize)
+                    .modifier(ChromeSurface(radius: 22, interactive: true))
+            }
         }
-        .buttonStyle(DetailToolbarChipPress())
+        .controlSize(width == EditorDesign.hitSize ? .regular : .large)
+        .frame(width: width, height: EditorDesign.hitSize)
         .fixedSize()
         .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
         .accessibilityValue(name ?? "")
@@ -571,33 +575,37 @@ struct MobilePhotoDetail: View {
     }
 
     private func rating(_ photo: MobilePhoto) -> some View {
-        Menu {
-            ForEach(0...5, id: \.self) { value in
-                Button(value == 0 ? T("Clear rating", "清除星标", "清除星標") : "\(value) ★") {
-                    document.markPhotos([photo.id], rating: value)
+        metadataMenuSlot {
+            Menu {
+                ForEach(0...5, id: \.self) { value in
+                    Button(value == 0 ? T("Clear rating", "清除星标", "清除星標") : "\(value) ★") {
+                        document.markPhotos([photo.id], rating: value)
+                    }
                 }
+            } label: {
+                chip(photo.rating > 0 ? "\(photo.rating)" : nil, symbol: photo.rating > 0 ? "star.fill" : "star")
+                    .foregroundStyle(photo.rating > 0 ? MobileStyle.accent : Color.primary)
             }
-        } label: {
-            chip(photo.rating > 0 ? "\(photo.rating)" : nil, symbol: photo.rating > 0 ? "star.fill" : "star")
-                .foregroundStyle(photo.rating > 0 ? MobileStyle.accent : Color.primary)
+            .buttonStyle(.plain)
+            .accessibilityLabel(T("Rating", "星标", "星標"))
+            .accessibilityValue(photo.rating > 0 ? "\(photo.rating) / 5" : T("Unrated", "尚未评分", "尚未評分"))
+            .accessibilityIdentifier("photo-detail.rating")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(T("Rating", "星标", "星標"))
-        .accessibilityValue(photo.rating > 0 ? "\(photo.rating) / 5" : T("Unrated", "尚未评分", "尚未評分"))
-        .accessibilityIdentifier("photo-detail.rating")
     }
 
     private func flag(_ photo: MobilePhoto) -> some View {
-        Menu {
-            Button(T("Pick", "保留", "保留"), systemImage: "flag.fill") { document.markPhotos([photo.id], flag: "pick") }
-            Button(T("Reject", "淘汰", "淘汰"), systemImage: "flag.slash") { document.markPhotos([photo.id], flag: "reject") }
-            Button(T("Clear flag", "清除旗标", "清除旗標")) { document.markPhotos([photo.id], flag: "none") }
-        } label: {
-            chip(nil, symbol: photo.flag == "pick" ? "flag.fill" : photo.flag == "reject" ? "flag.slash" : "flag")
-                .foregroundStyle(["pick", "reject"].contains(photo.flag) ? MobileStyle.accent : Color.primary)
+        metadataMenuSlot {
+            Menu {
+                Button(T("Pick", "保留", "保留"), systemImage: "flag.fill") { document.markPhotos([photo.id], flag: "pick") }
+                Button(T("Reject", "淘汰", "淘汰"), systemImage: "flag.slash") { document.markPhotos([photo.id], flag: "reject") }
+                Button(T("Clear flag", "清除旗标", "清除旗標")) { document.markPhotos([photo.id], flag: "none") }
+            } label: {
+                chip(nil, symbol: photo.flag == "pick" ? "flag.fill" : photo.flag == "reject" ? "flag.slash" : "flag")
+                    .foregroundStyle(["pick", "reject"].contains(photo.flag) ? MobileStyle.accent : Color.primary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
     }
 
     private func cancelTileWork() {
@@ -910,36 +918,36 @@ struct MobilePhotoDetail: View {
             }
         }
         .font(.caption.weight(.semibold))
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Circle())
-        .modifier(DetailToolbarChipSurface())
+        .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
+        .contentShape(Rectangle())
+    }
+
+    private func metadataMenuSlot<MenuContent: View>(@ViewBuilder _ menu: () -> MenuContent) -> some View {
+        ZStack {
+            // UIKit snapshots the Menu label when it returns to its compact
+            // navigation host. Keep the circle outside that snapshot so that
+            // only the glyph travels through the host's smaller clip area.
+            Color.clear
+                .modifier(DetailMetadataMenuPlate())
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            menu()
+        }
+        .frame(width: EditorDesign.hitSize, height: EditorDesign.hitSize)
     }
 }
 
-// A toolbar item is hosted in a fixed-height native slot. Keep the material
-// inside that slot and let Menu / popover own the presentation animation,
-// rather than enlarging a second interactive glass effect in the label.
-private struct DetailToolbarChipSurface: ViewModifier {
+private struct DetailMetadataMenuPlate: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26.0, *), !reduceTransparency {
-            content.glassEffect(.regular, in: .capsule)
+            content.glassEffect(.regular, in: .circle)
         } else if reduceTransparency {
-            content.background(MobileStyle.canvas, in: Capsule())
+            content.background(MobileStyle.canvas, in: Circle())
         } else {
-            content.background(.regularMaterial, in: Capsule())
+            content.background(.regularMaterial, in: Circle())
         }
-    }
-}
-
-private struct DetailToolbarChipPress: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? 0.72 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
