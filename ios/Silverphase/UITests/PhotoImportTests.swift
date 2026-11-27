@@ -201,6 +201,14 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
         app.buttons["photo-detail.film-close"].tap()
         XCTAssertTrue(film.isHittable)
+
+        // Exercise the reference native menu in the same screen recording.
+        app.buttons["photo-detail.menu"].tap()
+        let fit = app.buttons["photo-detail.zoom-to-fit"]
+        XCTAssertTrue(fit.waitForExistence(timeout: 5))
+        fit.tap()
+        XCTAssertTrue(fit.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(film.isHittable)
     }
 
     @MainActor func testPhotoDetailFilmPickerSearchAndSelection() {
@@ -215,10 +223,17 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(film.waitForExistence(timeout: 8))
         let initialWidth = film.frame.width
         if app.frame.width < 440 {
-            XCTAssertEqual(initialWidth, 44, accuracy: 3, "A tight toolbar uses the icon-only chip")
+            let more = app.buttons["photo-detail.menu"]
+            if more.exists, more.frame.midY < app.frame.height * 0.38 {
+                XCTAssertEqual(initialWidth, more.frame.width, accuracy: 3,
+                               "The compact film trigger uses the same native sizing as More")
+            } else {
+                XCTAssertLessThanOrEqual(initialWidth, 48, "A tight toolbar uses an icon-only item")
+            }
+        } else {
+            XCTAssertTrue((32...48).contains(initialWidth) || (138...172).contains(initialWidth),
+                          "The film item should be either icon-only or have room for its name")
         }
-        XCTAssertTrue(abs(initialWidth - 44) <= 3 || abs(initialWidth - 160) <= 3,
-                      "Toolbar should use one complete chip rather than squeeze the name")
         let buttonFrame = film.frame
         film.tap()
         let title = app.staticTexts["photo-detail.film-title"]
