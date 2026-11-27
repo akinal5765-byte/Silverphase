@@ -65,7 +65,6 @@ struct MobilePhotoDetail: View {
 
     private enum HingeReading { case pending, measured(Bool?) }
     private enum Placement: Equatable { case top, bottom, systemSide, duoPortrait }
-    private var usesGroupedDuoMetadata: Bool { isDuo || placement == .duoPortrait }
     private var detailWindowSize: CGSize { windowSize == .zero ? initialWindowSize : windowSize }
     private var hingeClosed: Bool? {
         switch hinge {
@@ -347,28 +346,28 @@ struct MobilePhotoDetail: View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
         let title = T("Choose Film", "切换胶片", "切換膠片")
-        let spokenTitle = name.map { "\(title), \($0)" } ?? title
-        return Group {
-            if #available(iOS 26.0, *), usesGroupedDuoMetadata {
-                duoFilmTrigger(title, name: name)
-            } else {
-                Button { showingFilm = true } label: {
-                    if detailWindowSize.width >= (placement == .top ? 810 : 510) {
-                        Label {
-                            Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
-                                .lineLimit(1)
-                                .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
-                        } icon: {
-                            Image(systemName: "film")
-                        }
-                        .labelStyle(.titleAndIcon)
-                    } else {
-                        Label(spokenTitle, systemImage: "film")
-                    }
+        return Button { showingFilm = true } label: {
+            // The Duo side layout already moves Back and More out of the
+            // horizontal row. Credit that room without changing any item.
+            let minimumWidth: CGFloat = switch placement {
+            case .top: 810
+            case .systemSide: 430
+            case .bottom, .duoPortrait: 510
+            }
+            if detailWindowSize.width >= minimumWidth {
+                Label {
+                    Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
+                        .lineLimit(1)
+                        .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
+                } icon: {
+                    Image(systemName: "film")
                 }
+                .labelStyle(.titleAndIcon)
+            } else {
+                Label(title, systemImage: "film")
             }
         }
-        .accessibilityLabel(spokenTitle)
+        .accessibilityLabel(title)
         .accessibilityValue(name ?? "")
         .accessibilityIdentifier("photo-detail.film")
         .popover(isPresented: $showingFilm, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
@@ -380,75 +379,6 @@ struct MobilePhotoDetail: View {
                     .presentationCompactAdaptation(.none)
             } else {
                 filmPicker(photo).presentationCompactAdaptation(.none)
-            }
-        }
-    }
-
-    private func duoFilmTrigger(_ title: String, name: String?) -> some View {
-        // In a narrow window the toolbar can ask its hosted group for an
-        // unbounded ideal width first. Don't advertise the title in that pass.
-        // In wider windows still respect the space the toolbar actually offers.
-        Group {
-            if detailWindowSize.width >= 510 {
-                ViewThatFits(in: .horizontal) {
-                    legacyDuoFilmButton(width: 160, name: name) {
-                        titledFilmChip(name ?? title).frame(maxWidth: .infinity)
-                    }
-                    duoFilmIcon(name: name)
-                }
-            } else {
-                duoFilmIcon(name: name)
-            }
-        }
-    }
-
-    private func duoFilmIcon(name: String?) -> some View {
-        legacyDuoFilmButton(width: EditorDesign.hitSize, name: name) {
-            Image(systemName: "film").font(EditorDesign.sectionTitle)
-                .frame(width: 30, height: 30)
-        }
-    }
-
-    private func legacyDuoFilmButton<Label: View>(width: CGFloat, name: String?, @ViewBuilder label: () -> Label) -> some View {
-        let button = Button { showingFilm = true } label: { label() }
-        return Group {
-            if #available(iOS 26.0, *) {
-                button.buttonStyle(.glass).buttonBorderShape(width == EditorDesign.hitSize ? .circle : .capsule)
-            } else {
-                button.buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, minHeight: EditorDesign.hitSize)
-                    .modifier(ChromeSurface(radius: 22, interactive: true))
-            }
-        }
-        .controlSize(width == EditorDesign.hitSize ? .regular : .large)
-        .frame(width: width, height: EditorDesign.hitSize)
-        .fixedSize()
-        .accessibilityLabel(T("Choose Film", "切换胶片", "切換膠片"))
-        .accessibilityValue(name ?? "")
-        .accessibilityIdentifier("photo-detail.film")
-    }
-
-    private func titledFilmChip(_ fullTitle: String) -> some View {
-        let title = shortFilmTitle(fullTitle)
-        return HStack(spacing: 5) {
-            Image(systemName: "film").fixedSize()
-            ViewThatFits(in: .horizontal) {
-                Text(fullTitle).lineLimit(1).fixedSize(horizontal: true, vertical: false)
-                Text(title).lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.down").font(.system(size: 8)).fixedSize()
-        }
-        .font(EditorDesign.cardTitle)
-    }
-
-    private func duoMetadataItem(_ photo: MobilePhoto) -> ToolbarItem<String, some View> {
-        ToolbarItem(id: "photo-detail.native-metadata", placement: .topBarTrailing) {
-            HStack(spacing: placement == .systemSide ? EditorDesign.unit : 2 * EditorDesign.unit) {
-                duoRating(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
-                duoFlag(photo).frame(width: 44, height: 44).fixedSize().layoutPriority(1)
-                filmButton(photo)
             }
         }
     }
@@ -479,15 +409,12 @@ struct MobilePhotoDetail: View {
             dateItem(photo).axisBehavior(.horizontalOnly)
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
-            if usesGroupedDuoMetadata {
-                duoMetadataItem(photo).axisBehavior(.horizontalOnly)
-                    .visibilityPriority(.high).sharedBackgroundVisibility(.hidden)
-            } else {
-                ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-                ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
-                flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-                ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
-                filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            if placement != .duoPortrait {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             }
         } else if #available(iOS 26.0, *) {
@@ -696,36 +623,6 @@ struct MobilePhotoDetail: View {
                 .foregroundStyle(["pick", "reject"].contains(photo.flag) ? MobileStyle.accent : Color.primary)
         }
         .accessibilityIdentifier("photo-detail.flag")
-    }
-
-    private func duoRating(_ photo: MobilePhoto) -> some View {
-        Menu {
-            ForEach(0...5, id: \.self) { value in
-                Button(value == 0 ? T("Clear rating", "清除星标", "清除星標") : "\(value) ★") {
-                    document.markPhotos([photo.id], rating: value)
-                }
-            }
-        } label: {
-            chip(photo.rating > 0 ? "\(photo.rating)" : nil, symbol: photo.rating > 0 ? "star.fill" : "star")
-                .foregroundStyle(photo.rating > 0 ? MobileStyle.accent : Color.primary)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(T("Rating", "星标", "星標"))
-        .accessibilityValue(photo.rating > 0 ? "\(photo.rating) / 5" : T("Unrated", "尚未评分", "尚未評分"))
-        .accessibilityIdentifier("photo-detail.rating")
-    }
-
-    private func duoFlag(_ photo: MobilePhoto) -> some View {
-        Menu {
-            Button(T("Pick", "保留", "保留"), systemImage: "flag.fill") { document.markPhotos([photo.id], flag: "pick") }
-            Button(T("Reject", "淘汰", "淘汰"), systemImage: "flag.slash") { document.markPhotos([photo.id], flag: "reject") }
-            Button(T("Clear flag", "清除旗标", "清除旗標")) { document.markPhotos([photo.id], flag: "none") }
-        } label: {
-            chip(nil, symbol: photo.flag == "pick" ? "flag.fill" : photo.flag == "reject" ? "flag.slash" : "flag")
-                .foregroundStyle(["pick", "reject"].contains(photo.flag) ? MobileStyle.accent : Color.primary)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(T("Flag", "旗标", "旗標")).accessibilityIdentifier("photo-detail.flag")
     }
 
     private func cancelTileWork() {
@@ -1028,18 +925,6 @@ struct MobilePhotoDetail: View {
     private func tool(_ label: String, _ symbol: String, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Label(label, systemImage: symbol) }
             .accessibilityIdentifier(id)
-    }
-    private func chip(_ title: String?, symbol: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol)
-            if let title {
-                Text(title).lineLimit(1)
-            }
-        }
-        .font(.caption.weight(.semibold))
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
-        .modifier(ChromeSurface(radius: 22, interactive: true))
     }
 }
 
