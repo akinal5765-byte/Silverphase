@@ -13,7 +13,16 @@ struct DetailFilmstrip: UIViewRepresentable {
         let version: Int
     }
 
-    let items: [Item]
+    struct ContentRevision: Equatable {
+        let records: UInt64
+        let previews: UInt64
+        let cropRemapsEffects: Bool
+        let diBlueCompensation: Bool
+    }
+
+    let photoIDs: [UUID]
+    let contentRevision: ContentRevision
+    let item: (UUID) -> Item?
     let selection: UUID
     let reduceMotion: Bool
     let onScrubbing: (Bool) -> Void
@@ -40,7 +49,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         view.contentInsetAdjustmentBehavior = .never
         view.decelerationRate = .normal
         view.scrollsToTop = false
-        view.alwaysBounceHorizontal = items.count > 1
+        view.alwaysBounceHorizontal = photoIDs.count > 1
         if #available(iOS 26.0, *) {
             view.topEdgeEffect.isHidden = true
             view.bottomEdgeEffect.isHidden = true
@@ -62,13 +71,16 @@ struct DetailFilmstrip: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UICollectionView, context: Context) {
-        context.coordinator.update(items: items, selection: selection, reduceMotion: reduceMotion,
+        context.coordinator.update(photoIDs: photoIDs, contentRevision: contentRevision, item: item,
+                                   selection: selection, reduceMotion: reduceMotion,
                                    onScrubbing: onScrubbing, onSelect: onSelect)
     }
 
     final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegate {
         weak var view: UICollectionView?
-        private var items: [Item] = []
+        private var photoIDs: [UUID] = []
+        private var item: ((UUID) -> Item?)?
+        private var contentRevision: ContentRevision?
         private var itemIndexes: [UUID: Int] = [:]
         private var selected: UUID?
         private var onSelect: ((UUID, CGImage?) -> Void)?
@@ -79,32 +91,33 @@ struct DetailFilmstrip: UIViewRepresentable {
         private var programmatic = false
         private var layoutUpdate = false
 
-        func update(items newItems: [Item], selection: UUID, reduceMotion: Bool,
+        func update(photoIDs newIDs: [UUID], contentRevision: ContentRevision, item: @escaping (UUID) -> Item?,
+                    selection: UUID, reduceMotion: Bool,
                     onScrubbing: @escaping (Bool) -> Void, onSelect: @escaping (UUID, CGImage?) -> Void) {
             guard let view else { return }
+            let contentChanged = self.contentRevision != contentRevision
+            self.contentRevision = contentRevision
             self.onSelect = onSelect
             self.onScrubbing = onScrubbing
-            view.alwaysBounceHorizontal = newItems.count > 1
+            self.item = item
+            view.alwaysBounceHorizontal = newIDs.count > 1
             self.reduceMotion = reduceMotion
-            if items != newItems {
-                if items.map(\.id) == newItems.map(\.id) {
-                    let previous = items
-                    items = newItems
-                    // No reload is needed when only the edited thumbnail changes.
-                    for index in view.indexPathsForVisibleItems where previous[index.item] != items[index.item] {
-                        configure(view.cellForItem(at: index) as? ThumbnailCell, at: index)
-                    }
-                } else {
-                    let old = layoutUpdate
-                    layoutUpdate = true
-                    items = newItems
-                    itemIndexes = Dictionary(uniqueKeysWithValues: newItems.enumerated().map { ($0.element.id, $0.offset) })
-                    selected = selection
-                    programmatic = false
-                    view.reloadData()
-                    viewportChanged()
-                    layoutUpdate = old
-                    if isScrubbing { finishScrubbing() }
+            if photoIDs != newIDs {
+                let old = layoutUpdate
+                layoutUpdate = true
+                photoIDs = newIDs
+                itemIndexes = newIDs.enumerated().reduce(into: [:]) { $0[$1.element] = $1.offset }
+                selected = selection
+                programmatic = false
+                view.reloadData()
+                viewportChanged()
+                layoutUpdate = old
+                if isScrubbing { finishScrubbing() }
+            } else if contentChanged {
+                // Recipe hashes and file URLs are only materialized for the
+                // cells UIKit displays, not the thousands of offscreen items.
+                for index in view.indexPathsForVisibleItems {
+                    configure(view.cellForItem(at: index) as? ThumbnailCell, at: index)
                 }
             }
             // User-driven scrubbing is the source of truth until UIKit
@@ -136,7 +149,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         }
 
         private func indexNearest(to center: CGFloat) -> Int? {
-            guard let view, !items.isEmpty else { return nil }
+            guard let view, !photoIDs.isEmpty else { return nil }
             let radius = DetailFilmstrip.itemWidth * 2
             let region = CGRect(x: center - radius, y: 0, width: radius * 2, height: view.bounds.height)
             return view.collectionViewLayout.layoutAttributesForElements(in: region)?
@@ -180,7 +193,7 @@ struct DetailFilmstrip: UIViewRepresentable {
             updateVisibleEffects()
         }
 
-        func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int { items.count }
+        func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int { photoIDs.count }
 
         func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: DetailFilmstrip.cellIdentifier, for: indexPath)
@@ -189,8 +202,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         }
 
         private func configure(_ cell: ThumbnailCell?, at indexPath: IndexPath) {
-            guard let cell, items.indices.contains(indexPath.item) else { return }
-            let item = items[indexPath.item]
+            guard let cell, photoIDs.indices.contains(indexPath.item), let item = item?(photoIDs[indexPath.item]) else { return }
             cell.configure(item)
             cell.activate = { [weak self] in self?.choose(item.id) }
             applyEffects(to: cell, at: indexPath)
@@ -202,8 +214,8 @@ struct DetailFilmstrip: UIViewRepresentable {
             for case let cell as ThumbnailCell in view.visibleCells {
                 let art = cell.convert(cell.artworkFrame, to: view)
                 guard art.insetBy(dx: -DetailFilmstrip.spacing / 2, dy: -4).contains(point),
-                      let index = view.indexPath(for: cell), items.indices.contains(index.item) else { continue }
-                choose(items[index.item].id)
+                      let index = view.indexPath(for: cell), photoIDs.indices.contains(index.item) else { continue }
+                choose(photoIDs[index.item])
                 break
             }
         }
@@ -221,7 +233,7 @@ struct DetailFilmstrip: UIViewRepresentable {
             guard !layoutUpdate else { return }
             if isScrubbing, !programmatic {
                 let center = scrollView.contentOffset.x + scrollView.bounds.width / 2
-                if let index = indexNearest(to: center), items.indices.contains(index) { select(items[index].id) }
+                if let index = indexNearest(to: center), photoIDs.indices.contains(index) { select(photoIDs[index]) }
             }
             updateVisibleEffects()
         }
@@ -248,8 +260,8 @@ struct DetailFilmstrip: UIViewRepresentable {
 
         private func settle(_ scrollView: UIScrollView) {
             if let index = indexNearest(to: scrollView.contentOffset.x + scrollView.bounds.width / 2),
-               items.indices.contains(index) {
-                let id = items[index].id
+               photoIDs.indices.contains(index) {
+                let id = photoIDs[index]
                 select(id)
                 align(id, animated: true)
             }
@@ -274,7 +286,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         }
 
         private func applyEffects(to cell: ThumbnailCell, at index: IndexPath, animated: Bool = false) {
-            guard items.indices.contains(index.item) else { return }
+            guard photoIDs.indices.contains(index.item) else { return }
             let anchor = selected.flatMap { itemIndexes[$0] }
             let isSelected = index.item == anchor
             let moving = isScrubbing || programmatic

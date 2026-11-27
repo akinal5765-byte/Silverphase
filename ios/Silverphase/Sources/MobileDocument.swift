@@ -54,8 +54,15 @@ struct MobilePhoto: Codable, Identifiable {
     var exportFolder: URL?
     var exportStatus = ""
     var exportedFiles: [URL] = []
-    var photos: [MobilePhoto] = []
+    var photos: [MobilePhoto] = [] {
+        didSet { libraryPhotosRevision &+= 1 }
+    }
+    @ObservationIgnored private(set) var libraryPhotosRevision: UInt64 = 0
+    @ObservationIgnored private var libraryPositions: [UUID: Int] = [:]
+    @ObservationIgnored private var libraryPositionsRevision: UInt64?
+    @ObservationIgnored private let libraryPreviewKeys = NSCache<NSUUID, LibraryPreviewKeyEntry>()
     private(set) var libraryPreviewVersions: [UUID: Int] = [:]
+    private(set) var libraryPreviewRevision: UInt64 = 0
     var selection: UUID? { didSet { if oldValue != selection { canvasState.reset(); pendingDefaultValues = [:] } } }
     private var pendingDefaultValues: [String: WireValue] = [:]
     let canvasState = MobileCanvasState()
@@ -269,8 +276,47 @@ struct MobilePhoto: Codable, Identifiable {
         queuePreviewClose()
     }
 
+    private final class LibraryPreviewKeyEntry {
+        let recipe: [String: WireValue]
+        let geometry: MobileGeometry
+        let cropRemapsEffects: Bool
+        let diBlueCompensation: Bool
+        let url: URL
+
+        init(photo: MobilePhoto, cropRemapsEffects: Bool, diBlueCompensation: Bool) {
+            recipe = photo.recipe
+            geometry = photo.geometry
+            self.cropRemapsEffects = cropRemapsEffects
+            self.diBlueCompensation = diBlueCompensation
+            url = MobileLibraryPreview.url(photo: photo, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation)
+        }
+    }
+
+    func libraryPhoto(withID id: UUID) -> MobilePhoto? {
+        let records = photos
+        if let index = libraryPositions[id], records.indices.contains(index), records[index].id == id {
+            return records[index]
+        }
+        guard libraryPositionsRevision != libraryPhotosRevision else { return nil }
+        // An edit to a recipe does not change positions. Rebuild only when a
+        // lookup detects that the index no longer describes the collection.
+        libraryPositions = records.enumerated().reduce(into: [:]) { $0[$1.element.id] = $1.offset }
+        libraryPositionsRevision = libraryPhotosRevision
+        return libraryPositions[id].map { records[$0] }
+    }
+
     func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
-        MobileLibraryPreview.url(photo: photo, cropRemapsEffects: preferences.values.cropRemapsEffects, diBlueCompensation: preferences.values.diBlueCompensation)
+        let crop = preferences.values.cropRemapsEffects
+        let blue = preferences.values.diBlueCompensation
+        let key = photo.id as NSUUID
+        if let cached = libraryPreviewKeys.object(forKey: key), cached.cropRemapsEffects == crop,
+           cached.diBlueCompensation == blue, cached.recipe == photo.recipe, cached.geometry == photo.geometry {
+            return cached.url
+        }
+        let entry = LibraryPreviewKeyEntry(photo: photo, cropRemapsEffects: crop, diBlueCompensation: blue)
+        libraryPreviewKeys.countLimit = 256
+        libraryPreviewKeys.setObject(entry, forKey: key)
+        return entry.url
     }
     func libraryRenderRequestKey(_ photo: MobilePhoto) -> URL {
         var input = photo
@@ -279,7 +325,9 @@ struct MobilePhoto: Codable, Identifiable {
         for field in [MobileCameraPrep.baseline, MobileCameraPrep.limited, MobileCameraPrep.failure] {
             input.recipe[field] = nil
         }
-        return libraryPreviewURL(input)
+        if input.recipe == photo.recipe { return libraryPreviewURL(photo) }
+        return MobileLibraryPreview.url(photo: input, cropRemapsEffects: preferences.values.cropRemapsEffects,
+                                        diBlueCompensation: preferences.values.diBlueCompensation)
     }
     private func cameraRenderRecipe(_ photo: MobilePhoto) -> [String: WireValue] {
         var recipe = photo.recipe
@@ -495,6 +543,7 @@ struct MobilePhoto: Codable, Identifiable {
     }
     private func libraryPreviewDidWrite(_ photoID: UUID) {
         libraryPreviewVersions[photoID, default: 0] += 1
+        libraryPreviewRevision &+= 1
     }
     func url(for photo: MobilePhoto) -> URL { directory.appendingPathComponent(photo.filename) }
     func select(_ id: UUID) {

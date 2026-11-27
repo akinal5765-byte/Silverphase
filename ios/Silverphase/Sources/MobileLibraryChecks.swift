@@ -120,6 +120,43 @@ import UniformTypeIdentifiers
         return true
     }
 
+    private static func largeGridSnapshotIsCached(_ doc: MobileDocument) -> Bool {
+        let cache = LibraryGridCache()
+        let records = (0..<8_000).map { index in
+            let ext = index.isMultiple(of: 2) ? "dng" : "jpg"
+            return MobilePhoto(name: "Frame \(index)", filename: "frame-\(index).\(ext)",
+                               rating: index % 6, libraryDate: Date(timeIntervalSince1970: Double(index / 3)))
+        }
+        func key(_ revision: UInt64 = 0, dateRevision: UInt64 = 0, newestFirst: Bool = false,
+                 rawOnly: Bool = false, rating: Int = 0) -> LibraryGridCache.Key {
+            .init(documentID: ObjectIdentifier(doc), photosRevision: revision, dateRevision: dateRevision,
+                  newestFirst: newestFirst, minimumRating: rating, flag: "all", rawOnly: rawOnly, format: nil, search: "")
+        }
+        var dateReads = 0, formatReads = 0
+        func resolve(_ key: LibraryGridCache.Key, records changedRecords: [MobilePhoto]? = nil) -> LibraryGridCache.Snapshot {
+            cache.snapshot(records: changedRecords ?? records, key: key, date: { dateReads += 1; return $0.libraryDate ?? .distantPast },
+                           format: { formatReads += 1; return URL(fileURLWithPath: $0.filename).pathExtension },
+                           isRAW: { $0.filename.hasSuffix(".dng") })
+        }
+        let initial = resolve(key())
+        guard initial.ids == records.map(\.id), initial.indexes[records[7_999].id] == 7_999,
+              initial.formats == ["dng", "jpg"], dateReads == records.count, formatReads == records.count else { return false }
+        for _ in 0..<200 { guard resolve(key()).ids.count == records.count else { return false } }
+        let filtered = resolve(key(rawOnly: true, rating: 3))
+        guard filtered.ids == records.filter({ $0.filename.hasSuffix(".dng") && $0.rating >= 3 }).map(\.id),
+              dateReads == records.count, formatReads == records.count else { return false }
+        let descending = resolve(key(newestFirst: true))
+        guard descending.ids == records.sorted(by: { $0.libraryDate! > $1.libraryDate! }).map(\.id) else { return false }
+        var edited = records
+        edited[7_999].libraryDate = Date(timeIntervalSince1970: -1)
+        guard resolve(key(dateRevision: 1), records: edited).ids.first == edited[7_999].id else { return false }
+        edited[0].rating = 5
+        guard resolve(key(1, dateRevision: 1, rawOnly: true, rating: 5), records: edited).ids == [edited[0].id] else {
+            return false
+        }
+        return true
+    }
+
     static func run() {
         let directory = URL.temporaryDirectory.appendingPathComponent("Library-Checks-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -133,6 +170,8 @@ import UniformTypeIdentifiers
             try require(photoPreviewAlphaEdgesAreRepaired(), "preview raster repairs only outer partial-alpha samples before film inversion")
             try require(scaledRAWPreviewReplicatesOnlyTheGuardBand(), "scaled RAW preview preserves extent and interior without brightness thresholds")
             let doc = MobileDocument(directory: directory); doc.active = false; doc.editorVisible = false
+            try require(largeGridSnapshotIsCached(doc),
+                        "8,000-photo grid reuses order and format work across 200 layout updates and reuses order when filtering")
             var portrait = MobilePhoto(name: "Portrait", filename: "portrait.jpg")
             portrait.sourceAspect = 2.0 / 3; portrait.sourceMegapixels = 12
             portrait.geometry.value.aspect = .r3x4
@@ -149,6 +188,17 @@ import UniformTypeIdentifiers
                 cropRemapsEffects: doc.preferences.values.cropRemapsEffects,
                 diBlueCompensation: doc.preferences.values.diBlueCompensation, rasterVersion: 2)
             let currentPreview = doc.libraryPreviewURL(portrait)
+            var differentEdit = portrait
+            differentEdit.recipe["exposure_compensation_ev"] = .double(2)
+            try require(doc.libraryPreviewURL(differentEdit) != currentPreview && doc.libraryPreviewURL(portrait) == currentPreview,
+                        "thumbnail key memoization retains exact recipe identity")
+            doc.photos = [portrait, landscape]
+            try require(doc.libraryPhoto(withID: landscape.id)?.name == landscape.name, "indexed gallery lookup locates the photo")
+            doc.photos = [landscape, portrait]
+            try require(doc.libraryPhoto(withID: landscape.id)?.name == landscape.name, "indexed lookup repairs reordered positions")
+            doc.photos = [portrait]
+            try require(doc.libraryPhoto(withID: landscape.id) == nil, "indexed lookup does not return deleted records")
+
             defer { MobileLibraryPreview.remove(portrait.id) }
             try FileManager.default.createDirectory(at: legacyPreview.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data("old raster".utf8).write(to: legacyPreview)
