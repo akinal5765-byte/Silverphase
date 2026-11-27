@@ -200,6 +200,30 @@ final class PhotoImportTests: XCTestCase {
         try verifyIPadPhotoToolbarShowsFilmName(.landscapeLeft)
     }
 
+    @MainActor private func verifyPhotoActionGrouping(in app: XCUIApplication, atBottom: Bool) throws {
+        let ids = ["export", "menu", "info", "edit", "delete"]
+        let controls = ids.map { app.buttons["photo-detail." + $0] }
+        for (id, control) in zip(ids, controls) {
+            XCTAssertTrue(control.waitForExistence(timeout: 6), id)
+            XCTAssertTrue(control.isHittable, id)
+            if atBottom { XCTAssertGreaterThan(control.frame.midY, app.frame.height * 0.75, id) }
+            else { XCTAssertLessThan(control.frame.midY, app.frame.height * 0.25, id) }
+        }
+        guard controls.allSatisfy(\.exists) else { return }
+        let frames = controls.map(\.frame)
+        let gaps = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }
+        XCTAssertGreaterThan(gaps[1], max(gaps[2], gaps[3]) + 2, "More needs a separate group")
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "Gallery action grouping"
+        shot.lifetime = .keepAlways
+        add(shot)
+        controls[1].tap()
+        let fit = app.buttons["photo-detail.zoom-to-fit"]
+        XCTAssertTrue(fit.waitForExistence(timeout: 5))
+        fit.tap()
+        XCTAssertTrue(fit.waitForNonExistence(timeout: 5))
+    }
+
     @MainActor private func verifyIPadPhotoToolbarShowsFilmName(_ orientation: UIDeviceOrientation) throws {
         guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("iPad audit") }
         defer { XCUIDevice.shared.orientation = .portrait }
@@ -246,6 +270,7 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
         app.buttons["photo-detail.film-close"].tap()
         XCTAssertTrue(film.isHittable)
+        try verifyPhotoActionGrouping(in: app, atBottom: app.frame.width < 1_050)
     }
 
     @MainActor func testPhotoDetailToolbarMetadataMenusKeepTheirSlots() {

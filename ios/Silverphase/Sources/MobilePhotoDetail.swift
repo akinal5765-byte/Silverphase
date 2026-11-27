@@ -493,7 +493,17 @@ struct MobilePhotoDetail: View {
 
     @ToolbarContentBuilder
     private func actionToolbar(_ photo: MobilePhoto) -> some ToolbarContent {
-        if placement == .top {
+        if #available(iOS 26.0, *), placement == .top {
+            ToolbarItem(placement: .topBarTrailing) { exportTool(photo) }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) { more(photo) }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                infoTool(photo)
+                editTool(photo)
+                deleteTool(photo)
+            }
+        } else if placement == .top {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 exportTool(photo)
                 infoTool(photo)
@@ -519,6 +529,16 @@ struct MobilePhotoDetail: View {
             ToolbarItem(id: "photo-detail.native-delete", placement: .bottomBar) {
                 deleteTool(photo)
             }.axisBehavior(.verticalPreferred)
+        } else if #available(iOS 26.0, *), placement == .iPadCompact {
+            ToolbarItem(placement: .bottomBar) { exportTool(photo) }
+            ToolbarSpacer(.flexible, placement: .bottomBar)
+            ToolbarItem(placement: .bottomBar) { more(photo) }
+            ToolbarSpacer(.fixed, placement: .bottomBar)
+            ToolbarItemGroup(placement: .bottomBar) {
+                infoTool(photo)
+                editTool(photo)
+                deleteTool(photo)
+            }
         } else {
             if !usesSpreadPhotoActions {
                 ToolbarItem(placement: .topBarTrailing) { more(photo) }
