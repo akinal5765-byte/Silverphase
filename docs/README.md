@@ -1,6 +1,6 @@
 # Silverphase documentation
 
-Current index, reviewed 2026-11-26. Silverphase is an independent derivative of
+Current index, reviewed 2026-11-27. Silverphase is an independent derivative of
 Hanze Qiu's SpektraLab and Andrea Volpato's spektrafilm. Current source and the
 platform guides govern shipped behavior; RFCs and dated reports retain their
 original scope. Documentation review is not a new performance or visual audit.
@@ -18,7 +18,7 @@ for label and control differences.
 | Host/engine invariants and shared-platform changes | [Contract](../CONTRACT-frontend-backend.md) |
 | App Store, TestFlight and macOS downloads | [Binary releases](BINARY-RELEASES.md) |
 | macOS 1.4.0 release notes, output behavior and migration | [Build 7 notes](../modern_UI/Spektrafilm/releases/1.4.0.md) / [macOS upgrade guide](MACOS-IDENTITY-UPGRADE.md) |
-| iOS and iPadOS 1.4.0 source and release preparation | [Build 12 notes](../ios/releases/1.4.0.md) |
+| iOS and iPadOS 1.4.0 changes and validation | [Build 12 notes](../ios/releases/1.4.0.md) / [Distribution record](../ios/APP-STORE.md#140-12--2026-11-27) |
 | Previous 1.3.1 Mac installer and iOS source release | [macOS DMG](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.1) / [iOS source release](https://github.com/akinal5765-byte/Silverphase/releases/tag/v1.3.1) |
 | 1.3.1 source notes and verification | [macOS build 6](../modern_UI/Spektrafilm/releases/1.3.1.md) / [iOS and iPadOS build 11](../ios/releases/1.3.1.md) |
 | macOS 1.3.0 installer, changes and validation | [GitHub Release](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.3.0) / [1.3.0 notes](../modern_UI/Spektrafilm/releases/1.3.0.md) |
@@ -29,7 +29,7 @@ for label and control differences.
 | Lightroom Classic external editing, setup and tone boundaries | [Illustrated workflow](LIGHTROOM-CLASSIC.md) / [macOS 1.2.0](../modern_UI/Spektrafilm/releases/1.2.0.md) |
 | Desktop layout | [UI-SPEC](../modern_UI/design/UI-SPEC.md) |
 | Desktop acceptance, 5219 reference and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
-| Mobile build, in-app camera capture, RAW import, print animation, export and diagnostics | [iOS engineering](../ios/README.md) |
+| Mobile build, photo viewer, in-app camera, RAW import, export and diagnostics | [iOS engineering](../ios/README.md) |
 | iOS lock-screen camera activation limitation (unresolved) | [iOS engineering](../ios/README.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
 | Ordinary iPhone layout screenshots | [2026-11-02 simulator captures](../screenshots/ios/2026-11-02/README.md) |
 | Mobile layout and controls | [DESIGN](../ios/DESIGN.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |

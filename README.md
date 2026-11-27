@@ -28,7 +28,7 @@ Silverphase 是一间在设备上运行的**开源数字暗房**，适用于 **m
 | 平台 | 下载入口 | 系统要求 |
 |---|---|---|
 | macOS | [1.4.0（构建 7）](https://github.com/akinal5765-byte/Silverphase/releases/tag/macos-v1.4.0) · Apple Silicon DMG | macOS 15 或更高 |
-| iPhone／iPad | [App Store](https://apps.apple.com/cn/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
+| iPhone／iPad | [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp) | iOS／iPadOS 18 或更高 |
 
 macOS 可在「设置 → 软件更新」检查新版。GitHub DMG 使用 ad-hoc 签名，未经 Apple 公证。[安装与校验指南](docs/BINARY-RELEASES.md)
 
@@ -122,7 +122,7 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 **macOS 1.4.0（构建 7）** 带来重新设计的封面、自定义片边文字和更温和的导出色域压缩。[发布说明](modern_UI/Spektrafilm/releases/1.4.0.md) · [升级时保留旧编辑](docs/MACOS-IDENTITY-UPGRADE.md)。
 
-**iOS／iPadOS 1.4.0（构建 12）** 加入图库大图浏览与格式筛选，改善大型图库，并改善相机选片体验。[源码与发版准备](ios/releases/1.4.0.md)。
+**iOS／iPadOS 1.4.0（构建 12）** 加入独立看图页，可长按对比原片、快速换胶片和查看照片信息；支持按文件格式筛选，并改善大型图库的浏览。iPhone Duo 腰平取景时可上下滑动选片，下屏随之更新预览。[版本说明](ios/releases/1.4.0.md)。
 
 1.3.1 在 macOS 和 iOS／iPadOS 上将测光与胶片曝光移到「胶片」，为 29 款公开 Fotufilm 配置补齐封面和来源标识，并降低其中 17 款的 DIR 边缘过冲。
 

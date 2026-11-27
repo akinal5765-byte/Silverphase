@@ -195,7 +195,12 @@ and the last preview selection. Invalid manifests are preserved and cannot be
 overwritten by an empty session. Originals survive cold starts; deletion commits
 the reduced manifest before removing owned files. Preview JPEGs live in Caches
 and are keyed by edit intent; undo history and GPU resources remain transient.
-`MobileLibrary` owns filtering, multi-selection, copy/paste and batch export.
+`MobileLibrary` owns grid state, original-format filtering, multi-selection,
+copy/paste and batch export. Single-photo navigation opens `MobilePhotoDetail`
+first; it owns paging, original comparison, the quick film picker, the photo
+inspector and the viewer preview session. Editing remains a separate entry point
+and uses its own render session. The in-app camera thumbnail opens the same
+viewer and returns to the camera without changing the library filter.
 Single-photo editing hides the filmstrip; batch editing scopes it to selected
 photos and applies chosen edit groups with one undo transaction. Crop clipboard
 copies only the numeric ratio, adapting orientation to each target and retaining

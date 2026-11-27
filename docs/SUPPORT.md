@@ -1,6 +1,6 @@
 # Silverphase 支持 / Support
 
-Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 [App Store](https://apps.apple.com/cn/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
+Silverphase 是适用于 iPhone 和 iPad 的免费胶片与印相模拟编辑器，要求 iOS / iPadOS 18 或更新版本。RAW 格式兼容性取决于系统的 Apple RAW 解码器。 [App Store](https://apps.apple.com/app/id6829987567) · [TestFlight 测试版](https://testflight.apple.com/join/uwY3ZYJp)
 
 ## 联系维护者
 
@@ -11,6 +11,8 @@ Issues 是公开渠道。请勿上传私人原片、位置、证件、密码或�
 ## 常见问题
 
 **照片与编辑会保存在哪里？** 导入原文件和编辑记录保存在应用内图库。重启后可继续编辑；移除图库中的照片不会删除导入前的来源文件或系统照片。卸载应用前请先导出需要保留的成片，并妥善保留原文件。
+
+**1.4.0 里怎么编辑或找某种格式？** 点开照片先进入看图页，可对比原片、换胶片、查看信息或导出；点「编辑」再调参数。回到图库，用「更多 → 格式」筛选，列表只显示图库中已有的原片格式。
 
 **导入 RAW 失败怎么办？** 确认系统能够识别该相机文件，并尝试从文件 App 选择完整原片。相册中的云端原片可能需要先下载。不同相机与 RAW 格式的支持情况因系统版本而异。
 
@@ -35,6 +37,7 @@ Silverphase is a free film and print simulation editor for iPhone and iPad, requ
 Contact the maintainer through [GitHub Issues](https://github.com/akinal5765-byte/Silverphase/issues). Include the device, OS and app versions, reproduction steps, expected behavior and actual behavior. Issues are public. Remove private information from screenshots and do not post private originals, location information, credentials, identity documents or complete diagnostic logs. A GitHub account is required to submit an issue, but not to read existing issues.
 
 - Imported originals and edits remain in the app's local library. Removing an app-library item does not remove the original source in Photos or Files. Export needed work and retain your originals before uninstalling.
+- In 1.4.0, tap a photo to review, compare, change film, inspect or export it; tap **Edit** to adjust its settings. In the library, choose **More → Format** to filter by original formats already present.
 - For RAW import issues, check system support and try the complete original from Files. Cloud originals may need downloading first.
 - For memory-related export failures, reduce output resolution or batch size and release rendering caches in Settings. Capacity depends on your device, image, recipe and available memory.
 - If the lock-screen viewfinder freezes or the shutter is unavailable, unlock before pressing Camera Control or use the Silverphase camera control in Control Center. After a lock-screen capture, unlock and open Silverphase to check that the original reached the library.

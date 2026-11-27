@@ -2,9 +2,11 @@
 
 Silverphase is available on the [App Store](https://apps.apple.com/app/id6829987567), including China mainland. [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) is the beta channel. Check the storefront for the currently installable version; the GitHub release tag is a source milestone. In the 2026-11-20 check, the US, Japan and Hong Kong storefronts listed **1.2.5** and the mainland China lookup returned no listing. The developer confirmed that the mainland China listing was live on 2026-11-25.
 
-## 1.4.0 (12) · preflight
+## 1.4.0 (12) · 2026-11-27
 
-The iOS app, Control Center entry and locked camera extension use matching versions. See the bilingual [1.4.0 release notes](releases/1.4.0.md). This entry records preparation, not an App Store Connect upload or a review submission.
+Xcode confirmed the upload on 2026-11-27. The signed archive uses public materials and source commit [`7ef8fd4`](https://github.com/akinal5765-byte/Silverphase/commit/7ef8fd45cd1188cfe6cb7761a7e17a234e2500cf). The app, Control Center entry and locked camera extension all use 1.4.0 (12); the package targets iOS/iPadOS 18 or later.
+
+Build 12 was associated with the App Store version, with English and Simplified Chinese version notes and separate TestFlight test instructions. TestFlight reported the build available for testing, and the developer confirmed submitting the App Store version for review on the same day. This dated entry does not confirm approval or public availability. See the [bilingual release notes](releases/1.4.0.md).
 
 ## 1.3.1 (11) · 2026-11-25
 

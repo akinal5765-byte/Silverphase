@@ -18,9 +18,7 @@ engine and receiver have not been copied into this product.
 
 Tap a photo in the grid to review it before editing. The viewer supports
 horizontal swipes and a filmstrip, rating and flagging, quick film selection,
-photo information, and export. Tap **Edit** to open the existing editor. Actions are at the top
-on iPad, on the right on both displays of a hinge-equipped phone, and at the
-bottom on ordinary iPhone.
+photo information, and export. Tap **Edit** to open the existing editor, or press and hold the image to compare with the original. Actions are split between top and bottom on iPad and ordinary iPhone. Duo uses the system side rail when folded or unfolded in landscape, and top and bottom controls when unfolded in portrait.
 The library menu's **Format** filter uses only original file formats present
 in the library; camera RAW extensions such as DNG and ARW remain distinct
 when both are present. The existing batch-edit and RAW-only actions remain
@@ -73,7 +71,7 @@ time. Keep private photos and logs outside the repository.
 
 ## Installation and downloads
 
-Install Silverphase on iPhone or iPad from the [App Store in mainland China](https://apps.apple.com/cn/app/id6829987567) or the [App Store in other regions](https://apps.apple.com/app/id6829987567). Join [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) for beta builds. See [App Store distribution](APP-STORE.md) for the release record.
+Install Silverphase on iPhone or iPad from the [App Store](https://apps.apple.com/app/id6829987567). Join [TestFlight](https://testflight.apple.com/join/uwY3ZYJp) for beta builds. See [App Store distribution](APP-STORE.md) for the release record.
 
 Historical unsigned device IPA builds are available through [GitHub Releases](https://github.com/akinal5765-byte/Silverphase/releases). Users handle signing, provisioning and installation; the Increased Memory Limit entitlement needs appropriate support. The public IPA excludes personal profiles and local experiments. See [binary releases](../docs/BINARY-RELEASES.md).
 
@@ -127,7 +125,7 @@ The portrait iPhone editor, including unfolded Duo, uses a floating height-limit
 
 Crop now compiles the desktop `Geometry.swift` directly: free/aspect-locked framing, eight touch handles, moving/redrawing, ±45° straighten, orientation, quarter turns and flips. Preview and export use the same inverse pixel mapping. The frame stays level while straightening; framed-film input can be edited on the original before the film gate is applied. Full desktop parity still excludes half-frame pairing.
 
-System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. Imported originals, per-photo recipes, crop geometry, ratings and flags persist in the app-owned local library across cold starts. The library is the launch screen; tapping a photo opens the editor without a filmstrip, while multi-photo editing shows only the chosen batch. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, shows the saved original format in the library’s Photo Info, and prefers RAW. With Photos read access it checks the selected asset’s original and alternate resources for RAW. With limited or denied access it can still import the picker representation, and rejects a non-RAW file when the picker identifies the selection as RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
+System Photos/file import, per-photo edits, undo/redo, EXIF, RAW white balance, scene latitude, film/development/print/scanner controls, film edges and date backs are connected. Imported originals, per-photo recipes, crop geometry, ratings and flags persist in the app-owned local library across cold starts. The library is the launch screen; tapping one photo opens the viewer. Open **Edit** there for the single-photo editor, which does not show a filmstrip. Multi-photo editing shows only the chosen batch. Settings and export recipes persist independently. The system Photos picker accepts RAW, JPEG, HEIC/HEIF, PNG and TIFF after validating their contents. It preserves the offered file and colour profile, shows the saved original format in the library’s Photo Info, and prefers RAW. With Photos read access it checks the selected asset’s original and alternate resources for RAW. With limited or denied access it can still import the picker representation, and rejects a non-RAW file when the picker identifies the selection as RAW. RAW-only white balance and lens correction controls remain hidden for rendered photos.
 
 The five process stages are **Prep → Film → Development → Color Enlargement (Print) → Scan**. Crop and Film Edge are separate tools in the same seven-item picker. The compact picker abbreviates Development to Develop and Color Enlargement to Print.
 
@@ -400,7 +398,7 @@ focused UI test is `PhotoImportTests.testSelectiveCopyAndMultiPhotoPaste`.
 
 ## Local library
 
-The library supports search, rating/flag filters, visible-result select all,
+The library supports search, original-format and rating/flag filters, visible-result select all,
 copy/paste edit groups, batch ratings/flags, selected-photo export and confirmed
 app-only deletion. Selection and scroll/filter state survive returning from the
 editor. Batch editing provides an explicit apply-to-batch sheet; ordinary slider
@@ -416,13 +414,12 @@ Caches data keyed to recipe/geometry/settings. Unrendered or changed edits fall 
 the filename, original format and available EXIF are in the photo’s context menu
 under Photo Info. Photo count and original-file size are in Settings. The native
 top toolbar shows Import, Select and More. Camera uses the native bottom toolbar.
-More contains thumbnail size and aspect options, filename search, RAW/star/flag
+More contains thumbnail size and aspect options, filename search, original-format, star and flag
 filters, Settings and About. In selection mode the toolbar
 shows Done and Select All/Clear. Once photos are selected, the native bottom toolbar
 adds Edit, Export and batch actions. Duo places that group below the selection
 controls in its vertical system rail. Horizontal swipes select a range or
-deselect it when starting on a selected photo. Vertical swipes scroll. The editor
-uses a back chevron to return to the library. Undo history is limited to the current
+deselect it when starting on a selected photo. Vertical swipes scroll. The back chevron returns from single-photo editing to the viewer, or from a batch edit to the library. Undo history is limited to the current
 process; library albums, cloud sync and cross-device transfer are not implemented.
 
 Debug `--library-regression` writes `Documents/library-report.json` with isolated
