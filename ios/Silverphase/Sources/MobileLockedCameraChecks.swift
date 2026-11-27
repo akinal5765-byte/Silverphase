@@ -78,6 +78,32 @@ enum MobileLockedCameraChecks {
                         "Flat posture must not enter tabletop camera")
             checks.append("unfolded Duo orientation selection and system division geometry for tabletop vs book/flat")
 
+            for (viewport, button) in [
+                (CGSize(width: 390, height: 844), CGRect(x: 266, y: 770, width: 44, height: 44)),
+                (CGSize(width: 1210, height: 834), CGRect(x: 1139, y: 370, width: 44, height: 44)),
+                (CGSize(width: 670, height: 281), CGRect(x: 620, y: 54, width: 44, height: 44))
+            ] {
+                let popup = MobileCameraFilmPopoverLayout(viewport: viewport, trigger: button)
+                let edge = max(popup.frame.minY - button.maxY, button.minY - popup.frame.maxY,
+                               popup.frame.minX - button.maxX, button.minX - popup.frame.maxX)
+                try require(CGRect(origin: .zero, size: viewport).contains(popup.frame) &&
+                            !popup.frame.intersects(button) && abs(edge - 10) < 0.01 &&
+                            (0...1).contains(popup.origin.x) && (0...1).contains(popup.origin.y),
+                            "Camera popover opens adjacent to its trigger and stays in bounds")
+            }
+            let lockedPortrait = CGRect(x: 0, y: 0, width: 390, height: 844)
+            let phoneButton = CGRect(x: 250, y: 752, width: 44, height: 44)
+            for rotation in [-90.0, 90.0] {
+                let logical = CGSize(width: lockedPortrait.height, height: lockedPortrait.width)
+                let anchor = MobileCameraFilmPopoverLayout.logicalTrigger(phoneButton, in: lockedPortrait,
+                                                                           logicalSize: logical, rotation: rotation)
+                let popup = MobileCameraFilmPopoverLayout(viewport: logical, trigger: anchor)
+                try require(abs(anchor.width - 44) < 0.01 && abs(anchor.height - 44) < 0.01 &&
+                            popup.frame.width >= 210 && !popup.frame.intersects(anchor),
+                            "Landscape holding maps the phone trigger and menu through the same quarter turn")
+            }
+            checks.append("anchored camera popover for portrait, landscape, and constrained waist-level panels")
+
             var browse = MobileCameraFilmPreviewSelection()
             let beforePicker = browse.generation
             browse.browse("grain", from: beforePicker)

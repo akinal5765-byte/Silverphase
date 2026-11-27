@@ -13,6 +13,13 @@ struct MobileCameraDevelopment: Sendable {
     let animation: MobileDevelopmentAssets?
 }
 
+private struct CameraFilmButtonBounds: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
 private struct CameraPhotoBounds: PreferenceKey {
     enum Role: Hashable { case preview, fullPreview, thumbnail }
     static let defaultValue: [Role: Anchor<CGRect>] = [:]
@@ -499,10 +506,10 @@ struct MobileCameraView: View {
         }
         .allowsHitTesting(!pickerUsesSceneCoordinates || !showingFilms)
         .accessibilityHidden(pickerUsesSceneCoordinates && showingFilms)
-        .overlay {
+        .overlayPreferenceValue(CameraFilmButtonBounds.self) { trigger in
             // Size the catalogue in the scene, then orient it the same way
             // as the camera controls rather than inheriting the canvas transform.
-            if pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: true) }
+            if pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: true, trigger: trigger) }
         }
 #else
         MobileCameraCanvas { _ in cameraBody(safeInsets: EdgeInsets()) }
@@ -551,8 +558,8 @@ struct MobileCameraView: View {
         // Disable the mounted camera surface, not the modal layered above it.
         .allowsHitTesting(!showingFilms)
         .accessibilityHidden(showingFilms)
-        .overlay {
-            if !pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: false) }
+        .overlayPreferenceValue(CameraFilmButtonBounds.self) { trigger in
+            if !pickerUsesSceneCoordinates { cameraFilmPickerOverlay(useScenePanel: false, trigger: trigger) }
         }
 #endif
 #if !SILVERPHASE_APP
@@ -1149,7 +1156,7 @@ struct MobileCameraView: View {
         return controlRotation + (followsInterface ? 0 : sceneQuarterTurn)
     }
 
-    private func cameraFilmPickerOverlay(useScenePanel: Bool) -> some View {
+    private func cameraFilmPickerOverlay(useScenePanel: Bool, trigger: Anchor<CGRect>?) -> some View {
         ZStack {
             if showingFilms {
                 Rectangle()
@@ -1164,13 +1171,20 @@ struct MobileCameraView: View {
                 let panel = useScenePanel ? CGRect(origin: .zero, size: geometry.size) : activeCameraPanel(geometry)
                 let layout = MobileCameraCanvasGeometry(viewport: panel.size,
                     interfaceQuarterTurn: useScenePanel ? pickerSceneRotation : 0)
-                ZStack(alignment: .bottom) {
+                let logicalTrigger = trigger.map {
+                    MobileCameraFilmPopoverLayout.logicalTrigger(geometry[$0], in: panel,
+                        logicalSize: layout.contentSize, rotation: layout.rotation)
+                }
+                let menu = MobileCameraFilmPopoverLayout(viewport: layout.contentSize, trigger: logicalTrigger)
+                ZStack {
                     if showingFilms {
-                        filmPicker(panelHeight: layout.contentSize.height)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        filmPicker(width: menu.frame.width, height: menu.frame.height)
+                            .transition(.scale(scale: 0.88, anchor: UnitPoint(x: menu.origin.x, y: menu.origin.y))
+                                .combined(with: .opacity))
+                            .position(x: menu.frame.midX, y: menu.frame.midY)
                     }
                 }
-                .frame(width: layout.contentSize.width, height: layout.contentSize.height, alignment: .bottom)
+                .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .clipped()
                 .rotationEffect(.degrees(layout.rotation))
                 .position(x: panel.midX, y: panel.midY)
@@ -1187,22 +1201,19 @@ struct MobileCameraView: View {
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { showingFilms = visible }
     }
 
-    private func filmPicker(panelHeight: CGFloat) -> some View {
+    private func filmPicker(width: CGFloat, height: CGFloat) -> some View {
         MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
             filmID = stock.id
             setFilmPicker(false)
         }, identifier: "camera.film-picker")
-        .frame(maxWidth: 470)
-        .frame(height: min(panelHeight, max(280, panelHeight * 0.64)))
+        .frame(width: width, height: height)
         // Only the child controls and scroll view are interactive. The glass
         // is visual chrome, and empty space inside the card is not a backdrop.
         .background {
             Rectangle().fill(.clear).contentShape(Rectangle()).onTapGesture {}
                 .accessibilityHidden(true)
         }
-        .modifier(ChromeSurface(radius: 30))
-        .padding(.horizontal, 8)
-        .padding(.bottom, 6)
+        .modifier(ChromeSurface(radius: 26))
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { setFilmPicker(false) }
     }
@@ -1214,6 +1225,7 @@ struct MobileCameraView: View {
         .accessibilityLabel(T("Choose Film", "选择胶片", "選擇膠片"))
         .accessibilityValue(film?.name ?? "")
         .accessibilityIdentifier("camera.film")
+        .anchorPreference(key: CameraFilmButtonBounds.self, value: .bounds) { $0 }
     }
 
     private var filmButtonLabel: some View {
