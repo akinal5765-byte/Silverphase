@@ -75,6 +75,14 @@ for name in names:
     elif name.startswith('screenshots/related-apps/'):
         kind, evidence = 'related-app-promotional-icon', 'screenshots/related-apps/layerlight-source.json; app-owner request, 2026-10-31.'
         terms = 'Layerlight proprietary app icon; promotional identification only, excluded from Silverphase GPL and CC-BY-SA grants.'
+    elif name.startswith('screenshots/ios/2026-11-27/'):
+        record_path = 'screenshots/ios/2026-11-27/manifest.json'
+        records = json.loads((ROOT / record_path).read_text())['items']
+        approved = next((row for row in records if row['file'] == path.name), None)
+        if not approved or approved['sha256'] != hashlib.sha256(path.read_bytes()).hexdigest():
+            raise SystemExit(f'Review and record new iOS screenshot bytes: {name}')
+        kind, evidence = 'approved-ios-ui-case', record_path + '; native iPhone/iPad simulator capture using maintainer-approved photo inputs.'
+        terms = 'Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms.'
     elif name.startswith('screenshots/ios/2026-11-02/'):
         kind, evidence = 'current-ios-ui-layout-capture', 'screenshots/ios/2026-11-02/manifest.json; native portrait simulator capture with self-authored synthetic gradient, no private photographs.'
         terms = 'Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices.'

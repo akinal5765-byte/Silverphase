@@ -2,7 +2,7 @@
 
 For product-facing images, use the [current 16:10 showcase](../docs/showcase/README.md). This directory preserves dated UI captures and their original scope.
 
-Current ordinary iPhone layout: [2026-11-02 simulator captures](ios/2026-11-02/README.md), using synthetic input only.
+Current iPhone and iPad screens: [1.4.0 real-photo captures](ios/2026-11-27/README.md). [November 2 synthetic-input captures](ios/2026-11-02/README.md) are retained as layout history.
 
 Current Silverphase macOS examples: [2026-10-31 real-window captures and detail views](current/README.md).
 Application artwork:

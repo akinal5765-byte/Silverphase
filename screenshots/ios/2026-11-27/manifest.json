@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-27",
+  "app_version": "1.4.0",
+  "build": "12",
+  "source_commit": "7ef8fd45cd1188cfe6cb7761a7e17a234e2500cf",
+  "capture_method": "XCTest screenshots of native simulator UI. Temporary diagnostic launch controls input staging in an isolated local library and does not change app UI or render logic. Screenshots retain original PNG bytes.",
+  "approved_inputs": "../../current/manifest.json",
+  "photo_scope": "Silverphase project presentation only; RAW originals are not included. No general photo reuse licence.",
+  "items": [
+    {
+      "file": "iphone-library.png",
+      "sha256": "34639469486f61210f6e0acc052cda955f85465af3c15dc05240345305473f95",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "device": "iPhone 17 Pro",
+      "runtime": "iOS 26.1",
+      "orientation": "portrait",
+      "screen": "Library of two imported RAW photos",
+      "photo_cases": [
+        "DSC08027.ARW",
+        "DSC05188.ARW"
+      ]
+    },
+    {
+      "file": "iphone-viewer.png",
+      "sha256": "842244f1addd1a7c201ebbfbdfb1f29500593c7ce2534fff928d8741f981c577",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "device": "iPhone 17 Pro",
+      "runtime": "iOS 26.1",
+      "orientation": "portrait",
+      "screen": "Lotus in the photo viewer",
+      "photo_cases": [
+        "DSC08027.ARW"
+      ]
+    },
+    {
+      "file": "iphone-film.png",
+      "sha256": "879c78235c8baec40521cc004e73a9c60b5af1b4cf52050d2426d2f8bcb871ff",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "device": "iPhone 17 Pro",
+      "runtime": "iOS 26.1",
+      "orientation": "portrait",
+      "screen": "Quick film selection on iPhone",
+      "photo_cases": [
+        "DSC08027.ARW"
+      ]
+    },
+    {
+      "file": "iphone-info.png",
+      "sha256": "c70d28b3d63d092a18ad00e1a7e454f66c0d93efce52c2cd6933ddffc6d5a55f",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "device": "iPhone 17 Pro",
+      "runtime": "iOS 26.1",
+      "orientation": "portrait",
+      "screen": "Photo Info with camera EXIF",
+      "photo_cases": [
+        "DSC08027.ARW"
+      ]
+    },
+    {
+      "file": "ipad-viewer.png",
+      "sha256": "9e990895a79e65b15cf9ad442a31c34b5f11b78f047fbacfdd0a4ce9eceb0e26",
+      "pixels": [
+        1668,
+        2420
+      ],
+      "device": "iPad Pro 11-inch (M5)",
+      "runtime": "iPadOS 26.1",
+      "orientation": "portrait",
+      "screen": "Lotus in the iPad viewer",
+      "photo_cases": [
+        "DSC08027.ARW"
+      ]
+    },
+    {
+      "file": "ipad-film.png",
+      "sha256": "06f2796d8f52a04127bfa5c613638a1f9e49474b3ac19dd4a5fb60e4f86d7b6a",
+      "pixels": [
+        1668,
+        2420
+      ],
+      "device": "iPad Pro 11-inch (M5)",
+      "runtime": "iPadOS 26.1",
+      "orientation": "portrait",
+      "screen": "Quick film selection on iPad",
+      "photo_cases": [
+        "DSC08027.ARW"
+      ]
+    },
+    {
+      "file": "ipad-info.png",
+      "sha256": "cb51ddb19da8ed34f0cbf6741f238939957907568800e63a1d23a8f50998d9e2",
+      "pixels": [
+        1668,
+        2420
+      ],
+      "device": "iPad Pro 11-inch (M5)",
+      "runtime": "iPadOS 26.1",
+      "orientation": "portrait",
+      "screen": "Photo Info on iPad",
+      "photo_cases": [
+        "DSC08027.ARW"
+      ]
+    }
+  ]
+}

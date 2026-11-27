@@ -31,7 +31,7 @@ for label and control differences.
 | Desktop acceptance, 5219 reference and private photo fixtures | [VALIDATION](../modern_UI/Spektrafilm/VALIDATION.md) |
 | Mobile build, photo viewer, in-app camera, RAW import, export and diagnostics | [iOS engineering](../ios/README.md) |
 | iOS lock-screen camera activation limitation (unresolved) | [iOS engineering](../ios/README.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
-| Ordinary iPhone layout screenshots | [2026-11-02 simulator captures](../screenshots/ios/2026-11-02/README.md) |
+| iPhone and iPad screens with real photographs | [1.4.0 simulator captures](../screenshots/ios/2026-11-27/README.md) |
 | Mobile layout and controls | [DESIGN](../ios/DESIGN.md) / [CONTROL-AUDIT](../ios/CONTROL-AUDIT.md) |
 | Public experimental Fotufilm profiles and the private local overlay | [Data sources](../license/DATA-SOURCES.md#experimental-fotufilm-profiles) / [DIR edge audit](../modern_UI/Spektrafilm/VALIDATION.md#fotufilm-dir-边缘增强复查) / [Local material overlay](LOCAL-MATERIALS.md) |
 | B&W profile origin and limitations | [B&W notes](../engine/tools/profile_sources/blackwhite.md) / [provenance](../engine/resources_product/UPSTREAM.json) |

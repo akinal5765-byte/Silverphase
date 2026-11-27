@@ -116,7 +116,7 @@ Work with folders, soft-proof images, and create two-photo half-frame compositio
 
 ### iPhone and iPad
 
-Import from Photos or Files, or use the in-app camera. The editor has a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. [iOS guide](ios/README.md) · [Controls and device limitations](ios/CONTROL-AUDIT.md)
+Import from Photos or Files, or use the in-app camera. The editor has a local library, ratings and flags, batch editing and export, and layouts for conventional iPhones, iPhone Duo, and iPad. [iOS guide](ios/README.md) · [Controls and device limitations](ios/CONTROL-AUDIT.md) · [Real-photo screenshots](screenshots/ios/2026-11-27/README.md)
 
 ## Release notes
 

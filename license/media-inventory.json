@@ -1361,6 +1361,55 @@
       "rights_scope": "Silverphase-controlled UI and synthetic fixture follow project licensing; system UI, fonts and bundled third-party material packaging retain existing rights and notices."
     },
     {
+      "path": "screenshots/ios/2026-11-27/ipad-film.png",
+      "sha256": "06f2796d8f52a04127bfa5c613638a1f9e49474b3ac19dd4a5fb60e4f86d7b6a",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "screenshots/ios/2026-11-27/ipad-info.png",
+      "sha256": "cb51ddb19da8ed34f0cbf6741f238939957907568800e63a1d23a8f50998d9e2",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "screenshots/ios/2026-11-27/ipad-viewer.png",
+      "sha256": "9e990895a79e65b15cf9ad442a31c34b5f11b78f047fbacfdd0a4ce9eceb0e26",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "screenshots/ios/2026-11-27/iphone-film.png",
+      "sha256": "879c78235c8baec40521cc004e73a9c60b5af1b4cf52050d2426d2f8bcb871ff",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "screenshots/ios/2026-11-27/iphone-info.png",
+      "sha256": "c70d28b3d63d092a18ad00e1a7e454f66c0d93efce52c2cd6933ddffc6d5a55f",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "screenshots/ios/2026-11-27/iphone-library.png",
+      "sha256": "34639469486f61210f6e0acc052cda955f85465af3c15dc05240345305473f95",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
+      "path": "screenshots/ios/2026-11-27/iphone-viewer.png",
+      "sha256": "842244f1addd1a7c201ebbfbdfb1f29500593c7ce2534fff928d8741f981c577",
+      "kind": "approved-ios-ui-case",
+      "evidence": "screenshots/ios/2026-11-27/manifest.json; native iPhone/iPad simulator capture using maintainer-approved photo inputs.",
+      "rights_scope": "Silverphase project presentation only for photos. No RAW redistribution or blanket photo relicensing; system UI, fonts and packaging retain their terms."
+    },
+    {
       "path": "screenshots/natural_halation.png",
       "sha256": "2041369bcdfb34ed29d85096ee60ff107ab6e1eea52f7b1b320d75a697401cff",
       "kind": "historical-ui-reference",

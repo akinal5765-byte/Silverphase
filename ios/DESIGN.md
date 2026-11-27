@@ -207,7 +207,7 @@ iPhone、Duo 与 iPad 的自绘编辑控件共用 `EditorDesign` 字体。
 
 ## 证据与维护
 
-布局图片、来源及复现命令见[截图说明](../screenshots/ios/2026-11-02/README.md)。
+实际照片运用与截图来源见 [1.4.0 界面截图](../screenshots/ios/2026-11-27/README.md)；早期合成输入的布局测试见 [11 月 2 日记录](../screenshots/ios/2026-11-02/README.md)。
 功能契约、已通过检查和未覆盖范围集中在[CONTROL-AUDIT](CONTROL-AUDIT.md)；
 历史测试不作为当前新设备或真实照片导出验收。新增迭代不再把相互覆盖的
 临时布局结论追加到当前规范，过程记录放在历史目录。

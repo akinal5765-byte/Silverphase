@@ -31,7 +31,7 @@ Conventional iPhones run in portrait only, with vertically scrolling film/paper
 lists, a compact seven-item process bar and a floating,
 height-limited inspector over the canvas. The top bar contains Back, Export and
 Menu; undo/redo are in the menu. Status sits immediately below the toolbar,
-independent of image zoom and comparison. See the [current phone screenshots](../screenshots/ios/2026-11-02/README.md).
+independent of image zoom and comparison. See the [iPhone and iPad real-photo screenshots](../screenshots/ios/2026-11-27/README.md).
 
 Duo retains side navigation when folded or landscape and uses floating tools
 when unfolded in portrait. iPad retains top navigation and a right inspector.

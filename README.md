@@ -116,7 +116,7 @@ CineStill 800T 搭配 Kodak Vision 2383。整张夜景以 **7008 × 4672 像素*
 
 ### iPhone 与 iPad
 
-可从「照片」或「文件」导入，也可直接拍摄。支持本地图库、评分与旗标、批量编辑与导出，并为常规 iPhone、iPhone Duo 和 iPad 提供各自的布局。[iOS 指南](ios/README.md) · [平台控制与设备限制](ios/CONTROL-AUDIT.md)
+可从「照片」或「文件」导入，也可直接拍摄。支持本地图库、评分与旗标、批量编辑与导出，并为常规 iPhone、iPhone Duo 和 iPad 提供各自的布局。[iOS 指南](ios/README.md) · [平台控制与设备限制](ios/CONTROL-AUDIT.md) · [真实照片界面截图](screenshots/ios/2026-11-27/README.md)
 
 ## 版本记录
 
