@@ -448,34 +448,6 @@ enum MobileLockedCameraChecks {
             try require(rightPrint.height >= reportedLane.width - 0.00001 && rightPrint.width >= reportedLane.height - 0.00001,
                         "A rotated developed print can cover those same right-lane edges")
 
-            let portraitPanel = CGSize(width: 636, height: 865)
-            let portraitTop: CGFloat = 33
-            let portraitBottom: CGFloat = 16
-            let portraitRatio: CGFloat = 3.0 / 4.0
-            if let aperture = MobileCameraViewfinderGeometry.unfoldedPortraitAperture(
-                panel: portraitPanel, top: portraitTop, bottom: portraitBottom, aspect: portraitRatio) {
-                let live = MobileCameraViewfinderGeometry.imageSize(in: aperture.size, aspect: portraitRatio, fillsPanel: true)
-                try require(aperture.minY == -portraitTop && aperture.maxY == portraitPanel.height + portraitBottom &&
-                            live == aperture.size,
-                            "The portrait finder and freeze cover the top and bottom inset areas")
-                for swapsAxes in [false, true] {
-                    let printBounds = swapsAxes ? CGSize(width: live.height, height: live.width) : live
-                    let print = MobileCameraViewfinderGeometry.aspectSize(
-                        in: printBounds, aspect: swapsAxes ? 4.0 / 3.0 : portraitRatio, cover: true)
-                    let rendered = swapsAxes ? CGSize(width: print.height, height: print.width) : print
-                    try require(rendered.width >= live.width - 0.00001 && rendered.height >= live.height - 0.00001,
-                                "Developed portrait print covers the matching finder clip in both axis orders")
-                }
-            } else {
-                try require(false, "Expected small portrait fill")
-            }
-            try require(MobileCameraViewfinderGeometry.unfoldedPortraitAperture(
-                            panel: portraitPanel, top: portraitTop, bottom: portraitBottom, aspect: 1) == nil &&
-                        MobileCameraViewfinderGeometry.unfoldedPortraitAperture(
-                            panel: CGSize(width: 865, height: 636), top: 0, bottom: 16, aspect: 4.0 / 3.0) == nil,
-                        "Substantial reframing and landscape stay on their original paths")
-            checks.append("bounded portrait finder expansion and aspect-preserving development")
-
             let captureAspect: CGFloat = 4.0 / 3.0
             for canvas in [CGSize(width: 528, height: 386), CGSize(width: 408, height: 258),
                            CGSize(width: 402, height: 778)] {

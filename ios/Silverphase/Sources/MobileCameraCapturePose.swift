@@ -92,18 +92,6 @@ enum MobileCameraViewfinderGeometry {
         return CGSize(width: panel.width, height: panel.height + bottomSafeArea)
     }
 
-    /// Extend only the photographic aperture into the upper and lower insets.
-    /// Large aspect differences still use the normal aspect-fit viewfinder.
-    static func unfoldedPortraitAperture(panel: CGSize, top: CGFloat, bottom: CGFloat, aspect: CGFloat) -> CGRect? {
-        guard panel.width.isFinite, panel.height.isFinite, panel.width > 0, panel.height > panel.width,
-              top.isFinite, bottom.isFinite, top >= 0, bottom >= 0, aspect.isFinite, aspect > 0 else { return nil }
-        let viewport = CGRect(x: 0, y: -top, width: panel.width, height: panel.height + top + bottom)
-        let fit = aspectSize(in: viewport.size, aspect: aspect, cover: false)
-        let cover = aspectSize(in: viewport.size, aspect: aspect, cover: true)
-        guard cover.width <= fit.width * 1.10 else { return nil }
-        return viewport
-    }
-
     /// The right lane can be slightly taller than a portrait 4:3 feed. Remove
     /// the two hairlines only when fitting by height changes scale by at most 4%.
     static func rightLaneCanFillVerticalGap(canvas: CGSize, aspect: CGFloat) -> Bool {
