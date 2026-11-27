@@ -350,9 +350,16 @@ struct MobilePhotoDetail: View {
         let spokenTitle = name.map { "\(title), \($0)" } ?? title
         return Group {
             if #available(iOS 26.0, *), usesGroupedDuoMetadata {
-                ViewThatFits(in: .horizontal) {
-                    compactDuoFilmTrigger(title, name: name, compact: false)
+                // The native toolbar asks this hosted group for its ideal size
+                // before it lays out the status area. Don't offer it a wide
+                // chip when the cover or portrait status row needs the room.
+                if detailWindowSize.width < 510 {
                     compactDuoFilmTrigger(title, name: name, compact: true)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        compactDuoFilmTrigger(title, name: name, compact: false)
+                        compactDuoFilmTrigger(title, name: name, compact: true)
+                    }
                 }
             } else {
                 Button { showingFilm = true } label: {
@@ -403,6 +410,9 @@ struct MobilePhotoDetail: View {
         .controlSize(.regular)
         .frame(width: compact ? EditorDesign.hitSize : 160, height: EditorDesign.hitSize)
         .fixedSize()
+        .accessibilityLabel(name.map { "\(title), \($0)" } ?? title)
+        .accessibilityValue(name ?? "")
+        .accessibilityIdentifier("photo-detail.film")
     }
 
     @available(iOS 26.0, *)
