@@ -403,11 +403,17 @@ struct MobilePhotoDetail: View {
                 .visibilityPriority(.init(higherThan: .high))
                 .sharedBackgroundVisibility(.hidden)
             ratingItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-            ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            // Duo's status indicators can take up the right side of this row.
+            // Keep the independent native controls together without spacers.
+            if !isDuo && placement != .duoPortrait {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            }
             flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-            ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            if !isDuo && placement != .duoPortrait {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
+            }
             filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
-            if placement != .duoPortrait {
+            if !isDuo && placement != .duoPortrait {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             }
         } else if #available(iOS 26.0, *) {

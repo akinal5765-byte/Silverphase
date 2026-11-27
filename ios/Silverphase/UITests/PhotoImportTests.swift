@@ -145,11 +145,18 @@ final class PhotoImportTests: XCTestCase {
         let back = button("back")
         let metadata = ["rating", "flag", "film"].map(button)
         let actions = ["export", "menu", "info", "edit", "delete"].map(button)
-        for element in [back] + metadata + actions { XCTAssertTrue(element.waitForExistence(timeout: 5)) }
+        for element in [back] + metadata + actions {
+            XCTAssertTrue(element.waitForExistence(timeout: 5), element.identifier)
+        }
         let window = app.frame
         XCTAssertLessThan(back.frame.midX, window.minX + window.width * 0.25)
+        let date = app.descendants(matching: .any).matching(identifier: "photo-detail.date").firstMatch
+        XCTAssertLessThanOrEqual(date.frame.maxX, metadata[0].frame.minX + 2)
+        XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists)
+        for (left, right) in zip(metadata, metadata.dropFirst()) {
+            XCTAssertLessThan(left.frame.midX, right.frame.midX)
+        }
         for element in metadata {
-            XCTAssertGreaterThan(element.frame.midX, window.midX - 20)
             XCTAssertEqual(element.frame.midY, back.frame.midY, accuracy: 8)
         }
         for (left, right) in zip(actions, actions.dropFirst()) {
@@ -273,7 +280,8 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(stock.waitForExistence(timeout: 6))
         stock.tap()
         XCTAssertTrue(search.waitForNonExistence(timeout: 6))
-        XCTAssertTrue((film.value as? String)?.contains("HP5") == true)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", "HP5"), object: film)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
         XCTAssertEqual(film.frame.width, initialWidth, accuracy: 3, "Film name changes must not resize the chip")
         film.tap()
         XCTAssertTrue(stock.waitForExistence(timeout: 6))
