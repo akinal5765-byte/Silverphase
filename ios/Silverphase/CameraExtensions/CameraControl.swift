@@ -12,10 +12,10 @@ struct SilverphaseCameraControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.silverphase.editor.camera") {
             ControlWidgetButton(action: OpenSilverphaseCameraControlIntent()) {
-                Label("Silverphase 相机", systemImage: "camera")
+                Label("Silverphase Camera", systemImage: "camera")
             }
         }
-        .displayName("Silverphase 相机")
-        .description("解锁后直接打开 Silverphase 相机。")
+        .displayName("Silverphase Camera")
+        .description("Open the Silverphase camera after unlocking your device.")
     }
 }

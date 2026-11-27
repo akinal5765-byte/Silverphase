@@ -32,7 +32,27 @@ related_icon_path = os.path.relpath(repo / 'screenshots/related-apps/layerlight-
 related_icon_ref = obj('layerlight-icon', f'isa = PBXFileReference; lastKnownFileType = image.png; path = {quote(related_icon_path)}; sourceTree = SOURCE_ROOT;')
 refs.append(related_icon_ref)
 related_icon_build = obj('build:layerlight-icon', f'isa = PBXBuildFile; fileRef = {related_icon_ref};')
-resource_phase = obj('resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({icon_build},{privacy_build},{related_icon_build}); runOnlyForDeploymentPostprocessing = 0;')
+# Localized OS-owned text: permission prompts, widgets and App Intents.
+locales = ('en', 'zh-Hans', 'zh-Hant')
+def localized_group(directory, filename):
+    children = []
+    for locale in locales:
+        path = f'Resources/{directory}/{locale}.lproj/{filename}'
+        if not (root / path).is_file():
+            sys.exit(f'Missing localized resource: {path}')
+        children.append(obj(path, f'isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = {quote(locale)}; path = {quote(path)}; sourceTree = SOURCE_ROOT;'))
+    group_ref = obj(directory + ':' + filename, f'isa = PBXVariantGroup; children = ({",".join(children)}); name = {quote(filename)}; sourceTree = "<group>";')
+    refs.append(group_ref)
+    return group_ref
+
+def resource_build(target, group_ref):
+    return obj(target + ':resource:' + group_ref, f'isa = PBXBuildFile; fileRef = {group_ref};')
+
+app_permissions = localized_group('System', 'InfoPlist.strings')
+locked_permissions = localized_group('LockedCamera', 'InfoPlist.strings')
+system_actions = localized_group('System', 'Localizable.strings')
+app_localized_builds = ','.join(resource_build('app', ref) for ref in (app_permissions, system_actions))
+resource_phase = obj('resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({icon_build},{privacy_build},{related_icon_build},{app_localized_builds}); runOnlyForDeploymentPostprocessing = 0;')
 product = obj('product', 'isa = PBXFileReference; explicitFileType = wrapper.application; path = Silverphase.app; sourceTree = BUILT_PRODUCTS_DIR;')
 source_phase = obj('sources', f'isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(builds)}); runOnlyForDeploymentPostprocessing = 0;')
 script_phase = obj('engine', 'isa = PBXShellScriptBuildPhase; buildActionMask = 2147483647; alwaysOutOfDate = 1; files = (); inputPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/bash; shellScript = "bash \\\"$SRCROOT/Tools/build-engine.sh\\\"";')
@@ -74,7 +94,9 @@ for name, suffix, extra_sources, extensionkit in [
                    'MobileLocalization', 'MobileStrings'] + extra_sources:
         ref = uid(f'Sources/{source}.swift')
         extension_builds.append(obj(f'{name}:build:{source}', f'isa = PBXBuildFile; fileRef = {ref};'))
-    extension_resource_phases = []
+    localized_groups = (system_actions, locked_permissions) if extensionkit else (system_actions,)
+    localized_builds = ','.join(resource_build(name, ref) for ref in localized_groups)
+    extension_resource_phases = [obj(name + ':resources', f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({localized_builds}); runOnlyForDeploymentPostprocessing = 0;')]
     if extensionkit:
         catalog_source = os.path.relpath(shared / 'StockCatalogCore.swift', root)
         extension_builds.append(obj(f'{name}:build:StockCatalogCore', f'isa = PBXBuildFile; fileRef = {uid(catalog_source)};'))
@@ -140,7 +162,7 @@ dependency = obj('uitest-dependency', f'isa = PBXTargetDependency; target = {tar
 test_target = obj('uitest-target', f'isa = PBXNativeTarget; name = SilverphaseUITests; productName = SilverphaseUITests; productReference = {test_product}; productType = "com.apple.product-type.bundle.ui-testing"; buildConfigurationList = {test_configs}; buildPhases = ({test_sources}); buildRules = (); dependencies = ({dependency});')
 project_config_ids = [obj('project-config:' + name, 'isa = XCBuildConfiguration; name = ' + name + '; buildSettings = {};') for name in ['Debug', 'Release']]
 project_configs = obj('project-configs', f'isa = XCConfigurationList; buildConfigurations = ({",".join(project_config_ids)}); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')
-project = obj('project', f'isa = PBXProject; buildConfigurationList = {project_configs}; compatibilityVersion = "Xcode 14.0"; developmentRegion = zh_CN; knownRegions = (zh_CN,en,Base); mainGroup = {group}; projectDirPath = ""; projectRoot = ""; targets = ({target},{test_target},{",".join(extension_targets)}); attributes = {{LastUpgradeCheck = 2710; TargetAttributes = {{{target} = {{SystemCapabilities = {{com.apple.IncreasedMemoryLimit = {{enabled = 1;}};}};}};}};}};')
+project = obj('project', f'isa = PBXProject; buildConfigurationList = {project_configs}; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; knownRegions = ({",".join(quote(locale) for locale in locales)},Base); mainGroup = {group}; projectDirPath = ""; projectRoot = ""; targets = ({target},{test_target},{",".join(extension_targets)}); attributes = {{LastUpgradeCheck = 2710; TargetAttributes = {{{target} = {{SystemCapabilities = {{com.apple.IncreasedMemoryLimit = {{enabled = 1;}};}};}};}};}};')
 text = '// !$*UTF8*$!\n{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {\n' + '\n'.join(objects) + f'\n}}; rootObject = {project}; }}\n'
 dest = root / 'Silverphase.xcodeproj/project.pbxproj'
 if '--check' in sys.argv:

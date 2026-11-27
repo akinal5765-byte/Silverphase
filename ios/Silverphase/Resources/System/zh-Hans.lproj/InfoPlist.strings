@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "拍摄照片，并在 Silverphase 中用所选胶片显影。";
+"NSLocationWhenInUseUsageDescription" = "开启“记录拍摄位置”后，为在 Silverphase 中拍摄的照片添加位置信息。";
+"NSMotionUsageDescription" = "读取设备的倾斜角度，在取景器中显示水平仪。";
+"NSPhotoLibraryAddUsageDescription" = "将处理好的照片存入系统相册。";
+"NSPhotoLibraryUsageDescription" = "读取你所选照片的原始文件，以便在有 RAW 原片时优先导入。";
