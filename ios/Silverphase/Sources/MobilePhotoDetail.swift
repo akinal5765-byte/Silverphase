@@ -342,29 +342,61 @@ struct MobilePhotoDetail: View {
         .sensoryFeedback(.selection, trigger: photoID)
     }
 
+    private var showsDuoLandscapeFilmName: Bool {
+#if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--gallery-duo-test-wide-film-name") { return true }
+#endif
+        let size = detailWindowSize
+        return placement == .systemSide && size.width > size.height && size.width >= 560
+    }
+
     private func filmButton(_ photo: MobilePhoto) -> some View {
         let id = photo.recipe["film_stock"]?.stringValue ?? MobileProcessContract.defaults["film_stock"]?.stringValue
         let name = id.flatMap { StockCatalog.shared.stock($0)?.displayName }
         let title = T("Choose Film", "切换胶片", "切換膠片")
-        return Button { showingFilm = true } label: {
-            // The Duo side layout already moves Back and More out of the
-            // horizontal row. Credit that room without changing any item.
-            let minimumWidth: CGFloat = switch placement {
-            case .top: 810
-            case .systemSide: 430
-            case .bottom, .duoPortrait: 510
-            }
-            if detailWindowSize.width >= minimumWidth {
-                Label {
-                    Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
-                        .lineLimit(1)
-                        .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
-                } icon: {
-                    Image(systemName: "film")
+        return Group {
+            if #available(iOS 27.1, *), showsDuoLandscapeFilmName {
+                // Duo's native toolbar can reduce even a titleAndIcon Label
+                // to an icon. Host only the wide film button as a custom
+                // label so the name is part of its actual layout.
+                HStack(spacing: 0) {
+                    Button { showingFilm = true } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "film")
+                            Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
+                                .lineLimit(1).truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(EditorDesign.sectionTitle)
+                        .frame(width: Self.titledFilmLabelWidth, height: 36)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    .fixedSize()
+                    .accessibilityLabel(title)
+                    .accessibilityValue(name ?? "")
+                    .accessibilityIdentifier("photo-detail.film")
                 }
-                .labelStyle(.titleAndIcon)
             } else {
-                Label(title, systemImage: "film")
+                Button { showingFilm = true } label: {
+                    let minimumWidth: CGFloat = switch placement {
+                    case .top: 810
+                    case .systemSide: 430
+                    case .bottom, .duoPortrait: 510
+                    }
+                    if detailWindowSize.width >= minimumWidth {
+                        Label {
+                            Text(shortFilmTitle(name ?? T("Film", "胶片", "膠片")))
+                                .lineLimit(1)
+                                .frame(width: Self.titledFilmLabelWidth, alignment: .leading)
+                        } icon: {
+                            Image(systemName: "film")
+                        }
+                        .labelStyle(.titleAndIcon)
+                    } else {
+                        Label(title, systemImage: "film")
+                    }
+                }
             }
         }
         .accessibilityLabel(title)
@@ -413,7 +445,12 @@ struct MobilePhotoDetail: View {
             ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             flagItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
             ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
-            filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            if showsDuoLandscapeFilmName {
+                filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                filmItem(photo).axisBehavior(.horizontalOnly).visibilityPriority(.high)
+            }
             if placement != .duoPortrait {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing).axisBehavior(.horizontalOnly)
             }

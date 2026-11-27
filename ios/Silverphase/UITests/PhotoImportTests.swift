@@ -133,6 +133,32 @@ final class PhotoImportTests: XCTestCase {
     }
 
     #if targetEnvironment(simulator)
+    @MainActor func testDuoWideToolbarFilmNameRemainsVisible() throws {
+        guard ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] == "iPhone19,4"
+            else { throw XCTSkip("Run on a Duo simulator") }
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--gallery-duo-test-wide-film-name"]
+        app.launch()
+        defer { app.terminate() }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 18))
+        source.tap()
+        let film = app.buttons["photo-detail.film"]
+        XCTAssertTrue(film.waitForExistence(timeout: 8))
+        XCTAssertGreaterThan(film.frame.width, 100, "Wide style must not be collapsed by the toolbar host")
+        XCTAssertTrue(app.buttons["photo-detail.rating"].isHittable)
+        XCTAssertTrue(app.buttons["photo-detail.flag"].isHittable)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "Duo landscape named film trigger"
+        shot.lifetime = .keepAlways
+        add(shot)
+        film.tap()
+        XCTAssertTrue(app.staticTexts["photo-detail.film-title"].waitForExistence(timeout: 6))
+        app.buttons["photo-detail.film-close"].tap()
+        XCTAssertTrue(film.isHittable)
+    }
+
     @MainActor func testDuoPortraitPhotoDetailDistributesControls() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
