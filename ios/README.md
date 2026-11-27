@@ -187,7 +187,9 @@ group so its buttons do not overlap. The upper panel shows a vertical,
 wallet-style stack of film sleeves. Drag vertically to browse; the stack
 closes at rest and the selected sleeve lifts up and right. The lower film
 button still opens the full catalogue. Unfolded landscape splits into two lanes: a larger 16:9 film stack on the left, and the
-aspect-fit viewfinder with the same right-hand grip on the right. The stack
+viewfinder with the same right-hand grip on the right. A shallow top/bottom
+gap in this lane may use up to 4% center fill, with the development animation
+using the same frame; other feeds still aspect-fit. The stack
 uses more travel between films and opens deeper while moving. With approximate preview enabled,
 browsing either stack previews the film nearest the active slot; releasing commits the
 choice. The native and system previews don't scrub. No tabletop

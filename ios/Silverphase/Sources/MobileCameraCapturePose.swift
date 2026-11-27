@@ -104,6 +104,15 @@ enum MobileCameraViewfinderGeometry {
         return viewport
     }
 
+    /// The right lane can be slightly taller than a portrait 4:3 feed. Remove
+    /// the two hairlines only when fitting by height changes scale by at most 4%.
+    static func rightLaneCanFillVerticalGap(canvas: CGSize, aspect: CGFloat) -> Bool {
+        guard canvas.width.isFinite, canvas.height.isFinite, canvas.width > 0, canvas.height > 0,
+              aspect.isFinite, aspect > 0 else { return false }
+        let fitHeight = canvas.width / aspect
+        return fitHeight < canvas.height && canvas.height <= fitHeight * 1.04
+    }
+
     /// Coordinates relative to the chrome's safe layout. The preview and
     /// development animation extend behind the chrome together.
     static func outerViewport(safeSize: CGSize, top: CGFloat, leading: CGFloat,

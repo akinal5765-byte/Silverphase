@@ -402,10 +402,13 @@ struct MobileCameraView: View {
     private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool,
                                     landscapeFinder: CGRect?, portraitAperture: CGRect?) -> some View {
         // Reposition the existing preview rather than remounting its layer.
-        // The image remains aspect-fit within the right lane, like other inner modes.
+        // In the right lane preserve aspect-fit unless it leaves only narrow horizontal strips.
         let aperture = landscapeFinder ?? portraitAperture ?? outer
+        let fillsRightLane = landscapeFinder.map {
+            MobileCameraViewfinderGeometry.rightLaneCanFillVerticalGap(canvas: $0.size, aspect: viewfinderImageAspect)
+        } ?? false
         return viewfinder(fillsPanel: outer != nil || (fillsPanel && !followsInterface), tabletop: tabletop,
-                          fillsUnfoldedPortrait: portraitAperture != nil)
+                          fillsInnerAperture: portraitAperture != nil || fillsRightLane)
             .ignoresSafeArea(.container, edges: outer == nil && !usesInnerCameraLayout && fillsPanel ? .all : [])
             .frame(width: aperture?.width ?? previewSize.width, height: aperture?.height ?? previewSize.height)
             .offset(x: aperture.map { $0.midX - size.width / 2 } ?? 0,
@@ -1236,12 +1239,12 @@ struct MobileCameraView: View {
             ?? MobileCameraViewfinderGeometry.orientedAspect(captureAspect, angle: previewAngle)
     }
 
-    private func viewfinder(fillsPanel: Bool, tabletop: Bool = false, fillsUnfoldedPortrait: Bool = false) -> some View {
+    private func viewfinder(fillsPanel: Bool, tabletop: Bool = false, fillsInnerAperture: Bool = false) -> some View {
         GeometryReader { proxy in
             let tableauFill = tabletop && MobileCameraViewfinderGeometry.tabletopCanFill(
                 canvas: proxy.size, aspect: viewfinderImageAspect
             )
-            let fill = fillsUnfoldedPortrait || ((fillsPanel || tableauFill) && configuration?.frontFraming == nil)
+            let fill = fillsInnerAperture || ((fillsPanel || tableauFill) && configuration?.frontFraming == nil)
             let imageSize = MobileCameraViewfinderGeometry.imageSize(in: proxy.size, aspect: viewfinderImageAspect,
                                                                      fillsPanel: fill)
             ZStack {
@@ -1380,11 +1383,11 @@ struct MobileCameraView: View {
                     let ratio = CGFloat(reveal.image.width) / CGFloat(reveal.image.height)
                     // Fill modes share the live and frozen finder bounds even
                     // when the developed still has different axes or aspect.
-                    let sharedAperture = usesFullOuterAperture || tabletop || fillsUnfoldedPortrait
+                    let sharedAperture = usesFullOuterAperture || tabletop || fillsInnerAperture
                     let envelope = sharedAperture ? imageSize : proxy.size
                     let unrotated = revealSwapsAxes
                         ? CGSize(width: envelope.height, height: envelope.width) : envelope
-                    let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: fillsUnfoldedPortrait || (tabletop ? fill : fillsPanel))
+                    let print = MobileCameraViewfinderGeometry.aspectSize(in: unrotated, aspect: ratio, cover: fillsInnerAperture || (tabletop ? fill : fillsPanel))
                     let width = print.width, height = print.height
                     let visible = sharedAperture ? envelope
                         : CGSize(width: revealSwapsAxes ? height : width, height: revealSwapsAxes ? width : height)
@@ -1406,12 +1409,12 @@ struct MobileCameraView: View {
                         }
                     }
                     .frame(width: width, height: height)
-                    .clipShape(.rect(cornerRadius: fillsPanel || usesFullOuterAperture || fillsUnfoldedPortrait || (tabletop && fill) ? 0 : 20))
+                    .clipShape(.rect(cornerRadius: fillsPanel || usesFullOuterAperture || fillsInnerAperture || (tabletop && fill) ? 0 : 20))
                     .rotationEffect(.degrees(revealRotation))
                     .frame(width: visible.width, height: visible.height)
                     .clipped()
                     .anchorPreference(key: CameraPhotoBounds.self, value: .bounds) {
-                        [(tabletop && fill) || fillsUnfoldedPortrait ? .fullPreview : .preview: $0]
+                        [(tabletop && fill) || fillsInnerAperture ? .fullPreview : .preview: $0]
                     }
                     .accessibilityLabel(T("Development preview", "显影预览", "顯影預覽"))
                 }

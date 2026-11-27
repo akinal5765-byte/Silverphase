@@ -433,6 +433,21 @@ enum MobileLockedCameraChecks {
                         "The split layout is not shown in portrait")
             checks.append("landscape film lane and right finder geometry, including asymmetric safe areas")
 
+            // Pixel dimensions transcribed from the reported right lane;
+            // its 4:3 portrait feed was about ten pixels short at each edge.
+            let reportedLane = CGSize(width: 1067, height: 1442)
+            let feed: CGFloat = 3.0 / 4.0
+            try require(MobileCameraViewfinderGeometry.rightLaneCanFillVerticalGap(canvas: reportedLane, aspect: feed) &&
+                        MobileCameraViewfinderGeometry.imageSize(in: reportedLane, aspect: feed, fillsPanel: true) == reportedLane,
+                        "The reported right-lane hairlines are filled without changing aspect ratio")
+            try require(!MobileCameraViewfinderGeometry.rightLaneCanFillVerticalGap(canvas: reportedLane, aspect: 4.0 / 3.0) &&
+                        !MobileCameraViewfinderGeometry.rightLaneCanFillVerticalGap(canvas: reportedLane, aspect: 0.60),
+                        "Larger vertical bars and side bars retain fit")
+            let rightPrint = MobileCameraViewfinderGeometry.aspectSize(
+                in: CGSize(width: reportedLane.height, height: reportedLane.width), aspect: 4.0 / 3.0, cover: true)
+            try require(rightPrint.height >= reportedLane.width - 0.00001 && rightPrint.width >= reportedLane.height - 0.00001,
+                        "A rotated developed print can cover those same right-lane edges")
+
             let portraitPanel = CGSize(width: 636, height: 865)
             let portraitTop: CGFloat = 33
             let portraitBottom: CGFloat = 16
