@@ -536,22 +536,38 @@ struct MobileCameraView: View {
         .background(MobileStyle.canvas.ignoresSafeArea())
         .preferredColorScheme(.dark)
 #if SILVERPHASE_APP
-        .interactiveDismissDisabled(capturing || developing || savingToPhotos)
+        .interactiveDismissDisabled(capturing || developing || savingToPhotos || showingFilms)
+        // Disable the mounted camera surface, not the modal layered above it.
+        .allowsHitTesting(!showingFilms)
         .accessibilityHidden(showingFilms)
         .overlay {
-            if showingFilms {
+            ZStack {
+                if showingFilms {
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture { setFilmPicker(false) }
+                        .accessibilityHidden(true)
+                        .ignoresSafeArea(.container)
+                        .transition(.identity)
+                }
                 GeometryReader { geometry in
                     let panel = activeCameraPanel(geometry)
-                    Color.clear
-                        .frame(width: panel.width, height: panel.height)
-                        .overlay {
-                            filmPicker.transition(.move(edge: .bottom).combined(with: .opacity))
+                    ZStack(alignment: .bottom) {
+                        if showingFilms {
+                            filmPicker(panelHeight: panel.height)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                        .clipped()
-                        .position(x: panel.midX, y: panel.midY)
+                    }
+                    .frame(width: panel.width, height: panel.height, alignment: .bottom)
+                    .clipped()
+                    .position(x: panel.midX, y: panel.midY)
                 }
                 .ignoresSafeArea(.container, edges: fillsPanel ? .horizontal : [])
             }
+            // During dismissal the visual transition may remain briefly, but
+            // neither the old picker nor its backdrop should accept touches.
+            .allowsHitTesting(showingFilms)
         }
 #endif
 #if !SILVERPHASE_APP
@@ -1137,25 +1153,24 @@ struct MobileCameraView: View {
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { showingFilms = visible }
     }
 
-    private var filmPicker: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                Color.clear.contentShape(Rectangle())
-                    .onTapGesture { setFilmPicker(false) }
-                    .accessibilityHidden(true)
-                MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
-                    filmID = stock.id
-                    setFilmPicker(false)
-                }, identifier: "camera.film-picker")
-                .frame(maxWidth: 470)
-                .frame(height: min(geometry.size.height, max(280, geometry.size.height * 0.64)))
-                .modifier(ChromeSurface(radius: 30, interactive: true))
-                .padding(.horizontal, 8)
-                .padding(.bottom, 6)
-                .accessibilityAddTraits(.isModal)
-                .accessibilityAction(.escape) { setFilmPicker(false) }
-            }
+    private func filmPicker(panelHeight: CGFloat) -> some View {
+        MobileFilmPickerGrid(stocks: films, selectedID: film?.id, cancel: { setFilmPicker(false) }, select: { stock in
+            filmID = stock.id
+            setFilmPicker(false)
+        }, identifier: "camera.film-picker")
+        .frame(maxWidth: 470)
+        .frame(height: min(panelHeight, max(280, panelHeight * 0.64)))
+        // Only the child controls and scroll view are interactive. The glass
+        // is visual chrome, and empty space inside the card is not a backdrop.
+        .background {
+            Rectangle().fill(.clear).contentShape(Rectangle()).onTapGesture {}
+                .accessibilityHidden(true)
         }
+        .modifier(ChromeSurface(radius: 30))
+        .padding(.horizontal, 8)
+        .padding(.bottom, 6)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { setFilmPicker(false) }
     }
 
     private var filmButton: some View {
@@ -1730,7 +1745,7 @@ struct MobileCameraView: View {
     }
 
     private func focus(at point: CGPoint, devicePoint: CGPoint, lock: Bool) {
-        guard ready else { return }
+        guard ready, !showingFilms else { return }
         focusPoint = point
         focusLocked = lock
         focusFeedbackID += 1
@@ -1742,7 +1757,7 @@ struct MobileCameraView: View {
             draggingExposure = false
             return
         }
-        guard ready, focusPoint != nil else { return }
+        guard ready, !showingFilms, focusPoint != nil else { return }
         let range = MobileCameraRecipe.exposureCompensationRange
         draggingExposure = true
         let value = min(max(exposure - Double(movement) / 90, range.lowerBound), range.upperBound)
@@ -1902,7 +1917,7 @@ struct MobileCameraView: View {
 
 #endif
     private func takePhoto() {
-        guard ready else { return }
+        guard ready, !showingFilms else { return }
 #if SILVERPHASE_APP
         // If the shutter interrupts browsing, use the last film actually
         // shown, not a detent whose colour table has not finished rendering.

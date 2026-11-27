@@ -685,6 +685,18 @@ final class PhotoImportTests: XCTestCase {
         assertWalletSelection(wheel: wheel, front: centerFilm, differentFrom: before)
 
         let previous = plainWalletFilmName(centerFilm.label)
+        let railTap = app.coordinate(withNormalizedOffset: .zero).withOffset(
+            CGVector(dx: centerFilm.frame.midX - app.frame.minX, dy: centerFilm.frame.midY - app.frame.minY)
+        )
+        let close = app.buttons["camera.film-picker-close"]
+        app.buttons["camera.film"].tap()
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["camera.shutter"].isHittable, "The modal owns hits, not the camera underneath")
+        railTap.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: close)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 4), .completed,
+                       "An upper-panel tap closes the picker without interacting with the film rail")
+        XCTAssertEqual(wheel.value as? String, previous)
         // Open the catalogue without first waiting for this swipe to settle.
         // Its choice must remain selected when the previous coast ends.
         swipeWallet(wheel: wheel, front: centerFilm)
@@ -693,6 +705,12 @@ final class PhotoImportTests: XCTestCase {
             format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
             "camera.film-choice.", "camera.film-picker-stock."
         ))
+        let grid = app.scrollViews["camera.film-picker-grid"]
+        XCTAssertTrue(grid.waitForExistence(timeout: 5))
+        let beforeScroll = choices.allElementsBoundByIndex.filter(\.isHittable).map(\.identifier)
+        grid.swipeUp()
+        XCTAssertTrue(close.isHittable, "The picker stays open when the grid scrolls")
+        XCTAssertNotEqual(choices.allElementsBoundByIndex.filter(\.isHittable).map(\.identifier), beforeScroll)
         guard let choice = choices.allElementsBoundByIndex.first(where: { $0.isHittable && $0.label != previous }) else {
             XCTFail("The lower film picker did not reveal another stock")
             return
