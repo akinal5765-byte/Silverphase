@@ -126,6 +126,14 @@ struct MobileWaistFilmTrack {
 
     func nearestSlot(to coordinate: CGFloat) -> Int { Int(coordinate.rounded()) }
 
+    static func compactCoastGain(for velocity: CGFloat) -> CGFloat {
+        // Keep precise, slow selection unchanged; only give a quick flick
+        // more runway. The existing high-speed friction cap remains.
+        guard velocity.isFinite else { return 1.35 }
+        let t = min(1, max(0, (abs(velocity) - 5) / 13))
+        return 1.35 + 0.80 * t * t * (3 - 2 * t)
+    }
+
     func release(from coordinate: CGFloat, velocity: CGFloat, startedAt: TimeInterval,
                  coastGain: CGFloat = 1) -> Settle {
         let speed = velocity.isFinite ? velocity : 0
@@ -346,15 +354,16 @@ struct MobileWaistFilmTrack {
         let depth = 1 + 0.59 * squared / (1 + 0.42 * squared)
         let yaw = reduceMotion ? 0 : -atan(screenX / focalLength) * 0.66
         let slope = sin(yaw) / focalLength
-        // Treat the center axis as the tightest part of the turn. Each cover
-        // rotates about its own vertical centerline, with a continuous angle
-        // on entry and exit and a slightly more open exit side.
-        let offset = tanh(position / 1.05)
-        let foldedYaw: CGFloat = (-84 + offset * offset * (38 + 11 * offset)) * .pi / 180
+        // Horizontal record-stack geometry: the two banks recede in opposite
+        // directions. Use a continuous signed depth slope across the hinge
+        // and a positive face projection, so artwork never mirrors or vanishes.
+        let opening = tanh(abs(position) / 1.25)
+        let edgeView: CGFloat = (77 - 37 * opening) * .pi / 180
+        let facing = tanh((position + 0.22) / 0.62)
         let mix = reduceMotion ? 0 : fold
         let frontWidth = cos(yaw) - screenX * slope
-        let sideWidth = cos(foldedYaw)
-        let sideSlope = sin(foldedYaw) / focalLength
+        let sideWidth = cos(edgeView)
+        let sideSlope = sin(edgeView) * facing / (focalLength * 0.82)
         return CoverPose(horizontalScale: (frontWidth + (sideWidth - frontWidth) * mix) / depth,
                          verticalScale: 1 / depth, perspective: (slope + (sideSlope - slope) * mix) / depth,
                          opacity: max(0.44, 1 - Double(distance) * (0.21 - 0.095 * Double(mix))))

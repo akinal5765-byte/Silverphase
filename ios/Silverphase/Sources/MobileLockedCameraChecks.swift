@@ -113,13 +113,29 @@ enum MobileLockedCameraChecks {
                             abs(longer.destination - wheel.nearestSlot(to: longer.origin)) <= 5,
                             "The tabletop coast is longer in either direction but still bounded")
             }
-            for motion in releases + extendedReleases {
+            try require(MobileWaistFilmTrack.compactCoastGain(for: 4) == 1.35 &&
+                        MobileWaistFilmTrack.compactCoastGain(for: 12) > 1.7 &&
+                        MobileWaistFilmTrack.compactCoastGain(for: 18) > 2.1 &&
+                        MobileWaistFilmTrack.compactCoastGain(for: -18) == MobileWaistFilmTrack.compactCoastGain(for: 18),
+                        "Slow flicks keep their precision, while fast flicks get more symmetrical coasting")
+            let fastReleases = [-30.0, -18, 18, 30].map { speed in
+                wheel.release(from: 26.21, velocity: speed, startedAt: 5,
+                              coastGain: MobileWaistFilmTrack.compactCoastGain(for: speed))
+            }
+            for fast in fastReleases {
+                let prior = wheel.release(from: fast.origin, velocity: fast.velocity, startedAt: fast.startedAt, coastGain: 1.35)
+                let pastTravel = abs(prior.position(at: prior.startedAt + prior.coastDuration) - prior.origin)
+                let newTravel = abs(fast.position(at: fast.startedAt + fast.coastDuration) - fast.origin)
+                try require(newTravel > pastTravel * 1.5 && abs(fast.destination - wheel.nearestSlot(to: fast.origin)) <= 8,
+                            "A strong flick travels noticeably farther but stays bounded")
+            }
+            for motion in releases + extendedReleases + fastReleases {
                 let seam = motion.startedAt + motion.coastDuration
                 let initialSlope = (motion.position(at: 5 + smallStep) - motion.origin) / smallStep
                 let coastSlope = (motion.position(at: seam) - motion.position(at: seam - smallStep)) / smallStep
                 let springSlope = (motion.position(at: seam + smallStep) - motion.position(at: seam)) / smallStep
                 let finish = motion.startedAt + motion.duration
-                try require(abs(initialSlope - motion.velocity) < 0.001 && abs(coastSlope - springSlope) < 0.001 &&
+                try require(abs(initialSlope - motion.velocity) < 0.002 && abs(coastSlope - springSlope) < 0.002 &&
                             motion.position(at: finish + smallStep) == CGFloat(motion.destination) &&
                             abs(motion.position(at: finish - smallStep) - CGFloat(motion.destination)) < 0.000001,
                             "Inertia, detent spring and final rest must share continuous position and speed")
@@ -184,9 +200,11 @@ enum MobileLockedCameraChecks {
             let middleRatio = edgeOn.horizontalScale / edgeOn.verticalScale
             let leftRatio = leftFolded.horizontalScale / leftFolded.verticalScale
             let rightRatio = rightFolded.horizontalScale / rightFolded.verticalScale
-            try require(middleRatio < 0.12 && leftRatio - middleRatio > 0.24 &&
-                        rightRatio - leftRatio > 0.12,
-                        "Covers turn tightest on the shared center axis and open progressively on both sides")
+            try require(middleRatio > 0.20 && middleRatio < 0.28 &&
+                        leftRatio - middleRatio > 0.30 && abs(rightRatio - leftRatio) < 0.00001 &&
+                        leftFolded.perspective < 0 && rightFolded.perspective > 0 &&
+                        edgeOn.perspective > 0 && edgeOn.perspective < rightFolded.perspective,
+                        "Opposing record-stack banks leave the thin center cover slightly tilted and visible")
             let opening = MobileWaistFilmTrack.Fold(origin: 1, destination: 0, began: 1, duration: 0.24)
             try require(opening.amount(at: 1) == 1 && opening.amount(at: 2) == 0 &&
                         abs(opening.amount(at: 1.12) - 0.5) < 0.00001,

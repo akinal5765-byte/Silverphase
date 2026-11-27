@@ -2241,8 +2241,10 @@ private struct MobileWaistFilmWheel: View {
                 if reduceMotion {
                     snap(to: track.nearestSlot(to: position), from: position)
                 } else {
-                    let release = track.release(from: position, velocity: -event.velocity.width / aperture.dragPitch(reduceMotion: reduceMotion),
-                                                startedAt: ProcessInfo.processInfo.systemUptime, coastGain: 1.35)
+                    let velocity = -event.velocity.width / aperture.dragPitch(reduceMotion: reduceMotion)
+                    let release = track.release(from: position, velocity: velocity,
+                                                startedAt: ProcessInfo.processInfo.systemUptime,
+                                                coastGain: MobileWaistFilmTrack.compactCoastGain(for: velocity))
                     snap(to: release.destination, from: position, release: release)
                 }
             }
