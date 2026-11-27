@@ -272,6 +272,12 @@ struct MobileCameraView: View {
     }
 
 #if SILVERPHASE_APP
+    @State private var phoneHeaderBottom: CGFloat?
+    @State private var phoneCaptureTop: CGFloat?
+    private var centersStandardPhoneFinder: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone && !usesInnerCameraLayout &&
+            !rearSelfieOnHostDisplay && (hingeClosed ?? initialHingeClosed) == nil
+    }
     private var fillsPanel: Bool { (hingeClosed ?? initialHingeClosed) == true }
     private var usesFullOuterAperture: Bool {
         MobileCameraViewfinderGeometry.usesFullOuterAperture(
@@ -339,9 +345,24 @@ struct MobileCameraView: View {
     private var standardCameraControls: some View {
         VStack(spacing: 8) {
             cameraHeader
+#if SILVERPHASE_APP
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
+                    if centersStandardPhoneFinder { phoneHeaderBottom = $0 }
+                }
+#endif
             Spacer(minLength: 0)
             captureControls
+#if SILVERPHASE_APP
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: {
+                    if centersStandardPhoneFinder { phoneCaptureTop = $0 }
+                }
+#endif
         }
+#if SILVERPHASE_APP
+        .onChange(of: centersStandardPhoneFinder) { _, active in
+            if !active { phoneHeaderBottom = nil; phoneCaptureTop = nil }
+        }
+#endif
     }
 
 #if SILVERPHASE_APP
@@ -370,10 +391,15 @@ struct MobileCameraView: View {
                     safeSize: panel.size, top: safeInsets.top, leading: safeInsets.leading,
                     bottom: safeInsets.bottom, trailing: safeInsets.trailing
                 )) : nil
+            let phoneOffset = centersStandardPhoneFinder
+                ? MobileCameraViewfinderGeometry.standardPhoneVerticalOffset(
+                    previewCenter: geometry.frame(in: .global).minY + previewSize.height / 2,
+                    headerBottom: phoneHeaderBottom, captureTop: phoneCaptureTop)
+                : 0
             let rail = waist?.upperWheelFrame(leading: safeInsets.leading, trailing: safeInsets.trailing) ?? landscape?.rail
             ZStack {
                 cameraPanelContent(panel.size, previewSize: previewSize, outer: outer, tabletop: waist != nil,
-                                   landscapeFinder: landscape?.finder)
+                                   landscapeFinder: landscape?.finder, phoneOffset: phoneOffset)
                     .position(x: panel.midX, y: panel.midY)
 
                 if let rail, film != nil {
@@ -396,7 +422,7 @@ struct MobileCameraView: View {
     }
 
     private func cameraPanelContent(_ size: CGSize, previewSize: CGSize, outer: CGRect?, tabletop: Bool,
-                                    landscapeFinder: CGRect?) -> some View {
+                                    landscapeFinder: CGRect?, phoneOffset: CGFloat) -> some View {
         // Reposition the existing preview rather than remounting its layer.
         // In the right lane preserve aspect-fit unless it leaves only narrow horizontal strips.
         let fillsRightLane = landscapeFinder.map {
@@ -408,7 +434,7 @@ struct MobileCameraView: View {
             .frame(width: (landscapeFinder ?? outer)?.width ?? previewSize.width,
                    height: (landscapeFinder ?? outer)?.height ?? previewSize.height)
             .offset(x: (landscapeFinder ?? outer).map { $0.midX - size.width / 2 } ?? 0,
-                    y: landscapeFinder?.minY ?? outer.map { $0.midY - size.height / 2 } ?? 0)
+                    y: landscapeFinder?.minY ?? outer.map { $0.midY - size.height / 2 } ?? phoneOffset)
             // Pin the photographic canvas to the same top edge so it can
             // extend behind the bottom system area without moving the chrome.
             .frame(width: size.width, height: size.height, alignment: outer == nil ? .top : .center)

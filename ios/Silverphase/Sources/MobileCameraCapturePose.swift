@@ -92,6 +92,14 @@ enum MobileCameraViewfinderGeometry {
         return CGSize(width: panel.width, height: panel.height + bottomSafeArea)
     }
 
+    /// Move the fitted finder and its development animation together, without
+    /// changing the photographic aperture or moving the control layers.
+    static func standardPhoneVerticalOffset(previewCenter: CGFloat, headerBottom: CGFloat?, captureTop: CGFloat?) -> CGFloat {
+        guard let headerBottom, let captureTop, headerBottom.isFinite,
+              captureTop.isFinite, previewCenter.isFinite, captureTop > headerBottom else { return 0 }
+        return max(-48, min(0, (headerBottom + captureTop) / 2 - previewCenter))
+    }
+
     /// The right lane can be slightly taller than a portrait 4:3 feed. Remove
     /// the two hairlines only when fitting by height changes scale by at most 4%.
     static func rightLaneCanFillVerticalGap(canvas: CGSize, aspect: CGFloat) -> Bool {
