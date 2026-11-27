@@ -57,6 +57,8 @@ struct MobileCameraView: View {
     @State private var fastLookEngine = MobileCameraFastLookEngine()
     @State private var lookFrame: MobileCameraLookResult?
     @State private var lookUnavailable = false
+    @State private var waistWheelMounted = false
+    @State private var scrubFilmID: String?
     @AppStorage("mobile.camera.metering") private var metering = MobileMeteringMode.center_weighted
     @AppStorage("mobile.camera.diffusion") private var diffusion = MobileDiffusionFilter.off
     @AppStorage("mobile.camera.goldenGrid") private var showsGoldenGrid = true
@@ -208,7 +210,33 @@ struct MobileCameraView: View {
 
     private var lookRequest: MobileCameraRecipe? {
         guard !isLayoutCheck, showsFilmPreview, canRunCamera, !shotInProgress, film != nil else { return nil }
-        return captureRecipe.withoutExposureCompensation
+        return previewRecipe.withoutExposureCompensation
+    }
+
+    private var followsWaistFilmPreview: Bool { waistWheelMounted && previewMode == .approximate }
+
+    private var previewRecipe: MobileCameraRecipe {
+        var recipe = captureRecipe
+        if followsWaistFilmPreview, let scrubFilmID { recipe.filmID = scrubFilmID }
+        return recipe
+    }
+
+    private var lookTaskRequest: MobileCameraRecipe? {
+        guard var request = lookRequest else { return nil }
+        // The approximate renderer can change its colour table in place.
+        // Do not restart its loop or clear the previous frame at each detent.
+        if followsWaistFilmPreview { request.filmID = nil }
+        return request
+    }
+
+    private var displayedLookFrame: MobileCameraLookResult? {
+        guard let frame = lookFrame, !lookUnavailable, frame.previewAngle == previewAngle,
+              let request = lookRequest else { return nil }
+        var rendered = frame.recipe.withoutExposureCompensation
+        if rendered == request { return frame }
+        guard followsWaistFilmPreview, frame.sourceGeneration == camera.lookFrames.currentGeneration() else { return nil }
+        rendered.filmID = nil
+        return rendered == lookTaskRequest ? frame : nil
     }
 
     private var shotInProgress: Bool { capturing || developing || savingToPhotos || reveal != nil }
@@ -424,10 +452,19 @@ struct MobileCameraView: View {
 
     @ViewBuilder private var waistFilmWheel: some View {
         if let film, !films.isEmpty {
-            MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress, presentation: .wallet) { id in
+            MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress,
+                                 presentation: .wallet, preview: { id in
+                scrubFilmID = followsWaistFilmPreview && !shotInProgress ? id : nil
+            }) { id in
                 guard !shotInProgress, id != self.film?.id else { return }
                 filmID = id
             }
+            .onAppear { waistWheelMounted = true }
+            .onDisappear {
+                waistWheelMounted = false
+                scrubFilmID = nil
+            }
+            .onChange(of: previewMode) { _, _ in scrubFilmID = nil }
         }
     }
 #endif
@@ -552,25 +589,33 @@ struct MobileCameraView: View {
                     .notice("Could not update lock-screen camera preferences")
             }
         }
-        .task(id: MobileCameraLookTaskID(request: lookRequest, cameraRetry: retry, mode: previewMode)) {
+        .task(id: MobileCameraLookTaskID(request: lookTaskRequest, cameraRetry: retry, mode: previewMode)) {
             lookEngine.workGate.setActive(false)
             fastLookEngine.workGate.setActive(false)
             lookUnavailable = false
-            guard let request = lookRequest else {
+            guard let request = lookTaskRequest else {
                 lookFrame = nil
                 await lookEngine.close()
                 await fastLookEngine.close(keepingColorTables: shotInProgress && canRunCamera)
                 return
             }
-            if lookFrame?.recipe.withoutExposureCompensation != request { lookFrame = nil }
+            if displayedLookFrame == nil { lookFrame = nil }
             let mode = previewMode
-            if mode == .approximate { await lookEngine.close(); fastLookEngine.workGate.setActive(true) }
-            else { await fastLookEngine.close(); lookEngine.workGate.setActive(true) }
+            if mode == .approximate {
+                await lookEngine.close()
+                guard !Task.isCancelled else { return }
+                fastLookEngine.workGate.setActive(true)
+            } else {
+                await fastLookEngine.close()
+                guard !Task.isCancelled else { return }
+                lookEngine.workGate.setActive(true)
+            }
             var previousSerial: UInt64?
             var previousRecipe: MobileCameraRecipe?
             do {
-                while !Task.isCancelled, lookRequest == request {
-                    let recipe = captureRecipe
+                while !Task.isCancelled, lookTaskRequest == request {
+                    // One render at a time: skip detents already passed instead of queuing them.
+                    let recipe = previewRecipe
                     guard previewing, !changingPhysicalLens,
                           let frame = camera.lookFrames.latest(),
                           frame.serial != previousSerial || recipe != previousRecipe else {
@@ -583,15 +628,24 @@ struct MobileCameraView: View {
                     let budget = MobileCameraLookBudget(reducedPower: reduced)
                     let geometry = camera.lookGeometry()
                     var result: MobileCameraLookResult
-                    if mode == .approximate {
-                        result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
-                                                                recipe: recipe, longEdge: reduced ? 640 : 960)
-                    } else {
-                        result = try await lookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
-                                                            recipe: recipe, longEdge: budget.longEdge)
+                    do {
+                        if mode == .approximate {
+                            result = try await fastLookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
+                                                                    recipe: recipe, longEdge: reduced ? 640 : 960)
+                        } else {
+                            result = try await lookEngine.render(frame, angle: geometry.angle, mirrored: geometry.mirrored,
+                                                                recipe: recipe, longEdge: budget.longEdge)
+                        }
+                    } catch {
+                        try Task.checkCancellation()
+                        // A failed cold table for a detent already passed must
+                        // not shut down the preview for the next stock.
+                        if lookTaskRequest == request, recipe.withoutExposureCompensation != lookRequest { continue }
+                        throw error
                     }
                     try Task.checkCancellation()
-                    guard lookRequest == request, previewMode == mode else { return }
+                    guard lookTaskRequest == request, previewMode == mode else { return }
+                    guard recipe.withoutExposureCompensation == lookRequest else { continue }
                     guard result.sourceGeneration == camera.lookFrames.currentGeneration() else { continue }
                     // Discard in-flight look frames made for the previous display angle.
                     // The native preview stays underneath during the transition.
@@ -606,7 +660,7 @@ struct MobileCameraView: View {
             } catch is CancellationError {
                 return
             } catch {
-                guard !Task.isCancelled, lookRequest == request, previewMode == mode else { return }
+                guard !Task.isCancelled, lookTaskRequest == request, previewMode == mode else { return }
                 lookUnavailable = true; lookFrame = nil
                 Logger(subsystem: "com.silverphase.editor", category: "CameraLook")
                     .error("Film preview unavailable: \(error.localizedDescription, privacy: .public)")
@@ -772,7 +826,7 @@ struct MobileCameraView: View {
     private var previewStatus: some View {
         HStack {
             if showsFilmPreview, !shotInProgress {
-                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : lookFrame?.recipe.withoutExposureCompensation != lookRequest ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
+                Text(lookUnavailable ? T("Raw viewfinder · preview unavailable", "原始取景 · 预览不可用", "原始取景 · 預覽不可用") : displayedLookFrame == nil ? T("Preparing the film preview…", "正在准备胶片预览…", "正在準備膠片預覽…") : (previewMode == .approximate ? T("Approximate preview", "近似预览", "近似預覽") : T("Native engine preview", "原生引擎预览", "原生引擎預覽")))
                     .font(.caption2).lineLimit(1)
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 8).padding(.vertical, 5)
@@ -1181,9 +1235,7 @@ struct MobileCameraView: View {
                                 .id(previewDevice.uniqueID)
 #if SILVERPHASE_APP
                                 .overlay {
-                                    if let lookFrame, lookFrame.recipe.withoutExposureCompensation == lookRequest, !lookUnavailable,
-                                       lookFrame.previewAngle == previewAngle,
-                                       !shotInProgress, canRunCamera {
+                                    if let lookFrame = displayedLookFrame {
                                         Image(decorative: lookFrame.image, scale: 1).resizable().scaledToFill()
                                             .frame(width: width, height: height).clipped()
                                             .allowsHitTesting(false).accessibilityHidden(true)
@@ -1553,7 +1605,7 @@ struct MobileCameraView: View {
 #if SILVERPHASE_APP
         // Capture the composed, processed image synchronously before switch
         // state or task cancellation can hide/replace it. Includes portrait.
-        let displayedFrame = !lookUnavailable && lookFrame?.recipe.withoutExposureCompensation == lookRequest ? lookFrame?.image : nil
+        let displayedFrame = displayedLookFrame?.image
         let oldGeneration = camera.lookFrames.currentGeneration()
 #endif
         switching = true
@@ -1840,6 +1892,12 @@ struct MobileCameraView: View {
     private func takePhoto() {
         guard ready else { return }
 #if SILVERPHASE_APP
+        // If the shutter interrupts browsing, use the last film actually
+        // shown, not a detent whose colour table has not finished rendering.
+        if followsWaistFilmPreview, scrubFilmID != nil {
+            if let visibleID = displayedLookFrame?.recipe.filmID { filmID = visibleID }
+            scrubFilmID = nil
+        }
         let selectedFilm = film
         shotQuarterTurn = followsInterface ? interfaceQuarterTurn
             : (shutterPose.map { Double($0.rawValue) } ?? deviceQuarterTurn)
@@ -2028,9 +2086,11 @@ private struct MobileWaistFilmWheel: View {
     let enabled: Bool
     let select: (String) -> Void
     let presentation: Presentation
+    let preview: (String?) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var tracking = false
+    @State private var browsingFilmPreview = false
     @State private var restingSlot: Int
     @State private var grab: MobileWaistFilmTrack.Grab?
     @State private var grabBegan: TimeInterval?
@@ -2046,12 +2106,13 @@ private struct MobileWaistFilmWheel: View {
     private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
 
     init(stocks: [Stock], selectedID: String, enabled: Bool, presentation: Presentation = .rack,
-         select: @escaping (String) -> Void) {
+         preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
         self.stocks = stocks
         self.selectedID = selectedID
         self.enabled = enabled
         self.select = select
         self.presentation = presentation
+        self.preview = preview
         _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
     }
 
@@ -2063,7 +2124,9 @@ private struct MobileWaistFilmWheel: View {
                 let position = currentPosition(at: now)
                 let phase = foldAmount(at: now)
                 if presentation == .wallet {
+                    let previewID = browsingFilmPreview ? stocks[track.index(at: track.nearestSlot(to: position))].id : nil
                     wallet(MobileWaistFilmTrack.Wallet(size: geometry.size), coordinate: position, reveal: 1 - phase)
+                        .onChange(of: previewID) { _, id in preview(id) }
                 } else {
                     strip(aperture, coordinate: position, fold: phase)
                 }
@@ -2100,6 +2163,7 @@ private struct MobileWaistFilmWheel: View {
         .onChange(of: selectedID) { _, _ in synchronizeSelection() }
         .onChange(of: enabled) { _, active in
             if !active {
+                endBrowsingFilmPreview()
                 grab = nil
                 grabBegan = nil
                 fingerPosition = nil
@@ -2117,6 +2181,7 @@ private struct MobileWaistFilmWheel: View {
                 // Only recover a genuinely abandoned, unchanged drag.
                 try? await Task.sleep(for: .milliseconds(100))
                 guard !tracking, grabBegan == interrupted else { return }
+                endBrowsingFilmPreview()
                 snap(to: restingSlot)
             }
         }
@@ -2312,6 +2377,7 @@ private struct MobileWaistFilmWheel: View {
                     let takeover = motion != nil || fold?.destination == 0
                     grab = MobileWaistFilmTrack.Grab(position: current, translation: takeover ? travel : 0, pitch: pitch)
                     grabBegan = now
+                    browsingFilmPreview = presentation == .wallet
                     lastDetent = track.nearestSlot(to: current)
                     lastTickTime = -.infinity
                     motion = nil
@@ -2395,11 +2461,19 @@ private struct MobileWaistFilmWheel: View {
         let id = stocks[track.index(at: slot)].id
         if changed { settleHaptic.impactOccurred() }
         if id != selectedID { select(id) }
+        endBrowsingFilmPreview()
+    }
+
+    private func endBrowsingFilmPreview() {
+        guard browsingFilmPreview else { return }
+        browsingFilmPreview = false
+        preview(nil)
     }
 
     private func synchronizeSelection() {
         guard let index = stocks.firstIndex(where: { $0.id == selectedID }),
               track.index(at: restingSlot) != index else { return }
+        endBrowsingFilmPreview()
         guard enabled else {
             restingSlot = track.closestSlot(of: index, to: restingSlot)
             return
