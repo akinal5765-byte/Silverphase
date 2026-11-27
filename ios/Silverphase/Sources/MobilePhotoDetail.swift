@@ -385,14 +385,27 @@ struct MobilePhotoDetail: View {
     }
 
     private func duoFilmTrigger(_ title: String, name: String?) -> some View {
-        ViewThatFits(in: .horizontal) {
-            legacyDuoFilmButton(width: 160, name: name) {
-                titledFilmChip(name ?? title).frame(maxWidth: .infinity)
+        // In a narrow window the toolbar can ask its hosted group for an
+        // unbounded ideal width first. Don't advertise the title in that pass.
+        // In wider windows still respect the space the toolbar actually offers.
+        Group {
+            if detailWindowSize.width >= 510 {
+                ViewThatFits(in: .horizontal) {
+                    legacyDuoFilmButton(width: 160, name: name) {
+                        titledFilmChip(name ?? title).frame(maxWidth: .infinity)
+                    }
+                    duoFilmIcon(name: name)
+                }
+            } else {
+                duoFilmIcon(name: name)
             }
-            legacyDuoFilmButton(width: EditorDesign.hitSize, name: name) {
-                Image(systemName: "film").font(EditorDesign.sectionTitle)
-                    .frame(width: 30, height: 30)
-            }
+        }
+    }
+
+    private func duoFilmIcon(name: String?) -> some View {
+        legacyDuoFilmButton(width: EditorDesign.hitSize, name: name) {
+            Image(systemName: "film").font(EditorDesign.sectionTitle)
+                .frame(width: 30, height: 30)
         }
     }
 
