@@ -383,7 +383,7 @@ enum MobileLockedCameraChecks {
                     continue
                 }
                 let rail = layout.rail
-                try require(panel.contains(rail) && rail.maxX < layout.finder.minX && rail.minY >= 72 &&
+                try require(panel.contains(rail) && rail.maxX < layout.finder.minX && rail.minY >= 60 &&
                             abs(layout.finder.minX - full.width * 0.48) < 0.00001 &&
                             layout.finder.maxX == full.maxX && layout.finder.height == full.height,
                             "Wallet and finder use separate lanes; the finder extends to the physical screen edges")
@@ -394,7 +394,18 @@ enum MobileLockedCameraChecks {
                                 abs(image.width / image.height - aspect) < 0.00001,
                                 "The right finder keeps the whole capture frame in either orientation")
                 }
-                let wallet = MobileWaistFilmTrack.Wallet(size: rail.size, expandedDepth: true)
+                let wallet = MobileWaistFilmTrack.Wallet(size: rail.size, expandedDepth: true, restingAxis: layout.wheelAxis)
+                let resting = (-4...0).map { wallet.card(at: CGFloat($0), reveal: 1).verticalBounds }
+                let top = resting.map(\.lowerBound).min() ?? 0
+                let bottom = resting.map(\.upperBound).max() ?? 0
+                let deckMidY = rail.minY + (rail.height - wallet.laneHeight) / 2 + (top + bottom) / 2
+                try require(abs(deckMidY - full.midY) <= 1.5,
+                            "The visible resting deck including the rotated card centers on the full screen")
+                let pixels = wallet.artworkPixelLimit(displayScale: 3) ?? 0
+                let tabletopPixels = MobileWaistFilmTrack.Wallet(size: CGSize(width: 669, height: 360))
+                    .artworkPixelLimit(displayScale: 3) ?? 0
+                try require([pixels, tabletopPixels].allSatisfy { (384...1280).contains($0) && $0.isMultiple(of: 128) },
+                            "Both camera stacks request a stable high-resolution artwork bucket")
                 let back = wallet.card(at: -4, reveal: 0)
                 let front = wallet.card(at: 0, reveal: 0)
                 let hero = wallet.card(at: 0, reveal: 1)

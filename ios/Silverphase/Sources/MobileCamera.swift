@@ -379,7 +379,7 @@ struct MobileCameraView: View {
                 if let rail, film != nil {
                     // The wallet and capture bank stay independent of the optical canvas.
                     let isLandscapeRail = landscape != nil
-                    quickFilmWheel(expandedDepth: isLandscapeRail)
+                    quickFilmWheel(expandedDepth: isLandscapeRail, restingAxis: landscape?.wheelAxis)
                         .id(isLandscapeRail)
                         .frame(width: rail.width, height: rail.height)
                         .position(x: rail.midX, y: rail.midY)
@@ -471,11 +471,11 @@ struct MobileCameraView: View {
         return []
     }
 
-    @ViewBuilder private func quickFilmWheel(expandedDepth: Bool) -> some View {
+    @ViewBuilder private func quickFilmWheel(expandedDepth: Bool, restingAxis: CGFloat?) -> some View {
         if let film, !films.isEmpty {
             let generation = filmPreviewSelection.generation
             MobileWaistFilmWheel(stocks: films, selectedID: film.id, enabled: !shotInProgress,
-                                 presentation: .wallet, expandedDepth: expandedDepth,
+                                 presentation: .wallet, expandedDepth: expandedDepth, restingAxis: restingAxis,
                                  previewGeneration: generation, preview: { id in
                 guard followsQuickFilmPreview, !shotInProgress, !showingFilms else { return }
                 filmPreviewSelection.browse(id, from: generation)
@@ -2114,9 +2114,11 @@ private struct MobileWaistFilmWheel: View {
     let select: (String) -> Void
     let presentation: Presentation
     let expandedDepth: Bool
+    let restingAxis: CGFloat?
     let previewGeneration: UInt64
     let preview: (String?) -> Void
 
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var tracking = false
     @State private var browsingFilmPreview = false
@@ -2138,13 +2140,15 @@ private struct MobileWaistFilmWheel: View {
     private var committedStock: Stock { stocks.first { $0.id == selectedID } ?? stocks[track.index(at: restingSlot)] }
 
     init(stocks: [Stock], selectedID: String, enabled: Bool, presentation: Presentation = .rack,
-         expandedDepth: Bool = false, previewGeneration: UInt64 = 0, preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
+         expandedDepth: Bool = false, restingAxis: CGFloat? = nil, previewGeneration: UInt64 = 0,
+         preview: @escaping (String?) -> Void = { _ in }, select: @escaping (String) -> Void) {
         self.stocks = stocks
         self.selectedID = selectedID
         self.enabled = enabled
         self.select = select
         self.presentation = presentation
         self.expandedDepth = expandedDepth
+        self.restingAxis = restingAxis
         self.previewGeneration = previewGeneration
         self.preview = preview
         _restingSlot = State(initialValue: stocks.firstIndex(where: { $0.id == selectedID }) ?? 0)
@@ -2159,7 +2163,9 @@ private struct MobileWaistFilmWheel: View {
                 let phase = foldAmount(at: now)
                 if presentation == .wallet {
                     let previewID = browsingFilmPreview ? stocks[track.index(at: track.nearestSlot(to: position))].id : nil
-                    wallet(MobileWaistFilmTrack.Wallet(size: geometry.size, expandedDepth: expandedDepth), coordinate: position, reveal: 1 - phase)
+                    wallet(MobileWaistFilmTrack.Wallet(size: geometry.size, expandedDepth: expandedDepth,
+                                                      restingAxis: restingAxis, count: stocks.count),
+                           coordinate: position, reveal: 1 - phase)
                         .onChange(of: previewID) { _, id in
                             if browsingFilmPreview, let id { preview(id) }
                         }
@@ -2275,6 +2281,7 @@ private struct MobileWaistFilmWheel: View {
     private func wallet(_ layout: MobileWaistFilmTrack.Wallet, coordinate: CGFloat, reveal: CGFloat) -> some View {
         let focused = track.nearestSlot(to: coordinate)
         let slots = layout.slots(at: coordinate, count: stocks.count)
+        let artworkPixels = layout.artworkPixelLimit(displayScale: displayScale)
         return VStack(spacing: 0) {
             ZStack {
                 ForEach(slots, id: \.self) { slot in
@@ -2283,7 +2290,8 @@ private struct MobileWaistFilmWheel: View {
                     let card = layout.card(at: relative, reveal: reveal, reduceMotion: reduceMotion)
                     let chosen = slot == restingSlot && motion == nil && fingerPosition == nil
                     Button { moveWallet(to: slot) } label: {
-                        cover(stock, width: card.frame.width, height: card.frame.height)
+                        cover(stock, width: card.frame.width, height: card.frame.height,
+                              artworkPixels: (-5.5...1.25).contains(relative) ? artworkPixels : nil)
                             .background(.black, in: MobileWaistFilmTrack.CoverPose.outline)
                             .overlay {
                                 MobileWaistFilmTrack.CoverPose.outline
@@ -2364,11 +2372,11 @@ private struct MobileWaistFilmWheel: View {
         }
     }
 
-    private func cover(_ stock: Stock, width: CGFloat, height: CGFloat) -> some View {
+    private func cover(_ stock: Stock, width: CGFloat, height: CGFloat, artworkPixels: Int? = nil) -> some View {
         let outline = MobileWaistFilmTrack.CoverPose.outline
         return Group {
             if let artwork = stock.packagingArtworkURL {
-                FilmstripThumbnail(url: artwork, fillsFrame: true)
+                FilmstripThumbnail(url: artwork, fillsFrame: true, artworkPixels: artworkPixels)
             } else {
                 Image(systemName: "film")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

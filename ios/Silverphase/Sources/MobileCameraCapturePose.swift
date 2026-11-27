@@ -47,15 +47,17 @@ struct MobileWaistCameraGeometry {
 struct MobileDuoLandscapeCameraLayout {
     let finder: CGRect
     let rail: CGRect
+    let wheelAxis: CGFloat
 
     init?(panel: CGRect, viewport: CGRect) {
         guard panel.width > panel.height, panel.width >= 540, panel.height >= 255 else { return nil }
         let split = viewport.minX + viewport.width * 0.48
         finder = CGRect(x: split, y: viewport.minY, width: viewport.maxX - split, height: viewport.height)
         let left = panel.minX + 12
-        let top = panel.minY + 72
+        let top = panel.minY + max(60, min(72, panel.height * 0.25))
         rail = CGRect(x: left, y: top, width: split - left - 14, height: panel.maxY - top - 12)
         guard rail.width >= 155, rail.height >= 150 else { return nil }
+        wheelAxis = viewport.midY - rail.minY
     }
 }
 
@@ -379,7 +381,23 @@ struct MobileWaistFilmTrack {
     /// Relative coordinates are continuous so a sleeve never jumps between ranks.
     struct Wallet {
         let size: CGSize
-        var expandedDepth = false
+        let expandedDepth: Bool
+        private var restingTranslation: CGFloat = 0
+
+        init(size: CGSize, expandedDepth: Bool = false, restingAxis: CGFloat? = nil, count: Int = 5) {
+            self.size = size
+            self.expandedDepth = expandedDepth
+            guard expandedDepth, let restingAxis, count > 0 else { return }
+            // Align the visible deck as a whole, including the selected card's
+            // rotated silhouette, to the physical screen midpoint.
+            let bounds = ((1 - min(count, 5))...0).map {
+                placedCard(at: CGFloat($0), reveal: 1, reduceMotion: false, translation: 0).verticalBounds
+            }
+            guard let top = bounds.map(\.lowerBound).min(),
+                  let bottom = bounds.map(\.upperBound).max() else { return }
+            let midpointInLane = restingAxis - (size.height - laneHeight) / 2
+            restingTranslation = min(laneHeight - bottom, max(-top, midpointInLane - (top + bottom) / 2))
+        }
 
         var laneHeight: CGFloat { max(1, size.height - (expandedDepth ? 8 : 26)) }
         var pitch: CGFloat {
@@ -390,11 +408,21 @@ struct MobileWaistFilmTrack {
                 : max(1, min(336, size.width * 0.70, laneHeight * 1.02))
         }
 
+        func artworkPixelLimit(displayScale: CGFloat) -> Int? {
+            guard displayScale.isFinite, displayScale > 0 else { return nil }
+            // Use one stable size bucket per lane (not each animated card size).
+            return Int(min(1280, max(384, ceil(fullWidth * displayScale / 128) * 128)))
+        }
+
         struct Card {
             let frame: CGRect
             let opacity: Double
             let shade: Double
             let angle: CGFloat
+
+            var verticalBounds: ClosedRange<CGFloat> {
+                (frame.maxY - frame.width * sin(angle) - frame.height * cos(angle))...frame.maxY
+            }
 
             func contains(_ point: CGPoint, outline: CGPath) -> Bool {
                 let dx = point.x - frame.maxX, dy = point.y - frame.maxY
@@ -405,6 +433,11 @@ struct MobileWaistFilmTrack {
         }
 
         func card(at relative: CGFloat, reveal: CGFloat, reduceMotion: Bool = false) -> Card {
+            placedCard(at: relative, reveal: reveal, reduceMotion: reduceMotion,
+                       translation: restingTranslation * reveal)
+        }
+
+        private func placedCard(at relative: CGFloat, reveal: CGFloat, reduceMotion: Bool, translation: CGFloat) -> Card {
             let progress = min(1, max(0, (relative + 5.0) / 5.0))
             let peak = max(0, 1 - abs(relative))
             let pop = peak * peak * reveal
@@ -420,7 +453,7 @@ struct MobileWaistFilmTrack {
             let expanded = pow(progress, expandedDepth ? 1.72 : 1.65)
             let compact = 0.18 + expanded * (expandedDepth ? 0.28 : 0.32)
             let upper = 8 + travel * (expanded + (compact - expanded) * reveal)
-                - min(29, travel * 0.27) * pop
+                - min(29, travel * 0.27) * pop + translation
             let revealX = (expandedDepth ? min(34, size.width * 0.08) : min(48, size.width * 0.11)) * pop
             let angle = reduceMotion ? 0 : 5 * CGFloat.pi / 180 * pop
             // In screen coordinates a positive angle turns clockwise. The
