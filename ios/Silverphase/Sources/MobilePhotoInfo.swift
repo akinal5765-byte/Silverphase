@@ -108,6 +108,33 @@ struct MobilePhotoInfoPage: View {
     }
 
     var body: some View {
+        presentation
+            .task(id: originalURL) {
+                loaded = nil
+                let knownType = photo.sourceTypeIdentifier
+                let reader = Task.detached(priority: .utility) { [originalURL] in
+                    MobilePhotoInfoMetadata.read(originalURL, knownTypeIdentifier: knownType)
+                }
+                let result = await withTaskCancellationHandler { await reader.value } onCancel: { reader.cancel() }
+                if !Task.isCancelled { loaded = result }
+            }
+    }
+
+    @ViewBuilder private var presentation: some View {
+        if #available(iOS 26.0, *) {
+            // Let the system own the sheet material and accessibility
+            // contrast. The partial detent uses its floating glass surface.
+            content
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        } else {
+            content
+                .mobilePageBackground()
+                .presentationBackground(MobileStyle.canvas)
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             titleBar
             ScrollView {
@@ -130,17 +157,6 @@ struct MobilePhotoInfoPage: View {
             .accessibilityIdentifier("photo-info.scroll")
         }
         .accessibilityAction(.escape) { dismiss() }
-        .mobilePageBackground()
-        .presentationBackground(MobileStyle.canvas)
-        .task(id: originalURL) {
-            loaded = nil
-            let knownType = photo.sourceTypeIdentifier
-            let reader = Task.detached(priority: .utility) { [originalURL] in
-                MobilePhotoInfoMetadata.read(originalURL, knownTypeIdentifier: knownType)
-            }
-            let result = await withTaskCancellationHandler { await reader.value } onCancel: { reader.cancel() }
-            if !Task.isCancelled { loaded = result }
-        }
     }
 
     private var titleBar: some View {
@@ -162,7 +178,6 @@ struct MobilePhotoInfoPage: View {
         }
         .padding(.horizontal, EditorDesign.contentInset)
         .padding(.vertical, 4)
-        .background(MobileStyle.canvas)
         .overlay(alignment: .bottom) { Divider().accessibilityHidden(true).allowsHitTesting(false) }
     }
 
