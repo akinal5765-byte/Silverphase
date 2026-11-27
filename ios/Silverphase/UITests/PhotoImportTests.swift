@@ -1,6 +1,74 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
+    @MainActor func testPhotoInfoShowsOriginalMetadata() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                               "--library-photo-info-fixture", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        func info(_ id: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "photo-info." + id).firstMatch
+        }
+        let source = app.buttons["library.photo.来源"]
+        XCTAssertTrue(source.waitForExistence(timeout: 15))
+        source.tap()
+        let infoButton = app.buttons["photo-detail.info"]
+        XCTAssertTrue(infoButton.waitForExistence(timeout: 6))
+        infoButton.tap()
+        XCTAssertTrue(info("filename").waitForExistence(timeout: 6))
+        if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .phone,
+           app.frame.width < app.frame.height {
+            let title = app.staticTexts["photo-info.title"]
+            let partialY = title.frame.minY
+            XCTAssertGreaterThan(partialY, app.frame.height * 0.25, "The inspector starts as a half sheet")
+            let top = app.coordinate(withNormalizedOffset: .zero)
+            let grab = top.withOffset(CGVector(dx: app.scrollViews["photo-info.scroll"].frame.midX - app.frame.minX,
+                                               dy: partialY - app.frame.minY - 12))
+            grab.press(forDuration: 0.05, thenDragTo: grab.withOffset(CGVector(dx: 0, dy: -app.frame.height * 0.42)))
+            let expanded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                title.frame.minY < partialY - app.frame.height * 0.16
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [expanded], timeout: 6), .completed)
+        }
+        XCTAssertTrue(info("camera").waitForExistence(timeout: 6))
+        XCTAssertTrue(info("camera").label.contains("Example Camera Co. M1"))
+        XCTAssertTrue(info("iso").label.contains("400"))
+        XCTAssertTrue(info("shutter").label.contains("1/125"))
+        let metadata = XCTAttachment(screenshot: app.screenshot())
+        metadata.name = "Photo info: capture metadata"
+        metadata.lifetime = .keepAlways
+        add(metadata)
+        let scroll = app.scrollViews["photo-info.scroll"]
+        scroll.swipeUp()
+        XCTAssertTrue(info("dimensions").label.contains("96 × 64"))
+        XCTAssertTrue(info("size").exists)
+        XCTAssertTrue(info("film").exists)
+        app.buttons["photo-info.done"].tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: info("done"))
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 6), .completed)
+    }
+
+    @MainActor func testPhotoInfoOmitsMissingCaptureFields() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                               "--library-photo-info-fixture", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        func info(_ id: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "photo-info." + id).firstMatch
+        }
+        let png = app.buttons["library.photo.目标 A"]
+        XCTAssertTrue(png.waitForExistence(timeout: 15))
+        png.tap()
+        let infoButton = app.buttons["photo-detail.info"]
+        XCTAssertTrue(infoButton.waitForExistence(timeout: 6))
+        infoButton.tap()
+        XCTAssertTrue(info("dimensions").waitForExistence(timeout: 6))
+        XCTAssertFalse(info("camera").exists)
+        XCTAssertFalse(info("iso").exists)
+    }
+
     @MainActor func testPhotoDetailToolsAndDynamicFormatFilter() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
@@ -39,8 +107,8 @@ final class PhotoImportTests: XCTestCase {
         }
         XCTAssertTrue(film.exists)
         app.buttons["photo-detail.info"].tap()
-        XCTAssertTrue(app.navigationBars["Photo Info"].waitForExistence(timeout: 6))
-        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["photo-info.title"].waitForExistence(timeout: 6))
+        app.buttons["photo-info.done"].tap()
         app.buttons["photo-detail.back"].tap()
         XCTAssertTrue(source.waitForExistence(timeout: 8))
         app.buttons["library.menu"].tap()

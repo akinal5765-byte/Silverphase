@@ -277,7 +277,20 @@ import UniformTypeIdentifiers
                 photo.recipe[MobileSimulationSize.key] = .double(600)
             }
             if let writer = CGImageDestinationCreateWithURL(document.url(for: photo) as CFURL, format.identifier as CFString, 1, nil) {
-                CGImageDestinationAddImage(writer, image, nil); CGImageDestinationFinalize(writer)
+                var properties: [CFString: Any] = [:]
+                if index == 0, ProcessInfo.processInfo.arguments.contains("--library-photo-info-fixture") {
+                    properties[kCGImagePropertyTIFFDictionary] = [
+                        kCGImagePropertyTIFFMake: "Example Camera Co.", kCGImagePropertyTIFFModel: "Example Camera Co. M1"
+                    ]
+                    properties[kCGImagePropertyExifDictionary] = [
+                        kCGImagePropertyExifFNumber: 2.8, kCGImagePropertyExifExposureTime: 0.008,
+                        kCGImagePropertyExifISOSpeedRatings: [400], kCGImagePropertyExifFocalLength: 35,
+                        kCGImagePropertyExifLensModel: "Example 35 mm",
+                        kCGImagePropertyExifDateTimeOriginal: "2026:10:12 10:12:00"
+                    ]
+                }
+                CGImageDestinationAddImage(writer, image, properties as CFDictionary)
+                CGImageDestinationFinalize(writer)
             }
             return photo
         }

@@ -42,7 +42,7 @@ struct MobileImageMetadata: Sendable {
         Calendar(identifier: .gregorian).date(from: DateComponents(year: day / 10000, month: day / 100 % 100, day: day % 100))
     }
 
-    private static func captureDate(in exif: [String: Any]) -> Date? {
+    static func captureDate(in exif: [String: Any]) -> Date? {
         guard let stamp = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String else { return nil }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
