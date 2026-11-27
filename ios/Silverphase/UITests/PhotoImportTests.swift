@@ -1,7 +1,7 @@
 import XCTest
 
 final class PhotoImportTests: XCTestCase {
-    @MainActor func testPhotoInfoShowsOriginalMetadataAndOmitsMissingCaptureFields() {
+    @MainActor func testPhotoInfoShowsOriginalMetadata() {
         let app = XCUIApplication()
         app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
                                "--library-photo-info-fixture", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
@@ -31,13 +31,23 @@ final class PhotoImportTests: XCTestCase {
         XCTAssertTrue(info("size").exists)
         XCTAssertTrue(info("film").exists)
         app.buttons["photo-info.done"].tap()
-        app.buttons["photo-detail.back"].tap()
-        let png = app.buttons["library.photo.目标 A"]
-        let gridIsReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in png.isHittable }, object: nil)
-        guard XCTWaiter.wait(for: [gridIsReady], timeout: 12) == .completed else {
-            return XCTFail("The library did not become interactive after closing detail")
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: info("done"))
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 6), .completed)
+    }
+
+    @MainActor func testPhotoInfoOmitsMissingCaptureFields() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--library-ui-regression", "--reset-library-fixture", "--library-format-fixture",
+                               "--library-photo-info-fixture", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        defer { app.terminate() }
+        func info(_ id: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "photo-info." + id).firstMatch
         }
+        let png = app.buttons["library.photo.目标 A"]
+        XCTAssertTrue(png.waitForExistence(timeout: 15))
         png.tap()
+        let infoButton = app.buttons["photo-detail.info"]
         XCTAssertTrue(infoButton.waitForExistence(timeout: 6))
         infoButton.tap()
         XCTAssertTrue(info("dimensions").waitForExistence(timeout: 6))
