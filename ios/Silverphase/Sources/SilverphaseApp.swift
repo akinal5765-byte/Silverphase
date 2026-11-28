@@ -506,7 +506,7 @@ struct MobileEditor: View {
                 if let url = document.exported { ActivitySheet(urls: document.exportedFiles.isEmpty ? [url] : document.exportedFiles) }
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in document.schedule() }
-            .onChange(of: document.preferences.values) { _, _ in document.schedule() }
+            .onChange(of: document.preferences.values) { old, _ in document.settingsDidChange(from: old) }
             .onChange(of: stage) { _, stage in document.cropEditing = stage == .geometry }
             .onChange(of: document.selection) { _, id in if id == nil { returnToLibrary?() } }
             .onAppear {

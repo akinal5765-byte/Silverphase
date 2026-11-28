@@ -359,6 +359,24 @@ enum MobileSmokeChecks {
     }
 
     @MainActor static func run() async throws -> URL {
+        let saved = MobilePreferences.Values()
+        let bytes = try JSONEncoder().encode(saved)
+        let restored = try JSONDecoder().decode(MobilePreferences.Values.self, from: bytes)
+        var enabled = saved
+        enabled.rawDecodeSharpening = true
+        let restoredEnabled = try JSONDecoder().decode(MobilePreferences.Values.self, from: JSONEncoder().encode(enabled))
+        let id = UUID()
+        let raw = MobilePhoto(id: id, name: "test.dng", filename: "test.dng")
+        let flat = MobilePhoto(id: id, name: "test.jpg", filename: "test.jpg")
+        func key(_ photo: MobilePhoto, _ enabled: Bool) -> URL {
+            MobileLibraryPreview.url(photo: photo, cropRemapsEffects: false, diBlueCompensation: false,
+                                     rawDecodeSharpening: enabled)
+        }
+        guard !restored.rawDecodeSharpening, restoredEnabled.rawDecodeSharpening,
+              key(raw, false) != key(raw, true), key(flat, false) == key(flat, true) else {
+            throw MobileFailure.message("RAW sharpening default or preview cache identity drifted")
+        }
+
         let previousIdle = UIApplication.shared.isIdleTimerDisabled
         UIApplication.shared.isIdleTimerDisabled = true
         defer { UIApplication.shared.isIdleTimerDisabled = previousIdle }

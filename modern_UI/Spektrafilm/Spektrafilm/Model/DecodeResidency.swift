@@ -5,6 +5,7 @@ import Foundation
 struct DecodeKey: Hashable, Sendable {
     let url: URL
     let settings: DecodeSettings
+    var useSystemRAWSharpening: Bool = false
 }
 
 /// A one-shot handoff for work that may be queued behind another job. The

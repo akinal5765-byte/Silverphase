@@ -817,6 +817,31 @@ final class Session: CanvasHost {
     /// graded one it is a flash of somebody else's grade before the real
     /// render lands. Which of those a given user wants is theirs to say, so
     /// it is a switch with the caveat written next to it.
+    private static let rawDecodeSharpeningKey = "ui2.rawDecodeSharpening"
+    var useSystemRAWSharpening = UserDefaults.standard.bool(forKey: rawDecodeSharpeningKey) {
+        didSet {
+            guard oldValue != useSystemRAWSharpening else { return }
+            UserDefaults.standard.set(useSystemRAWSharpening, forKey: Self.rawDecodeSharpeningKey)
+            renderer.store.invalidateFrames(where: Self.rawSharpeningApplies)
+            guard let url = selection, Self.rawSharpeningApplies(to: url) else { return }
+            cancelInteractiveDecode()
+            loadTask?.cancel()
+            cancelNativeOriginal()
+            developTask?.cancel(); developTask = nil
+            fullTask?.cancel(); fullTask = nil
+            renderer.dropFullRender()
+            decodeIsStale = true
+            wantsDevelop = true
+            renderer.original = nil
+            scheduleReopen()
+        }
+    }
+
+    nonisolated private static func rawSharpeningApplies(to url: URL) -> Bool {
+        ImageDecoder.rawExtensions.contains(url.pathExtension.lowercased())
+            || url.pathExtension.lowercased() == HalfFramePair.fileExtension
+    }
+
     var fastStockPreview: Bool = UserDefaults.standard.bool(forKey: "fastStockPreview") {
         didSet { UserDefaults.standard.set(fastStockPreview, forKey: "fastStockPreview") }
     }
@@ -2085,11 +2110,12 @@ final class Session: CanvasHost {
 
     nonisolated static func displayCacheKey(url: URL, settings: DecodeSettings,
                                             previewLongEdge: Int,
-                                            engineVersion: String) -> CacheKey {
+                                            engineVersion: String, useSystemRAWSharpening: Bool = false) -> CacheKey {
         CacheKey(
             kind: .decode,
             sourceIdentity: CacheKey.sourceIdentity(for: url),
-            configuration: CacheKey.encodedConfiguration(settings),
+            configuration: CacheKey.encodedConfiguration(settings)
+                + (rawSharpeningApplies(to: url) && !useSystemRAWSharpening ? RAWDecodeSharpening.disabledStamp : ""),
             previewLongEdge: previewLongEdge,
             engineVersion: engineVersion
         )
@@ -2098,7 +2124,7 @@ final class Session: CanvasHost {
     nonisolated static func printCacheKey(url: URL, params: FilmParams,
                                           decode: DecodeSettings, tier: CacheTier,
                                           previewLongEdge: Int,
-                                          engineVersion: String) -> CacheKey {
+                                          engineVersion: String, useSystemRAWSharpening: Bool = false) -> CacheKey {
         CacheKey(
             kind: tier == .live ? .printLive : .printFull,
             sourceIdentity: CacheKey.sourceIdentity(for: url),
@@ -2106,7 +2132,8 @@ final class Session: CanvasHost {
             // correction edit changes that input even when film params do
             // not; omitting it restored an old print until zoom forced a
             // fresh render.
-            configuration: printStamp(params) + "|" + CacheKey.encodedConfiguration(decode),
+            configuration: printStamp(params) + "|" + CacheKey.encodedConfiguration(decode)
+                + (rawSharpeningApplies(to: url) && !useSystemRAWSharpening ? RAWDecodeSharpening.disabledStamp : ""),
             tier: tier,
             previewLongEdge: tier == .live ? previewLongEdge : nil,
             engineVersion: engineVersion
@@ -2126,7 +2153,7 @@ final class Session: CanvasHost {
             decode: sidecar.decode,
             tier: .live,
             previewLongEdge: previewLongEdge,
-            engineVersion: diagnostics.engineVersion ?? "unknown"
+            engineVersion: diagnostics.engineVersion ?? "unknown", useSystemRAWSharpening: useSystemRAWSharpening
         )
         guard let payload = try? await diskCache.load(key),
               payload.kind == .printLive,
@@ -2146,7 +2173,7 @@ final class Session: CanvasHost {
     /// but it is not allowed to satisfy `decoded`, the engine input, or the
     /// white-balance sampler.
     func displayPicture(for url: URL, settings: DecodeSettings) async -> DisplayPicture? {
-        let key = DecodeKey(url: url, settings: settings)
+        let key = DecodeKey(url: url, settings: settings, useSystemRAWSharpening: useSystemRAWSharpening)
         if decodeResidency.contains(key), let d = decoded,
            let texture = renderer.store.source(for: url) {
             return DisplayPicture(texture: texture, sourceSize: d.pixelSize, costMs: 0)
@@ -2159,7 +2186,7 @@ final class Session: CanvasHost {
             url: url,
             settings: settings,
             previewLongEdge: previewLongEdge,
-            engineVersion: engineVersion
+            engineVersion: engineVersion, useSystemRAWSharpening: useSystemRAWSharpening
         )
         let started = Date()
         let payload: DiskCachePayload?
@@ -2215,6 +2242,7 @@ final class Session: CanvasHost {
         await awaitBoot(clock)
         guard !Task.isCancelled, selection == url else { return }
         let settings = sidecar.decode
+        let sharpen = useSystemRAWSharpening
         let device = renderer.device
         let edge = previewLongEdge
         // **The ceremony's frame does not take the print cache.**
@@ -2276,10 +2304,10 @@ final class Session: CanvasHost {
         decodeCount += 1
         if FeatureFlags.framePipeline {
             decodedImage = try? await pipeline.run(generation: generation) { checkpoint in
-                try ImageDecoder.decode(url, settings: settings, rawPreviewEdge: rawPreviewEdge, checkpoint: checkpoint)
+                try ImageDecoder.decode(url, settings: settings, rawPreviewEdge: rawPreviewEdge, useSystemRAWSharpening: sharpen, checkpoint: checkpoint)
             }
         } else {
-            decodedImage = try? ImageDecoder.decode(url, settings: settings, rawPreviewEdge: rawPreviewEdge)
+            decodedImage = try? ImageDecoder.decode(url, settings: settings, rawPreviewEdge: rawPreviewEdge, useSystemRAWSharpening: sharpen)
         }
         clock.lap("decode")
         guard !Task.isCancelled, selection == url, let d = decodedImage else {
@@ -2302,7 +2330,7 @@ final class Session: CanvasHost {
             sidecar.decode.temperature = t
             sidecar.decode.tint = tn
         }
-        let key = DecodeKey(url: url, settings: sidecar.decode)
+        let key = DecodeKey(url: url, settings: sidecar.decode, useSystemRAWSharpening: sharpen)
         decodeResidency.adopt(d, for: key)
         decodedGeneration = generation
         decodeIsStale = false
@@ -2370,7 +2398,7 @@ final class Session: CanvasHost {
                     url: url,
                     settings: sidecar.decode,
                     previewLongEdge: edge,
-                    engineVersion: diagnostics.engineVersion ?? "unknown"
+                    engineVersion: diagnostics.engineVersion ?? "unknown", useSystemRAWSharpening: sharpen
                 )
                 diskWrite = (cacheKey, tex.rgba16Bytes(), tex.width, tex.height,
                              Int(d.pixelSize.width.rounded()),
@@ -2769,6 +2797,10 @@ final class Session: CanvasHost {
             canvasLog("applyRender dropped: generation \(generation) != \(serviceGeneration)"); return
         }
         guard let url = selection else { canvasLog("applyRender dropped: no selection"); return }
+        if Self.rawSharpeningApplies(to: url), decodeResidency.key?.useSystemRAWSharpening != useSystemRAWSharpening {
+            noteRenderOutcome(r, generation: generation, outcome: "superseded")
+            return
+        }
         guard let tex = outcome.texture, let w = r.width, let h = r.height else {
             noteRenderOutcome(r, generation: generation, outcome: "no_pixels")
             canvasLog("applyRender dropped: the engine returned no texture"); return
@@ -2782,7 +2814,8 @@ final class Session: CanvasHost {
         let printKey: CacheKey? = decoded?.rawPreviewEdge == nil && scheduler.sent.filmImageLongEdge == nil ? Self.printCacheKey(
             url: url, params: scheduler.sent, decode: sidecar.decode, tier: .live,
             previewLongEdge: renderedPreviewEdge,
-            engineVersion: diagnostics.engineVersion ?? "unknown"
+            engineVersion: diagnostics.engineVersion ?? "unknown",
+            useSystemRAWSharpening: decodeResidency.key?.useSystemRAWSharpening ?? useSystemRAWSharpening
         ) : nil
         renderer.store.setPrint(
             tex, stamp: Self.printStamp(scheduler.sent), for: url,
@@ -3990,7 +4023,8 @@ final class Session: CanvasHost {
         let key = scheduler.sent.filmImageLongEdge == nil ? Self.printCacheKey(
             url: url, params: scheduler.sent, decode: sidecar.decode, tier: .full,
             previewLongEdge: previewLongEdge,
-            engineVersion: diagnostics.engineVersion ?? "unknown"
+            engineVersion: diagnostics.engineVersion ?? "unknown",
+            useSystemRAWSharpening: decodeResidency.key?.useSystemRAWSharpening ?? useSystemRAWSharpening
         ) : nil
         renderer.store.setFullRender(
             tex, stamp: printStamp,
@@ -4095,7 +4129,8 @@ final class Session: CanvasHost {
             let key = scheduler.sent.filmImageLongEdge == nil ? Self.printCacheKey(
                 url: url, params: scheduler.sent, decode: sidecar.decode, tier: .full,
                 previewLongEdge: previewLongEdge,
-                engineVersion: diagnostics.engineVersion ?? "unknown"
+                engineVersion: diagnostics.engineVersion ?? "unknown",
+                useSystemRAWSharpening: decodeResidency.key?.useSystemRAWSharpening ?? useSystemRAWSharpening
             ) : nil
             renderer.store.setFullRender(
                 tex, stamp: stamp, costMs: r.elapsedMs + (openClock?.setupMs ?? 0),

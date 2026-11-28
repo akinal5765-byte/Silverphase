@@ -222,6 +222,19 @@ final class TextureStore: @unchecked Sendable {
     /// called from the branch that had just failed that identical lookup.)
     func dropFullRender() { lock.withLock { clearFullLocked() } }
     func invalidatePrint(for url: URL) { lock.withLock { if let h = printHandles.removeValue(forKey: url) { arena.release(h) }; prints[url] = nil } }
+    func invalidateFrames(where matches: (URL) -> Bool) {
+        lock.withLock {
+            for url in order.filter(matches) {
+                if let h = sourceHandles.removeValue(forKey: url) { arena.release(h) }
+                if let h = printHandles.removeValue(forKey: url) { arena.release(h) }
+                sources[url] = nil
+                prints[url] = nil
+            }
+            order.removeAll(where: matches)
+            if let full, matches(full.url) { clearFullLocked() }
+        }
+    }
+
     func removeAll() {
         lock.withLock {
             sourceHandles.values.forEach { arena.release($0) }

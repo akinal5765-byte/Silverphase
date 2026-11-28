@@ -18,6 +18,7 @@ struct DetailFilmstrip: UIViewRepresentable {
         let previews: UInt64
         let cropRemapsEffects: Bool
         let diBlueCompensation: Bool
+        let rawDecodeSharpening: Bool
     }
 
     let photoIDs: [UUID]

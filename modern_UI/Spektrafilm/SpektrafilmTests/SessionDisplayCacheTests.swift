@@ -2,6 +2,22 @@ import XCTest
 
 @MainActor
 final class SessionDisplayCacheTests: XCTestCase {
+    func testRAWSharpeningSeparatesDecodeAndPrintKeysButNotFlatFiles() {
+        for ext in ["dng", "spektrapair", "jpeg"] {
+            let url = URL(fileURLWithPath: "/nonexistent/test." + ext)
+            let settings = DecodeSettings()
+            let displayOff = Session.displayCacheKey(url: url, settings: settings, previewLongEdge: 2048, engineVersion: "test")
+            let displayOn = Session.displayCacheKey(url: url, settings: settings, previewLongEdge: 2048,
+                                                    engineVersion: "test", useSystemRAWSharpening: true)
+            let printOff = Session.printCacheKey(url: url, params: .default, decode: settings, tier: .live,
+                                                previewLongEdge: 2048, engineVersion: "test")
+            let printOn = Session.printCacheKey(url: url, params: .default, decode: settings, tier: .live,
+                                               previewLongEdge: 2048, engineVersion: "test", useSystemRAWSharpening: true)
+            XCTAssertEqual(displayOff == displayOn, ext == "jpeg", ext)
+            XCTAssertEqual(printOff == printOn, ext == "jpeg", ext)
+        }
+    }
+
     private func smokeFrame() throws -> URL {
         let source = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

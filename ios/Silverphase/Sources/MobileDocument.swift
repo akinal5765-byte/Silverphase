@@ -41,6 +41,11 @@ struct MobilePhoto: Codable, Identifiable {
     var sourceTypeIdentifier: String?
     var libraryDay: Int?
     var libraryDate: Date?
+
+    var isRAWSource: Bool {
+        (sourceTypeIdentifier.flatMap(UTType.init) ?? UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension))?
+            .conforms(to: .rawImage) == true
+    }
 }
 
 @MainActor @Observable final class MobileDocument {
@@ -281,14 +286,17 @@ struct MobilePhoto: Codable, Identifiable {
         let geometry: MobileGeometry
         let cropRemapsEffects: Bool
         let diBlueCompensation: Bool
+        let rawDecodeSharpening: Bool
         let url: URL
 
-        init(photo: MobilePhoto, cropRemapsEffects: Bool, diBlueCompensation: Bool) {
+        init(photo: MobilePhoto, cropRemapsEffects: Bool, diBlueCompensation: Bool, rawDecodeSharpening: Bool) {
             recipe = photo.recipe
             geometry = photo.geometry
             self.cropRemapsEffects = cropRemapsEffects
             self.diBlueCompensation = diBlueCompensation
-            url = MobileLibraryPreview.url(photo: photo, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation)
+            self.rawDecodeSharpening = rawDecodeSharpening
+            url = MobileLibraryPreview.url(photo: photo, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation,
+                                           rawDecodeSharpening: rawDecodeSharpening)
         }
     }
 
@@ -308,12 +316,14 @@ struct MobilePhoto: Codable, Identifiable {
     func libraryPreviewURL(_ photo: MobilePhoto) -> URL {
         let crop = preferences.values.cropRemapsEffects
         let blue = preferences.values.diBlueCompensation
+        let sharp = photo.isRAWSource && preferences.values.rawDecodeSharpening
         let key = photo.id as NSUUID
         if let cached = libraryPreviewKeys.object(forKey: key), cached.cropRemapsEffects == crop,
-           cached.diBlueCompensation == blue, cached.recipe == photo.recipe, cached.geometry == photo.geometry {
+           cached.diBlueCompensation == blue, cached.rawDecodeSharpening == sharp,
+           cached.recipe == photo.recipe, cached.geometry == photo.geometry {
             return cached.url
         }
-        let entry = LibraryPreviewKeyEntry(photo: photo, cropRemapsEffects: crop, diBlueCompensation: blue)
+        let entry = LibraryPreviewKeyEntry(photo: photo, cropRemapsEffects: crop, diBlueCompensation: blue, rawDecodeSharpening: sharp)
         libraryPreviewKeys.countLimit = 256
         libraryPreviewKeys.setObject(entry, forKey: key)
         return entry.url
@@ -327,19 +337,22 @@ struct MobilePhoto: Codable, Identifiable {
         }
         if input.recipe == photo.recipe { return libraryPreviewURL(photo) }
         return MobileLibraryPreview.url(photo: input, cropRemapsEffects: preferences.values.cropRemapsEffects,
-                                        diBlueCompensation: preferences.values.diBlueCompensation)
+                                        diBlueCompensation: preferences.values.diBlueCompensation,
+                                        rawDecodeSharpening: preferences.values.rawDecodeSharpening)
     }
     private func cameraRenderRecipe(_ photo: MobilePhoto) -> [String: WireValue] {
         var recipe = photo.recipe
         recipe["_diBlue"] = .bool(preferences.values.diBlueCompensation)
         recipe["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
+        if photo.isRAWSource { recipe[MobileInputColor.rawDecodeSharpeningKey] = .bool(preferences.values.rawDecodeSharpening) }
         return recipe
     }
 
     func developCameraPhoto(_ photo: MobilePhoto, animate: Bool) async throws -> MobileCameraDevelopment {
+        let key = libraryPreviewURL(photo)
         let preview = try await cameraEngine.cameraDevelopment(url: url(for: photo), recipe: cameraRenderRecipe(photo),
                                                               geometry: photo.geometry, animate: animate)
-        cacheLibraryPreview(preview.image, photo: photo)
+        if key == libraryPreviewURL(photo) { cacheLibraryPreview(preview.image, photo: photo, key: key) }
         if preview.animation != nil { photosOfferedDevelopment.insert(photo.id) }
         return preview
     }
@@ -365,13 +378,13 @@ struct MobilePhoto: Codable, Identifiable {
         // Gallery may have adjacent previews and a zoom tile in flight.
         let target = min(3.3, requested)
         try Task.checkCancellation()
+        let key = libraryPreviewURL(resolvedPhoto)
         let image = try await renderer.renderGalleryFrame(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
                                                           geometry: resolvedPhoto.geometry, megapixels: target, trace: trace)
         try Task.checkCancellation()
         // Do not rewrite a matching cache just by looking at it again.
-        let key = libraryPreviewURL(resolvedPhoto)
-        if !FileManager.default.fileExists(atPath: key.path) {
-            cacheLibraryPreview(image, photo: resolvedPhoto)
+        if key == libraryPreviewURL(resolvedPhoto), !FileManager.default.fileExists(atPath: key.path) {
+            cacheLibraryPreview(image, photo: resolvedPhoto, key: key)
         }
         return (image, key)
     }
@@ -532,8 +545,8 @@ struct MobilePhoto: Codable, Identifiable {
         try await PhotoLibraryWriter.save(finished, pairedRAW: pairedRAW)
     }
 
-    private func cacheLibraryPreview(_ image: CGImage, photo: MobilePhoto) {
-        let previewURL = libraryPreviewURL(photo)
+    private func cacheLibraryPreview(_ image: CGImage, photo: MobilePhoto, key: URL) {
+        let previewURL = key
         let source = url(for: photo)
         Task.detached(priority: .utility) { [weak self] in
             if MobileLibraryPreview.write(image, to: previewURL, source: source) {
@@ -1113,9 +1126,7 @@ struct MobilePhoto: Codable, Identifiable {
                 try Task.checkCancellation()
                 while let photo = current, interactionStart?.id == photo.id, token == interactionGeneration {
                     let version = interactionVersion
-                    var settings = photo.recipe
-                    settings["_diBlue"] = .bool(preferences.values.diBlueCompensation)
-                    settings["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
+                    var settings = cameraRenderRecipe(photo)
                     settings["_interactivePreview"] = .bool(true)
                     settings["_interactiveEdge"] = .double(Double(max(800, activeInteractionEdge)))
                     let changesDecode = ["_temperature", "_tint", "_lens"].contains { photo.recipe[$0] != interactionStart?.recipe[$0] }
@@ -1206,7 +1217,7 @@ struct MobilePhoto: Codable, Identifiable {
             do {
                 try Task.checkCancellation()
                 while let requested = originalViewport, showOriginal {
-                    let tile = try await originalDetailEngine.originalDetail(url: url(for: photo), recipe: photo.recipe,
+                    let tile = try await originalDetailEngine.originalDetail(url: url(for: photo), recipe: cameraRenderRecipe(photo),
                         geometry: photo.geometry, viewport: requested.rect, pixelLongEdge: requested.pixelLongEdge)
                     try Task.checkCancellation()
                     guard token == originalDetailGeneration, selection == photo.id, showOriginal else { return }
@@ -1284,9 +1295,7 @@ struct MobilePhoto: Codable, Identifiable {
                 var failures = 0
                 while let requested = currentDetailDemand, requested.needsDetail {
                     do {
-                        var settings = photo.recipe
-                        settings["_diBlue"] = .bool(preferences.values.diBlueCompensation)
-                        settings["_cropRecalc"] = .bool(preferences.values.cropRemapsEffects)
+                        let settings = cameraRenderRecipe(photo)
                         let tile = try await detailRenderer.tile(url: url(for: photo), recipe: settings, geometry: photo.geometry,
                                                                viewport: requested.rect, pixelLongEdge: requested.pixelLongEdge)
                         try Task.checkCancellation()
@@ -1311,6 +1320,14 @@ struct MobilePhoto: Codable, Identifiable {
                 if token == detailGeneration { previewStatus = T("Detail is unavailable; keeping the current preview", "细节暂不可用，保留现有预览", "細節暫不可用，保留現有預覽") }
             }
         }
+    }
+    func settingsDidChange(from old: MobilePreferences.Values) {
+        if old.rawDecodeSharpening != preferences.values.rawDecodeSharpening, current?.isRAWSource == true {
+            cancelOriginalDetail(clear: true)
+            showOriginal = false
+            cropSourceImage = nil
+        }
+        schedule()
     }
     func schedule() {
         guard editorVisible, !isImporting else { return }
@@ -1345,6 +1362,7 @@ struct MobilePhoto: Codable, Identifiable {
                 try Task.checkCancellation()
                 let photo = try await resolveCameraBrightness(photo, using: engine)
                 let settings = cameraRenderRecipe(photo)
+                let previewKey = libraryPreviewURL(photo)
                 let result = try await engine.render(url: url, recipe: settings, megapixels: targetMP, geometry: photo.geometry)
                 guard !Task.isCancelled, generation == revision, active else { return }
                 let working = try MobileFilmGate.presents(photo.recipe) ? result.image : photo.geometry.apply(to: result.image)
@@ -1366,7 +1384,7 @@ struct MobilePhoto: Codable, Identifiable {
                 guard !Task.isCancelled, generation == revision, active else { return }
                 if developmentAssets != nil { photosOfferedDevelopment.insert(photo.id) }
                 image = display; original = displayOriginal; cropSourceImage = cropDisplay
-                cacheLibraryPreview(display, photo: photo)
+                if previewKey == libraryPreviewURL(photo) { cacheLibraryPreview(display, photo: photo, key: previewKey) }
                 development = developmentAssets; developmentRunning = false
                 if let size = simulationWorkingSize(photo) {
                     let nativeMP = MobileSimulationSize.megapixels(size)

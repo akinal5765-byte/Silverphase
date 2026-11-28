@@ -175,6 +175,11 @@ struct SettingsWindow: View {
                     caption(L(.setPreviewCaption))
                     ToggleRow(label: L(.setFastStockPreview), isOn: $session.fastStockPreview)
                     caption(L(.setFastStockPreviewCaption))
+                    ToggleRow(label: T("RAW decode sharpening", "RAW 解码锐化", "RAW 解碼銳化"),
+                              isOn: $session.useSystemRAWSharpening)
+                    caption(T("Off by default. Turn on to use the system’s sharpening for supported RAW files. Scan sharpening is separate.",
+                              "默认关闭。开启后，支持的 RAW 使用系统默认锐化；与扫描锐化独立。",
+                              "預設關閉。開啟後，支援的 RAW 使用系統預設銳化；與掃描銳化獨立。"))
                     ToggleRow(label: L(.setCropRemaps),
                               isOn: Binding(get: { Session.recalculateEffectsAfterCrop },
                                             set: { Session.recalculateEffectsAfterCrop = $0
