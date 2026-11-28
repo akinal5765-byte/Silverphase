@@ -74,6 +74,10 @@ enum MobileCameraViewfinderGeometry {
         return angle < 0 ? angle + 360 : angle
     }
 
+    static func pinsFoldedControls(isInner: Bool, hingeClosed: Bool?, rearSelfie: Bool) -> Bool {
+        hingeClosed == true && !isInner && !rearSelfie
+    }
+
     static func outerControlRotation(scene: Double, device: Double) -> Double {
         (scene - device).remainder(dividingBy: 360)
     }
