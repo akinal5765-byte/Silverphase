@@ -153,6 +153,9 @@ final class ParamsTests: XCTestCase {
 
     func testScannerSharpeningRoutesToScanAndPreservesStrengthWhenOff() {
         var p = FilmParams.default
+        XCTAssertFalse(p.scannerSharpeningActive)
+        XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(0))
+        p.scannerSharpeningActive = true
         XCTAssertEqual(p.fullDelta["scanner_sharpening_amount"], .double(0.7))
         p.scannerSharpeningStrength = 2
         XCTAssertEqual(p.delta(from: .default).layers, [.print])
@@ -176,10 +179,12 @@ final class ParamsTests: XCTestCase {
         params.removeValue(forKey: "scannerSharpeningStrength")
         root["params"] = params
         let legacy = try JSONDecoder().decode(Sidecar.self, from: JSONSerialization.data(withJSONObject: root))
-        XCTAssertEqual(legacy.params, original.params)
+        var legacyExpected = original.params
+        legacyExpected.scannerSharpeningActive = true
+        XCTAssertEqual(legacy.params, legacyExpected)
 
         var changed = original
-        changed.params.scannerSharpeningActive = false
+        changed.params.scannerSharpeningActive = true
         changed.params.scannerSharpeningStrength = 1.6
         let restored = try JSONDecoder().decode(Sidecar.self, from: JSONEncoder().encode(changed))
         XCTAssertEqual(restored.params, changed.params)
