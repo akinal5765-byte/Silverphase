@@ -20,6 +20,11 @@ enum MobileCameraSavePolicy: String, Codable {
         var lowerPreviewInLowPower = true
         var cropRemapsEffects = false
         var diBlueCompensation = false
+        private var savedRAWDecodeSharpening: Bool? = nil
+        var rawDecodeSharpening: Bool {
+            get { savedRAWDecodeSharpening ?? false }
+            set { savedRAWDecodeSharpening = newValue }
+        }
         private var savedPrefers12MP: Bool? = nil
         var prefers12MP: Bool {
             get { savedPrefers12MP ?? MobileCameraRecipe.defaultPrefers12MP }
@@ -172,6 +177,15 @@ struct MobileSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(T("Prefer smoothness in Low Power Mode", "低电量模式优先流畅", "低電量模式優先流暢"), isOn: $preferences.values.lowerPreviewInLowPower).tint(MobileStyle.accent)
                         Text(T("Preview detail follows the window and zoom; 1:1 shows original pixels.", "预览清晰度随窗口和缩放自动调整，1:1 查看原始像素。", "預覽清晰度隨視窗與縮放自動調整，1:1 檢視原始像素。")).font(.caption).foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle(T("RAW decode sharpening", "RAW 解码锐化", "RAW 解碼銳化"), isOn: $preferences.values.rawDecodeSharpening)
+                            .tint(MobileStyle.accent)
+                            .accessibilityIdentifier("settings.rendering.rawDecodeSharpening")
+                        Text(T("Off by default. Turn on to use the system’s sharpening for supported RAW files. Scan sharpening is separate.",
+                               "默认关闭。开启后，支持的 RAW 使用系统默认锐化；与扫描锐化独立。",
+                               "預設關閉。開啟後，支援的 RAW 使用系統預設銳化；與掃描銳化獨立。"))
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     Toggle(T("Rescale physical effects after crop", "裁切后重新计算物理效果尺度", "裁切後重新計算物理效果尺度"), isOn: $preferences.values.cropRemapsEffects).tint(MobileStyle.accent)
                     VStack(alignment: .leading, spacing: 8) {

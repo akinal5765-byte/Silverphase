@@ -17,11 +17,13 @@ enum MobileLibraryPreview {
         let geometry: MobileGeometry
         let cropRemapsEffects: Bool
         let diBlueCompensation: Bool
+        let rawSharpeningOmitted: Bool?
     }
     static func url(photo: MobilePhoto, cropRemapsEffects: Bool, diBlueCompensation: Bool,
-                    rasterVersion: Int = MobileLibraryPreview.rasterVersion) -> URL {
+                    rawDecodeSharpening: Bool = false, rasterVersion: Int = MobileLibraryPreview.rasterVersion) -> URL {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        let key = Key(rasterVersion: rasterVersion, recipe: photo.recipe, geometry: photo.geometry, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation)
+        let key = Key(rasterVersion: rasterVersion, recipe: photo.recipe, geometry: photo.geometry, cropRemapsEffects: cropRemapsEffects, diBlueCompensation: diBlueCompensation,
+                      rawSharpeningOmitted: photo.isRAWSource && !rawDecodeSharpening ? true : nil)
         let digest = SHA256.hash(data: (try? encoder.encode(key)) ?? Data()).map { String(format: "%02x", $0) }.joined()
         return URL.cachesDirectory.appendingPathComponent("Silverphase-Previews", isDirectory: true)
             .appendingPathComponent(photo.id.uuidString + "-" + digest + ".jpg")

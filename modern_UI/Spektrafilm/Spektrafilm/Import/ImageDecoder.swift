@@ -195,13 +195,14 @@ enum ImageDecoder {
     // MARK: decode
 
     static func decode(_ url: URL, settings: DecodeSettings, rawPreviewEdge: Int? = nil,
+                       useSystemRAWSharpening: Bool = false,
                        checkpoint: () throws -> Void = {}) throws -> DecodedImage {
         let trace = PerformanceTrace.begin("Image Decode")
         defer { PerformanceTrace.end("Image Decode", trace) }
-        if url.pathExtension.lowercased() == HalfFramePair.fileExtension { return try PairComposer.decode(url, checkpoint: checkpoint) }
+        if url.pathExtension.lowercased() == HalfFramePair.fileExtension { return try PairComposer.decode(url, useSystemRAWSharpening: useSystemRAWSharpening, checkpoint: checkpoint) }
         let metadata = sourceMetadata(from: url)
         return rawExtensions.contains(url.pathExtension.lowercased())
-            ? try decodeRAW(url, settings: settings, sourceMetadata: metadata, rawPreviewEdge: rawPreviewEdge, checkpoint: checkpoint)
+            ? try decodeRAW(url, settings: settings, sourceMetadata: metadata, rawPreviewEdge: rawPreviewEdge, useSystemRAWSharpening: useSystemRAWSharpening, checkpoint: checkpoint)
             : try decodeFlat(url, sourceMetadata: metadata, checkpoint: checkpoint)
     }
 
@@ -237,9 +238,11 @@ enum ImageDecoder {
     /// come from this filter itself: constructing a third probe filter costs
     /// another RAW allocation, while an overridden filter no longer exposes
     /// the as-shot pair after the switch below.
-    static func rawFilter(_ url: URL, look: RAWLook, settings: DecodeSettings) throws
+    static func rawFilter(_ url: URL, look: RAWLook, settings: DecodeSettings,
+                          useSystemRAWSharpening: Bool = false) throws
         -> (filter: CIRAWFilter, asShotTemperature: Double, asShotTint: Double) {
         guard let filter = CIRAWFilter(imageURL: url) else { throw Failure.rawFilterUnavailable(url) }
+        RAWDecodeSharpening.apply(to: filter, useSystemDefault: useSystemRAWSharpening)
         let asShotTemperature = Double(filter.neutralTemperature)
         let asShotTint = Double(filter.neutralTint)
         // Geometry: identical in both, or the before/after split compares two
@@ -266,19 +269,20 @@ enum ImageDecoder {
 
     private static func decodeRAW(_ url: URL, settings: DecodeSettings,
                                   sourceMetadata: [CFString: Any]?,
-                                  rawPreviewEdge: Int? = nil, checkpoint: () throws -> Void) throws -> DecodedImage {
+                                  rawPreviewEdge: Int? = nil, useSystemRAWSharpening: Bool,
+                                  checkpoint: () throws -> Void) throws -> DecodedImage {
         // A checkpoint before each filter and before each `outputImage` read
         // (which is where the demosaic actually happens) is what makes a
         // superseded decode cost at most one filter.
         try checkpoint()
-        let linearResult = try rawFilter(url, look: .linear, settings: settings)
+        let linearResult = try rawFilter(url, look: .linear, settings: settings, useSystemRAWSharpening: useSystemRAWSharpening)
         let nativeEdge = max(linearResult.filter.nativeSize.width, linearResult.filter.nativeSize.height)
         let scale = rawPreviewEdge.map { min(1, CGFloat($0) / max(nativeEdge, 1)) } ?? 1
         linearResult.filter.scaleFactor = Float(scale)
         try checkpoint()
         guard let linearSmall = linearResult.filter.outputImage else { throw Failure.unsupported(url) }
         try checkpoint()
-        let displayResult = try rawFilter(url, look: .display, settings: settings)
+        let displayResult = try rawFilter(url, look: .display, settings: settings, useSystemRAWSharpening: useSystemRAWSharpening)
         displayResult.filter.scaleFactor = Float(scale)
         let asShotT = displayResult.asShotTemperature
         let asShotTint = displayResult.asShotTint

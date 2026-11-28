@@ -153,6 +153,7 @@
 		4C07B1119F36C944BB4E90CA /* PaperGrade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaperGrade.swift"; sourceTree = "<group>"; };
 		2AFE54D96D2505F69D272CBC /* Params.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Params.swift"; sourceTree = "<group>"; };
 		8B64ED87BED9C4B6A1F5E1CE /* ParamValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ParamValue.swift"; sourceTree = "<group>"; };
+		25048BAD4E0F67491985D9FB /* RAWDecodeSharpening.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RAWDecodeSharpening.swift"; sourceTree = "<group>"; };
 		40A055D93D551C2E6DAE4C1A /* Session+ExternalEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session+ExternalEditing.swift"; sourceTree = "<group>"; };
 		B23C08B73F03D394213FF791 /* Session+FilmPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session+FilmPresentation.swift"; sourceTree = "<group>"; };
 		5E28E5289A5F9446065A3593 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session.swift"; sourceTree = "<group>"; };
@@ -184,6 +185,7 @@
 				4C07B1119F36C944BB4E90CA /* PaperGrade.swift */,
 				2AFE54D96D2505F69D272CBC /* Params.swift */,
 				8B64ED87BED9C4B6A1F5E1CE /* ParamValue.swift */,
+				25048BAD4E0F67491985D9FB /* RAWDecodeSharpening.swift */,
 				40A055D93D551C2E6DAE4C1A /* Session+ExternalEditing.swift */,
 				B23C08B73F03D394213FF791 /* Session+FilmPresentation.swift */,
 				5E28E5289A5F9446065A3593 /* Session.swift */,
@@ -625,6 +627,7 @@
 		F7443A30FA437845FA45077F /* PaperGrade.swift */ = {isa = PBXBuildFile; fileRef = 4C07B1119F36C944BB4E90CA; };
 		6822B6E3426D49DCE0044D28 /* Params.swift */ = {isa = PBXBuildFile; fileRef = 2AFE54D96D2505F69D272CBC; };
 		29510B692EB0CE6DCF1F214D /* ParamValue.swift */ = {isa = PBXBuildFile; fileRef = 8B64ED87BED9C4B6A1F5E1CE; };
+		724CE533AB5308ADC1B994D7 /* RAWDecodeSharpening.swift */ = {isa = PBXBuildFile; fileRef = 25048BAD4E0F67491985D9FB; };
 		CAED23CD3A6C2D6B54AFC00E /* Session+ExternalEditing.swift */ = {isa = PBXBuildFile; fileRef = 40A055D93D551C2E6DAE4C1A; };
 		B2619874AE3D099205A1BE72 /* Session+FilmPresentation.swift */ = {isa = PBXBuildFile; fileRef = B23C08B73F03D394213FF791; };
 		88BD30B14D98C97D23F43C21 /* Session.swift */ = {isa = PBXBuildFile; fileRef = 5E28E5289A5F9446065A3593; };
@@ -752,6 +755,7 @@
 				F7443A30FA437845FA45077F /* PaperGrade.swift */,
 				6822B6E3426D49DCE0044D28 /* Params.swift */,
 				29510B692EB0CE6DCF1F214D /* ParamValue.swift */,
+				724CE533AB5308ADC1B994D7 /* RAWDecodeSharpening.swift */,
 				CAED23CD3A6C2D6B54AFC00E /* Session+ExternalEditing.swift */,
 				B2619874AE3D099205A1BE72 /* Session+FilmPresentation.swift */,
 				88BD30B14D98C97D23F43C21 /* Session.swift */,
@@ -957,6 +961,7 @@
 		76BF39819A0997C2A0BB565F /* PaperGrade.swift */ = {isa = PBXBuildFile; fileRef = 4C07B1119F36C944BB4E90CA; };
 		E90F7C134FA143167A66ED5F /* Params.swift */ = {isa = PBXBuildFile; fileRef = 2AFE54D96D2505F69D272CBC; };
 		A122F819793E1E479C69F642 /* ParamValue.swift */ = {isa = PBXBuildFile; fileRef = 8B64ED87BED9C4B6A1F5E1CE; };
+		DBD26EBE094DBB7304773D98 /* RAWDecodeSharpening.swift */ = {isa = PBXBuildFile; fileRef = 25048BAD4E0F67491985D9FB; };
 		15FFD937F65F90607F2E0D2B /* Session+ExternalEditing.swift */ = {isa = PBXBuildFile; fileRef = 40A055D93D551C2E6DAE4C1A; };
 		1CD07FA2F318F0FC98EA19FD /* Session+FilmPresentation.swift */ = {isa = PBXBuildFile; fileRef = B23C08B73F03D394213FF791; };
 		9BB0059CCEA6F6A2DDE94304 /* Session.swift */ = {isa = PBXBuildFile; fileRef = 5E28E5289A5F9446065A3593; };
@@ -1141,6 +1146,7 @@
 				76BF39819A0997C2A0BB565F /* PaperGrade.swift */,
 				E90F7C134FA143167A66ED5F /* Params.swift */,
 				A122F819793E1E479C69F642 /* ParamValue.swift */,
+				DBD26EBE094DBB7304773D98 /* RAWDecodeSharpening.swift */,
 				15FFD937F65F90607F2E0D2B /* Session+ExternalEditing.swift */,
 				1CD07FA2F318F0FC98EA19FD /* Session+FilmPresentation.swift */,
 				9BB0059CCEA6F6A2DDE94304 /* Session.swift */,

@@ -94,6 +94,10 @@ final class MobileWorkGate: @unchecked Sendable {
 /// Shared file/video input boundary; keep the same ColorSync conversion and
 /// calibrated linear ProPhoto primaries rather than interpreting video as RAW.
 enum MobileInputColor {
+    static let rawDecodeSharpeningKey = "_rawDecodeSharpening"
+    static func applyRAWDecodeSharpening(_ raw: CIRAWFilter, recipe: [String: WireValue]) {
+        RAWDecodeSharpening.apply(to: raw, useSystemDefault: recipe[rawDecodeSharpeningKey]?.boolValue == true)
+    }
     static func prepareSceneLinearRAW(_ raw: CIRAWFilter) {
         raw.boostAmount = 0; raw.boostShadowAmount = 0
         raw.isGamutMappingEnabled = false
@@ -251,7 +255,7 @@ actor MobileEngine {
             // merely sending a smaller delta would leave the old value live.
             let removedOverride = appliedRecipe.keys.contains { !["_interactivePreview", "_interactiveEdge"].contains($0) && recipe[$0] == nil }
             let filmChanged = appliedRecipe["film_stock"] != recipe["film_stock"]
-            let decodeChanged = ["_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active", MobileSimulationSize.key].contains { appliedRecipe[$0] != recipe[$0] } || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
+            let decodeChanged = [MobileInputColor.rawDecodeSharpeningKey, "_temperature", "_tint", "_lens", "overscan_active", "overscan_format", "date_imprint_active", MobileSimulationSize.key].contains { appliedRecipe[$0] != recipe[$0] } || (decodeInfo["_draft"]?.boolValue == true && recipe["_interactivePreview"]?.boolValue != true)
             if sourceURL != url || openedMP != megapixels || session == nil || removedOverride || filmChanged || decodeChanged || ((presentation || recipe[MobileSimulationSize.key] != nil) && appliedGeometry != geometry) {
                 // Gallery discards each decoded photo/session, not the
                 // independent engine's Metal pipelines and material cache.
@@ -507,6 +511,7 @@ actor MobileEngine {
             var image: CIImage
             if metadata.isRaw {
                 guard let raw = CIRAWFilter(imageURL: url) else { throw MobileFailure.message(TDetached("The original detail could not be read", "无法读取原图细节", "無法讀取原圖細節")) }
+                MobileInputColor.applyRAWDecodeSharpening(raw, recipe: recipe)
                 raw.scaleFactor = 1; raw.isDraftModeEnabled = false
                 raw.isLensCorrectionEnabled = recipe["_lens"]?.boolValue ?? false
                 if let t = recipe["_temperature"]?.doubleValue { raw.neutralTemperature = Float(t) }
@@ -797,6 +802,7 @@ actor MobileEngine {
             galleryTrace?.mark("RAW filter open start")
             guard let raw = CIRAWFilter(imageURL: url), raw.nativeSize.width > 0, raw.nativeSize.height > 0 else { throw MobileFailure.message(TDetached("The system cannot decode this RAW", "系统无法解码这款 RAW", "系統無法解碼這款 RAW")) }
             galleryTrace?.mark("RAW filter open end")
+            MobileInputColor.applyRAWDecodeSharpening(raw, recipe: recipe)
             raw.scaleFactor = Float(min(1, sqrt(inputMP * 1_000_000 / (raw.nativeSize.width * raw.nativeSize.height))))
             raw.isDraftModeEnabled = recipe["_interactivePreview"]?.boolValue == true
             decodeInfo = ["_temperature": .double(Double(raw.neutralTemperature)), "_tint": .double(Double(raw.neutralTint)),
@@ -810,6 +816,7 @@ actor MobileEngine {
             if recipe["_exporting"]?.boolValue != true && recipe["_interactivePreview"]?.boolValue != true
                 && recipe["_galleryPreview"]?.boolValue != true {
             guard let display = CIRAWFilter(imageURL: url) else { throw MobileFailure.message(TDetached("The RAW original preview could not be created", "无法创建 RAW 原图预览", "無法創建 RAW 原圖預覽")) }
+            MobileInputColor.applyRAWDecodeSharpening(display, recipe: recipe)
             display.scaleFactor = raw.scaleFactor
             display.isDraftModeEnabled = false
             display.isLensCorrectionEnabled = raw.isLensCorrectionEnabled

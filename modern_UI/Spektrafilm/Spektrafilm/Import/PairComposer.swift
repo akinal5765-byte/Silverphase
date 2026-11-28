@@ -27,7 +27,7 @@ import ImageIO
 enum PairComposer {
     /// The pair at `url` as a decode. A hole whose file is gone, or will not
     /// decode, is an empty hole rather than a failed pair.
-    static func decode(_ url: URL, checkpoint: () throws -> Void = {}) throws -> DecodedImage {
+    static func decode(_ url: URL, useSystemRAWSharpening: Bool = false, checkpoint: () throws -> Void = {}) throws -> DecodedImage {
         guard let pair = HalfFramePair.load(url) else { throw ImageDecoder.Failure.unsupported(url) }
         struct Source { let hole: HalfFramePair.Hole; let decoded: DecodedImage; let framed: CGSize }
         var sources: [HalfFramePair.Side: Source] = [:]
@@ -35,7 +35,7 @@ enum PairComposer {
             guard let hole = pair[side], hole.exists else { continue }
             try checkpoint()
             // A recipe, not pixels: the RAW is not demosaiced until something renders it.
-            guard let d = try? ImageDecoder.decode(hole.url, settings: hole.decode, checkpoint: checkpoint)
+            guard let d = try? ImageDecoder.decode(hole.url, settings: hole.decode, useSystemRAWSharpening: useSystemRAWSharpening, checkpoint: checkpoint)
             else { continue }
             sources[side] = Source(hole: hole, decoded: d, framed: hole.geometry.outputSize(for: d.pixelSize))
             shots.set(Shot(isRAW: d.isRAW, lensCorrectionSupported: d.lensCorrectionSupported,
@@ -50,7 +50,7 @@ enum PairComposer {
             try checkpoint()
             let rect = layout.rect(side)
             let rectCI = CGRect(x: rect.minX, y: layout.size.height - rect.maxY, width: rect.width, height: rect.height)
-            let key = renderKey(s.hole, size: s.decoded.pixelSize, hole: layout.hole, aspect: pair.holeAspect)
+            let key = renderKey(s.hole, size: s.decoded.pixelSize, hole: layout.hole, aspect: pair.holeAspect, useSystemRAWSharpening: useSystemRAWSharpening)
             let picture: CIImage
             if let kept = rendered.image(for: key) {
                 picture = kept
@@ -162,7 +162,8 @@ enum PairComposer {
 
     /// Everything a hole's pixels are made of. Not where the hole sits, how
     /// the other one is filled, or how either is exposed: those compose.
-    static func renderKey(_ hole: HalfFramePair.Hole, size: CGSize, hole target: CGSize, aspect: Double) -> String {
+    static func renderKey(_ hole: HalfFramePair.Hole, size: CGSize, hole target: CGSize, aspect: Double,
+                          useSystemRAWSharpening: Bool = false) -> String {
         let attributes = try? FileManager.default.attributesOfItem(atPath: hole.path)
         let stamp = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         let d = hole.decode, g = hole.geometry, p = hole.placement
@@ -171,7 +172,7 @@ enum PairComposer {
                 "\(g.crop.x),\(g.crop.y),\(g.crop.width),\(g.crop.height),\(g.angle),\(g.quarterTurns),\(g.flipH),\(g.flipV)",
                 "\(p.scale),\(p.x),\(p.y),\(p.quarterTurns)",
                 "\(Int(size.width))x\(Int(size.height))", "\(Int(target.width))x\(Int(target.height))",
-                String(aspect)].joined(separator: "|")
+                String(aspect), String(useSystemRAWSharpening)].joined(separator: "|")
     }
 
     /// `image` (extent at the origin, `size` large) as pixels: half-float,

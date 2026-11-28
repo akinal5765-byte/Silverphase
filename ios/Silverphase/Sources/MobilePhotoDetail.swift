@@ -929,7 +929,7 @@ struct MobilePhotoDetail: View {
         let preferences = document.preferences.values
         let revision = DetailFilmstrip.ContentRevision(records: document.libraryPhotosRevision,
             previews: document.libraryPreviewRevision, cropRemapsEffects: preferences.cropRemapsEffects,
-            diBlueCompensation: preferences.diBlueCompensation)
+            diBlueCompensation: preferences.diBlueCompensation, rawDecodeSharpening: preferences.rawDecodeSharpening)
         return DetailFilmstrip(photoIDs: photoIDs, contentRevision: revision, item: { id in
             guard let photo = document.libraryPhoto(withID: id) else { return nil }
             return DetailFilmstrip.Item(id: id, name: photo.name, previewURL: document.libraryPreviewURL(photo),
