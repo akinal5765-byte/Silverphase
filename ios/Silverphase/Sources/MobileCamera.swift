@@ -117,6 +117,11 @@ struct MobileCameraView: View {
         isDuoLayoutCheck || (!rearSelfieOnHostDisplay && (hingeClosed ?? initialHingeClosed) == false)
     }
 
+    private var pinsFoldedControls: Bool {
+        MobileCameraViewfinderGeometry.pinsFoldedControls(isInner: usesInnerCameraLayout,
+            hingeClosed: hingeClosed ?? initialHingeClosed, rearSelfie: rearSelfieOnHostDisplay)
+    }
+
     private var isDuoLayoutCheck: Bool {
 #if DEBUG
         isWaistLayoutCheck || ProcessInfo.processInfo.arguments.contains("--camera-duo-layout-check")
@@ -145,7 +150,8 @@ struct MobileCameraView: View {
             // iOS may keep the outer window portrait while the user rolls
             // the device. Rotate the existing glyphs, not the control frames.
             let device = Double(measuredCapturePose?.rawValue ?? Int(deviceQuarterTurn))
-            return MobileCameraViewfinderGeometry.outerControlRotation(scene: sceneQuarterTurn, device: device)
+            return MobileCameraViewfinderGeometry.outerControlRotation(
+                scene: pinsFoldedControls ? 0 : sceneQuarterTurn, device: device)
         }
 #endif
         return followsInterface ? 0 : -Double(shutterPose?.rawValue ?? Int(deviceQuarterTurn))
@@ -447,7 +453,17 @@ struct MobileCameraView: View {
             }
 #endif
             .overlay(alignment: .top) {
-                if !usesInnerCameraLayout {
+                if pinsFoldedControls {
+                    // Request portrait, but compensate the chrome even if the
+                    // outer host temporarily ignores the orientation mask.
+                    // The finder stays in its actual scene and keeps its
+                    // display-aware AVFoundation connection.
+                    let layout = MobileCameraCanvasGeometry(viewport: size, interfaceQuarterTurn: sceneQuarterTurn)
+                    standardCameraControls
+                        .frame(width: layout.contentSize.width, height: layout.contentSize.height)
+                        .rotationEffect(.degrees(layout.rotation))
+                        .position(x: size.width / 2, y: size.height / 2)
+                } else if !usesInnerCameraLayout {
                     standardCameraControls
                 } else if !tabletop {
                     cameraHeader
@@ -540,7 +556,7 @@ struct MobileCameraView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #if SILVERPHASE_APP
         .background {
-            MobileCameraOrientationObserver(followsInterface: followsInterface)
+            MobileCameraOrientationObserver(followsInterface: followsInterface && !pinsFoldedControls)
                 .allowsHitTesting(false)
             if #available(iOS 27.1, *), UIDevice.current.userInterfaceIdiom == .phone {
                 ProcessBarGeometryProbe(hingeChanged: { closed in
@@ -1172,7 +1188,7 @@ struct MobileCameraView: View {
             return degrees
         }
 #endif
-        return controlRotation + (followsInterface ? 0 : sceneQuarterTurn)
+        return controlRotation + (followsInterface && !pinsFoldedControls ? 0 : sceneQuarterTurn)
     }
 
     private func cameraFilmPickerOverlay(useScenePanel: Bool) -> some View {

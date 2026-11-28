@@ -534,6 +534,30 @@ enum MobileLockedCameraChecks {
             }
             checks.append("outer rear-selfie icons follow device orientation relative to the scene")
 
+            let pinsFolded = MobileCameraViewfinderGeometry.pinsFoldedControls(
+                isInner: false, hingeClosed: true, rearSelfie: false)
+            try require(pinsFolded, "Folded Duo controls must use device-fixed portrait coordinates")
+            let unaffected: [(Bool, Bool?, Bool)] = [
+                (false, nil, false), (true, false, false), (false, false, true), (false, true, true)
+            ]
+            for (inner, closed, selfie) in unaffected {
+                try require(!MobileCameraViewfinderGeometry.pinsFoldedControls(
+                    isInner: inner, hingeClosed: closed, rearSelfie: selfie),
+                    "Standard, unfolded and rear-selfie layouts must retain their existing orientation")
+            }
+            let portraitChrome = CGSize(width: 393, height: 800)
+            for pose in [0.0, 90, -90, 180] {
+                let swapped = abs(pose) == 90
+                let viewport = swapped ? CGSize(width: portraitChrome.height, height: portraitChrome.width) : portraitChrome
+                let layout = MobileCameraCanvasGeometry(viewport: viewport, interfaceQuarterTurn: pose)
+                try require(layout.contentSize == portraitChrome,
+                    "Folded shutter and header must retain the existing portrait control layout")
+                let glyph = MobileCameraViewfinderGeometry.outerControlRotation(scene: 0, device: pose)
+                try require((layout.rotation + glyph).remainder(dividingBy: 360) == 0,
+                    "In-place glyph orientation must compensate a rotated outer host exactly once")
+            }
+            checks.append("folded Duo fixes the control bank and rotates only the glyphs relative to it")
+
             let legacy = try JSONDecoder().decode(MobileCameraRecipe.self,
                 from: Data(#"{"metering":"center_weighted","diffusion":"off"}"#.utf8))
             try require(legacy.filmID == nil, "Legacy captures must not invent a film")
