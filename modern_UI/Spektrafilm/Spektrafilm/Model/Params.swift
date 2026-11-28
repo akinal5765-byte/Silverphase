@@ -562,7 +562,7 @@ struct FilmParams: Codable, Equatable, Sendable {
     /// Scanner USM: keep the original full-resolution radius (0.7 px).
     /// A relative strength of 1 maps to the historical amount of 0.7.
     /// The switch preserves the stored strength while sending zero to bypass.
-    var scannerSharpeningActive: Bool = true
+    var scannerSharpeningActive: Bool = false
     var scannerSharpeningStrength: Double = 1
     static let scannerSharpeningRange: ClosedRange<Double> = 0...2
     /// "No print profile": scan the developed film instead of printing it, so
@@ -735,6 +735,7 @@ struct FilmParams: Codable, Equatable, Sendable {
         yFilterShift = try c.decode(Double.self, forKey: .yFilterShift)
         mFilterShift = try c.decode(Double.self, forKey: .mFilterShift)
         glareActive = try c.decode(Bool.self, forKey: .glareActive)
+        // Older saved edits without a toggle were rendered with sharpening on.
         scannerSharpeningActive = try c.decodeIfPresent(Bool.self, forKey: .scannerSharpeningActive) ?? true
         scannerSharpeningStrength = try c.decodeIfPresent(Double.self, forKey: .scannerSharpeningStrength) ?? 1
         scanFilm = try c.decode(Bool.self, forKey: .scanFilm)

@@ -18,6 +18,18 @@ enum MobileSmokeChecks {
         var exportsValidated = true
         do {
             try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+            let scannerModes: [([String: WireValue], Double)] = [
+                ([:], 0), (["_scannerActive": .bool(true)], 0.7),
+                (["_scannerActive": .bool(false), "_scannerStrength": .double(2)], 0),
+                (["scanner_sharpening_amount": .double(0.35)], 0.35),
+            ]
+            for (recipe, amount) in scannerModes {
+                let wire = try MobileProcessContract.wire(recipe, aspect: 1.5)
+                guard wire["scanner_sharpening_amount"]?.doubleValue == amount else {
+                    throw MobileFailure.message("Unexpected scanner sharpening default or override")
+                }
+            }
+            checks.append("scanner sharpening: default off, enabled at 1×, explicit off, and legacy wire amount")
             let engine = MobileEngine()
             let base: [String: WireValue] = ["auto_exposure": .bool(false), "grain_active": .bool(false), "glare_active": .bool(false)]
             var cases: [(UTType, CFString, Int, Int)] = [(.jpeg, CGColorSpace.sRGB, 96, 64), (.jpeg, CGColorSpace.displayP3, 96, 64),

@@ -773,6 +773,7 @@ struct MobilePhoto: Codable, Identifiable {
         for prefix in ["camera", "enlarger"] where key == "_" + prefix + "Diffusion" {
             return .string(raw(prefix + "_diffusion_active")?.boolValue == true ? raw(prefix + "_diffusion_family")?.stringValue ?? "black_pro_mist" : "off")
         }
+        if key == "_scannerActive" { return .bool(MobileProcessContract.scanSharpeningEnabled(current?.recipe ?? [:])) }
         return raw(key)
     }
     func set(_ key: String, _ value: WireValue) {

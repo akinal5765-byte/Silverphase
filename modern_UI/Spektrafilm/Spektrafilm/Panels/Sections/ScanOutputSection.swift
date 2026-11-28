@@ -58,7 +58,7 @@ struct ScanOutputSection: View {
         var p = session.params
         p.glareActive = true
         p.effects.glare = 1
-        p.scannerSharpeningActive = true
+        p.scannerSharpeningActive = FilmParams.default.scannerSharpeningActive
         p.scannerSharpeningStrength = 1
         p.extendedDynamicRange = false
         session.params = p

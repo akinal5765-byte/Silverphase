@@ -16,7 +16,7 @@ enum MobileProcessContract {
     static var defaults: [String: WireValue] { (try? loaded.get().wire) ?? [:] }
     static var frames: [Frame] { (try? loaded.get().ui.frames) ?? [] }
     static let clientDefaults: [String: WireValue] = [
-        "_grainAmount": .double(1), "_grainSoftness": .double(1), "_scannerActive": .bool(true), "_scannerStrength": .double(1),
+        "_grainAmount": .double(1), "_grainSoftness": .double(1), "_scannerActive": .bool(false), "_scannerStrength": .double(1),
         "_filmFrame": .string("135"), "_filmSide": .string("short"), "_sideLengthMM": .double(24), "_sideUnit": .string("mm"),
         "_dateOrder": .string("japan"), "_dateWithData": .bool(false), "_whiteBalancePreset": .string("asShot"),
         "_printEffects": .bool(true), "_printBrightnessStops": .double(0), "_diBlue": .bool(false),
@@ -56,6 +56,11 @@ enum MobileProcessContract {
         default: 1
         }
     }
+    static func scanSharpeningEnabled(_ recipe: [String: WireValue]) -> Bool {
+        if let enabled = recipe["_scannerActive"]?.boolValue { return enabled }
+        // A persisted wire-only strength describes an explicit legacy recipe.
+        return (recipe["scanner_sharpening_amount"]?.doubleValue ?? 0) > 0
+    }
     static func wire(_ recipe: [String: WireValue], aspect: Double) throws -> [String: WireValue] {
         var values = try loaded.get().wire
         values.merge(recipe.filter { !$0.key.hasPrefix("_") }) { _, new in new }
@@ -75,7 +80,7 @@ enum MobileProcessContract {
         values["grain_amount"] = .double(min(2, number("_grainAmount", recipe["grain_amount"]?.doubleValue.map { $0 / ownGrain(film) } ?? 1) * ownGrain(film)))
         values["grain_softness"] = .double(number("_grainSoftness", number("grain_softness", 0.65) / 0.65) * 0.65)
         values["grain_sublayers_active"] = .bool(!upstreamBW && values["grain_active"]?.boolValue == true && values["grain_sublayers_active"]?.boolValue == true)
-        values["scanner_sharpening_amount"] = .double(!di && bool("_scannerActive", true) ? 0.7 * number("_scannerStrength", number("scanner_sharpening_amount", 0.7) / 0.7) : 0)
+        values["scanner_sharpening_amount"] = .double(!di && scanSharpeningEnabled(recipe) ? 0.7 * number("_scannerStrength", number("scanner_sharpening_amount", 0.7) / 0.7) : 0)
         if let stops = recipe["_printBrightnessStops"]?.doubleValue { values["print_exposure"] = .double(pow(2, -stops)) }
         let effects = bool("_printEffects", true)
         values["glare_active"] = .bool(!scan && !di && effects && values["glare_active"]?.boolValue == true)
