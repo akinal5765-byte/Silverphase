@@ -75,7 +75,7 @@ actor MobileDetailRenderer {
     }
 
     func tile(url: URL, recipe: [String: WireValue], geometry: MobileGeometry, viewport: CGRect, pixelLongEdge: Double,
-              galleryFitEdge: Int? = nil, trace: GalleryRenderTrace? = nil) async throws -> MobileDetailTile {
+              galleryFitEdge: Int? = nil, galleryNativeEdge: Double? = nil, trace: GalleryRenderTrace? = nil) async throws -> MobileDetailTile {
         let metadata = sourceURL == url ? self.metadata ?? MobileImageMetadata.read(url) : MobileImageMetadata.read(url)
         let tier = [2560, 3840, 5120, 7168, 10240].first { Double($0) >= pixelLongEdge } ?? Int(ceil(pixelLongEdge))
         let simulation = try MobileSimulationSize.workingSize(in: recipe, geometry: geometry, aspect: metadata.aspect)
@@ -86,6 +86,11 @@ actor MobileDetailRenderer {
             var mp = size.megapixels(sourceMP: nativeMP, aspect: metadata.aspect, geometry: geometry)
             if let edge = MobileSimulationSize.edge(in: recipe) {
                 mp = nativeMP * min(1, pow(Double(tier) / Double(edge), 2))
+            }
+            if let galleryNativeEdge, galleryNativeEdge > 0 {
+                // A square gate (or the border drawn around it) can have a
+                // different long edge than the geometry crop. Use output pixels.
+                mp = nativeMP * min(1, pow(Double(tier) / galleryNativeEdge, 2))
             }
             if sameSource, let source, sourceMP > 0 {
                 let edge = Double(max(source.width, source.height))

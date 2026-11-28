@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Darwin
 import CoreImage
 import UniformTypeIdentifiers
 
@@ -60,6 +61,8 @@ struct MobilePhoto: Codable, Identifiable {
     @ObservationIgnored private(set) var libraryPhotosRevision: UInt64 = 0
     @ObservationIgnored private var libraryPositions: [UUID: Int] = [:]
     @ObservationIgnored private var libraryPositionsRevision: UInt64?
+    // Keyed by photo and edit, never keep gallery pixels alive for this estimate.
+    @ObservationIgnored private let galleryBorderSizes = NSCache<NSURL, NSValue>()
     @ObservationIgnored private let libraryPreviewKeys = NSCache<NSUUID, LibraryPreviewKeyEntry>()
     private(set) var libraryPreviewVersions: [UUID: Int] = [:]
     private(set) var libraryPreviewRevision: UInt64 = 0
@@ -357,19 +360,27 @@ struct MobilePhoto: Codable, Identifiable {
         let aspect = photo.sourceAspect.isFinite && photo.sourceAspect > 0 ? photo.sourceAspect : 1
         let sourceMP = photo.sourceMegapixels > 0 ? photo.sourceMegapixels : MobilePreviewPolicy.megapixels(edge: edge, aspect: aspect)
         let height = sqrt(sourceMP * 1_000_000 / aspect)
-        let output = resolvedPhoto.geometry.outputSize(for: CGSize(width: height * aspect, height: height))
-        let simulation = try? MobileSimulationSize.workingSize(in: resolvedPhoto.recipe, geometry: resolvedPhoto.geometry, aspect: aspect)
+        let source = CGSize(width: height * aspect, height: height)
+        let simulation = simulationWorkingSize(resolvedPhoto)
+        let input = simulation ?? source
+        let output = galleryPictureSize(resolvedPhoto, input: input)
         let requested = MobilePreviewPolicy.fitInputMegapixels(edge: edge, sourceAspect: aspect,
             sourceMP: sourceMP, outputLongEdge: max(output.width, output.height), simulationSize: simulation,
             simulationEdge: MobileSimulationSize.edge(in: resolvedPhoto.recipe))
-        // Gallery may have adjacent previews and a zoom tile in flight.
-        let target = min(3.3, requested)
+        let target = GalleryPreviewSizing.fitMP(requested: requested, inputSize: input, pictureSize: output,
+                                                availableBytes: Double(os_proc_available_memory()))
         try Task.checkCancellation()
         let image = try await renderer.renderGalleryFrame(url: url(for: resolvedPhoto), recipe: cameraRenderRecipe(resolvedPhoto),
                                                           geometry: resolvedPhoto.geometry, megapixels: target, trace: trace)
         try Task.checkCancellation()
         // Do not rewrite a matching cache just by looking at it again.
         let key = libraryPreviewURL(resolvedPhoto)
+        if resolvedPhoto.recipe["overscan_active"]?.boolValue == true {
+            let native = GalleryPreviewSizing.nativeCanvas(fit: CGSize(width: image.width, height: image.height),
+                inputMP: target, nativeMP: simulation.map(MobileSimulationSize.megapixels) ?? sourceMP)
+            galleryBorderSizes.countLimit = 64
+            galleryBorderSizes.setObject(NSValue(cgSize: native), forKey: key as NSURL)
+        }
         if !FileManager.default.fileExists(atPath: key.path) {
             cacheLibraryPreview(image, photo: resolvedPhoto)
         }
@@ -384,15 +395,22 @@ struct MobilePhoto: Codable, Identifiable {
                                                     trace: GalleryRenderTrace("draft"))
     }
 
+    private func galleryPictureSize(_ photo: MobilePhoto, input: CGSize) -> CGSize {
+        let picture = photo.geometry.outputSize(for: input)
+        guard let aspect = MobileFilmGate.aspect(for: picture, recipe: photo.recipe) else { return picture }
+        return GalleryPreviewSizing.gateRect(in: CGRect(origin: .zero, size: picture), aspect: aspect).size
+    }
+
     func galleryNativeOutput(_ photo: MobilePhoto, original: Bool) -> CGSize {
         let aspect = photo.sourceAspect
         guard aspect.isFinite, aspect > 0, photo.sourceMegapixels.isFinite, photo.sourceMegapixels > 0 else { return .zero }
         let height = sqrt(photo.sourceMegapixels * 1_000_000 / aspect)
         let source = CGSize(width: height * aspect, height: height)
-        if !original, let simulation = simulationWorkingSize(photo) {
-            return photo.geometry.outputSize(for: simulation)
+        if !original, photo.recipe["overscan_active"]?.boolValue == true,
+           let measured = galleryBorderSizes.object(forKey: libraryPreviewURL(photo) as NSURL) {
+            return measured.cgSizeValue
         }
-        return photo.geometry.outputSize(for: source)
+        return galleryPictureSize(photo, input: original ? source : simulationWorkingSize(photo) ?? source)
     }
 
     func renderLibraryOriginalTile(_ photo: MobilePhoto, viewport: MobileViewport,
@@ -404,9 +422,11 @@ struct MobilePhoto: Codable, Identifiable {
 
     func renderLibraryTile(_ photo: MobilePhoto, viewport: MobileViewport,
                            using renderer: MobileDetailRenderer) async throws -> MobileDetailTile {
-        try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
+        let native = galleryNativeOutput(photo, original: false)
+        return try await renderer.tile(url: url(for: photo), recipe: cameraRenderRecipe(photo),
                                 geometry: photo.geometry, viewport: viewport.rect, pixelLongEdge: viewport.pixelLongEdge,
-                                galleryFitEdge: viewport.previewLongEdge, trace: GalleryRenderTrace("detail"))
+                                galleryFitEdge: viewport.previewLongEdge,
+                                galleryNativeEdge: max(native.width, native.height), trace: GalleryRenderTrace("detail"))
     }
 
 #if DEBUG
