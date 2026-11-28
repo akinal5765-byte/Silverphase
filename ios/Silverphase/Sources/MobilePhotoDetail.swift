@@ -36,7 +36,7 @@ struct MobilePhotoDetail: View {
     @State private var originalHoldID: UUID?
     @State private var originalFitWork: UUID?
     @State private var originalDetailWork: UUID?
-    @State private var originalProxy: (id: UUID, image: CGImage, requestedEdge: Int)?
+    @State private var originalProxy: (id: UUID, key: URL, image: CGImage, requestedEdge: Int)?
     @State private var memoryDrop = 0
     @State private var preview: CGImage?
     @State private var previewLoading = true
@@ -234,18 +234,21 @@ struct MobilePhotoDetail: View {
             guard let id = originalHoldID, let photo, photo.id == id else { return }
             let url = document.url(for: photo)
             let geometry = photo.geometry
+            let recipe = photo.recipe
+            let key = document.libraryPreviewURL(photo)
+            if originalProxy?.key != key { originalProxy = nil }
             let screenEdge = min(2560, fitEdge ?? 1920)
-            guard originalProxy?.id != id || (originalProxy?.requestedEdge ?? 0) < screenEdge else { return }
+            guard (originalProxy?.requestedEdge ?? 0) < screenEdge else { return }
             let work = UUID()
             originalFitWork = work
             defer { if originalFitWork == work { originalFitWork = nil } }
             let trace = GalleryRenderTrace("original-hold")
-            if originalProxy?.id != id {
+            if originalProxy == nil {
                 trace.mark("embedded preview start")
                 if let seed = await Self.loadPreview(url, limit: 960), !Task.isCancelled {
-                    let proxy = await Self.cropComparison(seed, geometry: geometry)
+                    let proxy = await Self.cropComparison(seed, geometry: geometry, recipe: recipe)
                     guard !Task.isCancelled, originalHoldID == id, photoID == id else { return }
-                    originalProxy = (id, proxy, 960)
+                    originalProxy = (id, key, proxy, 960)
                     trace.mark("embedded preview displayed \(max(proxy.width, proxy.height)) px")
                 }
             }
@@ -253,11 +256,11 @@ struct MobilePhotoDetail: View {
             trace.mark("fit original start; target \(screenEdge) px")
             guard let fitted = await Self.loadPreview(url, limit: screenEdge, forceThumbnail: true),
                   !Task.isCancelled else { return }
-            let rendered = await Self.cropComparison(fitted, geometry: geometry)
+            let rendered = await Self.cropComparison(fitted, geometry: geometry, recipe: recipe)
             guard !Task.isCancelled, originalHoldID == id, photoID == id else { return }
             let actual = max(rendered.width, rendered.height)
             let current = originalProxy.map { max($0.image.width, $0.image.height) } ?? 0
-            if actual >= current { originalProxy = (id, rendered, screenEdge) }
+            if actual >= current { originalProxy = (id, key, rendered, screenEdge) }
             trace.mark("fit original completed \(actual) px")
         }
         .task(id: originalTileRequest) { await renderOriginalTile() }
@@ -585,8 +588,17 @@ struct MobilePhotoDetail: View {
         }
     }
 
-    private static nonisolated func cropComparison(_ image: CGImage, geometry: MobileGeometry) async -> CGImage {
-        await Task.detached(priority: .userInitiated) { (try? geometry.apply(to: image)) ?? image }.value
+    private static nonisolated func cropComparison(_ image: CGImage, geometry: MobileGeometry,
+                                                  recipe: [String: WireValue]) async -> CGImage {
+        await Task.detached(priority: .userInitiated) {
+            let picture = (try? geometry.apply(to: image)) ?? image
+            let extent = CGRect(x: 0, y: 0, width: picture.width, height: picture.height)
+            guard let aspect = MobileFilmGate.aspect(for: extent.size, recipe: recipe) else { return picture }
+            // CGImage cropping uses top-left coordinates; the gate is measured in CI coordinates.
+            let gate = GalleryPreviewSizing.gateRect(in: extent, aspect: aspect)
+            return picture.cropping(to: CGRect(x: gate.minX, y: extent.height - gate.maxY,
+                                                width: gate.width, height: gate.height)) ?? picture
+        }.value
     }
 
     private static nonisolated func loadPreview(_ url: URL, limit: Int, forceThumbnail: Bool = false) async -> CGImage? {
@@ -795,7 +807,8 @@ struct MobilePhotoDetail: View {
                              reduceMotion: reduceMotion, developed: developedPreview,
                              tile: galleryTile?.key == document.libraryPreviewURL(photo) ? galleryTile?.tile : nil,
                              comparisonTile: originalHoldID == photo.id && originalTile?.key == document.libraryPreviewURL(photo) ? originalTile?.tile : nil,
-                             nativeOutput: document.galleryNativeOutput(photo, original: false),
+                             nativeOutput: (galleryTile?.key == document.libraryPreviewURL(photo) ? galleryTile?.tile.nativeSize : nil)
+                                ?? document.galleryNativeOutput(photo, original: false),
                              originalNativeOutput: document.galleryNativeOutput(photo, original: true),
                              nativeZoomCommand: nativeZoomCommand, fitZoomCommand: fitZoomCommand,
                              comparisonImage: originalHoldID == photo.id && originalProxy?.id == photo.id ? originalProxy?.image : nil,
@@ -1266,6 +1279,7 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         private var displayedOriginal: CGImage?
         private var displayedOriginalTile: MobileDetailTile?
         private var nativeCommand = 0
+        private var lastNativeEdge: CGFloat = 0
         private var fitCommand = 0
         var nativeOutputEdges: (film: CGFloat, original: CGFloat) = (0, 0)
         private var nativeZoom = false
@@ -1556,7 +1570,12 @@ private struct DetailZoomCanvas: UIViewRepresentable {
         }
 
         func requestNativeZoom(_ command: Int, output: CGSize) {
-            guard command != nativeCommand, source != nil, max(output.width, output.height) > 0, let window else { return }
+            let edge = max(output.width, output.height)
+            // A draft only knows the gate. Refine a still-active 1:1 zoom once
+            // the fit render measures the rebate, or the native tile arrives.
+            let refine = nativeZoom && abs(edge - lastNativeEdge) > 1
+            guard command != nativeCommand || refine, source != nil, edge > 0, let window else { return }
+            lastNativeEdge = edge
             nativeCommand = command
             nativeZoom = true
             let logical = max(photoView.bounds.width, photoView.bounds.height)
